@@ -2,6 +2,8 @@
 
 This project is in a very early stage.
 
+![screenshot](./screenshot.png)
+
 ## Usage
 
 It needs python>=3.8 because of `:=` operator.
@@ -9,8 +11,6 @@ It needs python>=3.8 because of `:=` operator.
 ./main.py [-p PORT(default: 8080)]
 ```
 And open an web browser: http://0.0.0.0:8080/
-
-![screenshot](./screenshot.png)
 
 ## Plan
 
