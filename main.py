@@ -128,7 +128,9 @@ def parse_contents(contents, fname, win_ms, overlap, n_mel, freq_scale, n_thread
         spec = Spectrogram(wav, sr, win_ms, overlap, n_mel)
         heatmap = go.Heatmap(
             x=spec.t_axis,
+            y=None if freq_scale == 'mel' else spec.f_linear_axis,
             z=spec.mel if freq_scale == 'mel' else spec.linear,
+            customdata=spec.f_mel_axis_str if freq_scale == 'mel' else spec.f_linear_axis_str,
             hovertemplate='%{x:.3f} sec, %{customdata} Hz<br>%{z:.3f} dB',
             colorscale='Inferno',
             showscale=False,
