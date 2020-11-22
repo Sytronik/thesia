@@ -203,7 +203,7 @@ def update_graphs(contents_list, freq_scale, win_ms, overlap, n_mel, filenames):
             specs.append(spec)
             plots.append(plot)
             # print(annotation['y'])
-        max_amp = round(max_amp, ndigits=1)
+        max_amp = min(round(max_amp, ndigits=1), 0.5)
         for i, (heatmap, scatter) in enumerate(plots):
             fig.add_trace(heatmap, row=i+1, col=1)
             fig.update_yaxes(showticklabels=False,
@@ -211,9 +211,9 @@ def update_graphs(contents_list, freq_scale, win_ms, overlap, n_mel, filenames):
                              secondary_y=False,
                              )
             fig.add_trace(scatter, secondary_y=True, row=i+1, col=1)
-            fig.update_yaxes(range=[-max_amp*1.5, max_amp*1.5],
+            fig.update_yaxes(range=[-max_amp*2, max_amp*2],
                              fixedrange=True,
-                             tick0=-max_amp*1.5, dtick=max_amp*0.5,
+                             tick0=-max_amp*2, dtick=max_amp,
                              row=i+1, col=1,
                              secondary_y=True,
                              )
