@@ -10,6 +10,8 @@ It needs python>=3.8 because of `:=` operator.
 ```
 And open an web browser: http://0.0.0.0:8080/
 
+![screenshot](./screenshot.png)
+
 ## Plan
 
 - [ ] Incrementally adding / removing audio files (Currently uploading files overrides the entire file list.)
