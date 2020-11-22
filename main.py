@@ -43,17 +43,20 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.config.suppress_callback_exceptions = True
 app.layout = html.Div([
     dcc.Upload(
-        html.Div(['Drag and Drop or ', html.A('Select Files')]),
+        html.Div(
+            ['Drag and Drop or ', html.A('Select Files')],
+            style={'font-size': '18px'},
+        ),
         id='upload-audio',
         style={
-            'width': '100%',
+            'width': '98%',
             'height': '60px',
             'lineHeight': '60px',
-            'borderWidth': '1px',
+            'borderWidth': '2px',
             'borderStyle': 'dashed',
             'borderRadius': '5px',
             'textAlign': 'center',
-            'margin': '10px'
+            'margin': '10px',
         },
         multiple=True,
     ),
