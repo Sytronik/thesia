@@ -12,7 +12,7 @@ And open an web browser: http://0.0.0.0:8080/
 
 ## Plan
 
-- [ ] Incrementally adding audio files (Currently uploading files overrides the entire file list.)
+- [ ] Incrementally adding / removing audio files (Currently uploading files overrides the entire file list.)
 - [ ] floating tools: dB colorbar, waveform zoom in/out slider, track height control slider
 - [ ] selecting spectrogram mode / waveform mode
 - [ ] performance improvement (by not using Dash/Plotly)
