@@ -262,8 +262,8 @@ def update_n_fft(figure, options, value):
 )
 def determine_disabling_n_mel(freq_scale):
     if freq_scale == 'mel':
-        return ''
-    return 'disabled'
+        return False
+    return True
 
 
 if __name__ == "__main__":
