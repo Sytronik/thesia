@@ -79,10 +79,10 @@ class Spectrogram:
                 self._wav,
                 n_fft=self._n_fft, hop_length=self._hop_length, win_length=self._win_length,
             )
-        ) / self._win_length * (1024 / 48000 * self._sr)
+        ) * (1024 / self._win_length * self._sr / 48000)
         self.linear = self._amp_to_db(self._spec)
         self.t_axis = np.arange(self._spec.shape[1]) * self._hop_length / self._sr
-        self.f_linear_axis = np.linspace(0, self._sr, num=self.n_fft, endpoint=False)[:self._spec.shape[0]]
+        self.f_linear_axis = np.linspace(0, self._sr//2, num=self.n_fft//2+1)
         self.f_linear_axis_str = np.tile(
             np.array(_freq_expr(self.f_linear_axis))[:, np.newaxis],
             (1, len(self.t_axis))
