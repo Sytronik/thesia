@@ -201,7 +201,8 @@ def update_graphs(contents_list, freq_scale, win_ms, overlap, n_mel, filenames):
             annotation['align'] = 'left'
             annotation['xanchor'] = 'left'
             annotation['x'] = 0
-            if (amp := np.abs(spec.wav).max()) > max_amp:
+            amp = np.abs(spec.wav).max()
+            if amp > max_amp:
                 max_amp = amp
             specs.append(spec)
             plots.append(plot)
