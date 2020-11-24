@@ -92,8 +92,8 @@ class Spectrogram:
     def _update_mel(self):
         _mel = librosa.filters.mel(self._sr, self._n_fft, self._n_mel) @ self._spec
         self.mel = self._amp_to_db(_mel)
-        f_mel_axis = librosa.mel_frequencies(self._n_mel, fmax=self._sr//2)
+        self.f_mel_axis = librosa.mel_frequencies(self._n_mel, fmax=self._sr//2)
         self.f_mel_axis_str = np.tile(
-            np.array(_freq_expr(f_mel_axis))[:, np.newaxis],
+            np.array(_freq_expr(self.f_mel_axis))[:, np.newaxis],
             (1, len(self.t_axis))
         )
