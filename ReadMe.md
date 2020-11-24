@@ -6,7 +6,7 @@ This project is in a very early stage.
 
 ## Usage
 
-It needs python>=3.8 because of `:=` operator.
+(Tested on python>=3.6)
 ```
 ./main.py [-p PORT(default: 8080)]
 ```
