@@ -97,3 +97,44 @@ class Spectrogram:
             np.array(_freq_expr(self.f_mel_axis))[:, np.newaxis],
             (1, len(self.t_axis))
         )
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    import multiprocessing as mp
+    import time
+    import random
+
+    from threadpoolctl import threadpool_limits
+    import soundfile as sf
+    import resampy
+
+    files = sorted(list(Path('samples').glob('*.wav')))
+    wavs = [sf.read(file)[0] for file in files]  # assumes sr of all files are 48 kHz
+    # wavs = [resampy.resample(wav, 48000, 24000) for wav in wavs]
+    lengths = [len(wav) for wav in wavs]
+    print(len(wavs))
+    print(lengths)
+    print(sum(lengths))
+
+    with threadpool_limits(limits=1, user_api='blas'):
+        pool = mp.Pool(mp.cpu_count())
+        start_time = time.time()
+        specs = pool.starmap(Spectrogram, [(wav, 48000, 40, 4, 128) for wav in wavs])
+        end_time = time.time()
+        print('initial ', end_time - start_time)
+        random.shuffle(wavs)
+        sum_time = 0
+        print('after jit is activated')
+        for _ in range(10):
+            start_time = time.time()
+            specs = pool.starmap(Spectrogram, [(wav, 48000, 40, 4, 128) for wav in wavs])
+            end_time = time.time()
+            print(end_time - start_time)
+            sum_time += end_time - start_time
+            random.shuffle(wavs)
+        sum_time /= 10
+        pool.close()
+        pool.join()
+        print()
+        print('average ', sum_time)
