@@ -1,12 +1,12 @@
 use ndarray::prelude::*;
-use rustfft::num_traits::identities::*;
-use rustfft::num_traits::Float;
+use ndarray::{stack, RemoveAxis, Slice};
 use rustfft::num_complex::Complex;
+use rustfft::num_traits::identities::*;
+use rustfft::num_traits::{Float, Num};
 use rustfft::FFTnum;
-use apodize::hanning_iter;
-use std::iter::FromIterator;
 
 mod realfft;
+mod windows;
 use realfft::RealToComplex;
 
 trait Impulse {
@@ -15,7 +15,7 @@ trait Impulse {
 
 impl<A> Impulse for Array1<A>
 where
-    A: Zero + Clone + One,
+    A: Clone + Zero + One,
 {
     fn impulse(size: usize, location: usize) -> Self {
         let mut new = Array1::<A>::zeros((size,));
@@ -30,60 +30,95 @@ where
 {
     let n_fft = input.shape()[0];
     let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
-    let mut output_vec: Vec<Complex<A>> = vec![Complex::zero(); n_fft/2+1];
-    r2c.process(&mut input.to_vec(), &mut output_vec).unwrap();
+    let mut output = Array1::<Complex<A>>::zeros(n_fft / 2 + 1);
+    r2c.process(&mut input.to_vec(), output.as_slice_mut().unwrap())
+        .unwrap();
 
-    Array1::<Complex<A>>::from(output_vec)
+    output
+}
+
+pub fn pad<A, D>(
+    array: ArrayView<A, D>,
+    (n_pad_left, n_pad_right): (usize, usize),
+    axis: Axis,
+    mode: &str,
+) -> Array<A, D>
+where
+    A: Copy + Num,
+    D: Dimension + RemoveAxis,
+{
+    let mut shape_left = array.shape().to_vec();
+    shape_left[axis.index()] = n_pad_left;
+    let mut shape_right = array.shape().to_vec();
+    shape_right[axis.index()] = n_pad_right;
+    match mode {
+        "zero" => {
+            let pad_left = ArrayD::zeros(&shape_left[..])
+                .into_dimensionality::<D>()
+                .unwrap();
+            let pad_right = ArrayD::zeros(&shape_right[..])
+                .into_dimensionality::<D>()
+                .unwrap();
+            stack![axis, pad_left.view(), array, pad_right.view()]
+        }
+        "reflect" => {
+            let pad_left = array.slice_axis(axis, Slice::new(1, Some(n_pad_left as isize + 1), -1));
+            let pad_right =
+                array.slice_axis(axis, Slice::new(-(n_pad_right as isize + 1), Some(-1), -1));
+            stack![axis, pad_left, array, pad_right]
+        }
+        _ => panic!("only zero-padding is implemented"),
+    }
 }
 
 pub fn stft<A>(input: &Array1<A>, win_length: usize, hop_length: usize) -> Array2<Complex<A>>
 where
-    A: FFTnum + Float + std::fmt::Debug,
+    A: FFTnum + Float,
 {
-    let n_fft: usize = 2usize.pow((win_length as f32).log2().ceil() as u32);
-    let pad_left = (n_fft - win_length)/2;
-    let pad_right = (((n_fft - win_length) as f32)/2f32).ceil() as usize;
-    let window = Array::from_iter(
-        hanning_iter(win_length+1)
-        .map(|x| A::from_f64(x).unwrap())
-        .enumerate()
-        .filter(|&(i, _)| i < win_length)
-        .map(|(_, x)| x)
-    );
-    let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
-    let mut spec = Array2::<Complex<A>>::zeros(
-        (n_fft / 2 + 1, (input.len() - win_length)/hop_length + 1)
-    );
-    let spec_view_mut:Vec<&mut [Complex<A>]> 
-        = spec.axis_iter_mut(Axis(1)).map(|x| x.into_slice().unwrap()).collect();
+    let n_fft = 2usize.pow((win_length as f32).log2().ceil() as u32);
+    let n_frames = (input.len() - win_length) / hop_length + 1;
+    let n_pad_left = (n_fft - win_length) / 2;
+    let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
 
-    let mut input: Vec<Vec<A>> = input.windows(win_length)
+    let window = windows::hann(win_length, false);
+    let win_pad_fn = |x| {
+        pad(
+            (&x * &window).view(),
+            (n_pad_left, n_pad_right),
+            Axis(0),
+            "zero",
+        )
+    };
+    let mut input: Vec<Array1<A>> = input
+        .windows(win_length)
         .into_iter()
-        .enumerate()
-        .filter(|&(i, _)| i % hop_length == 0)
-        .map(|(_, x)| {
-            let mut left = vec![A::zero(); pad_left];
-            left.extend((&x*&window).iter());
-            let right = vec![A::zero(); pad_right];
-            left.extend(&right);
-            left
-        }).collect();
+        .step_by(hop_length)
+        .map(win_pad_fn)
+        .collect();
 
-    input.iter_mut()
-        .zip(spec_view_mut)
-        .for_each(|(x, y)| r2c.process(x, y).unwrap());
+    let mut spec = Array2::<Complex<A>>::zeros((n_fft / 2 + 1, n_frames));
+    let spec_view_mut: Vec<&mut [Complex<A>]> = spec
+        .axis_iter_mut(Axis(1))
+        .map(|x| x.into_slice().unwrap())
+        .collect();
+
+    let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
+    for (x, y) in input.iter_mut().zip(spec_view_mut) {
+        let x = x.as_slice_mut().unwrap();
+        r2c.process(x, y).unwrap();
+    }
 
     spec
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
     use crate::realfft::{ComplexToReal, RealToComplex};
+    use crate::*;
+    use ndarray::{arr1, arr2, Array1};
     use rustfft::num_complex::Complex;
     use rustfft::num_traits::Zero;
     use rustfft::FFTplanner;
-    use ndarray::{Array1,arr2};
 
     fn compare_complex(a: &[Complex<f64>], b: &[Complex<f64>], tol: f64) -> bool {
         a.iter().zip(b.iter()).fold(true, |eq, (val_a, val_b)| {
@@ -145,13 +180,31 @@ mod tests {
 
     #[test]
     fn impulse_works() {
+        assert_eq!(Array1::<f32>::impulse(4, 0), arr1(&[1., 0., 0., 0.]));
+    }
+
+    #[test]
+    fn rfft_wrapper_works() {
         assert_eq!(
-            Array1::<f32>::impulse(4, 0).to_vec(),
-            vec![1., 0., 0., 0.]
+            rfft(&Array1::<f32>::impulse(4, 0)),
+            arr1(&[Complex::<f32>::new(1., 0.); 3])
+        );
+    }
+
+    #[test]
+    fn hann_window_works() {
+        assert_eq!(windows::hann::<f32>(4, false), arr1(&[0., 0.5, 1., 0.5]));
+    }
+
+    #[test]
+    fn pad_works() {
+        assert_eq!(
+            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(0), "zero"),
+            arr2(&[[0, 0, 0], [1, 2, 3], [0, 0, 0], [0, 0, 0],])
         );
         assert_eq!(
-            rfft(&Array1::<f32>::impulse(4, 0)).to_vec(),
-            vec![Complex::<f32>::new(1., 0.); 3]
+            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(1), "reflect"),
+            arr2(&[[2, 1, 2, 3, 2, 1]])
         );
     }
 
@@ -164,6 +217,6 @@ mod tests {
                 [Complex::<f32>::new(-1., 0.)],
                 [Complex::<f32>::new(1., 0.)]
             ])
-        )
+        );
     }
 }

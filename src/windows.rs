@@ -1,0 +1,35 @@
+use ndarray::prelude::*;
+use rustfft::num_traits::Float;
+use std::f64::consts::PI as PIf64;
+use std::iter::FromIterator;
+
+fn cosine_window<T>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T>
+where
+    T: Float,
+{
+    assert!(1 < size);
+    let pi = T::from(PIf64).unwrap();
+    let size2 = if symmetric { size } else { size + 1 };
+    let cos_fn = |i| {
+        let x = pi * T::from(i).unwrap() / T::from(size2 - 1).unwrap();
+        let b_ = b * (T::from(2.).unwrap() * x).cos();
+        let c_ = c * (T::from(4.).unwrap() * x).cos();
+        let d_ = d * (T::from(6.).unwrap() * x).cos();
+        (a - b_) + (c_ - d_)
+    };
+    Array::from_iter((0..size2).map(cos_fn).take(size))
+}
+
+pub fn hann<T>(size: usize, symmetric: bool) -> Array1<T>
+where
+    T: Float,
+{
+    cosine_window(
+        T::from(0.5).unwrap(),
+        T::from(0.5).unwrap(),
+        T::zero(),
+        T::zero(),
+        size,
+        symmetric,
+    )
+}

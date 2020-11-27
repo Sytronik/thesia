@@ -5,6 +5,7 @@ use rustfft::algorithm::Radix4;
 use std::error;
 use std::fmt;
 use rustfft::num_traits::Float;
+use std::f64::consts::PI as PIf64;
 
 type Res<T> = Result<T, Box<dyn error::Error>>;
 
@@ -78,7 +79,7 @@ impl<T> RealToComplex<T> where T: FFTnum + Float {
         }
         let buffer_out = vec![Complex::zero(); length / 2 + 1];
         let mut sin_cos = Vec::with_capacity(length / 2);
-        let pi = T::from_f64(std::f64::consts::PI).unwrap();
+        let pi = T::from_f64(PIf64).unwrap();
         let halflength = T::from_usize(length / 2).unwrap();
         for k in 0..length / 2 {
             let k = T::from_usize(k).unwrap();
