@@ -37,37 +37,40 @@ where
     output
 }
 
+pub enum PadMode<T> {
+    Constant(T),
+    Reflect,
+}
+
 pub fn pad<A, D>(
     array: ArrayView<A, D>,
     (n_pad_left, n_pad_right): (usize, usize),
     axis: Axis,
-    mode: &str,
+    mode: PadMode<A>,
 ) -> Array<A, D>
 where
     A: Copy + Num,
     D: Dimension + RemoveAxis,
 {
-    let mut shape_left = array.shape().to_vec();
-    shape_left[axis.index()] = n_pad_left;
-    let mut shape_right = array.shape().to_vec();
-    shape_right[axis.index()] = n_pad_right;
     match mode {
-        "zero" => {
-            let pad_left = ArrayD::zeros(&shape_left[..])
-                .into_dimensionality::<D>()
-                .unwrap();
-            let pad_right = ArrayD::zeros(&shape_right[..])
-                .into_dimensionality::<D>()
-                .unwrap();
+        PadMode::Constant(constant) => {
+            let mut shape_left = array.raw_dim();
+            let mut shape_right = array.raw_dim();
+            shape_left[axis.index()] = n_pad_left;
+            shape_right[axis.index()] = n_pad_right;
+            let pad_left = Array::from_elem(shape_left, constant);
+            let pad_right = Array::from_elem(shape_right, constant);
             stack![axis, pad_left.view(), array, pad_right.view()]
         }
-        "reflect" => {
-            let pad_left = array.slice_axis(axis, Slice::new(1, Some(n_pad_left as isize + 1), -1));
-            let pad_right =
-                array.slice_axis(axis, Slice::new(-(n_pad_right as isize + 1), Some(-1), -1));
+        PadMode::Reflect => {
+            let pad_left = array.slice_axis(
+                axis, Slice::new(1, Some(n_pad_left as isize + 1), -1)
+            );
+            let pad_right = array.slice_axis(
+                axis, Slice::new(-(n_pad_right as isize + 1), Some(-1), -1)
+            );
             stack![axis, pad_left, array, pad_right]
         }
-        _ => panic!("only zero-padding is implemented"),
     }
 }
 
@@ -86,7 +89,7 @@ where
             (&x * &window).view(),
             (n_pad_left, n_pad_right),
             Axis(0),
-            "zero",
+            PadMode::Constant(A::zero()),
         )
     };
     let mut input: Vec<Array1<A>> = input
@@ -199,11 +202,14 @@ mod tests {
     #[test]
     fn pad_works() {
         assert_eq!(
-            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(0), "zero"),
-            arr2(&[[0, 0, 0], [1, 2, 3], [0, 0, 0], [0, 0, 0],])
+            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(0), PadMode::Constant(10)),
+            arr2(&[[10, 10, 10], 
+                   [1, 2, 3], 
+                   [10, 10, 10], 
+                   [10, 10, 10] ])
         );
         assert_eq!(
-            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(1), "reflect"),
+            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(1), PadMode::Reflect),
             arr2(&[[2, 1, 2, 3, 2, 1]])
         );
     }
