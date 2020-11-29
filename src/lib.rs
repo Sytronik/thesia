@@ -1,5 +1,5 @@
 use ndarray::prelude::*;
-use ndarray::{stack, RemoveAxis, Slice};
+use ndarray::{concatenate, RemoveAxis, Slice};
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::identities::*;
 use rustfft::num_traits::{Float, Num};
@@ -9,6 +9,7 @@ mod realfft;
 mod windows;
 mod audio;
 use realfft::RealToComplex;
+use rayon::prelude::*;
 
 trait Impulse {
     fn impulse(size: usize, location: usize) -> Self;
@@ -61,7 +62,7 @@ where
             shape_right[axis.index()] = n_pad_right;
             let pad_left = Array::from_elem(shape_left, constant);
             let pad_right = Array::from_elem(shape_right, constant);
-            stack![axis, pad_left.view(), array, pad_right.view()]
+            concatenate![axis, pad_left.view(), array, pad_right.view()]
         }
         PadMode::Reflect => {
             let pad_left = array.slice_axis(
@@ -70,12 +71,12 @@ where
             let pad_right = array.slice_axis(
                 axis, Slice::new(-(n_pad_right as isize + 1), Some(-1), -1)
             );
-            stack![axis, pad_left, array, pad_right]
+            concatenate![axis, pad_left, array, pad_right]
         }
     }
 }
 
-pub fn stft<A>(input: &Array1<A>, win_length: usize, hop_length: usize) -> Array2<Complex<A>>
+pub fn stft<A>(input: ArrayView1<A>, win_length: usize, hop_length: usize, parallel: bool) -> Array2<Complex<A>>
 where
     A: FFTnum + Float,
 {
@@ -100,16 +101,26 @@ where
         .map(win_pad_fn)
         .collect();
 
-    let mut spec = Array2::<Complex<A>>::zeros((n_fft / 2 + 1, n_frames));
+    let mut spec = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
     let spec_view_mut: Vec<&mut [Complex<A>]> = spec
-        .axis_iter_mut(Axis(1))
+        .axis_iter_mut(Axis(0))
         .map(|x| x.into_slice().unwrap())
         .collect();
 
-    let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
-    for (x, y) in input.iter_mut().zip(spec_view_mut) {
-        let x = x.as_slice_mut().unwrap();
-        r2c.process(x, y).unwrap();
+    if parallel {
+        input.par_iter_mut().zip(spec_view_mut).for_each(
+            |(x, y)| {
+                let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
+                let x = x.as_slice_mut().unwrap();
+                r2c.process(x, y).unwrap();
+            }
+        );
+    } else {
+        let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
+        for (x, y) in input.iter_mut().zip(spec_view_mut) {
+            let x = x.as_slice_mut().unwrap();
+            r2c.process(x, y).unwrap();
+        }
     }
 
     spec
@@ -120,10 +131,11 @@ mod tests {
     use std::path::Path;
     use crate::realfft::{ComplexToReal, RealToComplex};
     use crate::*;
-    use ndarray::{arr1, arr2, Array1};
+    use ndarray::{Array1, arr1, arr2, par_azip, stack};
     use rustfft::num_complex::Complex;
     use rustfft::num_traits::Zero;
     use rustfft::FFTplanner;
+    use std::time::Instant;
 
     fn compare_complex(a: &[Complex<f64>], b: &[Complex<f64>], tol: f64) -> bool {
         a.iter().zip(b.iter()).fold(true, |eq, (val_a, val_b)| {
@@ -219,11 +231,11 @@ mod tests {
     #[test]
     fn stft_works() {
         assert_eq!(
-            stft(&Array1::<f32>::impulse(4, 2), 4, 2),
+            stft(Array1::<f32>::impulse(4, 2).view(), 4, 2, true),
             arr2(&[
-                [Complex::<f32>::new(1., 0.)],
-                [Complex::<f32>::new(-1., 0.)],
-                [Complex::<f32>::new(1., 0.)]
+                [Complex::<f32>::new(1., 0.),
+                Complex::<f32>::new(-1., 0.),
+                Complex::<f32>::new(1., 0.)]
             ])
         );
     }
@@ -269,4 +281,16 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn stft_time() {
+        let (wav, sr) = audio::open_audio_file(Path::new("samples/sample.wav")).unwrap();
+        let wav = wav.sum_axis(Axis(0));
+        // let wavs = stack![Axis(0), wav, wav, wav, wav, wav, wav];
+        let now = Instant::now();
+        // par_azip!((wav in wavs.axis_iter(Axis(0))), {stft(wav.view(), 1920, 480)});
+        stft(wav.view(), 1920, 480, false);
+        let time = now.elapsed().as_millis();
+        println!("{}", time as f32 / (wav.len() as f32 * 1000. / sr as f32));
+    }
 }
