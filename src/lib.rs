@@ -7,6 +7,7 @@ use rustfft::FFTnum;
 
 mod realfft;
 mod windows;
+mod audio;
 use realfft::RealToComplex;
 
 trait Impulse {
@@ -116,6 +117,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use crate::realfft::{ComplexToReal, RealToComplex};
     use crate::*;
     use ndarray::{arr1, arr2, Array1};
@@ -129,10 +131,10 @@ mod tests {
         })
     }
 
-    fn compare_f64(a: &[f64], b: &[f64], tol: f64) -> bool {
+    fn compare_float<T: Float>(a: &[T], b: &[T], tol: T) -> bool {
         a.iter()
             .zip(b.iter())
-            .fold(true, |eq, (val_a, val_b)| eq && (val_a - val_b).abs() < tol)
+            .fold(true, |eq, (val_a, val_b)| eq && (*val_a - *val_b).abs() < tol)
     }
 
     // Compare RealToComplex with standard FFT
@@ -178,7 +180,7 @@ mod tests {
         fft.process(&mut indata, &mut out_b);
 
         let out_b_r = out_b.iter().map(|val| 0.5 * val.re).collect::<Vec<f64>>();
-        assert!(compare_f64(&out_a, &out_b_r, 1.0e-9));
+        assert!(compare_float(&out_a, &out_b_r, 1.0e-9));
     }
 
     #[test]
@@ -225,4 +227,46 @@ mod tests {
             ])
         );
     }
+    
+    #[test]
+    fn open_audio_works() {
+        let (wav, sr) = audio::open_audio_file(Path::new("samples/sample.wav")).unwrap();
+        let arr = arr2(&[
+            [-1.919269561767578125e-05,
+            2.510547637939453125e-04,
+            2.177953720092773438e-04,
+            8.809566497802734375e-05,
+            1.561641693115234375e-05,
+            1.788139343261718750e-05,
+            1.298189163208007812e-04,
+            1.105070114135742188e-04,
+            -1.615285873413085938e-04,
+            -4.312992095947265625e-04,
+            -4.181861877441406250e-04,
+            -1.516342163085937500e-04,
+            -3.480911254882812500e-05,
+            -2.431869506835937500e-05,
+            -1.041889190673828125e-04,
+            -1.143217086791992188e-04],
+        ]);
+        assert_eq!(sr, 48000);
+        assert_eq!(wav.shape(), &[1, 320911]);
+        assert_eq!(
+            compare_float(
+                &[wav.iter().fold(f32::MIN, |s, &x| if x > s {x} else {s} )],
+                &[0.1715821],
+                f32::EPSILON,
+            ),
+            true
+        );
+        assert_eq!(
+            compare_float(
+                wav.as_slice().unwrap(),
+                arr.as_slice().unwrap(),
+                f32::EPSILON,
+            ),
+            true
+        );
+    }
+
 }
