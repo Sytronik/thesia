@@ -1,15 +1,15 @@
 use ndarray::prelude::*;
 use ndarray::{concatenate, RemoveAxis, Slice};
+use rayon::prelude::*;
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::identities::*;
 use rustfft::num_traits::{Float, Num};
 use rustfft::FFTnum;
 
+mod audio;
 mod realfft;
 mod windows;
-mod audio;
-use realfft::RealToComplex;
-use rayon::prelude::*;
+use realfft::RealFFT;
 
 trait Impulse {
     fn impulse(size: usize, location: usize) -> Self;
@@ -31,7 +31,7 @@ where
     A: FFTnum + Float,
 {
     let n_fft = input.shape()[0];
-    let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
+    let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
     let mut output = Array1::<Complex<A>>::zeros(n_fft / 2 + 1);
     r2c.process(&mut input.to_vec(), output.as_slice_mut().unwrap())
         .unwrap();
@@ -65,18 +65,21 @@ where
             concatenate![axis, pad_left.view(), array, pad_right.view()]
         }
         PadMode::Reflect => {
-            let pad_left = array.slice_axis(
-                axis, Slice::new(1, Some(n_pad_left as isize + 1), -1)
-            );
-            let pad_right = array.slice_axis(
-                axis, Slice::new(-(n_pad_right as isize + 1), Some(-1), -1)
-            );
+            let s_left_reflect = Slice::new(1, Some(n_pad_left as isize + 1), -1);
+            let s_right_reflect = Slice::new(-(n_pad_right as isize + 1), Some(-1), -1);
+            let pad_left = array.slice_axis(axis, s_left_reflect);
+            let pad_right = array.slice_axis(axis, s_right_reflect);
             concatenate![axis, pad_left, array, pad_right]
         }
     }
 }
 
-pub fn stft<A>(input: ArrayView1<A>, win_length: usize, hop_length: usize, parallel: bool) -> Array2<Complex<A>>
+pub fn stft<A>(
+    input: ArrayView1<A>,
+    win_length: usize,
+    hop_length: usize,
+    parallel: bool,
+) -> Array2<Complex<A>>
 where
     A: FFTnum + Float,
 {
@@ -108,15 +111,13 @@ where
         .collect();
 
     if parallel {
-        input.par_iter_mut().zip(spec_view_mut).for_each(
-            |(x, y)| {
-                let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
-                let x = x.as_slice_mut().unwrap();
-                r2c.process(x, y).unwrap();
-            }
-        );
+        input.par_iter_mut().zip(spec_view_mut).for_each(|(x, y)| {
+            let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
+            let x = x.as_slice_mut().unwrap();
+            r2c.process(x, y).unwrap();
+        });
     } else {
-        let mut r2c = RealToComplex::<A>::new(n_fft).unwrap();
+        let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
         for (x, y) in input.iter_mut().zip(spec_view_mut) {
             let x = x.as_slice_mut().unwrap();
             r2c.process(x, y).unwrap();
@@ -128,25 +129,25 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-    use crate::realfft::{ComplexToReal, RealToComplex};
+    use crate::realfft::{InvRealFFT, RealFFT};
     use crate::*;
-    use ndarray::{Array1, arr1, arr2, par_azip, stack};
+    use ndarray::{arr1, arr2, par_azip, stack, Array1};
     use rustfft::num_complex::Complex;
     use rustfft::num_traits::Zero;
     use rustfft::FFTplanner;
+    use std::path::Path;
     use std::time::Instant;
 
-    fn compare_complex(a: &[Complex<f64>], b: &[Complex<f64>], tol: f64) -> bool {
+    fn compare_complex<T: Float>(a: &[Complex<T>], b: &[Complex<T>], tol: T) -> bool {
         a.iter().zip(b.iter()).fold(true, |eq, (val_a, val_b)| {
             eq && (val_a.re - val_b.re).abs() < tol && (val_a.im - val_b.im).abs() < tol
         })
     }
 
     fn compare_float<T: Float>(a: &[T], b: &[T], tol: T) -> bool {
-        a.iter()
-            .zip(b.iter())
-            .fold(true, |eq, (val_a, val_b)| eq && (*val_a - *val_b).abs() < tol)
+        a.iter().zip(b.iter()).fold(true, |eq, (val_a, val_b)| {
+            eq && (*val_a - *val_b).abs() < tol
+        })
     }
 
     // Compare RealToComplex with standard FFT
@@ -162,9 +163,9 @@ mod tests {
         let mut fft_planner = FFTplanner::<f64>::new(false);
         let fft = fft_planner.plan_fft(256);
 
-        let mut r2c = RealToComplex::<f64>::new(256).unwrap();
-        let mut out_a: Vec<Complex<f64>> = vec![Complex::zero(); 129];
-        let mut out_b: Vec<Complex<f64>> = vec![Complex::zero(); 256];
+        let mut r2c = RealFFT::<f64>::new(256).unwrap();
+        let mut out_a = vec![Complex::<f64>::zero(); 129];
+        let mut out_b = vec![Complex::<f64>::zero(); 256];
 
         fft.process(&mut indata_c, &mut out_b);
         r2c.process(&mut indata, &mut out_a).unwrap();
@@ -184,14 +185,14 @@ mod tests {
         let mut fft_planner = FFTplanner::<f64>::new(true);
         let fft = fft_planner.plan_fft(256);
 
-        let mut c2r = ComplexToReal::<f64>::new(256).unwrap();
-        let mut out_a: Vec<f64> = vec![0.0; 256];
-        let mut out_b: Vec<Complex<f64>> = vec![Complex::zero(); 256];
+        let mut c2r = InvRealFFT::<f64>::new(256).unwrap();
+        let mut out_a = vec![0f64; 256];
+        let mut out_b = vec![Complex::<f64>::zero(); 256];
 
         c2r.process(&indata[0..129], &mut out_a).unwrap();
         fft.process(&mut indata, &mut out_b);
 
-        let out_b_r = out_b.iter().map(|val| 0.5 * val.re).collect::<Vec<f64>>();
+        let out_b_r: Vec<f64> = out_b.iter().map(|val| 0.5 * val.re).collect();
         assert!(compare_float(&out_a, &out_b_r, 1.0e-9));
     }
 
@@ -216,11 +217,13 @@ mod tests {
     #[test]
     fn pad_works() {
         assert_eq!(
-            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(0), PadMode::Constant(10)),
-            arr2(&[[10, 10, 10], 
-                   [1, 2, 3], 
-                   [10, 10, 10], 
-                   [10, 10, 10] ])
+            pad(
+                arr2(&[[1, 2, 3]]).view(),
+                (1, 2),
+                Axis(0),
+                PadMode::Constant(10)
+            ),
+            arr2(&[[10, 10, 10], [1, 2, 3], [10, 10, 10], [10, 10, 10]])
         );
         assert_eq!(
             pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(1), PadMode::Reflect),
@@ -232,19 +235,19 @@ mod tests {
     fn stft_works() {
         assert_eq!(
             stft(Array1::<f32>::impulse(4, 2).view(), 4, 2, true),
-            arr2(&[
-                [Complex::<f32>::new(1., 0.),
+            arr2(&[[
+                Complex::<f32>::new(1., 0.),
                 Complex::<f32>::new(-1., 0.),
-                Complex::<f32>::new(1., 0.)]
-            ])
+                Complex::<f32>::new(1., 0.)
+            ]])
         );
     }
-    
+
     #[test]
     fn open_audio_works() {
         let (wav, sr) = audio::open_audio_file(Path::new("samples/sample.wav")).unwrap();
-        let arr = arr2(&[
-            [-1.919269561767578125e-05,
+        let arr = arr2(&[[
+            -1.919269561767578125e-05,
             2.510547637939453125e-04,
             2.177953720092773438e-04,
             8.809566497802734375e-05,
@@ -259,28 +262,21 @@ mod tests {
             -3.480911254882812500e-05,
             -2.431869506835937500e-05,
             -1.041889190673828125e-04,
-            -1.143217086791992188e-04],
-        ]);
+            -1.143217086791992188e-04,
+        ]]);
         assert_eq!(sr, 48000);
         assert_eq!(wav.shape(), &[1, 320911]);
-        assert_eq!(
-            compare_float(
-                &[wav.iter().fold(f32::MIN, |s, &x| if x > s {x} else {s} )],
-                &[0.1715821],
-                f32::EPSILON,
-            ),
-            true
-        );
-        assert_eq!(
-            compare_float(
-                wav.as_slice().unwrap(),
-                arr.as_slice().unwrap(),
-                f32::EPSILON,
-            ),
-            true
-        );
+        assert!(compare_float(
+            &[wav.iter().fold(f32::MIN, |s, &x| if x > s { x } else { s })],
+            &[0.1715821],
+            f32::EPSILON,
+        ));
+        assert!(compare_float(
+            wav.as_slice().unwrap(),
+            arr.as_slice().unwrap(),
+            f32::EPSILON,
+        ));
     }
-
 
     #[test]
     fn stft_time() {

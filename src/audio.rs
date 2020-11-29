@@ -1,27 +1,26 @@
 use std::fs::File;
-use std::io;
-use std::io::{BufReader, Result};
+use std::io::{self, BufReader};
 use std::path::Path;
 
 use ndarray::prelude::*;
 
-use rodio::{Decoder, Source};
 use hound::{self, SampleFormat};
+use rodio::{Decoder, Source};
 
-pub fn open_audio_file(path: &Path) -> Result<(Array2<f32>, u32)> {
+pub fn open_audio_file(path: &Path) -> io::Result<(Array2<f32>, u32)> {
     let (mut vec, sr, channels) = if let Ok(reader) = hound::WavReader::open(path.as_os_str()) {
         let sr = reader.spec().sample_rate;
         let channels = reader.spec().channels;
         let bits = reader.spec().bits_per_sample;
         let vec: Vec<f32> = match reader.spec().sample_format {
-            SampleFormat::Float 
-                => reader.into_samples::<f32>().map(|x| x.unwrap()).collect(),
-            SampleFormat::Int 
-                => reader.into_samples::<i32>().map(|x| (x.unwrap() as f32) / (2i32.pow(bits as u32-1) as f32)).collect(),
+            SampleFormat::Float => reader.into_samples::<f32>().map(|x| x.unwrap()).collect(),
+            SampleFormat::Int => reader
+                .into_samples::<i32>()
+                .map(|x| (x.unwrap() as f32) / (2u32.pow(bits as u32 - 1) as f32))
+                .collect(),
         };
         (vec, sr, channels)
-    }
-    else {
+    } else {
         let source = match Decoder::new(BufReader::new(File::open(path)?)) {
             Ok(decoder) => decoder,
             Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e)),
@@ -34,5 +33,6 @@ pub fn open_audio_file(path: &Path) -> Result<(Array2<f32>, u32)> {
 
     let shape = (channels as usize, vec.len() / channels as usize);
     vec.truncate(shape.0 * shape.1); // defensive code
-    Ok((Array2::from_shape_vec(shape.strides((1, shape.0)), vec).unwrap(), sr))
+    let wav = Array2::from_shape_vec(shape.strides((1, shape.0)), vec).unwrap();
+    Ok((wav, sr))
 }

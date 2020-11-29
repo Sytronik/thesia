@@ -3,11 +3,8 @@ use rustfft::num_traits::Float;
 use std::f64::consts::PI as PIf64;
 use std::iter::FromIterator;
 
-fn cosine_window<T>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T>
-where
-    T: Float,
-{
-    assert!(1 < size);
+fn cosine_window<T: Float>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T> {
+    assert!(size > 1);
     let pi = T::from(PIf64).unwrap();
     let size2 = if symmetric { size } else { size + 1 };
     let cos_fn = |i| {
@@ -20,10 +17,7 @@ where
     Array::from_iter((0..size2).map(cos_fn).take(size))
 }
 
-pub fn hann<T>(size: usize, symmetric: bool) -> Array1<T>
-where
-    T: Float,
-{
+pub fn hann<T: Float>(size: usize, symmetric: bool) -> Array1<T> {
     cosine_window(
         T::from(0.5).unwrap(),
         T::from(0.5).unwrap(),

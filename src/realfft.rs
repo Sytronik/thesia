@@ -1,11 +1,11 @@
-use rustfft::num_complex::Complex;
-use rustfft::num_traits::Zero;
-use rustfft::{FFTnum,FFT};
-use rustfft::algorithm::Radix4;
 use std::error;
-use std::fmt;
-use rustfft::num_traits::Float;
 use std::f64::consts::PI as PIf64;
+use std::fmt;
+
+use rustfft::algorithm::Radix4;
+use rustfft::num_complex::Complex;
+use rustfft::num_traits::{Float, Zero};
+use rustfft::{FFTnum, FFT};
 
 type Res<T> = Result<T, Box<dyn error::Error>>;
 
@@ -37,7 +37,7 @@ impl FftError {
 
 /// An FFT that takes a real-valued input vector of length 2*N and transforms it to a complex
 /// spectrum of length N+1.
-pub struct RealToComplex<T: FFTnum + Float> {
+pub struct RealFFT<T: FFTnum + Float> {
     sin_cos: Vec<(T, T)>,
     length: usize,
     fft: Radix4<T>,
@@ -46,7 +46,7 @@ pub struct RealToComplex<T: FFTnum + Float> {
 
 /// An FFT that takes a real-valued input vector of length 2*N and transforms it to a complex
 /// spectrum of length N+1.
-pub struct ComplexToReal<T: FFTnum + Float> {
+pub struct InvRealFFT<T: FFTnum + Float> {
     sin_cos: Vec<(T, T)>,
     length: usize,
     fft: Radix4<T>,
@@ -70,8 +70,10 @@ where
         .map(|(w, (x, (y, z)))| (w, x, y, z))
 }
 
-
-impl<T> RealToComplex<T> where T: FFTnum + Float {
+impl<T> RealFFT<T>
+where
+    T: FFTnum + Float,
+{
     /// Create a new RealToComplex FFT for input data of a given length. Returns an error if the length is not even.
     pub fn new(length: usize) -> Res<Self> {
         if length % 2 > 0 {
@@ -88,7 +90,7 @@ impl<T> RealToComplex<T> where T: FFTnum + Float {
             sin_cos.push((sin, cos));
         }
         let fft = Radix4::<T>::new(length / 2, false);
-        Ok(RealToComplex {
+        Ok(RealFFT {
             sin_cos,
             length,
             fft,
@@ -130,7 +132,8 @@ impl<T> RealToComplex<T> where T: FFTnum + Float {
         };
 
         // FFT and store result in buffer_out
-        self.fft.process(&mut buf_in, &mut self.buffer_out[0..fftlen]);
+        self.fft
+            .process(&mut buf_in, &mut self.buffer_out[0..fftlen]);
 
         self.buffer_out[fftlen] = self.buffer_out[0];
 
@@ -140,12 +143,13 @@ impl<T> RealToComplex<T> where T: FFTnum + Float {
             &self.sin_cos,
             &mut output[..],
         ) {
-            let xr = T::from_f32(0.5).unwrap() * (
-                (buf.re + buf_rev.re) + cos * (buf.im + buf_rev.im) - sin * (buf.re - buf_rev.re)
-            );
-            let xi = T::from_f32(0.5).unwrap() * (
-                (buf.im - buf_rev.im) - sin * (buf.im + buf_rev.im) - cos * (buf.re - buf_rev.re)
-            );
+            let xr = T::from(0.5).unwrap()
+                * ((buf.re + buf_rev.re) + cos * (buf.im + buf_rev.im)
+                    - sin * (buf.re - buf_rev.re));
+            let xi = T::from(0.5).unwrap()
+                * ((buf.im - buf_rev.im)
+                    - sin * (buf.im + buf_rev.im)
+                    - cos * (buf.re - buf_rev.re));
             *out = Complex::new(xr, xi);
         }
         output[fftlen] = Complex::new(self.buffer_out[0].re - self.buffer_out[0].im, T::zero());
@@ -154,7 +158,10 @@ impl<T> RealToComplex<T> where T: FFTnum + Float {
 }
 
 /// Create a new ComplexToReal iFFT for output data of a given length. Returns an error if the length is not even.
-impl<T> ComplexToReal<T> where T: FFTnum + Float {
+impl<T> InvRealFFT<T>
+where
+    T: FFTnum + Float,
+{
     pub fn new(length: usize) -> Res<Self> {
         if length % 2 > 0 {
             return Err(Box::new(FftError::new("Length must be even")));
@@ -170,7 +177,7 @@ impl<T> ComplexToReal<T> where T: FFTnum + Float {
             sin_cos.push((sin, cos));
         }
         let fft = Radix4::<T>::new(length / 2, true);
-        Ok(ComplexToReal {
+        Ok(InvRealFFT {
             sin_cos,
             length,
             fft,
@@ -207,12 +214,13 @@ impl<T> ComplexToReal<T> where T: FFTnum + Float {
             &self.sin_cos,
             &mut self.buffer_in[..],
         ) {
-            let xr = T::from_f32(0.5).unwrap() * (
-                (buf.re + buf_rev.re) - cos * (buf.im + buf_rev.im) - sin * (buf.re - buf_rev.re)
-            );
-            let xi = T::from_f32(0.5).unwrap() * (
-                (buf.im - buf_rev.im) + cos * (buf.re - buf_rev.re) - sin * (buf.im + buf_rev.im)
-            );
+            let xr = T::from(0.5).unwrap()
+                * ((buf.re + buf_rev.re)
+                    - cos * (buf.im + buf_rev.im)
+                    - sin * (buf.re - buf_rev.re));
+            let xi = T::from(0.5).unwrap()
+                * ((buf.im - buf_rev.im) + cos * (buf.re - buf_rev.re)
+                    - sin * (buf.im + buf_rev.im));
             *fft_input = Complex::new(xr, xi);
         }
 
