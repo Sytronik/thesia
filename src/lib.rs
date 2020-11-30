@@ -7,6 +7,7 @@ use rustfft::num_traits::{Float, Num};
 use rustfft::FFTnum;
 
 mod audio;
+mod decibel;
 mod realfft;
 mod windows;
 use realfft::RealFFT;
@@ -89,19 +90,18 @@ where
     let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
 
     let window = windows::hann(win_length, false);
-    let win_pad_fn = |x| {
-        pad(
-            (&x * &window).view(),
-            (n_pad_left, n_pad_right),
-            Axis(0),
-            PadMode::Constant(A::zero()),
-        )
-    };
-    let mut input: Vec<Array1<A>> = input
+    let mut frames: Vec<Array1<A>> = input
         .windows(win_length)
         .into_iter()
         .step_by(hop_length)
-        .map(win_pad_fn)
+        .map(|x| {
+            pad(
+                (&x * &window).view(),
+                (n_pad_left, n_pad_right),
+                Axis(0),
+                PadMode::Constant(A::zero()),
+            )
+        })
         .collect();
 
     let mut spec = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
@@ -111,17 +111,17 @@ where
         .collect();
 
     if parallel {
-        input.par_iter_mut().zip(spec_view_mut).for_each(|(x, y)| {
+        frames.par_iter_mut().zip(spec_view_mut).for_each(|(x, y)| {
             let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
             let x = x.as_slice_mut().unwrap();
             r2c.process(x, y).unwrap();
         });
     } else {
         let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
-        for (x, y) in input.iter_mut().zip(spec_view_mut) {
+        frames.iter_mut().zip(spec_view_mut).for_each(|(x, y)| {
             let x = x.as_slice_mut().unwrap();
             r2c.process(x, y).unwrap();
-        }
+        });
     }
 
     spec
@@ -129,8 +129,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::realfft::{InvRealFFT, RealFFT};
     use crate::*;
+    use crate::realfft::InvRealFFT;
+    use crate::decibel::DeciBelInplace;
+
     use ndarray::{arr1, arr2, par_azip, stack, Array1};
     use rustfft::num_complex::Complex;
     use rustfft::num_traits::Zero;
@@ -283,10 +285,21 @@ mod tests {
         let (wav, sr) = audio::open_audio_file(Path::new("samples/sample.wav")).unwrap();
         let wav = wav.sum_axis(Axis(0));
         // let wavs = stack![Axis(0), wav, wav, wav, wav, wav, wav];
-        let now = Instant::now();
-        // par_azip!((wav in wavs.axis_iter(Axis(0))), {stft(wav.view(), 1920, 480)});
-        stft(wav.view(), 1920, 480, false);
-        let time = now.elapsed().as_millis();
-        println!("{}", time as f32 / (wav.len() as f32 * 1000. / sr as f32));
+        let N = 100;
+        let mut sum_time = 0u128;
+        let wav_length = wav.len() as f32 * 1000. / sr as f32;
+        for _ in 0..N {
+            let now = Instant::now();
+            // par_azip!((wav in wavs.axis_iter(Axis(0))), {stft(wav.view(), 1920, 480)});
+            let spec = stft(wav.view(), 1920, 480, false);
+            let mut mag = spec.mapv(|x| x.norm());
+            mag.amp_to_db_default();
+            let time = now.elapsed().as_millis();
+            println!("{}", time as f32 / wav_length);
+            sum_time += time;
+        }
+        let mean_time = sum_time as f32 / N as f32;
+        println!();
+        println!("{} RT", mean_time / wav_length);
     }
 }

@@ -46,6 +46,7 @@ pub struct RealFFT<T: FFTnum + Float> {
 
 /// An FFT that takes a real-valued input vector of length 2*N and transforms it to a complex
 /// spectrum of length N+1.
+#[allow(dead_code)]
 pub struct InvRealFFT<T: FFTnum + Float> {
     sin_cos: Vec<(T, T)>,
     length: usize,
@@ -158,6 +159,7 @@ where
 }
 
 /// Create a new ComplexToReal iFFT for output data of a given length. Returns an error if the length is not even.
+#[allow(dead_code)]
 impl<T> InvRealFFT<T>
 where
     T: FFTnum + Float,
