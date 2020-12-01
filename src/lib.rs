@@ -1,5 +1,5 @@
 use ndarray::prelude::*;
-use ndarray::{concatenate, RemoveAxis, Slice};
+use ndarray::{stack, RemoveAxis, Slice};
 use rayon::prelude::*;
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::identities::*;
@@ -63,14 +63,14 @@ where
             shape_right[axis.index()] = n_pad_right;
             let pad_left = Array::from_elem(shape_left, constant);
             let pad_right = Array::from_elem(shape_right, constant);
-            concatenate![axis, pad_left.view(), array, pad_right.view()]
+            stack![axis, pad_left.view(), array, pad_right.view()]
         }
         PadMode::Reflect => {
             let s_left_reflect = Slice::new(1, Some(n_pad_left as isize + 1), -1);
             let s_right_reflect = Slice::new(-(n_pad_right as isize + 1), Some(-1), -1);
             let pad_left = array.slice_axis(axis, s_left_reflect);
             let pad_right = array.slice_axis(axis, s_right_reflect);
-            concatenate![axis, pad_left, array, pad_right]
+            stack![axis, pad_left, array, pad_right]
         }
     }
 }
@@ -129,11 +129,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-    use crate::realfft::InvRealFFT;
     use crate::decibel::DeciBelInplace;
+    use crate::realfft::InvRealFFT;
+    use crate::*;
 
     use ndarray::{arr1, arr2, par_azip, stack, Array1};
+    use ndarray_stats::QuantileExt;
     use rustfft::num_complex::Complex;
     use rustfft::num_traits::Zero;
     use rustfft::FFTplanner;
@@ -269,7 +270,7 @@ mod tests {
         assert_eq!(sr, 48000);
         assert_eq!(wav.shape(), &[1, 320911]);
         assert!(compare_float(
-            &[wav.iter().fold(f32::MIN, |s, &x| if x > s { x } else { s })],
+            &[wav.max().unwrap().clone()],
             &[0.1715821],
             f32::EPSILON,
         ));

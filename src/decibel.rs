@@ -1,6 +1,7 @@
 // reference: https://librosa.org/doc/0.8.0/_modules/librosa/core/spectrum.html
 use ndarray::prelude::*;
 use ndarray::DataMut;
+use ndarray_stats::QuantileExt;
 use rustfft::num_traits::Float;
 
 const REF_DEFAULT: f32 = 1.0;
@@ -40,9 +41,7 @@ where
                 assert!(v >= A::zero());
                 v.abs()
             }
-            DeciBelRef::Max => self
-                .iter()
-                .fold(A::zero(), |max, &x| if x > max { x } else { max }),
+            DeciBelRef::Max => self.view().max().unwrap().clone(),
         };
         let log_amin = amin.log10();
         let log_ref = if ref_value > amin {
@@ -57,11 +56,7 @@ where
                 log_amin - log_ref
             }
         });
-        let result_min =
-            self.iter().fold(
-                self.first().unwrap().clone(),
-                |max, &x| if x > max { x } else { max },
-            ) - top;
+        let result_min = *self.max().unwrap() - top;
         self.mapv_inplace(|x| if x > result_min { x } else { result_min });
     }
 
