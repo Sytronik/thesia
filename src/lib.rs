@@ -8,6 +8,7 @@ use rustfft::FFTnum;
 
 mod audio;
 mod decibel;
+mod mel;
 mod realfft;
 mod windows;
 use realfft::RealFFT;
@@ -237,7 +238,7 @@ mod tests {
     #[test]
     fn stft_works() {
         assert_eq!(
-            stft(Array1::<f32>::impulse(4, 2).view(), 4, 2, true),
+            stft(Array1::<f32>::impulse(4, 2).view(), 4, 2, false),
             arr2(&[[
                 Complex::<f32>::new(1., 0.),
                 Complex::<f32>::new(-1., 0.),
@@ -293,8 +294,10 @@ mod tests {
             let now = Instant::now();
             // par_azip!((wav in wavs.axis_iter(Axis(0))), {stft(wav.view(), 1920, 480)});
             let spec = stft(wav.view(), 1920, 480, false);
-            let mut mag = spec.mapv(|x| x.norm());
-            mag.amp_to_db_default();
+            let mag = spec.mapv(|x| x.norm());
+            let mut melspec = mel::mel_filterbanks(sr, 2048, 80, 0f32, None).dot(&mag.t());
+            melspec.amp_to_db_default();
+
             let time = now.elapsed().as_millis();
             println!("{}", time as f32 / wav_length);
             sum_time += time;
@@ -302,5 +305,22 @@ mod tests {
         let mean_time = sum_time as f32 / N as f32;
         println!();
         println!("{} RT", mean_time / wav_length);
+    }
+
+    #[test]
+    fn mel_works() {
+        let answer = [
+            0.000000000000000000e+00f64,
+            6.613916251808404922e-03,
+            1.322783250361680984e-02,
+            1.984174735844135284e-02,
+            2.105801925063133240e-02,
+            1.444410253316164017e-02,
+            7.830185815691947937e-03,
+            1.216269447468221188e-03,
+        ];
+        let melf = mel::mel_filterbanks(24000, 2048, 80, 0f64, None);
+        assert!(compare_float(&melf.as_slice().unwrap(), &answer[..], 1e-8));
+        // assert!(melf.iter().zip(answer.iter()).inspect(|(x, y)| println!("{:?} {:?}", x, y)).all(|(x, y)| (x - y).abs() < 1e-9));
     }
 }
