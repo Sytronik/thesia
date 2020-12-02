@@ -5,8 +5,8 @@ use ndarray_stats::QuantileExt;
 use rustfft::num_traits::Float;
 
 const REF_DEFAULT: f32 = 1.0;
-const AMIN_AMP_DEFAULT: f32 = 1e-6;
-const AMIN_POWER_DEFAULT: f32 = 1e-12;
+const AMIN_AMP_DEFAULT: f32 = 1e-5;
+const AMIN_POWER_DEFAULT: f32 = 1e-10;
 const TOP_DB_DEFAULT: f32 = 120.;
 
 pub enum DeciBelRef<A: Float> {

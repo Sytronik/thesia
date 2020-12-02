@@ -1,13 +1,15 @@
 use ndarray::prelude::*;
-use ndarray::{stack, RemoveAxis, Slice};
+use ndarray::{stack, RemoveAxis, ScalarOperand, Slice};
 use rayon::prelude::*;
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::identities::*;
 use rustfft::num_traits::{Float, Num};
 use rustfft::FFTnum;
+use std::ops::*;
 
 mod audio;
 mod decibel;
+mod display;
 mod mel;
 mod realfft;
 mod windows;
@@ -83,14 +85,15 @@ pub fn stft<A>(
     parallel: bool,
 ) -> Array2<Complex<A>>
 where
-    A: FFTnum + Float,
+    A: FFTnum + Float + MulAssign + ScalarOperand,
 {
     let n_fft = 2usize.pow((win_length as f32).log2().ceil() as u32);
     let n_frames = (input.len() - win_length) / hop_length + 1;
     let n_pad_left = (n_fft - win_length) / 2;
     let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
 
-    let window = windows::hann(win_length, false);
+    let mut window = windows::hann(win_length, false);
+    // window *= A::from(1024 / win_length).unwrap();
     let mut frames: Vec<Array1<A>> = input
         .windows(win_length)
         .into_iter()
@@ -287,15 +290,18 @@ mod tests {
         let (wav, sr) = audio::open_audio_file(Path::new("samples/sample.wav")).unwrap();
         let wav = wav.sum_axis(Axis(0));
         // let wavs = stack![Axis(0), wav, wav, wav, wav, wav, wav];
-        let N = 100;
+        let N = 10;
         let mut sum_time = 0u128;
         let wav_length = wav.len() as f32 * 1000. / sr as f32;
         for _ in 0..N {
             let now = Instant::now();
             // par_azip!((wav in wavs.axis_iter(Axis(0))), {stft(wav.view(), 1920, 480)});
             let spec = stft(wav.view(), 1920, 480, false);
+            let mut mag = spec.mapv(|x| x.norm());
             let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
             melspec.amp_to_db_default();
+            let im = display::spec_to_image(&melspec, 1200, 800);
+            im.save("spec.png").unwrap();
 
             let time = now.elapsed().as_millis();
             println!("{}", time as f32 / wav_length);
@@ -332,5 +338,9 @@ mod tests {
         assert!(compare_float(&melf.t().as_slice().unwrap(), &answer[..], 1e-8));
     }
 
+    #[test]
+    fn colorbar_works() {
+        let im = display::colorbar(500);
+        im.save("colorbar.png").unwrap();
     }
 }
