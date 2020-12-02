@@ -16,7 +16,7 @@ pub fn mel_to_hz<A: Float>(mel: A) -> A {
     if mel < min_log_mel {
         A::from(LINEARSCALE).unwrap() * mel
     } else {
-        A::from(MIN_LOG_HZ).unwrap() * (A::from(LOGSTEP).unwrap() * (mel - min_log_mel))
+        A::from(MIN_LOG_HZ).unwrap() * (A::from(LOGSTEP).unwrap() * (mel - min_log_mel)).exp()
     }
 }
 
@@ -38,7 +38,7 @@ pub fn mel_filterbanks<A>(
     fmax: Option<A>,
 ) -> Array2<A>
 where
-    A: Float + ScalarOperand + AddAssign + Sub + SubAssign + MulAssign + DivAssign + Div,
+    A: Float + ScalarOperand + AddAssign + Sub + SubAssign + MulAssign + DivAssign + Div, /* + std::fmt::Debug*/
 {
     assert_eq!(n_fft % 2, 0);
     let fmax = match fmax {
@@ -47,28 +47,28 @@ where
     };
     let norm = 1;
     let n_freq = n_fft / 2 + 1;
-    // let fftfreqs = (0..n_mel).map(|_| mel_f - Array::<A, Ix1>::linspace(
-    //     A::zero(),
-    //     A::from((sr as f32) / 2.).unwrap(),
-    //     n_freq
-    // )).collect();
-    let mut weights = Array2::<A>::zeros((n_mel + 2, n_freq));
+    let mut weights = Array2::<A>::zeros((n_freq, n_mel + 2));
 
     let min_mel = hz_to_mel(A::from(fmin).unwrap());
     let max_mel = hz_to_mel(A::from(fmax).unwrap());
-    let mut mel_f = Array::linspace(min_mel, max_mel, n_mel + 2)
-        .into_shape((n_mel + 2, 1))
-        .unwrap();
+    // println!("{:?}", min_mel);
+    // println!("{:?}", max_mel);
+    let mut mel_f = Array::linspace(min_mel, max_mel, n_mel + 2);
     mel_f.mapv_inplace(mel_to_hz);
-    let fdiff = &mel_f.slice(s![1.., 0]) - &mel_f.slice(s![0..-1, 0]);
-    weights -= &Array::linspace(A::zero(), A::from((sr as f32) / 2.).unwrap(), n_freq);
+    let fdiff = &mel_f.slice(s![1..]) - &mel_f.slice(s![0..-1]);
+    weights -= &Array::linspace(A::zero(), A::from((sr as f32) / 2.).unwrap(), n_freq)
+        .into_shape((n_freq, 1))
+        .unwrap();
     weights += &mel_f;
 
+    // println!("{:?}", weights);
+    // println!("{:?}", mel_f);
+
     for i_mel in 0..n_mel {
-        let mut upper = weights.index_axis(Axis(0), i_mel + 2).to_owned();
+        let mut upper = weights.index_axis(Axis(1), i_mel + 2).to_owned();
         upper /= fdiff[i_mel + 1];
 
-        let mut w = weights.index_axis_mut(Axis(0), i_mel);
+        let mut w = weights.index_axis_mut(Axis(1), i_mel);
         w /= -fdiff[i_mel]; // lower
         azip!((x in &mut w, &u in &upper) {
             if *x > u {
@@ -80,16 +80,11 @@ where
         });
     }
 
-    let mut weights = weights.slice_move(s![..n_mel, ..]);
+    let mut weights = weights.slice_move(s![.., ..n_mel]);
     if norm == 1 {
-        let mut enorm = &mel_f.slice(s![2..(n_mel + 2), ..]) - &mel_f.slice(s![..n_mel, ..]);
-        enorm.mapv_inplace(|x| {
-            if x > A::zero() {
-                A::from(2.).unwrap() / x
-            } else {
-                A::zero()
-            }
-        });
+        let mut enorm = &mel_f.slice(s![2..(n_mel + 2)]) - &mel_f.slice(s![..n_mel]);
+        enorm.mapv_inplace(|x| A::from(2.).unwrap() / x);
+        // println!("{:?}", enorm);
         weights *= &enorm;
     }
     weights
