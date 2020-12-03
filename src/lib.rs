@@ -6,6 +6,7 @@ use rustfft::num_traits::identities::*;
 use rustfft::num_traits::{Float, Num};
 use rustfft::FFTnum;
 use std::ops::*;
+use wasm_bindgen::prelude::*;
 
 mod audio;
 mod decibel;
@@ -13,6 +14,7 @@ mod display;
 mod mel;
 mod realfft;
 mod windows;
+use decibel::DeciBelInplace;
 use realfft::RealFFT;
 
 trait Impulse {
@@ -129,6 +131,18 @@ where
     }
 
     spec
+}
+
+#[wasm_bindgen]
+pub fn get_spectrogram(path: &str) -> Vec<u8> {
+    let (wav, sr) = audio::open_audio_file(path).unwrap();
+    let wav = wav.sum_axis(Axis(0));
+    let spec = stft(wav.view(), 1920, 480, false);
+    let mag = spec.mapv(|x| x.norm());
+    let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
+    melspec.amp_to_db_default();
+    let im = display::spec_to_image(&melspec, 1200, 800);
+    im.into_raw()
 }
 
 #[cfg(test)]
@@ -335,7 +349,11 @@ mod tests {
         ];
         let melf = mel::mel_filterbanks(24000, 2048, 128, 0f64, None);
         // println!("{:?}", melf);
-        assert!(compare_float(&melf.t().as_slice().unwrap(), &answer[..], 1e-8));
+        assert!(compare_float(
+            &melf.t().as_slice().unwrap(),
+            &answer[..],
+            1e-8
+        ));
     }
 
     #[test]
