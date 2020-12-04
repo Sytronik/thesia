@@ -17,7 +17,7 @@ rayon = "1.5.0"
 # blas-src = { version = "0.2.0", default-features = false, features = ["openblas"] }
 num-traits = "0.2.11"
 rustfft = "4.0.0"
-# rodio = { version = "0.13.0", features=["flac", "vorbis", "wav"] }
+rodio = { version = "0.13.0", default-features = false, features=["flac", "vorbis", "wav"] }
 hound = "3.4.0"
 image = "0.23.12"
 wasm-bindgen = "0.2.69"
