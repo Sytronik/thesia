@@ -21,6 +21,7 @@ rustfft = "4.0.0"
 hound = "3.4.0"
 image = "0.23.12"
 wasm-bindgen = "0.2.69"
+approx = {version = "0.4.0", features = ["num-complex"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"

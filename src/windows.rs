@@ -27,3 +27,12 @@ pub fn hann<T: Float>(size: usize, symmetric: bool) -> Array1<T> {
         symmetric,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn hann_window_works() {
+        assert_eq!(hann::<f32>(4, false), arr1(&[0., 0.5, 1., 0.5]));
+    }
+}

@@ -89,3 +89,38 @@ where
     }
     weights
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use approx::assert_abs_diff_eq;
+
+    #[test]
+    fn mel_hz_convert() {
+        assert_abs_diff_eq!(hz_to_mel(100.), 1.5, epsilon = 1e-14);
+        assert_abs_diff_eq!(hz_to_mel(1100.), 16.38629404765444, epsilon = 1e-14);
+        assert_abs_diff_eq!(mel_to_hz(1.), 66.66666666666667, epsilon = 1e-14);
+        assert_abs_diff_eq!(mel_to_hz(16.), 1071.1702874944676, epsilon = 1e-14);
+    }
+
+    #[test]
+    fn mel_works() {
+        let answer = [
+            0.000000000000000000e+00f64,
+            6.613916251808404922e-03,
+            1.322783250361680984e-02,
+            1.984174735844135284e-02,
+            2.105801925063133240e-02,
+            1.444410253316164017e-02,
+            7.830185815691947937e-03,
+            1.216269447468221188e-03,
+        ];
+        let mel_fb = mel_filterbanks(24000, 2048, 80, 0f64, None);
+        let mel_fb = mel_fb.t();
+        mel_fb
+            .iter()
+            .zip(answer.iter())
+            .for_each(|(&x, y)| assert_abs_diff_eq!(x, y, epsilon = 1e-8));
+    }
+}

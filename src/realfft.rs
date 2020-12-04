@@ -236,3 +236,58 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_abs_diff_eq;
+    use rustfft::num_complex::Complex;
+    use rustfft::num_traits::Zero;
+    use rustfft::FFTplanner;
+
+    // Compare RealToComplex with standard FFT
+    #[test]
+    fn real_to_complex() {
+        let mut indata = vec![0.0f64; 256];
+        indata[0] = 1.0;
+        indata[3] = 0.5;
+        let mut indata_c = indata
+            .iter()
+            .map(|val| Complex::from(val))
+            .collect::<Vec<Complex<f64>>>();
+        let mut fft_planner = FFTplanner::<f64>::new(false);
+        let fft = fft_planner.plan_fft(256);
+
+        let mut r2c = RealFFT::<f64>::new(256).unwrap();
+        let mut out_a = vec![Complex::<f64>::zero(); 129];
+        let mut out_b = vec![Complex::<f64>::zero(); 256];
+
+        fft.process(&mut indata_c, &mut out_b);
+        r2c.process(&mut indata, &mut out_a).unwrap();
+        assert_abs_diff_eq!(&out_a[0..129], &out_b[0..129], epsilon = 1e-15);
+    }
+
+    // Compare ComplexToReal with standard iFFT
+    #[test]
+    fn complex_to_real() {
+        let mut indata = vec![Complex::<f64>::zero(); 256];
+        indata[0] = Complex::new(1.0, 0.0);
+        indata[1] = Complex::new(1.0, 0.4);
+        indata[255] = Complex::new(1.0, -0.4);
+        indata[3] = Complex::new(0.3, 0.2);
+        indata[253] = Complex::new(0.3, -0.2);
+
+        let mut fft_planner = FFTplanner::<f64>::new(true);
+        let fft = fft_planner.plan_fft(256);
+
+        let mut c2r = InvRealFFT::<f64>::new(256).unwrap();
+        let mut out_a = vec![0f64; 256];
+        let mut out_b = vec![Complex::<f64>::zero(); 256];
+
+        c2r.process(&indata[0..129], &mut out_a).unwrap();
+        fft.process(&mut indata, &mut out_b);
+
+        let out_b_r: Vec<f64> = out_b.iter().map(|val| 0.5 * val.re).collect();
+        assert_abs_diff_eq!(&out_a[..], &out_b_r[..], epsilon = 1e-15);
+    }
+}

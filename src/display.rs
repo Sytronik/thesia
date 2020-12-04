@@ -71,3 +71,13 @@ pub fn colorbar(length: u32) -> RgbImage {
     let im = RgbImage::from_fn(50, colormap.len() as u32, |_, y| Rgb(COLORMAP[y as usize]));
     imageops::resize(&im, 50, length, imageops::FilterType::Triangle)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn colorbar_works() {
+        let im = colorbar(500);
+        im.save("colorbar.png").unwrap();
+    }
+}
