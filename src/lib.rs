@@ -8,12 +8,12 @@ use rustfft::FFTnum;
 use std::ops::*;
 use wasm_bindgen::prelude::*;
 
-mod audio;
-mod decibel;
-mod display;
-mod mel;
-mod realfft;
-mod windows;
+pub mod audio;
+pub mod decibel;
+pub mod display;
+pub mod mel;
+pub mod realfft;
+pub mod windows;
 use decibel::DeciBelInplace;
 use realfft::RealFFT;
 
@@ -141,18 +141,16 @@ pub fn get_spectrogram(path: &str) -> Vec<u8> {
     let mag = spec.mapv(|x| x.norm());
     let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
     melspec.amp_to_db_default();
-    let im = display::spec_to_image(&melspec, 1200, 800);
+    let im = display::spec_to_image(melspec.view(), 1200, 800);
     im.into_raw()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::decibel::DeciBelInplace;
     use crate::*;
 
     use ndarray::{arr1, arr2, Array1};
     use rustfft::num_complex::Complex;
-    use std::time;
 
     // Compare RealToComplex with standard FFT
     #[test]
@@ -195,32 +193,5 @@ mod tests {
                 Complex::<f32>::new(1., 0.)
             ]])
         );
-    }
-
-    #[test]
-    fn stft_time() {
-        let (wav, sr) = audio::open_audio_file("samples/sample.wav").unwrap();
-        let wav = wav.sum_axis(Axis(0));
-        // let wavs = stack![Axis(0), wav, wav, wav, wav, wav, wav];
-        let n_experiments = 10;
-        let mut sum_time = 0u128;
-        let wav_length = wav.len() as f32 * 1000. / sr as f32;
-        for _ in 0..n_experiments {
-            let now = time::Instant::now();
-            // par_azip!((wav in wavs.axis_iter(Axis(0))), {stft(wav.view(), 1920, 480)});
-            let spec = stft(wav.view(), 1920, 480, false);
-            let mut mag = spec.mapv(|x| x.norm());
-            let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
-            melspec.amp_to_db_default();
-            let im = display::spec_to_image(&melspec, 1200, 800);
-            im.save("spec.png").unwrap();
-
-            let time = now.elapsed().as_millis();
-            println!("{}", time as f32 / wav_length);
-            sum_time += time;
-        }
-        let mean_time = sum_time as f32 / n_experiments as f32;
-        println!();
-        println!("{} RT", mean_time / wav_length);
     }
 }
