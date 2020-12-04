@@ -1,4 +1,3 @@
-extern crate multi_spectrogram_viewer;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use multi_spectrogram_viewer::{audio, decibel::DeciBelInplace, display, mel, stft};
 use ndarray::prelude::*;
