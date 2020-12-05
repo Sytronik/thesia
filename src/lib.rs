@@ -145,25 +145,14 @@ impl MultiTrack {
     }
 }
 
-pub fn perform_stft<A>(
+fn to_windowed_frames<A: Float>(
     input: ArrayView1<A>,
-    win_length: usize,
+    window: ArrayView1<A>,
     hop_length: usize,
-    fft_module: Option<&mut RealFFT<A>>,
-    parallel: bool,
-) -> Array2<Complex<A>>
-where
-    A: FFTnum + Float + MulAssign + ScalarOperand,
-{
-    let n_fft = 2usize.pow((win_length as f32).log2().ceil() as u32);
-    let n_frames = (input.len() - win_length) / hop_length + 1;
-    let n_pad_left = (n_fft - win_length) / 2;
-    let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
-
-    let mut window = windows::hann(win_length, false);
-    // window *= A::from(1024 / win_length).unwrap();
-    let mut frames: Vec<Array1<A>> = input
-        .windows(win_length)
+    (n_pad_left, n_pad_right): (usize, usize),
+) -> Vec<Array1<A>> {
+    input
+        .windows(window.len())
         .into_iter()
         .step_by(hop_length)
         .map(|x| {
@@ -174,10 +163,57 @@ where
                 PadMode::Constant(A::zero()),
             )
         })
-        .collect();
+        .collect()
+}
 
-    let mut spec = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
-    let spec_view_mut: Vec<&mut [Complex<A>]> = spec
+pub fn perform_stft<A>(
+    input: ArrayView1<A>,
+    win_length: usize,
+    hop_length: usize,
+    fft_module: Option<&mut RealFFT<A>>,
+    parallel: bool,
+) -> Array2<Complex<A>>
+where
+    A: FFTnum + Float + DivAssign + ScalarOperand,
+{
+    let n_fft = 2usize.pow((win_length as f32).log2().ceil() as u32);
+    let n_pad_left = (n_fft - win_length) / 2;
+    let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
+
+    let mut window = windows::hann(win_length, false);
+    // window /= A::from(n_fft).unwrap();
+
+    let to_frames_wrap = |x| {
+        to_windowed_frames(
+            x,
+            window.view(),
+            hop_length,
+            (n_pad_left, n_pad_right),
+        )
+    };
+    let front_wav = pad(
+        input.slice(s![..(win_length - 1)]),
+        (win_length / 2, 0),
+        Axis(0),
+        PadMode::Reflect,
+    );
+    let mut front_frames = to_frames_wrap(front_wav.view());
+
+    let mut first_idx = front_frames.len() * hop_length - win_length / 2;
+    let mut frames: Vec<Array1<A>> = to_frames_wrap(input.slice(s![first_idx..]));
+
+    first_idx += frames.len() * hop_length;
+    let back_wav = pad(
+        input.slice(s![first_idx..]),
+        (win_length / 2, 0),
+        Axis(0),
+        PadMode::Reflect,
+    );
+    let mut back_frames = to_frames_wrap(back_wav.view());
+
+    let n_frames = front_frames.len() + frames.len() + back_frames.len();
+    let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
+    let out_frames: Vec<&mut [Complex<A>]> = output
         .axis_iter_mut(Axis(0))
         .map(|x| x.into_slice().unwrap())
         .collect();
@@ -190,19 +226,27 @@ where
         &mut new_module
     };
     if parallel {
-        frames.par_iter_mut().zip(spec_view_mut).for_each(|(x, y)| {
+        let in_frames = front_frames
+            .par_iter_mut()
+            .chain(frames.par_iter_mut())
+            .chain(back_frames.par_iter_mut());
+        in_frames.zip(out_frames).for_each(|(x, y)| {
             let mut fft_module = RealFFT::<A>::new(n_fft).unwrap();
             let x = x.as_slice_mut().unwrap();
             fft_module.process(x, y).unwrap();
         });
     } else {
-        frames.iter_mut().zip(spec_view_mut).for_each(|(x, y)| {
+        let in_frames = front_frames
+            .iter_mut()
+            .chain(frames.iter_mut())
+            .chain(back_frames.iter_mut());
+        in_frames.zip(out_frames).for_each(|(x, y)| {
             let x = x.as_slice_mut().unwrap();
             fft_module.process(x, y).unwrap();
         });
     }
 
-    spec
+    output
 }
 
 #[wasm_bindgen]
