@@ -133,6 +133,10 @@ impl MultiTrack {
         Ok(())
     }
 
+    pub fn remove_track(&mut self, id: usize) {
+        self.tracks.remove(&id);
+    }
+
     pub fn get_spec_image(&mut self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
         let track = self.tracks.get_mut(&id).unwrap();
         let nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
