@@ -1,7 +1,8 @@
-use ndarray::prelude::*;
-use rustfft::num_traits::Float;
 use std::f64::consts::PI as PIf64;
 use std::iter::FromIterator;
+
+use ndarray::prelude::*;
+use rustfft::num_traits::Float;
 
 fn cosine_window<T: Float>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T> {
     assert!(size > 1);

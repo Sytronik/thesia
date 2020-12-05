@@ -1,6 +1,5 @@
 // reference: https://librosa.org/doc/0.8.0/_modules/librosa/core/spectrum.html
-use ndarray::prelude::*;
-use ndarray::DataMut;
+use ndarray::{prelude::*, DataMut};
 use ndarray_stats::QuantileExt;
 use rustfft::num_traits::Float;
 

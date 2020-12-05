@@ -1,9 +1,9 @@
 // https://librosa.org/doc/0.8.0/_modules/librosa/filters.html#mel
 
-use ndarray::prelude::*;
-use ndarray::{azip, ScalarOperand};
-use rustfft::num_traits::Float;
 use std::ops::*;
+
+use ndarray::{azip, prelude::*, ScalarOperand};
+use rustfft::num_traits::Float;
 
 const MIN_LOG_MEL: usize = 15;
 const MIN_LOG_HZ: f64 = 1000.;

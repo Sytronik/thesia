@@ -1,5 +1,4 @@
-use image::{imageops, ImageBuffer, Luma};
-use image::{Rgb, RgbImage};
+use image::{imageops, ImageBuffer, Luma, Rgb, RgbImage};
 use ndarray::prelude::*;
 
 const COLORMAP: [[u8; 3]; 10] = [

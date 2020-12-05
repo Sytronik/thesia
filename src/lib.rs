@@ -1,11 +1,8 @@
-use ndarray::prelude::*;
-use ndarray::{stack, RemoveAxis, ScalarOperand, Slice};
-use rayon::prelude::*;
-use rustfft::num_complex::Complex;
-use rustfft::num_traits::identities::*;
-use rustfft::num_traits::{Float, Num};
-use rustfft::FFTnum;
 use std::ops::*;
+
+use ndarray::{prelude::*, ScalarOperand};
+use rayon::prelude::*;
+use rustfft::{num_complex::Complex, num_traits::Float, FFTnum};
 use wasm_bindgen::prelude::*;
 
 pub mod audio;
@@ -13,72 +10,11 @@ pub mod decibel;
 pub mod display;
 pub mod mel;
 pub mod realfft;
+pub mod utils;
 pub mod windows;
 use decibel::DeciBelInplace;
 use realfft::RealFFT;
-
-trait Impulse {
-    fn impulse(size: usize, location: usize) -> Self;
-}
-
-impl<A> Impulse for Array1<A>
-where
-    A: Clone + Zero + One,
-{
-    fn impulse(size: usize, location: usize) -> Self {
-        let mut new = Array1::<A>::zeros((size,));
-        new[location] = A::one();
-        new
-    }
-}
-
-pub fn rfft<A>(input: &Array1<A>) -> Array1<Complex<A>>
-where
-    A: FFTnum + Float,
-{
-    let n_fft = input.shape()[0];
-    let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
-    let mut output = Array1::<Complex<A>>::zeros(n_fft / 2 + 1);
-    r2c.process(&mut input.to_vec(), output.as_slice_mut().unwrap())
-        .unwrap();
-
-    output
-}
-
-pub enum PadMode<T> {
-    Constant(T),
-    Reflect,
-}
-
-pub fn pad<A, D>(
-    array: ArrayView<A, D>,
-    (n_pad_left, n_pad_right): (usize, usize),
-    axis: Axis,
-    mode: PadMode<A>,
-) -> Array<A, D>
-where
-    A: Copy + Num,
-    D: Dimension + RemoveAxis,
-{
-    match mode {
-        PadMode::Constant(constant) => {
-            let mut shape_left = array.raw_dim();
-            let mut shape_right = array.raw_dim();
-            shape_left[axis.index()] = n_pad_left;
-            shape_right[axis.index()] = n_pad_right;
-            let pad_left = Array::from_elem(shape_left, constant);
-            let pad_right = Array::from_elem(shape_right, constant);
-            stack![axis, pad_left.view(), array, pad_right.view()]
-        }
-        PadMode::Reflect => {
-            let s_left_reflect = Slice::new(1, Some(n_pad_left as isize + 1), -1);
-            let s_right_reflect = Slice::new(-(n_pad_right as isize + 1), Some(-1), -1);
-            let pad_left = array.slice_axis(axis, s_left_reflect);
-            let pad_right = array.slice_axis(axis, s_right_reflect);
-            stack![axis, pad_left, array, pad_right]
-        }
-    }
-}
+use utils::{pad, PadMode};
 
 pub fn stft<A>(
     input: ArrayView1<A>,
@@ -148,41 +84,11 @@ pub fn get_spectrogram(path: &str, px_per_sec: f32, nheight: u32) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-
-    use ndarray::{arr1, arr2, Array1};
+    use ndarray::{arr2, Array1};
     use rustfft::num_complex::Complex;
 
-    // Compare RealToComplex with standard FFT
-    #[test]
-    fn impulse_works() {
-        assert_eq!(Array1::<f32>::impulse(4, 0), arr1(&[1., 0., 0., 0.]));
-    }
-
-    #[test]
-    fn rfft_wrapper_works() {
-        assert_eq!(
-            rfft(&Array1::<f32>::impulse(4, 0)),
-            arr1(&[Complex::<f32>::new(1., 0.); 3])
-        );
-    }
-
-    #[test]
-    fn pad_works() {
-        assert_eq!(
-            pad(
-                arr2(&[[1, 2, 3]]).view(),
-                (1, 2),
-                Axis(0),
-                PadMode::Constant(10)
-            ),
-            arr2(&[[10, 10, 10], [1, 2, 3], [10, 10, 10], [10, 10, 10]])
-        );
-        assert_eq!(
-            pad(arr2(&[[1, 2, 3]]).view(), (1, 2), Axis(1), PadMode::Reflect),
-            arr2(&[[2, 1, 2, 3, 2, 1]])
-        );
-    }
+    use super::utils::Impulse;
+    use super::*;
 
     #[test]
     fn stft_works() {
