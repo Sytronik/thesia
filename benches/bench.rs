@@ -1,11 +1,11 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use multi_spectrogram_viewer::{audio, decibel::DeciBelInplace, display, mel, stft};
+use multi_spectrogram_viewer::{audio, decibel::DeciBelInplace, display, mel, perform_stft};
 use ndarray::prelude::*;
 
 fn get_melspectrogram(wav: ArrayView1<f32>, sr: u32) -> Array2<f32> {
-    let spec = stft(wav, 1920, 480, false);
-    let mag = spec.mapv(|x| x.norm());
-    let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
+    let stft = perform_stft(wav, 1920, 480, None, false);
+    let linspec = stft.mapv(|x| x.norm());
+    let mut melspec = linspec.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
     melspec.amp_to_db_default();
     melspec
 }

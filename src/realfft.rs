@@ -157,6 +157,10 @@ where
         output[fftlen] = Complex::new(self.buffer_out[0].re - self.buffer_out[0].im, T::zero());
         Ok(())
     }
+
+    pub fn get_length(&self) -> usize {
+        self.length
+    }
 }
 
 /// Create a new ComplexToReal iFFT for output data of a given length. Returns an error if the length is not even.
