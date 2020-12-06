@@ -230,12 +230,15 @@ where
     let mut frames: Vec<Array1<A>> = to_frames_wrapper(input.slice(s![first_idx..]));
 
     first_idx += frames.len() * hop_length;
-    let back_wav = pad(
-        input.slice(s![first_idx..]),
-        (win_length / 2, 0),
+    let back_wav_start_idx = first_idx.min(input.len() - win_length / 2 - 1);
+
+    let mut back_wav = pad(
+        input.slice(s![back_wav_start_idx..]),
+        (0, win_length / 2),
         Axis(0),
         PadMode::Reflect,
     );
+    back_wav.slice_collapse(s![(first_idx - back_wav_start_idx).max(0)..]);
     let mut back_frames = to_frames_wrapper(back_wav.view());
 
     let n_frames = front_frames.len() + frames.len() + back_frames.len();
@@ -307,11 +310,23 @@ mod tests {
     fn stft_works() {
         assert_eq!(
             perform_stft(Array1::<f32>::impulse(4, 2).view(), 4, 2, None, false),
-            arr2(&[[
-                Complex::<f32>::new(1., 0.),
-                Complex::<f32>::new(-1., 0.),
-                Complex::<f32>::new(1., 0.)
-            ]])
+            arr2(&[
+                [
+                    Complex::<f32>::new(0., 0.),
+                    Complex::<f32>::new(0., 0.),
+                    Complex::<f32>::new(0., 0.)
+                ],
+                [
+                    Complex::<f32>::new(1. / 4., 0.),
+                    Complex::<f32>::new(-1. / 4., 0.),
+                    Complex::<f32>::new(1. / 4., 0.)
+                ],
+                [
+                    Complex::<f32>::new(1. / 4., 0.),
+                    Complex::<f32>::new(-1. / 4., 0.),
+                    Complex::<f32>::new(1. / 4., 0.)
+                ]
+            ])
         );
     }
 
