@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use multi_spectrogram_viewer::{audio, decibel::DeciBelInplace, display, mel, perform_stft};
+use thesia::{audio, decibel::DeciBelInplace, display, mel, perform_stft};
 use ndarray::prelude::*;
+use ndarray_stats::QuantileExt;
 
 fn get_melspectrogram(wav: ArrayView1<f32>, sr: u32) -> Array2<f32> {
     let stft = perform_stft(wav, 1920, 480, None, false);
@@ -11,7 +12,7 @@ fn get_melspectrogram(wav: ArrayView1<f32>, sr: u32) -> Array2<f32> {
 }
 
 fn draw_spec(spec: ArrayView2<f32>, nwidth: u32) {
-    display::spec_to_image(spec, nwidth, 100);
+    display::spec_to_image(spec, nwidth, 100, *spec.max().unwrap(), *spec.min().unwrap());
     // im.save("spec.png").unwrap();
 }
 

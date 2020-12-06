@@ -1,5 +1,5 @@
 {
-  "name": "multi-spectrogram-viewer",
+  "name": "thesia",
   "version": "0.1.0",
   "main": "src/electron.js",
   "private": true,

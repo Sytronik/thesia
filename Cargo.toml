@@ -1,10 +1,10 @@
 [package]
-name = "multi-spectrogram-viewer"
+name = "thesia"
 version = "0.1.0"
-authors = ["Sytronik Liu <sytronik210@gmail.com>"]
+authors = ["Sytronik <sytronik210@gmail.com>", "crackyachae <crackyache@gmail.com>"]
 edition = "2018"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/Sytronik/multi-spectrogram-viewer"
+repository = "https://github.com/Sytronik/thesia"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
