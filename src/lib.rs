@@ -3,6 +3,7 @@ use std::io;
 use std::ops::*;
 
 use ndarray::{prelude::*, ScalarOperand};
+use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 use rustfft::{num_complex::Complex, num_traits::Float, FFTnum};
 use wasm_bindgen::prelude::*;
@@ -35,15 +36,15 @@ impl AudioTrack {
     pub fn new(path: &str, setting: &SpecSetting) -> io::Result<Self> {
         let (wav, sr) = audio::open_audio_file(path)?;
         let wav = wav.sum_axis(Axis(0)); // TODO: stereo support
-        let mut result = AudioTrack {
+        let mut instance = AudioTrack {
             path: path.to_string(),
             wav,
             sr,
             spec: None,
             fft_module: None,
         };
-        result.get_or_calc_spec(setting);
-        Ok(result)
+        instance.get_or_calc_spec(setting);
+        Ok(instance)
     }
 
     pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<()> {
@@ -103,6 +104,8 @@ pub struct SpecSetting {
 pub struct MultiTrack {
     tracks: HashMap<usize, AudioTrack>,
     setting: SpecSetting,
+    max_db: f32,
+    min_db: f32,
 }
 
 #[wasm_bindgen]
@@ -117,6 +120,8 @@ impl MultiTrack {
                 f_overlap: 1,
                 freq_scale: FreqScale::Mel,
             },
+            max_db: 0.,
+            min_db: -120.,
         }
     }
 
@@ -130,18 +135,46 @@ impl MultiTrack {
                 },
             );
         }
+        self.update_db_scale();
         Ok(())
+    }
+
+    fn update_db_scale(&mut self) {
+        let (max, min) = self
+            .tracks
+            .par_iter()
+            .map(|(_, track)| {
+                let spec = if let Some(x) = track.spec.as_ref() {
+                    x
+                } else {
+                    return (-f32::INFINITY, f32::INFINITY);
+                };
+                let max = *spec.max().unwrap_or(&-f32::INFINITY);
+                let min = *spec.min().unwrap_or(&f32::INFINITY);
+                (max, min)
+            })
+            .reduce(
+                || (-f32::INFINITY, f32::INFINITY),
+                |(max, min), (current_max, current_min)| {
+                    let max = if current_max > max { current_max } else { max };
+                    let min = if current_min < min { current_min } else { min };
+                    (max, min)
+                },
+            );
+        self.max_db = if max.is_finite() { max } else { 0. };
+        self.min_db = if max.is_finite() { min } else { -120. };
     }
 
     pub fn remove_track(&mut self, id: usize) {
         self.tracks.remove(&id);
+        self.update_db_scale();
     }
 
     pub fn get_spec_image(&mut self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
         let track = self.tracks.get_mut(&id).unwrap();
         let nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
         let specview = track.get_or_calc_spec(&self.setting);
-        display::spec_to_image(specview, nwidth, nheight).into_raw()
+        display::spec_to_image(specview, nwidth, nheight, self.max_db, self.min_db).into_raw()
     }
 }
 
@@ -181,26 +214,20 @@ where
     let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
 
     let mut window = windows::hann(win_length, false);
-    // window /= A::from(n_fft).unwrap();
+    window /= A::from(n_fft).unwrap();
 
-    let to_frames_wrap = |x| {
-        to_windowed_frames(
-            x,
-            window.view(),
-            hop_length,
-            (n_pad_left, n_pad_right),
-        )
-    };
+    let to_frames_wrapper =
+        |x| to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right));
     let front_wav = pad(
         input.slice(s![..(win_length - 1)]),
         (win_length / 2, 0),
         Axis(0),
         PadMode::Reflect,
     );
-    let mut front_frames = to_frames_wrap(front_wav.view());
+    let mut front_frames = to_frames_wrapper(front_wav.view());
 
     let mut first_idx = front_frames.len() * hop_length - win_length / 2;
-    let mut frames: Vec<Array1<A>> = to_frames_wrap(input.slice(s![first_idx..]));
+    let mut frames: Vec<Array1<A>> = to_frames_wrapper(input.slice(s![first_idx..]));
 
     first_idx += frames.len() * hop_length;
     let back_wav = pad(
@@ -209,7 +236,7 @@ where
         Axis(0),
         PadMode::Reflect,
     );
-    let mut back_frames = to_frames_wrap(back_wav.view());
+    let mut back_frames = to_frames_wrapper(back_wav.view());
 
     let n_frames = front_frames.len() + frames.len() + back_frames.len();
     let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
@@ -258,7 +285,13 @@ pub fn get_spectrogram(path: &str, px_per_sec: f32, nheight: u32) -> Vec<u8> {
     let mag = spec.mapv(|x| x.norm());
     let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
     melspec.amp_to_db_default();
-    let im = display::spec_to_image(melspec.view(), nwidth, nheight);
+    let im = display::spec_to_image(
+        melspec.view(),
+        nwidth,
+        nheight,
+        *melspec.max().unwrap(),
+        *melspec.min().unwrap(),
+    );
     im.into_raw()
 }
 
@@ -280,5 +313,12 @@ mod tests {
                 Complex::<f32>::new(1., 0.)
             ]])
         );
+    }
+
+    #[test]
+    fn multitrack_works() {
+        let mut multitrack = MultiTrack::new();
+        multitrack.add_tracks(&[0], "sample.wav").unwrap();
+        multitrack.get_spec_image(0, 100., 300);
     }
 }

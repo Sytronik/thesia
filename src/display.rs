@@ -31,7 +31,7 @@ fn convert_grey_to_color(x: f32) -> Rgb<u8> {
     }
 }
 
-pub fn spec_to_image(spec_db: ArrayView2<f32>, nwidth: u32, nheight: u32) -> RgbImage {
+pub fn spec_to_image(spec_db: ArrayView2<f32>, nwidth: u32, nheight: u32, max_db: f32, min_db: f32) -> RgbImage {
     // let im = RgbImage::from_fn(
     //     spec_db.shape()[0] as u32, spec_db.shape()[1] as u32,
     //     |x, y| {
@@ -39,8 +39,6 @@ pub fn spec_to_image(spec_db: ArrayView2<f32>, nwidth: u32, nheight: u32) -> Rgb
     //     }
     // );
     // imageops::resize(&im, nwidth, nheight, imageops::FilterType::Lanczos3)
-    let min_db = -100f32;
-    let max_db = 20f32;
     let im = ImageBuffer::<Luma<f32>, Vec<f32>>::from_fn(
         spec_db.shape()[0] as u32,
         spec_db.shape()[1] as u32,

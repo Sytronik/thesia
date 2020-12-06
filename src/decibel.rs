@@ -4,8 +4,8 @@ use ndarray_stats::QuantileExt;
 use rustfft::num_traits::Float;
 
 const REF_DEFAULT: f32 = 1.0;
-const AMIN_AMP_DEFAULT: f32 = 1e-5;
-const AMIN_POWER_DEFAULT: f32 = 1e-10;
+const AMIN_AMP_DEFAULT: f32 = 1e-6;
+const AMIN_POWER_DEFAULT: f32 = 1e-12;
 const TOP_DB_DEFAULT: f32 = 120.;
 
 pub enum DeciBelRef<A: Float> {
@@ -55,8 +55,8 @@ where
                 log_amin - log_ref
             }
         });
-        let result_min = *self.max().unwrap() - top;
-        self.mapv_inplace(|x| if x > result_min { x } else { result_min });
+        let lower_bound = *self.max().unwrap() - top;
+        self.mapv_inplace(|x| if x > lower_bound { x } else { lower_bound });
     }
 
     fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A, top_db: A)
