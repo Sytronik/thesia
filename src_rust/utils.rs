@@ -1,4 +1,4 @@
-use ndarray::{prelude::*, stack, Data, RemoveAxis, Slice};
+use ndarray::{prelude::*, concatenate, Data, RemoveAxis, Slice};
 use rustfft::{
     num_complex::Complex,
     num_traits::{
@@ -70,14 +70,14 @@ where
             shape_right[axis.index()] = n_pad_right;
             let pad_left = Array::from_elem(shape_left, constant);
             let pad_right = Array::from_elem(shape_right, constant);
-            stack![axis, pad_left.view(), array, pad_right.view()]
+            concatenate![axis, pad_left.view(), array, pad_right.view()]
         }
         PadMode::Reflect => {
             let s_left_reflect = Slice::new(1, Some(n_pad_left as isize + 1), -1);
             let s_right_reflect = Slice::new(-(n_pad_right as isize + 1), Some(-1), -1);
             let pad_left = array.slice_axis(axis, s_left_reflect);
             let pad_right = array.slice_axis(axis, s_right_reflect);
-            stack![axis, pad_left, array, pad_right]
+            concatenate![axis, pad_left, array, pad_right]
         }
     }
 }
