@@ -1,0 +1,40 @@
+[package]
+name = "multi-spectrogram-viewer"
+version = "0.1.0"
+authors = ["Sytronik Liu <sytronik210@gmail.com>"]
+edition = "2018"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/Sytronik/multi-spectrogram-viewer"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src_rust/lib.rs"
+
+[dependencies]
+# ndarray = "0.14.0"
+ndarray = { version = "0.13.0", features = ["rayon", "approx"] }
+ndarray-stats = "0.3.0"
+rayon = "1.5.0"
+# blas-src = { version = "0.2.0", default-features = false, features = ["openblas"] }
+num-traits = "0.2.11"
+rustfft = "4.0.0"
+rodio = { version = "0.13.0", default-features = false, features=["flac", "vorbis", "wav"] }
+hound = "3.4.0"
+image = "0.23.12"
+wasm-bindgen = "0.2.69"
+approx = {version = "0.4.0", features = ["num-complex"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.13"
+criterion = "0.3"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[[bench]]
+name = "bench"
+harness = false
