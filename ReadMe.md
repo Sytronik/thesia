@@ -1,22 +1,18 @@
-# Multi-track Spectrogram / Waveform Viewer
+# Thesia: Multi-track Spectrogram / Waveform Viewer
 
 This project is in a very early stage.
 
-![screenshot](./screenshot.png)
+## Run
 
-## Usage
-
-(Tested on python>=3.6)
 ```
-./main.py [-p PORT(default: 8080)]
+wasm-pack build
+npm start
 ```
-And open an web browser: http://0.0.0.0:8080/
 
 ## Plan
 
-- [ ] Incrementally adding / removing audio files (Currently uploading files overrides the entire file list.)
-- [ ] floating tools: dB colorbar, waveform zoom in/out slider, track height control slider
+- [ ] zoom in / out
+- [ ] floating tools: dB colorbar, waveform amplitude zoom in/out slider
 - [ ] selecting spectrogram mode / waveform mode
-- [ ] performance improvement (by not using Dash/Plotly)
 - [ ] Audio Player
 - [ ] Adaptive STFT (sth like iZotope RX Editor)
