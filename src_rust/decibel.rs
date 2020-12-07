@@ -4,9 +4,8 @@ use ndarray_stats::QuantileExt;
 use rustfft::num_traits::Float;
 
 const REF_DEFAULT: f32 = 1.0;
-const AMIN_AMP_DEFAULT: f32 = 1e-6;
-const AMIN_POWER_DEFAULT: f32 = 1e-12;
-const TOP_DB_DEFAULT: f32 = 120.;
+const AMIN_AMP_DEFAULT: f32 = 1e-18;
+const AMIN_POWER_DEFAULT: f32 = 1e-36;
 
 pub enum DeciBelRef<A: Float> {
     Value(A),
@@ -14,9 +13,9 @@ pub enum DeciBelRef<A: Float> {
 }
 
 pub trait DeciBelInplace<A: Float> {
-    fn log_for_db(&mut self, reference: DeciBelRef<A>, amin: A, top: A);
-    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A, top_db: A);
-    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A, top_db: A);
+    fn log_for_db(&mut self, reference: DeciBelRef<A>, amin: A);
+    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A);
+    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A);
     fn amp_to_db_default(&mut self);
     fn power_to_db_default(&mut self);
     fn db_to_amp(&mut self, ref_value: A);
@@ -31,10 +30,9 @@ where
     S: DataMut<Elem = A>,
     D: Dimension,
 {
-    fn log_for_db(&mut self, reference: DeciBelRef<A>, amin: A, top: A) {
+    fn log_for_db(&mut self, reference: DeciBelRef<A>, amin: A) {
         assert!(self.iter().all(|&x| x >= A::zero()));
         assert!(amin >= A::zero());
-        assert!(top >= A::zero());
         let ref_value = match reference {
             DeciBelRef::Value(v) => {
                 assert!(v >= A::zero());
@@ -55,27 +53,25 @@ where
                 log_amin - log_ref
             }
         });
-        let lower_bound = *self.max().unwrap() - top;
-        self.mapv_inplace(|x| if x > lower_bound { x } else { lower_bound });
     }
 
-    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A, top_db: A)
+    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A)
     where
         A: Float,
         D: Dimension,
     {
         let factor = A::from(10.).unwrap();
-        self.log_for_db(reference, amin, top_db / factor);
+        self.log_for_db(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
-    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A, top_db: A)
+    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A)
     where
         A: Float,
         D: Dimension,
     {
         let factor = A::from(20.).unwrap();
-        self.log_for_db(reference, amin, top_db / factor);
+        self.log_for_db(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
@@ -88,7 +84,6 @@ where
         self.amp_to_db(
             DeciBelRef::Value(A::from(REF_DEFAULT).unwrap()),
             A::from(AMIN_AMP_DEFAULT).unwrap(),
-            A::from(TOP_DB_DEFAULT).unwrap(),
         );
     }
 
@@ -101,7 +96,6 @@ where
         self.power_to_db(
             DeciBelRef::Value(A::from(REF_DEFAULT).unwrap()),
             A::from(AMIN_POWER_DEFAULT).unwrap(),
-            A::from(TOP_DB_DEFAULT).unwrap(),
         );
     }
 

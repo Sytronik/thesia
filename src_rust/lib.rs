@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io;
 use std::ops::*;
 
+use approx::abs_diff_ne;
 use ndarray::{prelude::*, ScalarOperand};
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
@@ -98,6 +99,7 @@ pub struct SpecSetting {
     t_overlap: usize,
     f_overlap: usize,
     freq_scale: FreqScale,
+    db_range: f32,
 }
 
 #[wasm_bindgen]
@@ -119,6 +121,7 @@ impl MultiTrack {
                 t_overlap: 4,
                 f_overlap: 1,
                 freq_scale: FreqScale::Mel,
+                db_range: 120.,
             },
             max_db: 0.,
             min_db: -120.,
@@ -139,8 +142,8 @@ impl MultiTrack {
         Ok(())
     }
 
-    fn update_db_scale(&mut self) {
-        let (max, min) = self
+    fn update_db_scale(&mut self) -> bool {
+        let (mut max, mut min) = self
             .tracks
             .par_iter()
             .map(|(_, track)| {
@@ -155,14 +158,26 @@ impl MultiTrack {
             })
             .reduce(
                 || (-f32::INFINITY, f32::INFINITY),
-                |(max, min), (current_max, current_min)| {
-                    let max = if current_max > max { current_max } else { max };
-                    let min = if current_min < min { current_min } else { min };
-                    (max, min)
+                |(max, min): (f32, f32), (current_max, current_min)| {
+                    (max.max(current_max), min.min(current_min))
                 },
             );
-        self.max_db = if max.is_finite() { max } else { 0. };
-        self.min_db = if max.is_finite() { min } else { -120. };
+        if max.is_infinite() {
+            max = 0.
+        }
+        if min < max - self.setting.db_range {
+            min = max - self.setting.db_range;
+        }
+        let mut changed = false;
+        if abs_diff_ne!(self.max_db, max, epsilon = 1e-3) {
+            self.max_db = max;
+            changed = true;
+        }
+        if abs_diff_ne!(self.min_db, min, epsilon = 1e-3) {
+            self.min_db = min;
+            changed = true;
+        }
+        changed
     }
 
     pub fn remove_track(&mut self, id: usize) {
