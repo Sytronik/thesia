@@ -108,6 +108,8 @@ pub struct MultiTrack {
     setting: SpecSetting,
     max_db: f32,
     min_db: f32,
+    max_sec: f32,
+    id_max_sec: usize,
 }
 
 #[wasm_bindgen]
@@ -125,21 +127,25 @@ impl MultiTrack {
             },
             max_db: 0.,
             min_db: -120.,
+            max_sec: 0.,
+            id_max_sec: 0,
         }
     }
 
-    pub fn add_tracks(&mut self, id_list: &[usize], path_list: &str) -> Result<(), JsValue> {
+    pub fn add_tracks(&mut self, id_list: &[usize], path_list: &str) -> Result<bool, JsValue> {
         for (&id, path) in id_list.iter().zip(path_list.split("\n").into_iter()) {
-            self.tracks.insert(
-                id,
-                match AudioTrack::new(path, &self.setting) {
-                    Ok(track) => track,
-                    Err(err) => return Err(JsValue::from(err.to_string())),
-                },
-            );
+            let track = match AudioTrack::new(path, &self.setting) {
+                Ok(track) => track,
+                Err(err) => return Err(JsValue::from(err.to_string())),
+            };
+            let sec = track.wav.len() as f32 / track.sr as f32;
+            if sec > self.max_sec {
+                self.max_sec = sec;
+                self.id_max_sec = id;
+            }
+            self.tracks.insert(id, track);
         }
-        self.update_db_scale();
-        Ok(())
+        Ok(self.update_db_scale())
     }
 
     fn update_db_scale(&mut self) -> bool {
@@ -180,9 +186,26 @@ impl MultiTrack {
         changed
     }
 
-    pub fn remove_track(&mut self, id: usize) {
+    pub fn remove_track(&mut self, id: usize) -> bool {
         self.tracks.remove(&id);
-        self.update_db_scale();
+        if self.id_max_sec == id {
+            let (id, max_sec) = self.tracks
+                .par_iter()
+                .map(|(id, track)| (*id, track.wav.len() as f32 / track.sr as f32))
+                .reduce(
+                    || (0, 0.),
+                    |(id_max, max), (id, sec)| {
+                        if sec > max {
+                            (id, sec)
+                        } else {
+                            (id_max, max)
+                        }
+                    },
+                );
+            self.id_max_sec = id;
+            self.max_sec = max_sec;
+        }
+        self.update_db_scale()
     }
 
     pub fn get_spec_image(&mut self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
