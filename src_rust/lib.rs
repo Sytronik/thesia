@@ -132,6 +132,7 @@ impl MultiTrack {
         }
     }
 
+    #[wasm_bindgen(catch)]
     pub fn add_tracks(&mut self, id_list: &[usize], path_list: &str) -> Result<bool, JsValue> {
         for (&id, path) in id_list.iter().zip(path_list.split("\n").into_iter()) {
             let track = match AudioTrack::new(path, &self.setting) {
