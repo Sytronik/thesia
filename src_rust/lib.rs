@@ -318,22 +318,12 @@ where
 }
 
 #[wasm_bindgen]
-pub fn get_spectrogram(path: &str, px_per_sec: f32, nheight: u32) -> Vec<u8> {
-    let (wav, sr) = audio::open_audio_file(path).unwrap();
-    let wav = wav.sum_axis(Axis(0));
-    let nwidth = (px_per_sec * wav.len() as f32 / sr as f32) as u32;
-    let spec = perform_stft(wav.view(), 1920, 480, None, false);
-    let mag = spec.mapv(|x| x.norm());
-    let mut melspec = mag.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
-    melspec.amp_to_db_default();
-    let im = display::spec_to_image(
-        melspec.view(),
-        nwidth,
-        nheight,
-        *melspec.max().unwrap(),
-        *melspec.min().unwrap(),
-    );
-    im.into_raw()
+pub fn get_colormap() -> Vec<u8> {
+    display::COLORMAP
+        .iter()
+        .flat_map(|x| x.iter())
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]

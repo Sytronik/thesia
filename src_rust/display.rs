@@ -1,7 +1,7 @@
 use image::{imageops, ImageBuffer, Luma, Rgb, RgbImage};
 use ndarray::prelude::*;
 
-const COLORMAP: [[u8; 3]; 10] = [
+pub const COLORMAP: [[u8; 3]; 10] = [
     [0, 0, 4],
     [27, 12, 65],
     [74, 12, 107],
