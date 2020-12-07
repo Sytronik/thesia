@@ -328,6 +328,7 @@ pub fn get_colormap() -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use image::RgbImage;
     use ndarray::{arr2, Array1};
     use rustfft::num_complex::Complex;
 
@@ -362,6 +363,8 @@ mod tests {
     fn multitrack_works() {
         let mut multitrack = MultiTrack::new();
         multitrack.add_tracks(&[0], "samples/sample.wav").unwrap();
-        multitrack.get_spec_image(0, 100., 300);
+        let imvec = multitrack.get_spec_image(0, 100., 300);
+        let im = RgbImage::from_vec((imvec.len() / 300 / 3) as u32, 300, imvec).unwrap();
+        im.save("spec.png").unwrap();
     }
 }
