@@ -215,6 +215,18 @@ impl MultiTrack {
         let specview = track.get_or_calc_spec(&self.setting);
         display::spec_to_image(specview, nwidth, nheight, self.max_db, self.min_db).into_raw()
     }
+
+    pub fn get_max_db(&self) -> f32 {
+        self.max_db
+    }
+
+    pub fn get_min_db(&self) -> f32 {
+        self.min_db
+    }
+
+    pub fn get_max_sec(&self) -> f32 {
+        self.max_sec
+    }
 }
 
 fn to_windowed_frames<A: Float>(
