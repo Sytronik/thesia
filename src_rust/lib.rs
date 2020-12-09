@@ -411,8 +411,8 @@ mod tests {
     fn multitrack_works() {
         let mut multitrack = MultiTrack::new();
         multitrack.add_tracks(&[0], "samples/sample.wav").unwrap();
-        let imvec = multitrack.get_spec_image(0, 100., 300);
-        let im = RgbImage::from_vec((imvec.len() / 300 / 3) as u32, 300, imvec).unwrap();
+        let imvec = multitrack.get_spec_image(0, 100., 500);
+        let im = RgbImage::from_vec((imvec.len() / 500 / 3) as u32, 500, imvec).unwrap();
         im.save("spec.png").unwrap();
         multitrack.remove_track(0);
     }

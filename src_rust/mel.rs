@@ -68,18 +68,24 @@ where
     mel_freqs.par_mapv_inplace(mel_to_hz);
     Zip::indexed(weights.axis_iter_mut(Axis(1))).par_apply(|i_m, mut w| {
         for (i_f, &freq) in linear_freqs.indexed_iter() {
-            if mel_freqs[i_m] < freq && freq <= mel_freqs[i_m + 1] {
+            if freq <= mel_freqs[i_m] {
+                continue;
+            }
+            else if mel_freqs[i_m] < freq && freq < mel_freqs[i_m + 1] {
                 w[i_f] = (freq - mel_freqs[i_m]) / (mel_freqs[i_m + 1] - mel_freqs[i_m]);
             }
-            if mel_freqs[i_m + 1] < freq && freq < mel_freqs[i_m + 2] {
+            else if freq == mel_freqs[i_m + 1] {
+                w[i_f] = A::one();
+            }
+            else if mel_freqs[i_m + 1] < freq && freq < mel_freqs[i_m + 2] {
                 w[i_f] = (mel_freqs[i_m + 2] - freq) / (mel_freqs[i_m + 2] - mel_freqs[i_m + 1]);
             }
-            if freq >= mel_freqs[i_m + 2] {
+            else {
                 break;
             }
         }
         if do_norm {
-            w *= A::from(2).unwrap() / (mel_freqs[i_m + 2] - mel_freqs[i_m]);
+            w /= w.sum();
         }
     });
     weights
