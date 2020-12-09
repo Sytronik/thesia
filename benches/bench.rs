@@ -1,18 +1,24 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use thesia::{audio, decibel::DeciBelInplace, display, mel, perform_stft};
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
+use thesia::{audio, decibel::DeciBelInplace, display, mel, perform_stft};
 
 fn get_melspectrogram(wav: ArrayView1<f32>, sr: u32) -> Array2<f32> {
     let stft = perform_stft(wav, 1920, 480, None, false);
     let linspec = stft.mapv(|x| x.norm());
-    let mut melspec = linspec.dot(&mel::mel_filterbanks(sr, 2048, 128, 0f32, None));
+    let mut melspec = linspec.dot(&mel::calc_mel_fb(sr, 2048, 128, 0f32, None, true));
     melspec.amp_to_db_default();
     melspec
 }
 
 fn draw_spec(spec: ArrayView2<f32>, nwidth: u32) {
-    display::spec_to_image(spec, nwidth, 100, *spec.max().unwrap(), *spec.min().unwrap());
+    display::spec_to_image(
+        spec,
+        nwidth,
+        100,
+        *spec.max().unwrap(),
+        *spec.min().unwrap(),
+    );
     // im.save("spec.png").unwrap();
 }
 

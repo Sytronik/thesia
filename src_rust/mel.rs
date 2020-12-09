@@ -2,7 +2,7 @@
 
 use std::ops::*;
 
-use ndarray::{azip, prelude::*, ScalarOperand};
+use ndarray::{prelude::*, ScalarOperand, Zip};
 use rustfft::num_traits::Float;
 
 const MIN_LOG_MEL: usize = 15;
@@ -11,7 +11,7 @@ const LOGSTEP: f64 = 0.06875177742094912; // 6.4.ln() / 27.
 const LINEARSCALE: f64 = 200. / 3.;
 
 #[inline]
-pub fn mel_to_hz<A: Float>(mel: A) -> A {
+fn mel_to_hz<A: Float>(mel: A) -> A {
     let min_log_mel = A::from(MIN_LOG_MEL).unwrap();
     if mel < min_log_mel {
         A::from(LINEARSCALE).unwrap() * mel
@@ -21,7 +21,7 @@ pub fn mel_to_hz<A: Float>(mel: A) -> A {
 }
 
 #[inline]
-pub fn hz_to_mel<A: Float>(freq: A) -> A {
+fn hz_to_mel<A: Float>(freq: A) -> A {
     let min_log_hz = A::from(MIN_LOG_HZ).unwrap();
     if freq < min_log_hz {
         freq / A::from(LINEARSCALE).unwrap()
@@ -30,64 +30,73 @@ pub fn hz_to_mel<A: Float>(freq: A) -> A {
     }
 }
 
-pub fn mel_filterbanks<A>(
+pub fn calc_mel_fb<A>(
     sr: u32,
     n_fft: usize,
     n_mel: usize,
     fmin: A,
     fmax: Option<A>,
+    do_norm: bool,
 ) -> Array2<A>
 where
-    A: Float + ScalarOperand + AddAssign + Sub + SubAssign + MulAssign + DivAssign + Div, /* + std::fmt::Debug*/
+    A: Float
+        + ScalarOperand
+        + AddAssign
+        + SubAssign
+        + MulAssign
+        + DivAssign
+        + Div
+        + Sync
+        + Send
+        + std::fmt::Debug,
 {
     assert_eq!(n_fft % 2, 0);
+    assert_ne!(n_mel, 0);
     let fmax = match fmax {
         Some(f) => f,
         None => A::from((sr as f32) / 2.).unwrap(),
     };
-    let norm = 1;
     let n_freq = n_fft / 2 + 1;
-    let mut weights = Array2::<A>::zeros((n_freq, n_mel + 2));
+
+    let mut weights = Array2::<A>::zeros((n_freq, n_mel));
 
     let min_mel = hz_to_mel(A::from(fmin).unwrap());
     let max_mel = hz_to_mel(A::from(fmax).unwrap());
-    // println!("{:?}", min_mel);
-    // println!("{:?}", max_mel);
-    let mut mel_f = Array::linspace(min_mel, max_mel, n_mel + 2);
-    mel_f.mapv_inplace(mel_to_hz);
-    let fdiff = &mel_f.slice(s![1..]) - &mel_f.slice(s![0..-1]);
-    weights -= &Array::linspace(A::zero(), A::from((sr as f32) / 2.).unwrap(), n_freq)
-        .into_shape((n_freq, 1))
-        .unwrap();
-    weights += &mel_f;
 
-    // println!("{:?}", weights);
-    // println!("{:?}", mel_f);
-
-    for i_mel in 0..n_mel {
-        let mut upper = weights.index_axis(Axis(1), i_mel + 2).to_owned();
-        upper /= fdiff[i_mel + 1];
-
-        let mut w = weights.index_axis_mut(Axis(1), i_mel);
-        w /= -fdiff[i_mel]; // lower
-        azip!((x in &mut w, &u in &upper) {
-            if *x > u {
-                *x = u;
+    let linear_freqs = Array::linspace(A::zero(), A::from((sr as f32) / 2.).unwrap(), n_freq);
+    let mut mel_freqs = Array::linspace(min_mel, max_mel, n_mel + 2);
+    mel_freqs.par_mapv_inplace(mel_to_hz);
+    Zip::indexed(weights.axis_iter_mut(Axis(1))).par_apply(|i_m, mut w| {
+        for (i_f, &freq) in linear_freqs.indexed_iter() {
+            if mel_freqs[i_m] < freq && freq <= mel_freqs[i_m + 1] {
+                w[i_f] = (freq - mel_freqs[i_m]) / (mel_freqs[i_m + 1] - mel_freqs[i_m]);
             }
-            if *x <= A::zero() {
-                *x = A::zero();
+            if mel_freqs[i_m + 1] < freq && freq < mel_freqs[i_m + 2] {
+                w[i_f] = (mel_freqs[i_m + 2] - freq) / (mel_freqs[i_m + 2] - mel_freqs[i_m + 1]);
             }
-        });
-    }
-
-    let mut weights = weights.slice_move(s![.., ..n_mel]);
-    if norm == 1 {
-        let mut enorm = &mel_f.slice(s![2..(n_mel + 2)]) - &mel_f.slice(s![..n_mel]);
-        enorm.mapv_inplace(|x| A::from(2.).unwrap() / x);
-        // println!("{:?}", enorm);
-        weights *= &enorm;
-    }
+            if freq >= mel_freqs[i_m + 2] {
+                break;
+            }
+        }
+        if do_norm {
+            w *= A::from(2).unwrap() / (mel_freqs[i_m + 2] - mel_freqs[i_m]);
+        }
+    });
     weights
+}
+
+pub fn calc_mel_fb_default(sr: u32, n_fft: usize) -> Array2<f32> {
+    let mut n_mel =
+        (2. * hz_to_mel(sr as f32 / 2.) / hz_to_mel(sr as f32 / n_fft as f32) - 1.) as usize;
+    n_mel = n_mel.min(n_fft / 2 + 1);
+
+    loop {
+        let mel_fb = calc_mel_fb(sr, n_fft, n_mel as usize, 0f32, None, true);
+        if mel_fb.sum_axis(Axis(0)).iter().all(|&x| x > 0.) {
+            break mel_fb;
+        }
+        n_mel -= 1;
+    }
 }
 
 #[cfg(test)]
@@ -116,11 +125,29 @@ mod tests {
             7.830185815691947937e-03,
             1.216269447468221188e-03,
         ];
-        let mel_fb = mel_filterbanks(24000, 2048, 80, 0f64, None);
+        let mel_fb = calc_mel_fb(24000, 2048, 80, 0f64, None, true);
         let mel_fb = mel_fb.t();
         mel_fb
             .iter()
             .zip(answer.iter())
             .for_each(|(&x, y)| assert_abs_diff_eq!(x, y, epsilon = 1e-8));
+    }
+
+    #[test]
+    fn mel_default_works() {
+        for sr in (400..=48000).step_by(400) {
+            for n_fft_exp in 4..15 {
+                let n_fft = 2usize.pow(n_fft_exp);
+                // println!("{:?}, {:?}", sr, n_fft);
+                let mel_fb = calc_mel_fb_default(sr, n_fft);
+                // println!("{:?}", mel_fb.shape());
+                assert!(mel_fb.sum_axis(Axis(0)).iter().all(|&x| x > 0.));
+                if mel_fb.shape()[1] == mel_fb.shape()[0] {
+                    continue;
+                }
+                let mel_fb_fail = calc_mel_fb(sr, n_fft, mel_fb.shape()[1] + 1, 0f32, None, true);
+                assert!(mel_fb_fail.sum_axis(Axis(0)).iter().any(|&x| x == 0.));
+            }
+        }
     }
 }

@@ -1,4 +1,4 @@
-use ndarray::{prelude::*, concatenate, Data, RemoveAxis, Slice};
+use ndarray::{concatenate, prelude::*, Data, RemoveAxis, Slice};
 use rustfft::{
     num_complex::Complex,
     num_traits::{

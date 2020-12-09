@@ -92,7 +92,7 @@ impl AudioTrack {
                     let mut melspec = if let Some(m) = mel_fb {
                         linspec.dot(&m)
                     } else {
-                        linspec.dot(&mel::mel_filterbanks(self.sr, self.n_fft, 128, 0f32, None))
+                        linspec.dot(&mel::calc_mel_fb_default(self.sr, self.n_fft))
                     };
                     melspec.amp_to_db_default();
                     melspec
@@ -149,7 +149,7 @@ impl MultiTrack {
             FreqScale::Mel => Some(
                 self.mel_fbs
                     .entry(track.sr)
-                    .or_insert(mel::mel_filterbanks(track.sr, track.n_fft, 128, 0f32, None))
+                    .or_insert(mel::calc_mel_fb_default(track.sr, track.n_fft))
                     .view(),
             ),
             _ => None,
