@@ -3,7 +3,7 @@ use std::io;
 use std::ops::*;
 
 use approx::abs_diff_ne;
-use ndarray::{prelude::*, ScalarOperand};
+use ndarray::{prelude::*, ArcArray1, ScalarOperand};
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 use rustfft::{num_complex::Complex, num_traits::Float, FFTnum};
@@ -65,6 +65,7 @@ impl AudioTrack {
     fn get_or_calc_spec(
         &mut self,
         setting: &SpecSetting,
+        window: Option<ArcArray1<f32>>,
         mel_fb: Option<ArrayView2<f32>>,
     ) -> ArrayView2<f32> {
         if self.spec.is_none() {
@@ -79,6 +80,8 @@ impl AudioTrack {
                 self.wav.view(),
                 self.win_length,
                 self.hop_length,
+                self.n_fft,
+                window,
                 Some(self.fft_module.as_mut().unwrap()),
                 false,
             );
@@ -120,6 +123,7 @@ pub struct MultiTrack {
     max_sec: f32,
     id_max_sec: usize,
     mel_fbs: HashMap<u32, Array2<f32>>,
+    windows: HashMap<u32, ArcArray1<f32>>,
 }
 
 #[wasm_bindgen]
@@ -140,11 +144,15 @@ impl MultiTrack {
             max_sec: 0.,
             id_max_sec: 0,
             mel_fbs: HashMap::new(),
+            windows: HashMap::new(),
         }
     }
 
     fn get_or_calc_spec_of(&mut self, id: usize) -> ArrayView2<f32> {
         let track = self.tracks.get_mut(&id).unwrap();
+        let window = ArcArray::clone(self.windows.entry(track.sr).or_insert({
+            (windows::hann(track.win_length, false) / track.n_fft as f32).into_shared()
+        }));
         let mel_fb_or_none = match self.setting.freq_scale {
             FreqScale::Mel => Some(
                 self.mel_fbs
@@ -154,7 +162,7 @@ impl MultiTrack {
             ),
             _ => None,
         };
-        track.get_or_calc_spec(&self.setting, mel_fb_or_none)
+        track.get_or_calc_spec(&self.setting, Some(window), mel_fb_or_none)
     }
 
     #[wasm_bindgen(catch)]
@@ -234,6 +242,7 @@ impl MultiTrack {
             self.max_sec = max_sec;
         }
         if self.tracks.par_iter().all(|(_, track)| track.sr != sr) {
+            self.windows.remove(&sr);
             self.mel_fbs.remove(&sr);
         }
         self.update_db_scale()
@@ -289,18 +298,23 @@ pub fn perform_stft<A>(
     input: ArrayView1<A>,
     win_length: usize,
     hop_length: usize,
+    n_fft: usize,
+    window: Option<ArcArray1<A>>,
     fft_module: Option<&mut RealFFT<A>>,
     parallel: bool,
 ) -> Array2<Complex<A>>
 where
     A: FFTnum + Float + DivAssign + ScalarOperand,
 {
-    let n_fft = 2usize.pow((win_length as f32).log2().ceil() as u32);
     let n_pad_left = (n_fft - win_length) / 2;
     let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
 
-    let mut window = windows::hann(win_length, false);
-    window /= A::from(n_fft).unwrap();
+    let window = if let Some(w) = window {
+        assert_eq!(w.len(), win_length);
+        w
+    } else {
+        (windows::hann(win_length, false) / A::from(n_fft).unwrap()).into_shared()
+    };
 
     let to_frames_wrapper =
         |x| to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right));
@@ -386,7 +400,15 @@ mod tests {
     #[test]
     fn stft_works() {
         assert_eq!(
-            perform_stft(Array1::<f32>::impulse(4, 2).view(), 4, 2, None, false),
+            perform_stft(
+                Array1::<f32>::impulse(4, 2).view(),
+                4,
+                2,
+                4,
+                None,
+                None,
+                false
+            ),
             arr2(&[
                 [
                     Complex::<f32>::new(0., 0.),
