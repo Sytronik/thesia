@@ -45,42 +45,35 @@ where
         + SubAssign
         + MulAssign
         + DivAssign
-        + Div
         + Sync
         + Send
         + std::fmt::Debug,
 {
     assert_eq!(n_fft % 2, 0);
     assert_ne!(n_mel, 0);
-    let fmax = match fmax {
-        Some(f) => f,
-        None => A::from((sr as f32) / 2.).unwrap(),
-    };
+    let f_nyquist = A::from((sr as f32) / 2.).unwrap();
+    let fmax = if let Some(f) = fmax { f } else { f_nyquist };
     let n_freq = n_fft / 2 + 1;
 
-    let mut weights = Array2::<A>::zeros((n_freq, n_mel));
+    let min_mel = hz_to_mel(fmin);
+    let max_mel = hz_to_mel(fmax);
 
-    let min_mel = hz_to_mel(A::from(fmin).unwrap());
-    let max_mel = hz_to_mel(A::from(fmax).unwrap());
-
-    let linear_freqs = Array::linspace(A::zero(), A::from((sr as f32) / 2.).unwrap(), n_freq);
+    let linear_freqs = Array::linspace(A::zero(), f_nyquist, n_freq);
     let mut mel_freqs = Array::linspace(min_mel, max_mel, n_mel + 2);
     mel_freqs.par_mapv_inplace(mel_to_hz);
+
+    let mut weights = Array2::<A>::zeros((n_freq, n_mel));
     Zip::indexed(weights.axis_iter_mut(Axis(1))).par_apply(|i_m, mut w| {
         for (i_f, &freq) in linear_freqs.indexed_iter() {
             if freq <= mel_freqs[i_m] {
                 continue;
-            }
-            else if mel_freqs[i_m] < freq && freq < mel_freqs[i_m + 1] {
+            } else if mel_freqs[i_m] < freq && freq < mel_freqs[i_m + 1] {
                 w[i_f] = (freq - mel_freqs[i_m]) / (mel_freqs[i_m + 1] - mel_freqs[i_m]);
-            }
-            else if freq == mel_freqs[i_m + 1] {
+            } else if freq == mel_freqs[i_m + 1] {
                 w[i_f] = A::one();
-            }
-            else if mel_freqs[i_m + 1] < freq && freq < mel_freqs[i_m + 2] {
+            } else if mel_freqs[i_m + 1] < freq && freq < mel_freqs[i_m + 2] {
                 w[i_f] = (mel_freqs[i_m + 2] - freq) / (mel_freqs[i_m + 2] - mel_freqs[i_m + 1]);
-            }
-            else {
+            } else {
                 break;
             }
         }

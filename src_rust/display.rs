@@ -23,9 +23,8 @@ fn convert_grey_to_color(x: f32) -> Rgb<u8> {
     } else {
         let ratio = position - index as f32;
         let mut color = [0u8; 3];
-        for (i, c) in color.iter_mut().enumerate() {
-            *c = (ratio * COLORMAP[index + 1][i] as f32 + (1. - ratio) * COLORMAP[index][i] as f32)
-                .round() as u8;
+        for (i, (&a, &b)) in COLORMAP[index].iter().zip(COLORMAP[index + 1].iter()).enumerate() {
+            color[i] = (ratio * b as f32 + (1. - ratio) * a as f32).round() as u8;
         }
         Rgb(color)
     }
