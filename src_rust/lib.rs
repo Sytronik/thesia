@@ -17,6 +17,7 @@ pub mod realfft;
 pub mod utils;
 pub mod windows;
 use decibel::DeciBelInplace;
+use display::GreyF32Image;
 use realfft::RealFFT;
 use utils::{calc_proper_n_fft, pad, PadMode};
 
@@ -32,8 +33,7 @@ pub struct AudioTrack {
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
-    spec: Option<Array2<f32>>,
-    fft_module: Option<RealFFT<f32>>,
+    fft_module: RealFFT<f32>,
 }
 
 impl AudioTrack {
@@ -44,6 +44,7 @@ impl AudioTrack {
         let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
         let win_length = hop_length * setting.t_overlap;
         let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
+        let fft_module = RealFFT::<f32>::new(n_fft).unwrap();
         Ok(AudioTrack {
             path: path.to_string(),
             wav,
@@ -51,8 +52,7 @@ impl AudioTrack {
             win_length,
             hop_length,
             n_fft,
-            spec: None,
-            fft_module: None,
+            fft_module,
         })
     }
 
@@ -60,49 +60,6 @@ impl AudioTrack {
         let new = AudioTrack::new(&self.path[..], setting)?;
         *self = new;
         Ok(())
-    }
-
-    fn get_or_calc_spec(
-        &mut self,
-        setting: &SpecSetting,
-        window: Option<ArcArray1<f32>>,
-        mel_fb: Option<ArrayView2<f32>>,
-    ) -> ArrayView2<f32> {
-        if self.spec.is_none() {
-            let need_new_module = match &self.fft_module {
-                Some(m) => m.get_length() != self.n_fft,
-                None => true,
-            };
-            if need_new_module {
-                self.fft_module = Some(RealFFT::new(self.n_fft).unwrap());
-            }
-            let stft = perform_stft(
-                self.wav.view(),
-                self.win_length,
-                self.hop_length,
-                self.n_fft,
-                window,
-                Some(self.fft_module.as_mut().unwrap()),
-                false,
-            );
-            let mut linspec = stft.mapv(|x| x.norm());
-            self.spec = Some(match setting.freq_scale {
-                FreqScale::Linear => {
-                    linspec.amp_to_db_default();
-                    linspec
-                }
-                FreqScale::Mel => {
-                    let mut melspec = if let Some(m) = mel_fb {
-                        linspec.dot(&m)
-                    } else {
-                        linspec.dot(&mel::calc_mel_fb_default(self.sr, self.n_fft))
-                    };
-                    melspec.amp_to_db_default();
-                    melspec
-                }
-            });
-        }
-        self.spec.as_ref().unwrap().view()
     }
 }
 
@@ -118,12 +75,14 @@ pub struct SpecSetting {
 pub struct MultiTrack {
     tracks: HashMap<usize, AudioTrack>,
     setting: SpecSetting,
+    mel_fbs: HashMap<u32, Array2<f32>>,
+    windows: HashMap<u32, ArcArray1<f32>>,
+    specs: HashMap<usize, Array2<f32>>,
+    spec_greys: HashMap<usize, GreyF32Image>,
     max_db: f32,
     min_db: f32,
     max_sec: f32,
     id_max_sec: usize,
-    mel_fbs: HashMap<u32, Array2<f32>>,
-    windows: HashMap<u32, ArcArray1<f32>>,
 }
 
 #[wasm_bindgen]
@@ -139,30 +98,52 @@ impl MultiTrack {
                 freq_scale: FreqScale::Mel,
                 db_range: 120.,
             },
-            max_db: 0.,
-            min_db: -120.,
-            max_sec: 0.,
-            id_max_sec: 0,
             mel_fbs: HashMap::new(),
             windows: HashMap::new(),
+            specs: HashMap::new(),
+            spec_greys: HashMap::new(),
+            max_db: -f32::INFINITY,
+            min_db: f32::INFINITY,
+            max_sec: 0.,
+            id_max_sec: 0,
         }
     }
 
-    fn get_or_calc_spec_of(&mut self, id: usize) -> ArrayView2<f32> {
+    fn calc_spec_of(&mut self, id: usize) {
         let track = self.tracks.get_mut(&id).unwrap();
         let window = ArcArray::clone(self.windows.entry(track.sr).or_insert({
             (windows::hann(track.win_length, false) / track.n_fft as f32).into_shared()
         }));
-        let mel_fb_or_none = match self.setting.freq_scale {
-            FreqScale::Mel => Some(
-                self.mel_fbs
-                    .entry(track.sr)
-                    .or_insert(mel::calc_mel_fb_default(track.sr, track.n_fft))
-                    .view(),
-            ),
-            _ => None,
-        };
-        track.get_or_calc_spec(&self.setting, Some(window), mel_fb_or_none)
+        let stft = perform_stft(
+            track.wav.view(),
+            track.win_length,
+            track.hop_length,
+            track.n_fft,
+            Some(window),
+            Some(&mut track.fft_module),
+            false,
+        );
+        let mut linspec = stft.mapv(|x| x.norm());
+        self.specs.insert(
+            id,
+            match self.setting.freq_scale {
+                FreqScale::Linear => {
+                    linspec.amp_to_db_default();
+                    linspec
+                }
+                FreqScale::Mel => {
+                    let mel_fb = self
+                        .mel_fbs
+                        .entry(track.sr)
+                        .or_insert(mel::calc_mel_fb_default(track.sr, track.n_fft))
+                        .view();
+
+                    let mut melspec = linspec.dot(&mel_fb);
+                    melspec.amp_to_db_default();
+                    melspec
+                }
+            },
+        );
     }
 
     #[wasm_bindgen(catch)]
@@ -178,21 +159,16 @@ impl MultiTrack {
                 self.id_max_sec = id;
             }
             self.tracks.insert(id, track);
-            self.get_or_calc_spec_of(id);
+            self.calc_spec_of(id);
         }
         Ok(self.update_db_scale())
     }
 
     fn update_db_scale(&mut self) -> bool {
         let (mut max, mut min) = self
-            .tracks
+            .specs
             .par_iter()
-            .map(|(_, track)| {
-                let spec = if let Some(x) = track.spec.as_ref() {
-                    x
-                } else {
-                    return (-f32::INFINITY, f32::INFINITY);
-                };
+            .map(|(_, spec)| {
                 let max = *spec.max().unwrap_or(&-f32::INFINITY);
                 let min = *spec.min().unwrap_or(&f32::INFINITY);
                 (max, min)
@@ -218,11 +194,21 @@ impl MultiTrack {
             self.min_db = min;
             changed = true;
         }
+
+        if changed {
+            for id in self.specs.keys() {
+                let spec = self.specs.get(id).unwrap();
+                let grey = display::spec_to_grey(spec.view(), self.max_db, self.min_db);
+                self.spec_greys.insert(*id, grey);
+            }
+        }
         changed
     }
 
     pub fn remove_track(&mut self, id: usize) -> bool {
         let sr = self.tracks.remove_entry(&id).unwrap().1.sr;
+        self.specs.remove(&id);
+        self.spec_greys.remove(&id);
         if self.id_max_sec == id {
             let (id, max_sec) = self
                 .tracks
@@ -249,15 +235,9 @@ impl MultiTrack {
     }
 
     pub fn get_spec_image(&mut self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
-        let nwidth;
-        {
-            let track = self.tracks.get(&id).unwrap();
-            nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
-        }
-        let max_db = self.max_db;
-        let min_db = self.min_db;
-        let specview = self.get_or_calc_spec_of(id);
-        display::spec_to_image(specview, nwidth, nheight, max_db, min_db).into_raw()
+        let track = self.tracks.get(&id).unwrap();
+        let nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
+        display::grey_to_rgb(self.spec_greys.get(&id).unwrap(), nwidth, nheight).into_raw()
     }
 
     pub fn get_max_db(&self) -> f32 {

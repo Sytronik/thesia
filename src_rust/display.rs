@@ -1,6 +1,8 @@
 use image::{imageops, ImageBuffer, Luma, Rgb, RgbImage};
 use ndarray::prelude::*;
 
+pub type GreyF32Image = ImageBuffer<Luma<f32>, Vec<f32>>;
+
 pub const COLORMAP: [[u8; 3]; 10] = [
     [0, 0, 4],
     [27, 12, 65],
@@ -23,21 +25,19 @@ fn convert_grey_to_color(x: f32) -> Rgb<u8> {
     } else {
         let ratio = position - index as f32;
         let mut color = [0u8; 3];
-        for (i, (&a, &b)) in COLORMAP[index].iter().zip(COLORMAP[index + 1].iter()).enumerate() {
+        for (i, (&a, &b)) in COLORMAP[index]
+            .iter()
+            .zip(COLORMAP[index + 1].iter())
+            .enumerate()
+        {
             color[i] = (ratio * b as f32 + (1. - ratio) * a as f32).round() as u8;
         }
         Rgb(color)
     }
 }
 
-pub fn spec_to_image(
-    spec_db: ArrayView2<f32>,
-    nwidth: u32,
-    nheight: u32,
-    max_db: f32,
-    min_db: f32,
-) -> RgbImage {
-    let im = ImageBuffer::<Luma<f32>, Vec<f32>>::from_fn(
+pub fn spec_to_grey(spec_db: ArrayView2<f32>, max_db: f32, min_db: f32) -> GreyF32Image {
+    GreyF32Image::from_fn(
         spec_db.shape()[0] as u32,
         spec_db.shape()[1] as u32,
         |x, y| {
@@ -48,10 +48,13 @@ pub fn spec_to_image(
                     .min(1.),
             ])
         },
-    );
-    let im = imageops::resize(&im, nwidth, nheight, imageops::FilterType::Lanczos3);
+    )
+}
+
+pub fn grey_to_rgb(grey: &GreyF32Image, nwidth: u32, nheight: u32) -> RgbImage {
+    let resized = imageops::resize(grey, nwidth, nheight, imageops::FilterType::Lanczos3);
     RgbImage::from_fn(nwidth, nheight, |x, y| {
-        convert_grey_to_color(im.get_pixel(x, y)[0])
+        convert_grey_to_color(resized.get_pixel(x, y)[0])
     })
 }
 

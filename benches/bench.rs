@@ -1,9 +1,14 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use display::GreyF32Image;
 use ndarray::{prelude::*, ArcArray1};
 use ndarray_stats::QuantileExt;
 use thesia::{audio, decibel::DeciBelInplace, display, mel, perform_stft, windows};
 
-fn get_melspectrogram(wav: ArrayView1<f32>, window: ArcArray1<f32>, mel_fb: ArrayView2<f32>) -> Array2<f32> {
+fn get_melspectrogram(
+    wav: ArrayView1<f32>,
+    window: ArcArray1<f32>,
+    mel_fb: ArrayView2<f32>,
+) -> Array2<f32> {
     let stft = perform_stft(wav, 1920, 480, 2048, Some(window), None, true);
     let linspec = stft.mapv(|x| x.norm());
     let mut melspec = linspec.dot(&mel_fb);
@@ -11,14 +16,8 @@ fn get_melspectrogram(wav: ArrayView1<f32>, window: ArcArray1<f32>, mel_fb: Arra
     melspec
 }
 
-fn draw_spec(spec: ArrayView2<f32>, nwidth: u32) {
-    display::spec_to_image(
-        spec,
-        nwidth,
-        500,
-        *spec.max().unwrap(),
-        *spec.min().unwrap(),
-    );
+fn draw_spec(spec_grey: &GreyF32Image, nwidth: u32) {
+    display::grey_to_rgb(spec_grey, nwidth, 500);
     // im.save("spec.png").unwrap();
 }
 
@@ -46,10 +45,11 @@ fn benchmark_draw_spec(c: &mut Criterion) {
     let window = (windows::hann(1920, false) / 2048.).into_shared();
     let mel_fb = mel::calc_mel_fb_default(sr, 2048);
     let spec = get_melspectrogram(wav.view(), window, mel_fb.view());
+    let spec_grey = display::spec_to_grey(spec.view(), *spec.max().unwrap(), *spec.min().unwrap());
     c.bench_function("draw spectrogram", move |b| {
         b.iter(|| {
             draw_spec(
-                black_box(spec.view()),
+                black_box(&spec_grey),
                 black_box(100 * wav.len() as u32 / sr),
             )
         })
