@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::ops::*;
 
 use approx::abs_diff_ne;
-use ndarray::{prelude::*, ArcArray1, ScalarOperand};
+use ndarray::{prelude::*, ScalarOperand};
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 use rustfft::{num_complex::Complex, num_traits::Float, FFTnum};
@@ -19,7 +19,7 @@ pub mod windows;
 use decibel::DeciBelInplace;
 use display::GreyF32Image;
 use realfft::RealFFT;
-use utils::{calc_proper_n_fft, pad, PadMode};
+use utils::{calc_proper_n_fft, pad, par_collect_to_hashmap, PadMode};
 
 pub enum FreqScale {
     Linear,
@@ -33,7 +33,6 @@ pub struct AudioTrack {
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
-    fft_module: RealFFT<f32>,
 }
 
 impl AudioTrack {
@@ -44,7 +43,6 @@ impl AudioTrack {
         let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
         let win_length = hop_length * setting.t_overlap;
         let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
-        let fft_module = RealFFT::<f32>::new(n_fft).unwrap();
         Ok(AudioTrack {
             path: path.to_string(),
             wav,
@@ -52,7 +50,6 @@ impl AudioTrack {
             win_length,
             hop_length,
             n_fft,
-            fft_module,
         })
     }
 
@@ -76,7 +73,7 @@ pub struct MultiTrack {
     tracks: HashMap<usize, AudioTrack>,
     setting: SpecSetting,
     mel_fbs: HashMap<u32, Array2<f32>>,
-    windows: HashMap<u32, ArcArray1<f32>>,
+    windows: HashMap<u32, Array1<f32>>,
     specs: HashMap<usize, Array2<f32>>,
     spec_greys: HashMap<usize, GreyF32Image>,
     max_db: f32,
@@ -109,45 +106,60 @@ impl MultiTrack {
         }
     }
 
-    fn calc_spec_of(&mut self, id: usize) {
-        let track = self.tracks.get_mut(&id).unwrap();
-        let window = ArcArray::clone(self.windows.entry(track.sr).or_insert({
-            (windows::hann(track.win_length, false) / track.n_fft as f32).into_shared()
-        }));
+    fn calc_spec_of(&self, id: usize) -> Array2<f32> {
+        let track = self.tracks.get(&id).unwrap();
         let stft = perform_stft(
             track.wav.view(),
             track.win_length,
             track.hop_length,
             track.n_fft,
-            Some(window),
-            Some(&mut track.fft_module),
+            Some(CowArray::from(self.windows.get(&track.sr).unwrap().view())),
+            None,
             false,
         );
         let mut linspec = stft.mapv(|x| x.norm());
-        self.specs.insert(
-            id,
-            match self.setting.freq_scale {
-                FreqScale::Linear => {
-                    linspec.amp_to_db_default();
-                    linspec
-                }
-                FreqScale::Mel => {
-                    let mel_fb = self
-                        .mel_fbs
-                        .entry(track.sr)
-                        .or_insert(mel::calc_mel_fb_default(track.sr, track.n_fft))
-                        .view();
+        match self.setting.freq_scale {
+            FreqScale::Linear => {
+                linspec.amp_to_db_default();
+                linspec
+            }
+            FreqScale::Mel => {
+                let mut melspec = linspec.dot(self.mel_fbs.get(&track.sr).unwrap());
+                melspec.amp_to_db_default();
+                melspec
+            }
+        }
+    }
 
-                    let mut melspec = linspec.dot(&mel_fb);
-                    melspec.amp_to_db_default();
-                    melspec
-                }
-            },
+    fn calc_window(win_length: usize, n_fft: usize) -> Array1<f32> {
+        windows::hann(win_length, false) / n_fft as f32
+    }
+
+    fn update_specs(&mut self, id_list: &[usize], new_sr_set: HashSet<(u32, usize, usize)>) {
+        let new_windows = par_collect_to_hashmap(
+            new_sr_set
+                .par_iter()
+                .map(|&(sr, win_length, n_fft)| (sr, MultiTrack::calc_window(win_length, n_fft))),
         );
+        self.windows.extend(new_windows);
+
+        if let FreqScale::Mel = self.setting.freq_scale {
+            let mel_fbs = par_collect_to_hashmap(
+                new_sr_set
+                    .par_iter()
+                    .map(|&(sr, _, n_fft)| (sr, mel::calc_mel_fb_default(sr, n_fft))),
+            );
+            self.mel_fbs.extend(mel_fbs);
+        }
+
+        let specs =
+            par_collect_to_hashmap(id_list.par_iter().map(|&id| (id, self.calc_spec_of(id))));
+        self.specs.extend(specs);
     }
 
     #[wasm_bindgen(catch)]
     pub fn add_tracks(&mut self, id_list: &[usize], path_list: &str) -> Result<bool, JsValue> {
+        let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         for (&id, path) in id_list.iter().zip(path_list.split("\n").into_iter()) {
             let track = match AudioTrack::new(path, &self.setting) {
                 Ok(track) => track,
@@ -158,9 +170,13 @@ impl MultiTrack {
                 self.max_sec = sec;
                 self.id_max_sec = id;
             }
+            if let None = self.windows.get(&track.sr) {
+                new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+            }
             self.tracks.insert(id, track);
-            self.calc_spec_of(id);
         }
+
+        self.update_specs(id_list, new_sr_set);
         Ok(self.update_db_scale())
     }
 
@@ -196,11 +212,12 @@ impl MultiTrack {
         }
 
         if changed {
-            for id in self.specs.keys() {
-                let spec = self.specs.get(id).unwrap();
-                let grey = display::spec_to_grey(spec.view(), self.max_db, self.min_db);
-                self.spec_greys.insert(*id, grey);
-            }
+            self.spec_greys = par_collect_to_hashmap(self.specs.par_iter().map(|(&id, spec)| {
+                (
+                    id,
+                    display::spec_to_grey(spec.view(), self.max_db, self.min_db),
+                )
+            }));
         }
         changed
     }
@@ -279,7 +296,7 @@ pub fn perform_stft<A>(
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
-    window: Option<ArcArray1<A>>,
+    window: Option<CowArray<A, Ix1>>,
     fft_module: Option<&mut RealFFT<A>>,
     parallel: bool,
 ) -> Array2<Complex<A>>
@@ -293,7 +310,7 @@ where
         assert_eq!(w.len(), win_length);
         w
     } else {
-        (windows::hann(win_length, false) / A::from(n_fft).unwrap()).into_shared()
+        CowArray::from(windows::hann(win_length, false) / A::from(n_fft).unwrap())
     };
 
     let to_frames_wrapper =

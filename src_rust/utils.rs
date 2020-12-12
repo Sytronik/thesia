@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use ndarray::{concatenate, prelude::*, Data, RemoveAxis, Slice};
+use rayon::prelude::*;
 use rustfft::{
     num_complex::Complex,
     num_traits::{
@@ -80,6 +84,24 @@ where
             concatenate![axis, pad_left, array, pad_right]
         }
     }
+}
+
+pub fn par_collect_to_hashmap<A, K, V>(par_map: A) -> HashMap<K, V>
+where
+    A: ParallelIterator<Item = (K, V)>,
+    K: Send + Eq + Hash,
+    V: Send,
+{
+    let identity_spec_greys = || HashMap::<K, V>::new();
+    par_map
+        .fold(identity_spec_greys, |mut hm, (k, v)| {
+            hm.insert(k, v);
+            hm
+        })
+        .reduce(identity_spec_greys, |mut hm1, hm2| {
+            hm1.extend(hm2);
+            hm1
+        })
 }
 
 #[cfg(test)]
