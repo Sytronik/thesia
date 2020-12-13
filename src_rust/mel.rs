@@ -78,7 +78,7 @@ where
             }
         }
         if do_norm {
-            w /= w.sum();
+            w /= w.sum().max(A::epsilon());
         }
     });
     weights
@@ -134,18 +134,32 @@ mod tests {
 
     #[test]
     fn mel_default_works() {
-        for sr in (400..=48000).step_by(400) {
-            for n_fft_exp in 4..15 {
+        for &sr in [
+            400, 800, 1000, 2000, 4000, 8000, 16000, 24000, 44100, 48000, 88200, 96000,
+        ]
+        .iter()
+        {
+            for n_fft_exp in 5..15 {
                 let n_fft = 2usize.pow(n_fft_exp);
-                // println!("{:?}, {:?}", sr, n_fft);
                 let mel_fb = calc_mel_fb_default(sr, n_fft);
-                // println!("{:?}", mel_fb.shape());
-                assert!(mel_fb.sum_axis(Axis(0)).iter().all(|&x| x > 0.));
+                assert!(
+                    mel_fb.sum_axis(Axis(0)).iter().all(|&x| x > 0.),
+                    "Empty mel filterbanks were found!\nsr: {}, n_fft: {}, n_mel: {}",
+                    sr,
+                    n_fft,
+                    mel_fb.shape()[1]
+                );
                 if mel_fb.shape()[1] == mel_fb.shape()[0] {
                     continue;
                 }
                 let mel_fb_fail = calc_mel_fb(sr, n_fft, mel_fb.shape()[1] + 1, 0f32, None, true);
-                assert!(mel_fb_fail.sum_axis(Axis(0)).iter().any(|&x| x == 0.));
+                assert!(
+                    mel_fb_fail.sum_axis(Axis(0)).iter().any(|&x| x == 0.),
+                    "More mel filterbanks are okay!\nsr: {}, n_fft: {}, n_mel: {}",
+                    sr,
+                    n_fft,
+                    mel_fb_fail.shape()[1]
+                );
             }
         }
     }
