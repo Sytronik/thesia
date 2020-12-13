@@ -72,8 +72,8 @@ pub struct SpecSetting {
 pub struct MultiTrack {
     tracks: HashMap<usize, AudioTrack>,
     setting: SpecSetting,
-    mel_fbs: HashMap<u32, Array2<f32>>,
     windows: HashMap<u32, Array1<f32>>,
+    mel_fbs: HashMap<u32, Array2<f32>>,
     specs: HashMap<usize, Array2<f32>>,
     spec_greys: HashMap<usize, GreyF32Image>,
     max_db: f32,
@@ -95,8 +95,8 @@ impl MultiTrack {
                 freq_scale: FreqScale::Mel,
                 db_range: 120.,
             },
-            mel_fbs: HashMap::new(),
             windows: HashMap::new(),
+            mel_fbs: HashMap::new(),
             specs: HashMap::new(),
             spec_greys: HashMap::new(),
             max_db: -f32::INFINITY,
@@ -106,7 +106,7 @@ impl MultiTrack {
         }
     }
 
-    fn calc_spec_of(&self, id: usize) -> Array2<f32> {
+    fn calc_spec_of(&self, id: usize, parallel: bool) -> Array2<f32> {
         let track = self.tracks.get(&id).unwrap();
         let stft = perform_stft(
             track.wav.view(),
@@ -115,7 +115,7 @@ impl MultiTrack {
             track.n_fft,
             Some(CowArray::from(self.windows.get(&track.sr).unwrap().view())),
             None,
-            false,
+            parallel,
         );
         let mut linspec = stft.mapv(|x| x.norm());
         match self.setting.freq_scale {
@@ -152,8 +152,11 @@ impl MultiTrack {
             self.mel_fbs.extend(mel_fbs);
         }
 
-        let specs =
-            par_collect_to_hashmap(id_list.par_iter().map(|&id| (id, self.calc_spec_of(id))));
+        let specs = par_collect_to_hashmap(
+            id_list
+                .par_iter()
+                .map(|&id| (id, self.calc_spec_of(id, id_list.len() == 1))),
+        );
         self.specs.extend(specs);
     }
 
@@ -429,7 +432,12 @@ mod tests {
     #[test]
     fn multitrack_works() {
         let mut multitrack = MultiTrack::new();
-        multitrack.add_tracks(&[0], "samples/sample.wav").unwrap();
+        multitrack
+            .add_tracks(
+                &[0, 1, 2, 3, 4, 5],
+                ["samples/sample.wav"; 6].join("\n").as_str(),
+            )
+            .unwrap();
         let imvec = multitrack.get_spec_image(0, 100., 500);
         let im = RgbImage::from_vec((imvec.len() / 500 / 3) as u32, 500, imvec).unwrap();
         im.save("spec.png").unwrap();
