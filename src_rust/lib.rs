@@ -108,12 +108,13 @@ impl MultiTrack {
 
     fn calc_spec_of(&self, id: usize, parallel: bool) -> Array2<f32> {
         let track = self.tracks.get(&id).unwrap();
+        let window = Some(CowArray::from(self.windows.get(&track.sr).unwrap().view()));
         let stft = perform_stft(
             track.wav.view(),
             track.win_length,
             track.hop_length,
             track.n_fft,
-            Some(CowArray::from(self.windows.get(&track.sr).unwrap().view())),
+            window,
             None,
             parallel,
         );
@@ -201,12 +202,8 @@ impl MultiTrack {
                     (max.max(current_max), min.min(current_min))
                 },
             );
-        if max.is_infinite() {
-            max = 0.
-        }
-        if min < max - self.setting.db_range {
-            min = max - self.setting.db_range;
-        }
+        max = max.min(0.);
+        min = min.max(max - self.setting.db_range);
         let mut changed = false;
         if abs_diff_ne!(self.max_db, max, epsilon = 1e-3) {
             self.max_db = max;
@@ -237,7 +234,7 @@ impl MultiTrack {
             let (id, max_sec) = self
                 .tracks
                 .par_iter()
-                .map(|(id, track)| (*id, track.wav.len() as f32 / track.sr as f32))
+                .map(|(&id, track)| (id, track.wav.len() as f32 / track.sr as f32))
                 .reduce(
                     || (0, 0.),
                     |(id_max, max), (id, sec)| {
@@ -403,16 +400,9 @@ mod tests {
 
     #[test]
     fn stft_works() {
+        let impulse = Array1::<f32>::impulse(4, 2);
         assert_eq!(
-            perform_stft(
-                Array1::<f32>::impulse(4, 2).view(),
-                4,
-                2,
-                4,
-                None,
-                None,
-                false
-            ),
+            perform_stft(impulse.view(), 4, 2, 4, None, None, false),
             arr2(&[
                 [
                     Complex::<f32>::new(0., 0.),

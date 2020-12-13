@@ -77,10 +77,10 @@ where
             concatenate![axis, pad_left.view(), array, pad_right.view()]
         }
         PadMode::Reflect => {
-            let s_left_reflect = Slice::new(1, Some(n_pad_left as isize + 1), -1);
-            let s_right_reflect = Slice::new(-(n_pad_right as isize + 1), Some(-1), -1);
-            let pad_left = array.slice_axis(axis, s_left_reflect);
-            let pad_right = array.slice_axis(axis, s_right_reflect);
+            let s_left = Slice::new(1, Some(n_pad_left as isize + 1), -1);
+            let s_right = Slice::new(-(n_pad_right as isize + 1), Some(-1), -1);
+            let pad_left = array.slice_axis(axis, s_left);
+            let pad_right = array.slice_axis(axis, s_right);
             concatenate![axis, pad_left, array, pad_right]
         }
     }

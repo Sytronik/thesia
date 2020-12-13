@@ -64,15 +64,15 @@ where
 
     let mut weights = Array2::<A>::zeros((n_freq, n_mel));
     Zip::indexed(weights.axis_iter_mut(Axis(1))).par_apply(|i_m, mut w| {
-        for (i_f, &freq) in linear_freqs.indexed_iter() {
-            if freq <= mel_freqs[i_m] {
+        for (i_f, &f) in linear_freqs.indexed_iter() {
+            if f <= mel_freqs[i_m] {
                 continue;
-            } else if mel_freqs[i_m] < freq && freq < mel_freqs[i_m + 1] {
-                w[i_f] = (freq - mel_freqs[i_m]) / (mel_freqs[i_m + 1] - mel_freqs[i_m]);
-            } else if freq == mel_freqs[i_m + 1] {
+            } else if mel_freqs[i_m] < f && f < mel_freqs[i_m + 1] {
+                w[i_f] = (f - mel_freqs[i_m]) / (mel_freqs[i_m + 1] - mel_freqs[i_m]);
+            } else if f == mel_freqs[i_m + 1] {
                 w[i_f] = A::one();
-            } else if mel_freqs[i_m + 1] < freq && freq < mel_freqs[i_m + 2] {
-                w[i_f] = (mel_freqs[i_m + 2] - freq) / (mel_freqs[i_m + 2] - mel_freqs[i_m + 1]);
+            } else if mel_freqs[i_m + 1] < f && f < mel_freqs[i_m + 2] {
+                w[i_f] = (mel_freqs[i_m + 2] - f) / (mel_freqs[i_m + 2] - mel_freqs[i_m + 1]);
             } else {
                 break;
             }
@@ -90,7 +90,7 @@ pub fn calc_mel_fb_default(sr: u32, n_fft: usize) -> Array2<f32> {
     n_mel = n_mel.min(n_fft / 2 + 1);
 
     loop {
-        let mel_fb = calc_mel_fb(sr, n_fft, n_mel as usize, 0f32, None, true);
+        let mel_fb = calc_mel_fb(sr, n_fft, n_mel, 0f32, None, true);
         if mel_fb.sum_axis(Axis(0)).iter().all(|&x| x > 0.) {
             break mel_fb;
         }

@@ -11,7 +11,6 @@ crate-type = ["cdylib", "rlib"]
 path = "src_rust/lib.rs"
 
 [dependencies]
-# ndarray = "0.14.0"
 ndarray = { version = "0.14.0", features = ["rayon", "approx"] }
 rayon = "1.5.0"
 num-traits = "0.2.14"

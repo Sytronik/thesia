@@ -1,4 +1,7 @@
-use image::{imageops, ImageBuffer, Luma, Rgb, RgbImage};
+use image::{
+    imageops::{resize, FilterType},
+    ImageBuffer, Luma, Rgb, RgbImage,
+};
 use ndarray::prelude::*;
 
 pub type GreyF32Image = ImageBuffer<Luma<f32>, Vec<f32>>;
@@ -36,32 +39,25 @@ fn convert_grey_to_color(x: f32) -> Rgb<u8> {
     }
 }
 
-pub fn spec_to_grey(spec_db: ArrayView2<f32>, max_db: f32, min_db: f32) -> GreyF32Image {
-    GreyF32Image::from_fn(
-        spec_db.shape()[0] as u32,
-        spec_db.shape()[1] as u32,
-        |x, y| {
-            Luma([
-                ((spec_db[[x as usize, spec_db.shape()[1] - y as usize - 1]] - min_db)
-                    / (max_db - min_db))
-                    .max(0.)
-                    .min(1.),
-            ])
-        },
-    )
+pub fn spec_to_grey(spec: ArrayView2<f32>, max: f32, min: f32) -> GreyF32Image {
+    GreyF32Image::from_fn(spec.shape()[0] as u32, spec.shape()[1] as u32, |x, y| {
+        let db = spec[[x as usize, spec.shape()[1] - y as usize - 1]];
+        Luma([((db - min) / (max - min)).max(0.).min(1.)])
+    })
 }
 
 pub fn grey_to_rgb(grey: &GreyF32Image, nwidth: u32, nheight: u32) -> RgbImage {
-    let resized = imageops::resize(grey, nwidth, nheight, imageops::FilterType::Lanczos3);
+    let resized = resize(grey, nwidth, nheight, FilterType::Lanczos3);
     RgbImage::from_fn(nwidth, nheight, |x, y| {
         convert_grey_to_color(resized.get_pixel(x, y)[0])
     })
 }
 
-pub fn colorbar(length: u32) -> RgbImage {
+#[allow(dead_code)]
+fn colorbar(length: u32) -> RgbImage {
     let colormap: Vec<Rgb<u8>> = COLORMAP.iter().map(|&x| Rgb(x)).collect();
     let im = RgbImage::from_fn(50, colormap.len() as u32, |_, y| Rgb(COLORMAP[y as usize]));
-    imageops::resize(&im, 50, length, imageops::FilterType::Triangle)
+    resize(&im, 50, length, FilterType::Triangle)
 }
 
 #[cfg(test)]
