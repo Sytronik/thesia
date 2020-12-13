@@ -53,19 +53,14 @@ pub fn grey_to_rgb(grey: &GreyF32Image, nwidth: u32, nheight: u32) -> RgbImage {
     })
 }
 
-#[allow(dead_code)]
-fn colorbar(length: u32) -> RgbImage {
-    let colormap: Vec<Rgb<u8>> = COLORMAP.iter().map(|&x| Rgb(x)).collect();
-    let im = RgbImage::from_fn(50, colormap.len() as u32, |_, y| Rgb(COLORMAP[y as usize]));
-    resize(&im, 50, length, FilterType::Triangle)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn colorbar_works() {
-        let im = colorbar(500);
+    fn show_colorbar() {
+        let colormap: Vec<Rgb<u8>> = COLORMAP.iter().map(|&x| Rgb(x)).collect();
+        let mut im = RgbImage::from_fn(50, colormap.len() as u32, |_, y| Rgb(COLORMAP[y as usize]));
+        im = resize(&im, 50, 500, FilterType::Triangle);
         im.save("colorbar.png").unwrap();
     }
 }
