@@ -140,6 +140,7 @@ impl MultiTrack {
             new_sr_set
                 .par_iter()
                 .map(|&(sr, win_length, n_fft)| (sr, MultiTrack::calc_window(win_length, n_fft))),
+            Some(new_sr_set.len()),
         );
         self.windows.extend(new_windows);
 
@@ -148,6 +149,7 @@ impl MultiTrack {
                 new_sr_set
                     .par_iter()
                     .map(|&(sr, _, n_fft)| (sr, mel::calc_mel_fb_default(sr, n_fft))),
+                Some(new_sr_set.len()),
             );
             self.mel_fbs.extend(mel_fbs);
         }
@@ -156,6 +158,7 @@ impl MultiTrack {
             id_list
                 .par_iter()
                 .map(|&id| (id, self.calc_spec_of(id, id_list.len() == 1))),
+            Some(id_list.len()),
         );
         self.specs.extend(specs);
     }
@@ -215,12 +218,13 @@ impl MultiTrack {
         }
 
         if changed {
-            self.spec_greys = par_collect_to_hashmap(self.specs.par_iter().map(|(&id, spec)| {
-                (
-                    id,
-                    display::spec_to_grey(spec.view(), self.max_db, self.min_db),
-                )
-            }));
+            self.spec_greys = par_collect_to_hashmap(
+                self.specs.par_iter().map(|(&id, spec)| {
+                    let grey = display::spec_to_grey(spec.view(), self.max_db, self.min_db);
+                    (id, grey)
+                }),
+                Some(self.specs.len()),
+            );
         }
         changed
     }

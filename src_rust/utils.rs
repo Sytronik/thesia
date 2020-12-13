@@ -86,13 +86,16 @@ where
     }
 }
 
-pub fn par_collect_to_hashmap<A, K, V>(par_map: A) -> HashMap<K, V>
+pub fn par_collect_to_hashmap<A, K, V>(par_map: A, length: Option<usize>) -> HashMap<K, V>
 where
     A: ParallelIterator<Item = (K, V)>,
     K: Send + Eq + Hash,
     V: Send,
 {
-    let identity_spec_greys = || HashMap::<K, V>::new();
+    let identity_spec_greys = || match length {
+        Some(l) => HashMap::<K, V>::with_capacity(l),
+        None => HashMap::<K, V>::new(),
+    };
     par_map
         .fold(identity_spec_greys, |mut hm, (k, v)| {
             hm.insert(k, v);
