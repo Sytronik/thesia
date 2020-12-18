@@ -261,6 +261,15 @@ impl MultiTrack {
         display::grey_to_rgb(self.spec_greys.get(&id).unwrap(), nwidth, nheight).into_raw()
     }
 
+    pub fn get_frequency_hz(&self, id: usize, relative_freq: f32) -> f32 {
+        let half_sr = self.tracks.get(&id).unwrap().sr as f32 / 2.;
+
+        match self.setting.freq_scale {
+            FreqScale::Linear => half_sr * relative_freq,
+            FreqScale::Mel => mel::mel_to_hz(mel::hz_to_mel(half_sr) * relative_freq),
+        }
+    }
+
     pub fn get_max_db(&self) -> f32 {
         self.max_db
     }

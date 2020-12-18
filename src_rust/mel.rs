@@ -11,7 +11,7 @@ const LOGSTEP: f64 = 0.06875177742094912; // 6.4.ln() / 27.
 const LINEARSCALE: f64 = 200. / 3.;
 
 #[inline]
-fn mel_to_hz<A: Float>(mel: A) -> A {
+pub fn mel_to_hz<A: Float>(mel: A) -> A {
     let min_log_mel = A::from(MIN_LOG_MEL).unwrap();
     if mel < min_log_mel {
         A::from(LINEARSCALE).unwrap() * mel
@@ -21,7 +21,7 @@ fn mel_to_hz<A: Float>(mel: A) -> A {
 }
 
 #[inline]
-fn hz_to_mel<A: Float>(freq: A) -> A {
+pub fn hz_to_mel<A: Float>(freq: A) -> A {
     let min_log_hz = A::from(MIN_LOG_HZ).unwrap();
     if freq < min_log_hz {
         freq / A::from(LINEARSCALE).unwrap()
