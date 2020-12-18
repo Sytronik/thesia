@@ -255,10 +255,25 @@ impl MultiTrack {
         self.update_db_scale()
     }
 
-    pub fn get_spec_image(&mut self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
+    pub fn get_spec_image(&self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
         let track = self.tracks.get(&id).unwrap();
         let nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
         display::grey_to_rgb(self.spec_greys.get(&id).unwrap(), nwidth, nheight).into_raw()
+    }
+
+    pub fn get_wav_image(
+        &self,
+        id: usize,
+        px_per_sec: f32,
+        nheight: u32,
+        amp_min: f32,
+        amp_max: f32,
+    ) -> Vec<u8> {
+        let track = self.tracks.get(&id).unwrap();
+        let nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
+        // let nwidth = px_per_sec as u32;
+        display::wav_to_image(track.wav.view(), nwidth, nheight, (amp_min, amp_max)).into_raw()
+        // display::wav_to_image(track.wav.slice(s![4 * track.sr as usize..5 * track.sr as usize]), nwidth, nheight, (amp_min, amp_max)).into_raw()
     }
 
     pub fn get_frequency_hz(&self, id: usize, relative_freq: f32) -> f32 {
@@ -400,7 +415,7 @@ pub fn get_colormap() -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use image::RgbImage;
+    use image::{RgbImage, RgbaImage};
     use ndarray::{arr2, Array1};
     use rustfft::num_complex::Complex;
 
@@ -441,9 +456,13 @@ mod tests {
                 ["samples/sample.wav"; 6].join("\n").as_str(),
             )
             .unwrap();
-        let imvec = multitrack.get_spec_image(0, 100., 500);
-        let im = RgbImage::from_vec((imvec.len() / 500 / 3) as u32, 500, imvec).unwrap();
+        let height = 500;
+        let imvec = multitrack.get_spec_image(0, 100., height);
+        let im = RgbImage::from_vec(imvec.len() as u32 / height / 3, height, imvec).unwrap();
         im.save("spec.png").unwrap();
+        let imvec = multitrack.get_wav_image(0, 100., height, -1., 1.);
+        let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
+        im.save("wav.png").unwrap();
         multitrack.remove_track(0);
     }
 }
