@@ -80,6 +80,7 @@ pub struct MultiTrack {
     min_db: f32,
     max_sec: f32,
     id_max_sec: usize,
+    max_sr: u32,
 }
 
 #[wasm_bindgen]
@@ -103,6 +104,7 @@ impl MultiTrack {
             min_db: f32::INFINITY,
             max_sec: 0.,
             id_max_sec: 0,
+            max_sr: 0,
         }
     }
 
@@ -184,10 +186,10 @@ impl MultiTrack {
         }
 
         self.update_specs(id_list, new_sr_set);
-        Ok(self.update_db_scale())
+        Ok(self.update_spec_greys())
     }
 
-    fn update_db_scale(&mut self) -> bool {
+    fn update_spec_greys(&mut self) -> bool {
         let (mut max, mut min) = self
             .specs
             .par_iter()
@@ -214,10 +216,43 @@ impl MultiTrack {
             changed = true;
         }
 
+        let max_sr = self
+            .tracks
+            .par_iter()
+            .map(|(_, track)| track.sr)
+            .reduce(|| 0u32, |max, x| max.max(x));
+        if self.max_sr != max_sr {
+            self.max_sr = max_sr;
+            changed = true;
+        }
+
         if changed {
+            let up_ratio = match self.setting.freq_scale {
+                FreqScale::Linear => par_collect_to_hashmap(
+                    self.tracks
+                        .par_iter()
+                        .map(|(&id, track)| (id, self.max_sr as f32 / track.sr as f32)),
+                    Some(self.tracks.len()),
+                ),
+                FreqScale::Mel => par_collect_to_hashmap(
+                    self.tracks.par_iter().map(|(&id, track)| {
+                        (
+                            id,
+                            mel::hz_to_mel(self.max_sr as f32 / 2.)
+                                / mel::hz_to_mel(track.sr as f32 / 2.),
+                        )
+                    }),
+                    Some(self.tracks.len()),
+                ),
+            };
             self.spec_greys = par_collect_to_hashmap(
                 self.specs.par_iter().map(|(&id, spec)| {
-                    let grey = display::spec_to_grey(spec.view(), self.max_db, self.min_db);
+                    let grey = display::spec_to_grey(
+                        spec.view(),
+                        *up_ratio.get(&id).unwrap(),
+                        self.max_db,
+                        self.min_db,
+                    );
                     (id, grey)
                 }),
                 Some(self.specs.len()),
@@ -252,7 +287,7 @@ impl MultiTrack {
             self.windows.remove(&sr);
             self.mel_fbs.remove(&sr);
         }
-        self.update_db_scale()
+        self.update_spec_greys()
     }
 
     pub fn get_spec_image(&self, id: usize, px_per_sec: f32, nheight: u32) -> Vec<u8> {
@@ -449,20 +484,31 @@ mod tests {
 
     #[test]
     fn multitrack_works() {
+        let sr_strings = ["8k", "16k", "22k05", "24k", "44k1", "48k"];
+        let id_list: Vec<usize> = (0..sr_strings.len()).collect();
+        let path_list = sr_strings
+            .iter()
+            .map(|x| format!("samples/sample_{}.wav", x))
+            .fold(String::new(), |cat, x| format!("{}{}\n", cat, x));
         let mut multitrack = MultiTrack::new();
         multitrack
-            .add_tracks(
-                &[0, 1, 2, 3, 4, 5],
-                ["samples/sample.wav"; 6].join("\n").as_str(),
-            )
+            .add_tracks(&id_list[..], path_list.trim_end())
             .unwrap();
         let height = 500;
-        let imvec = multitrack.get_spec_image(0, 100., height);
-        let im = RgbImage::from_vec(imvec.len() as u32 / height / 3, height, imvec).unwrap();
-        im.save("spec.png").unwrap();
-        let imvec = multitrack.get_wav_image(0, 100., height, -1., 1.);
-        let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-        im.save("wav.png").unwrap();
+        id_list
+            .iter()
+            .zip(sr_strings.iter())
+            .for_each(|(&id, &sr)| {
+                let imvec = multitrack.get_spec_image(id, 100., height);
+                let im =
+                    RgbImage::from_vec(imvec.len() as u32 / height / 3, height, imvec).unwrap();
+                im.save(format!("spec_{}.png", sr)).unwrap();
+                let imvec = multitrack.get_wav_image(id, 100., height, -1., 1.);
+                let im =
+                    RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
+                im.save(format!("wav_{}.png", sr)).unwrap();
+            });
+
         multitrack.remove_track(0);
     }
 }

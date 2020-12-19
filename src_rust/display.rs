@@ -41,10 +41,15 @@ fn convert_grey_to_color(x: f32) -> Rgb<u8> {
     }
 }
 
-pub fn spec_to_grey(spec: ArrayView2<f32>, max: f32, min: f32) -> GreyF32Image {
-    GreyF32Image::from_fn(spec.shape()[0] as u32, spec.shape()[1] as u32, |x, y| {
-        let db = spec[[x as usize, spec.shape()[1] - y as usize - 1]];
-        Luma([((db - min) / (max - min)).max(0.).min(1.)])
+pub fn spec_to_grey(spec: ArrayView2<f32>, up_ratio: f32, max: f32, min: f32) -> GreyF32Image {
+    let height = (spec.shape()[1] as f32 * up_ratio).round() as u32;
+    GreyF32Image::from_fn(spec.shape()[0] as u32, height, |x, y| {
+        if y >= height - spec.shape()[1] as u32 {
+            let db = spec[[x as usize, (height - 1 - y) as usize]];
+            Luma([((db - min) / (max - min)).max(0.).min(1.)])
+        } else {
+            Luma([0.])
+        }
     })
 }
 
