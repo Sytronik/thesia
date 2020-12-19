@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::ops::*;
+use std::path::PathBuf;
 
 use approx::abs_diff_ne;
 use ndarray::{prelude::*, ScalarOperand};
@@ -27,7 +28,7 @@ pub enum FreqScale {
 }
 
 pub struct AudioTrack {
-    path: String,
+    path: PathBuf,
     wav: Array1<f32>,
     sr: u32,
     win_length: usize,
@@ -44,7 +45,7 @@ impl AudioTrack {
         let win_length = hop_length * setting.t_overlap;
         let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
         Ok(AudioTrack {
-            path: path.to_string(),
+            path: PathBuf::from(path),
             wav,
             sr,
             win_length,
@@ -54,7 +55,7 @@ impl AudioTrack {
     }
 
     pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<()> {
-        let new = AudioTrack::new(&self.path[..], setting)?;
+        let new = AudioTrack::new(self.path.to_str().unwrap(), setting)?;
         *self = new;
         Ok(())
     }
@@ -331,6 +332,36 @@ impl MultiTrack {
     pub fn get_max_sec(&self) -> f32 {
         self.max_sec
     }
+
+    pub fn get_sec(&self, id: usize) -> f32 {
+        let track = self.tracks.get(&id).unwrap();
+        track.wav.len() as f32 / track.sr as f32
+    }
+
+    pub fn get_sr(&self, id: usize) -> u32 {
+        self.tracks.get(&id).unwrap().sr
+    }
+
+    pub fn get_path(&self, id: usize) -> String {
+        self.tracks
+            .get(&id)
+            .unwrap()
+            .path
+            .as_path()
+            .display()
+            .to_string()
+    }
+
+    pub fn get_filename(&self, id: usize) -> String {
+        self.tracks
+            .get(&id)
+            .unwrap()
+            .path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    }
 }
 
 fn to_windowed_frames<A: Float>(
@@ -494,6 +525,8 @@ mod tests {
         multitrack
             .add_tracks(&id_list[..], path_list.trim_end())
             .unwrap();
+        dbg!(multitrack.get_path(0));
+        dbg!(multitrack.get_filename(0));
         let height = 500;
         id_list
             .iter()
