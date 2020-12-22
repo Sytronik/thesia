@@ -16,11 +16,11 @@
   ]
  },
  "main": "public/electron.js",
- "homepage": "./",
+ "homepage": "https://github.com/Sytronik/thesia",
  "author": {
   "name": "Sytronik",
   "email": "sytronik210@gmail.com",
-  "url": "https://github.com/Sytronik"
+  "url": "https://sytronik.github.io"
  },
  "build": {
   "appId": "com.bremen13.thesia",
@@ -64,7 +64,7 @@
   "postinstall": "electron-builder install-app-deps",
   "preelectron-pack": "yarn build",
   "electron-pack": "run-s build.release.backend electron-pack.electron-builder",
-  "electron-pack.electron-builder": "electron-builder build -w"
+  "electron-pack.electron-builder": "electron-builder build -wml"
  },
  "eslintConfig": {
   "extends": "react-app"
