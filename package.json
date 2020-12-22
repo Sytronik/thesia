@@ -87,7 +87,7 @@
   "electron-build-env": "^0.2.0",
   "electron-builder": "^22.4.1",
   "electron-rebuild": "^1.10.1",
-  "neon-cli": "^0.4.0",
+  "neon-cli": "^0.6.0",
   "npm-run-all": "^4.1.5",
   "run-proxy": "^1.0.1",
   "typescript": "^3.8.3",
