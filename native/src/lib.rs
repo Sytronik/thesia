@@ -1,10 +1,10 @@
-use {{crate_name}}_backend::*;
+use thesia_backend::*;
 use neon::prelude::*;
 
 fn marshalling_example_add(mut cx: FunctionContext) -> JsResult<JsNumber> {
  let a = cx.argument::<JsNumber>(0)?.value();
  let b = cx.argument::<JsNumber>(1)?.value();
- let r = {{crate_name}}_backend::example_add(a as f32, b as f32);
+ let r = thesia_backend::example_add(a as f32, b as f32);
  Ok(cx.number(r))
 }
 

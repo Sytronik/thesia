@@ -1,8 +1,22 @@
 [package]
-name = "{{project-name}}-backend"
-version = "0.0.0"
-authors = [ "{{authors}}" ]
+authors = ["Sytronik <sytronik210@gmail.com>", "crackyachae <crackyache@gmail.com>"]
 edition = "2018"
+name = "thesia-backend"
+version = "0.0.0"
 
 [lib]
-name = "{{crate_name}}_backend"
+name = "thesia_backend"
+
+[dependencies]
+approx = {version = "0.4.0", features = ["num-complex"]}
+hound = "3.4.0"
+image = "0.23.12"
+ndarray = {version = "0.14.0", features = ["rayon", "approx"]}
+num-traits = "0.2.14"
+rayon = "1.5.0"
+rodio = "0.13.0"
+rustfft = "4.0.0"
+
+[dependencies.ndarray-stats]
+git = "https://github.com/rust-ndarray/ndarray-stats.git"
+rev = "74a818026aca7c3ed40a3de09c779d225f3eef67"

@@ -1,21 +1,19 @@
 [package]
-name = "{{project-name}}-marshalling"
-version = "0.0.0"
-authors = ["{{authors}}"]
-license = "MIT"
+authors = ["Sytronik <sytronik210@gmail.com>", "crackyachae <crackyache@gmail.com>"]
 build = "build.rs"
 edition = "2018"
 exclude = ["artifacts.json", "index.node"]
+license = "MIT"
+name = "thesia-marshalling"
+version = "0.0.0"
 
 [lib]
-name = "{{crate_name}}_marshalling"
 crate-type = ["cdylib"]
+name = "thesia_marshalling"
 
 [build-dependencies]
-neon-build = "0.4.0"
-# neon-build = { git = "https://github.com/usagi/neon", branch = "fix-463-debug-build-mode-in-windows" }
+neon-build = "0.6.0"
 
 [dependencies]
-neon = "0.4.0"
-# neon = { git = "https://github.com/usagi/neon", branch = "fix-463-debug-build-mode-in-windows" }
-{{project-name}}-backend = { path = "backend" }
+neon = "0.6.0"
+thesia-backend = {path = "backend"}
