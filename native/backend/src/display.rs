@@ -139,6 +139,6 @@ mod tests {
         let mut im =
             RgbaImage::from_fn(50, colormap.len() as u32, |_, y| Rgba(COLORMAP[y as usize]));
         im = resize(&im, 50, 500, FilterType::Triangle);
-        im.save("colorbar.png").unwrap();
+        im.save("../../samples/colorbar.png").unwrap();
     }
 }

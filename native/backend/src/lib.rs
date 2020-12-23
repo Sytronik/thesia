@@ -524,11 +524,11 @@ mod tests {
                 multitrack.get_spec_image(imvec.as_mut_slice(), id, width, height);
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-                im.save(format!("spec_{}.png", sr)).unwrap();
+                im.save(format!("../../samples/spec_{}.png", sr)).unwrap();
                 let imvec = multitrack.get_wav_image(id, 100., height, -1., 1.);
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-                im.save(format!("wav_{}.png", sr)).unwrap();
+                im.save(format!("../../samples/wav_{}.png", sr)).unwrap();
             });
 
         multitrack.remove_track(0);
