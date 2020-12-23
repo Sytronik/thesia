@@ -470,7 +470,7 @@ pub fn get_colormap() -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use image::{RgbImage, RgbaImage};
+    use image::RgbaImage;
     use ndarray::{arr2, Array1};
     use rustfft::num_complex::Complex;
 
@@ -510,11 +510,8 @@ mod tests {
             .iter()
             .map(|x| format!("../../samples/sample_{}.wav", x))
             .collect();
-            // .fold(String::new(), |cat, x| format!("{}{}\n", cat, x));
         let mut multitrack = TrackManager::new();
-        multitrack
-            .add_tracks(id_list.clone(), path_list)
-            .unwrap();
+        multitrack.add_tracks(id_list.clone(), path_list).unwrap();
         dbg!(multitrack.get_path(0));
         dbg!(multitrack.get_filename(0));
         let width: u32 = 1500;

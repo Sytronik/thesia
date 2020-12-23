@@ -1,12 +1,11 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use image::{
     imageops::{resize, FilterType},
-    ImageBuffer, Luma, Rgba, RgbaImage,
+    ImageBuffer, Luma, RgbaImage,
 };
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
-use rayon::prelude::*;
 
 pub type GreyF32Image = ImageBuffer<Luma<f32>, Vec<f32>>;
 
@@ -55,10 +54,9 @@ pub fn spec_to_grey(spec: ArrayView2<f32>, up_ratio: f32, max: f32, min: f32) ->
 }
 
 pub fn grey_to_rgb(output: &mut [u8], grey: &GreyF32Image, width: u32, height: u32) {
-
     let start = Instant::now();
-    let resized = resize(grey, width, height, FilterType::Triangle);
-    println!("resize: {:?}", start.elapsed());
+    let resized = resize(grey, width, height, FilterType::Lanczos3);
+    println!("resizing: {:?}", start.elapsed());
     let start = Instant::now();
     let im = resized
         .into_raw()
@@ -71,7 +69,7 @@ pub fn grey_to_rgb(output: &mut [u8], grey: &GreyF32Image, width: u32, height: u
             y[2] = b;
             y[3] = a;
         });
-    println!("copy to buffer: {:?}", start.elapsed());
+    println!("Applying colormap: {:?}", start.elapsed());
     im
 }
 
@@ -132,10 +130,14 @@ pub fn wav_to_image(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use image::Rgba;
+
     #[test]
     fn show_colorbar() {
         let colormap: Vec<Rgba<u8>> = COLORMAP.iter().map(|&x| Rgba(x)).collect();
-        let mut im = RgbaImage::from_fn(50, colormap.len() as u32, |_, y| Rgba(COLORMAP[y as usize]));
+        let mut im =
+            RgbaImage::from_fn(50, colormap.len() as u32, |_, y| Rgba(COLORMAP[y as usize]));
         im = resize(&im, 50, 500, FilterType::Triangle);
         im.save("colorbar.png").unwrap();
     }

@@ -50,7 +50,7 @@ fn get_spec_image(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let track_id = cx.argument::<JsNumber>(0)?.value() as usize;
     let width = cx.argument::<JsNumber>(1)?.value() as u32;
     let height = cx.argument::<JsNumber>(2)?.value() as u32;
-    let mut buf = JsArrayBuffer::new(&mut cx, 1500 * 500 * 4u32)?;
+    let mut buf = JsArrayBuffer::new(&mut cx, width * height * 4u32)?;
     cx.borrow_mut(&mut buf, |slice| {
         let locked = TM.lock().unwrap();
         locked.get_spec_image(slice.as_mut_slice(), track_id, width, height);
