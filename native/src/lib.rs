@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 // use std::time::{Duration, Instant};
 
 use lazy_static::{initialize, lazy_static};
@@ -7,7 +7,7 @@ use neon::prelude::*;
 use thesia_backend::*;
 
 lazy_static! {
-    static ref TM: Mutex<TrackManager> = Mutex::new(TrackManager::new());
+    static ref TM: RwLock<TrackManager> = RwLock::new(TrackManager::new());
 }
 
 macro_rules! get_track {
@@ -67,7 +67,7 @@ macro_rules! get_arr_arg {
 fn add_tracks(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let new_track_ids: Vec<usize> = get_arr_arg!(cx, 0, JsNumber, usize);
     let new_paths: Vec<String> = get_arr_arg!(cx, 1, JsString, "");
-    match TM.lock().unwrap().add_tracks(new_track_ids, new_paths) {
+    match TM.write().unwrap().add_tracks(new_track_ids, new_paths) {
         Ok(b) => Ok(cx.boolean(b)),
         Err(_) => cx.throw_error("Unsupported file type!"),
     }
@@ -76,7 +76,7 @@ fn add_tracks(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 fn remove_track(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let track_id = get_num_arg!(cx, 0, usize);
 
-    Ok(cx.boolean(TM.lock().unwrap().remove_track(track_id)))
+    Ok(cx.boolean(TM.write().unwrap().remove_track(track_id)))
 }
 
 fn get_spec_wav_image(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
@@ -86,7 +86,7 @@ fn get_spec_wav_image(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let blend = get_num_arg!(cx, 3);
     let mut buf = JsArrayBuffer::new(&mut cx, width * height * 4u32)?;
     cx.borrow_mut(&mut buf, |slice| {
-        let locked = TM.lock().unwrap();
+        let locked = TM.read().unwrap();
         locked
             .get_spec_wav_image(slice.as_mut_slice(), track_id, width, height, blend)
             .unwrap();
@@ -95,34 +95,34 @@ fn get_spec_wav_image(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
 }
 
 fn get_max_db(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    Ok(cx.number(TM.lock().unwrap().max_db))
+    Ok(cx.number(TM.read().unwrap().max_db))
 }
 
 fn get_min_db(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    Ok(cx.number(TM.lock().unwrap().min_db))
+    Ok(cx.number(TM.read().unwrap().min_db))
 }
 
 fn get_sec(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let locked = TM.lock().unwrap();
+    let locked = TM.read().unwrap();
     let track = get_track!(locked, cx, 0);
     let sec = track.wav.len() as f32 / track.sr as f32;
     Ok(cx.number(sec))
 }
 
 fn get_sr(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let locked = TM.lock().unwrap();
+    let locked = TM.read().unwrap();
     let track = get_track!(locked, cx, 0);
     Ok(cx.number(track.sr))
 }
 
 fn get_path(mut cx: FunctionContext) -> JsResult<JsString> {
-    let locked = TM.lock().unwrap();
+    let locked = TM.read().unwrap();
     let track = get_track!(locked, cx, 0);
     Ok(cx.string(track.get_path()))
 }
 
 fn get_filename(mut cx: FunctionContext) -> JsResult<JsString> {
-    let locked = TM.lock().unwrap();
+    let locked = TM.read().unwrap();
     let track = get_track!(locked, cx, 0);
     Ok(cx.string(track.get_filename()))
 }
