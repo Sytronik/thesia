@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::error::Error as stdError;
 use std::io;
 use std::ops::*;
 use std::path::PathBuf;
@@ -26,10 +27,11 @@ pub enum FreqScale {
     Mel,
 }
 
+#[readonly::make]
 pub struct AudioTrack {
     path: PathBuf,
-    wav: Array1<f32>,
-    sr: u32,
+    pub wav: Array1<f32>,
+    pub sr: u32,
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
@@ -58,6 +60,18 @@ impl AudioTrack {
         *self = new;
         Ok(())
     }
+
+    pub fn get_path(&self) -> String {
+        self.path.as_path().display().to_string()
+    }
+
+    pub fn get_filename(&self) -> String {
+        self.path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    }
 }
 
 pub struct SpecSetting {
@@ -68,18 +82,19 @@ pub struct SpecSetting {
     db_range: f32,
 }
 
+#[readonly::make]
 pub struct TrackManager {
-    tracks: HashMap<usize, AudioTrack>,
+    pub tracks: HashMap<usize, AudioTrack>,
     setting: SpecSetting,
     windows: HashMap<u32, Array1<f32>>,
     mel_fbs: HashMap<u32, Array2<f32>>,
     specs: HashMap<usize, Array2<f32>>,
     spec_greys: HashMap<usize, GreyF32Image>,
-    max_db: f32,
-    min_db: f32,
+    pub max_db: f32,
+    pub min_db: f32,
     max_sec: f32,
     id_max_sec: usize,
-    max_sr: u32,
+    pub max_sr: u32,
 }
 
 impl TrackManager {
@@ -283,6 +298,24 @@ impl TrackManager {
         self.update_spec_greys()
     }
 
+    pub fn get_spec_wav_image(
+        &self,
+        output: &mut [u8],
+        id: usize,
+        width: u32,
+        height: u32,
+        blend: f64,
+    ) -> Result<(), Box<dyn stdError>> {
+        display::blend_spec_wav(
+            output,
+            self.spec_greys.get(&id).unwrap(),
+            self.tracks.get(&id).unwrap().wav.view(),
+            width,
+            height,
+            blend,
+        )
+    }
+
     pub fn get_spec_image(&self, output: &mut [u8], id: usize, width: u32, height: u32) {
         display::grey_to_rgb(output, self.spec_greys.get(&id).unwrap(), width, height);
     }
@@ -330,27 +363,6 @@ impl TrackManager {
 
     pub fn get_sr(&self, id: usize) -> u32 {
         self.tracks.get(&id).unwrap().sr
-    }
-
-    pub fn get_path(&self, id: usize) -> String {
-        self.tracks
-            .get(&id)
-            .unwrap()
-            .path
-            .as_path()
-            .display()
-            .to_string()
-    }
-
-    pub fn get_filename(&self, id: usize) -> String {
-        self.tracks
-            .get(&id)
-            .unwrap()
-            .path
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .into_owned()
     }
 }
 
@@ -460,12 +472,11 @@ where
     output
 }
 
-pub fn get_colormap() -> Vec<u8> {
-    display::COLORMAP
-        .iter()
-        .flat_map(|x| x.iter())
-        .cloned()
-        .collect()
+pub fn get_colormap_iter_size() -> (impl Iterator<Item = &'static u8>, usize) {
+    (
+        display::COLORMAP.iter().flat_map(|x| x.iter()),
+        display::COLORMAP.len() * display::COLORMAP[0].len(),
+    )
 }
 
 #[cfg(test)]
@@ -512,8 +523,8 @@ mod tests {
             .collect();
         let mut multitrack = TrackManager::new();
         multitrack.add_tracks(id_list.clone(), path_list).unwrap();
-        dbg!(multitrack.get_path(0));
-        dbg!(multitrack.get_filename(0));
+        dbg!(multitrack.tracks.get(&0).unwrap().get_path());
+        dbg!(multitrack.tracks.get(&0).unwrap().get_filename());
         let width: u32 = 1500;
         let height: u32 = 500;
         id_list
