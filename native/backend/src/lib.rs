@@ -41,6 +41,7 @@ impl AudioTrack {
     pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
         let (wav, sr) = audio::open_audio_file(path.as_str())?;
         let wav = wav.sum_axis(Axis(0)); // TODO: stereo support
+        // let wav = wav.slice_move(s![144000..144000 + 4096]);
         let win_length = setting.win_ms * sr as f32 / 1000.;
         let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
         let win_length = hop_length * setting.t_overlap;
@@ -340,17 +341,14 @@ impl TrackManager {
 
     pub fn get_wav_image(
         &self,
+        output: &mut [u8],
         id: usize,
-        px_per_sec: f32,
-        nheight: u32,
-        amp_min: f32,
-        amp_max: f32,
-    ) -> Vec<u8> {
+        width: u32,
+        height: u32,
+        amp_range: (f32, f32),
+    ) {
         let track = self.tracks.get(&id).unwrap();
-        let nwidth = (px_per_sec * track.wav.len() as f32 / track.sr as f32) as u32;
-        // let nwidth = px_per_sec as u32;
-        display::wav_to_image(track.wav.view(), nwidth, nheight, (amp_min, amp_max)).into_raw()
-        // display::wav_to_image(track.wav.slice(s![4 * track.sr as usize..5 * track.sr as usize]), nwidth, nheight, (amp_min, amp_max)).into_raw()
+        display::draw_wav(output, track.wav.view(), width, height, 255, amp_range)
     }
 
     pub fn get_frequency_hz(&self, id: usize, relative_freq: f32) -> f32 {
@@ -540,8 +538,12 @@ mod tests {
             .map(|x| format!("../../samples/sample_{}.wav", x))
             .collect();
         let mut multitrack = TrackManager::new();
-        multitrack.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned()).unwrap();
-        multitrack.add_tracks(id_list[3..6].to_owned(), path_list[3..6].to_owned()).unwrap();
+        multitrack
+            .add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned())
+            .unwrap();
+        multitrack
+            .add_tracks(id_list[3..6].to_owned(), path_list[3..6].to_owned())
+            .unwrap();
         dbg!(multitrack.tracks.get(&0).unwrap().get_path());
         dbg!(multitrack.tracks.get(&0).unwrap().get_filename());
         let width: u32 = 1500;
@@ -555,7 +557,8 @@ mod tests {
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
                 im.save(format!("../../samples/spec_{}.png", sr)).unwrap();
-                let imvec = multitrack.get_wav_image(id, 100., height, -1., 1.);
+                let mut imvec = vec![0u8; (4 * width * height) as usize];
+                multitrack.get_wav_image(imvec.as_mut_slice(), id, width, height, (-1., 1.));
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
                 im.save(format!("../../samples/wav_{}.png", sr)).unwrap();

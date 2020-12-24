@@ -3,15 +3,16 @@ use std::time::Instant;
 
 use image::{
     imageops::{resize, FilterType},
-    DynamicImage, ImageBuffer, Luma, Pixel, Rgba, RgbaImage,
+    ImageBuffer, Luma, Rgba,
 };
 use imageproc::{
-    drawing::{draw_antialiased_line_segment_mut, draw_filled_rect_mut, Blend, Canvas},
+    drawing::{draw_filled_rect_mut, Blend, Canvas as ImProcCanvas},
     pixelops::interpolate,
     rect::Rect,
 };
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
+use tiny_skia::{Canvas, FillRule, LineCap, Paint, PathBuilder, PixmapMut, Stroke};
 
 pub type GreyF32Image = ImageBuffer<Luma<f32>, Vec<f32>>;
 
@@ -79,13 +80,13 @@ pub fn blend_spec_wav(
     height: u32,
     blend: f64,
 ) -> Result<(), Box<dyn stdError>> {
-    let mut output = Blend(ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, output).unwrap());
+    let mut out_blend = Blend(ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, output).unwrap());
 
     if blend > 0. {
         // spec
         let resized = resize(spec_grey, width, height, FilterType::Lanczos3);
         resized.enumerate_pixels().for_each(|(x, y, p)| {
-            output.draw_pixel(x, y, convert_grey_to_color(p));
+            out_blend.draw_pixel(x, y, convert_grey_to_color(p));
         });
     }
 
@@ -94,14 +95,21 @@ pub fn blend_spec_wav(
             // black
             let black_blend = Rgba([0, 0, 0, (255. * (1. - 2. * blend)) as u8]);
             draw_filled_rect_mut(
-                &mut output,
+                &mut out_blend,
                 Rect::at(0, 0).of_size(width, height),
                 black_blend,
             );
         }
 
         // wave
-        draw_wav(&mut output, wav, (255. * (2. - 2. * blend).min(1.)) as u8);
+        draw_wav(
+            out_blend.0.into_raw(),
+            wav,
+            width,
+            height,
+            (255. * (2. - 2. * blend).min(1.)) as u8,
+            (-1., 1.),
+        );
     }
 
     Ok(())
@@ -127,111 +135,81 @@ pub fn grey_to_rgb(output: &mut [u8], grey: &GreyF32Image, width: u32, height: u
     im
 }
 
-fn draw_wav(output: &mut Blend<ImageBuffer<Rgba<u8>, &mut [u8]>>, wav: ArrayView1<f32>, alpha: u8) {
-    let width = output.width();
-    let height = output.height();
-    let mut im = DynamicImage::new_rgba8(width, height);
-    let amp_range = (-1., 1.);
+pub fn draw_wav(
+    output: &mut [u8],
+    wav: ArrayView1<f32>,
+    width: u32,
+    height: u32,
+    alpha: u8,
+    amp_range: (f32, f32),
+) {
     let amp_to_height_px =
-        |x: f32| ((amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0)).round() as isize;
+        |x: f32| ((amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0));
     let samples_per_px = wav.len() as f32 / width as f32;
+    let mut max_envelope = Vec::<f32>::with_capacity(width as usize);
+    let mut min_envelope = Vec::<f32>::with_capacity(width as usize);
+    let mut avg_envelope = Vec::<f32>::with_capacity(width as usize);
+    let mut n_short_height = 0u32;
     for i_px in (0..width as i32).into_iter() {
         let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
         let i_end = (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav.len());
         let wav_slice = wav.slice(s![i_start..i_end]);
         let max = *wav_slice.max().unwrap();
         let min = *wav_slice.min().unwrap();
-        let mut top = amp_to_height_px(max);
-        let mut bottom = amp_to_height_px(min);
-        // if bottom - top < 3 {
-        //     let pad_bottom = ((3 - bottom + top) as f32 / 2.).ceil() as isize;
-        //     let pad_top = ((3 - bottom + top) as f32 / 2.).floor() as isize;
-        //     top -= pad_top;
-        //     bottom += pad_bottom;
-        // }
-        let top = top.max(0) as i32;
-        let bottom = bottom.min(output.height() as isize) as i32;
-        // draw_line_segment_mut(
-        //     output,
-        //     (i_px as f32, top as f32),
-        //     (i_px as f32, bottom as f32),
-        //     Rgba(WAVECOLOR).map_with_alpha(|x| x, |_| alpha),
-        //     // |a, b, w| interpolate(a, b, w),
-        // );
-        draw_antialiased_line_segment_mut(
-            &mut im,
-            (i_px, top),
-            (i_px, bottom),
-            Rgba(WAVECOLOR).map_with_alpha(|x| x, |_| alpha),
-            |a, b, w| interpolate(a, b, w),
-        )
-    }
-    for x in (0..width).into_iter() {
-        for y in (0..height).into_iter() {
-            output.draw_pixel(x, y, im.get_pixel(x, y));
+        let avg = wav_slice.mean().unwrap();
+        max_envelope.push(max);
+        min_envelope.push(min);
+        avg_envelope.push(avg);
+        if amp_to_height_px(min) - amp_to_height_px(max) < 3. {
+            n_short_height += 1;
         }
     }
-}
+    let pixmap = PixmapMut::from_bytes(output, width, height).unwrap();
+    let mut canvas = Canvas::from(pixmap);
 
-pub fn wav_to_image(
-    wav: ArrayView1<f32>,
-    nwidth: u32,
-    nheight: u32,
-    amp_range: (f32, f32),
-) -> RgbaImage {
-    // let nwidth = nwidth * 2;
-    // let nheight = nheight * 2;
-    let amp_to_height_px = |x: f32| {
-        ((amp_range.1 - x) * nheight as f32 / (amp_range.1 - amp_range.0)).round() as isize
-    };
-    let samples_per_px = wav.len() as f32 / nwidth as f32;
-    let mut arr = Array3::<u8>::zeros((nheight as usize, nwidth as usize, 4));
-    let wav = if samples_per_px < 1. {
-        let factor = (1. / samples_per_px).ceil() as usize;
-        let mut new_wav = Array1::<f32>::zeros(factor as usize * wav.len());
-        new_wav.indexed_iter_mut().for_each(|(i, x)| {
-            let b = if i / factor + 1 < wav.len() {
-                wav[i / factor + 1]
-            } else {
-                0.
-            };
-            *x = b * ((i % factor) as f32 / factor as f32)
-                + wav[i / factor] * (1. - (i % factor) as f32 / factor as f32);
-        });
-        CowArray::from(new_wav)
+    let mut paint = Paint::default();
+    let [r, g, b, _] = WAVECOLOR;
+    paint.set_color_rgba8(r, g, b, alpha);
+    paint.anti_alias = true;
+    if n_short_height < width / 3 {
+        // println!("min-max rendering. short height ratio: {}", n_short_height as f32 / width as f32);
+        let path = {
+            let mut pb = PathBuilder::new();
+            pb.move_to(0., amp_to_height_px(max_envelope[0]));
+            for (x, &y) in max_envelope.iter().enumerate().skip(1) {
+                pb.line_to(x as f32, amp_to_height_px(y));
+            }
+            for (x, &y) in min_envelope.iter().enumerate().rev() {
+                pb.line_to(x as f32, amp_to_height_px(y));
+            }
+            pb.close();
+            pb.finish().unwrap()
+        };
+
+        canvas.fill_path(&path, &paint, FillRule::Winding);
     } else {
-        CowArray::from(wav)
-    };
-    for i_px in (0..nwidth as i32).into_iter() {
-        let i_start = ((i_px as f32 - 1.5) * samples_per_px).round().max(0.) as usize;
-        let i_end = (((i_px as f32 + 1.5) * samples_per_px).round() as usize).min(wav.len());
-        let wav_slice = wav.slice(s![i_start..i_end]);
-        let max = *wav_slice.max().unwrap();
-        let min = *wav_slice.min().unwrap();
-        let mut top = amp_to_height_px(max);
-        let mut bottom = amp_to_height_px(min);
-        if bottom - top < 3 {
-            let pad_bottom = ((3 - bottom + top) as f32 / 2.).ceil() as isize;
-            let pad_top = ((3 - bottom + top) as f32 / 2.).floor() as isize;
-            top -= pad_top;
-            bottom += pad_bottom;
-        }
-        let top = top.max(0) as usize;
-        let bottom = bottom.min(nheight as isize) as usize;
-        arr.slice_mut(s![top..bottom + 1, i_px as usize, ..])
-            .indexed_iter_mut()
-            .for_each(|((_, j), x)| *x = WAVECOLOR[j]);
+        // println!("avg rendering. short height ratio: {}", n_short_height as f32 / width as f32);
+        let path = {
+            let mut pb = PathBuilder::new();
+            pb.move_to(0., amp_to_height_px(avg_envelope[0]));
+            for (x, &y) in avg_envelope.iter().enumerate().skip(1) {
+                pb.line_to(x as f32, amp_to_height_px(y));
+            }
+            pb.finish().unwrap()
+        };
+
+        let mut stroke = Stroke::default();
+        stroke.width = 1.75;
+        stroke.line_cap = LineCap::Round;
+        canvas.stroke_path(&path, &paint, &stroke);
     }
-    let im = RgbaImage::from_raw(nwidth, nheight, arr.into_raw_vec()).unwrap();
-    im
-    // resize(&im, nwidth/2, nheight/2, FilterType::Triangle)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use image::Rgba;
+    use image::{Rgba, RgbaImage};
 
     #[test]
     fn show_colorbar() {
