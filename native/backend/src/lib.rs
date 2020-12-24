@@ -150,7 +150,7 @@ impl TrackManager {
         windows::hann(win_length, false) / n_fft as f32
     }
 
-    fn update_specs(&mut self, id_list: Vec<usize>, new_sr_set: HashSet<(u32, usize, usize)>) {
+    fn update_specs(&mut self, id_list: &[usize], new_sr_set: HashSet<(u32, usize, usize)>) {
         let new_windows = par_collect_to_hashmap(
             new_sr_set
                 .par_iter()
@@ -193,11 +193,11 @@ impl TrackManager {
             self.tracks.insert(id, track);
         }
 
-        self.update_specs(id_list, new_sr_set);
-        Ok(self.update_spec_greys())
+        self.update_specs(id_list.as_slice(), new_sr_set);
+        Ok(self.update_spec_greys(Some(id_list.as_slice())))
     }
 
-    fn update_spec_greys(&mut self) -> bool {
+    fn update_spec_greys(&mut self, force_update_ids: Option<&[usize]>) -> bool {
         let (mut max, mut min) = self
             .specs
             .par_iter()
@@ -234,37 +234,55 @@ impl TrackManager {
             changed = true;
         }
 
-        if changed {
+        if force_update_ids.is_some() || changed {
+            let force_update_ids = force_update_ids.unwrap();
             let up_ratio = match self.setting.freq_scale {
                 FreqScale::Linear => par_collect_to_hashmap(
-                    self.tracks
-                        .par_iter()
-                        .map(|(&id, track)| (id, self.max_sr as f32 / track.sr as f32)),
+                    self.tracks.par_iter().filter_map(|(&id, track)| {
+                        if changed || force_update_ids.contains(&id) {
+                            Some((id, self.max_sr as f32 / track.sr as f32))
+                        } else {
+                            None
+                        }
+                    }),
                     Some(self.tracks.len()),
                 ),
                 FreqScale::Mel => par_collect_to_hashmap(
-                    self.tracks.par_iter().map(|(&id, track)| {
-                        (
-                            id,
-                            mel::hz_to_mel(self.max_sr as f32 / 2.)
-                                / mel::hz_to_mel(track.sr as f32 / 2.),
-                        )
+                    self.tracks.par_iter().filter_map(|(&id, track)| {
+                        if changed || force_update_ids.contains(&id) {
+                            Some((
+                                id,
+                                mel::hz_to_mel(self.max_sr as f32 / 2.)
+                                    / mel::hz_to_mel(track.sr as f32 / 2.),
+                            ))
+                        } else {
+                            None
+                        }
                     }),
                     Some(self.tracks.len()),
                 ),
             };
-            self.spec_greys = par_collect_to_hashmap(
-                self.specs.par_iter().map(|(&id, spec)| {
-                    let grey = display::spec_to_grey(
-                        spec.view(),
-                        *up_ratio.get(&id).unwrap(),
-                        self.max_db,
-                        self.min_db,
-                    );
-                    (id, grey)
+            let new_spec_greys = par_collect_to_hashmap(
+                self.specs.par_iter().filter_map(|(&id, spec)| {
+                    if changed || force_update_ids.contains(&id) {
+                        let grey = display::spec_to_grey(
+                            spec.view(),
+                            *up_ratio.get(&id).unwrap(),
+                            self.max_db,
+                            self.min_db,
+                        );
+                        Some((id, grey))
+                    } else {
+                        None
+                    }
                 }),
                 Some(self.specs.len()),
             );
+            if changed {
+                self.spec_greys = new_spec_greys;
+            } else {
+                self.spec_greys.extend(new_spec_greys)
+            }
         }
         changed
     }
@@ -295,7 +313,7 @@ impl TrackManager {
             self.windows.remove(&sr);
             self.mel_fbs.remove(&sr);
         }
-        self.update_spec_greys()
+        self.update_spec_greys(None)
     }
 
     pub fn get_spec_wav_image(
@@ -517,12 +535,13 @@ mod tests {
     fn multitrack_works() {
         let sr_strings = ["8k", "16k", "22k05", "24k", "44k1", "48k"];
         let id_list: Vec<usize> = (0..sr_strings.len()).collect();
-        let path_list = sr_strings
+        let path_list: Vec<String> = sr_strings
             .iter()
             .map(|x| format!("../../samples/sample_{}.wav", x))
             .collect();
         let mut multitrack = TrackManager::new();
-        multitrack.add_tracks(id_list.clone(), path_list).unwrap();
+        multitrack.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned()).unwrap();
+        multitrack.add_tracks(id_list[3..6].to_owned(), path_list[3..6].to_owned()).unwrap();
         dbg!(multitrack.tracks.get(&0).unwrap().get_path());
         dbg!(multitrack.tracks.get(&0).unwrap().get_filename());
         let width: u32 = 1500;
