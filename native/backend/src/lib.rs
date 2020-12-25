@@ -564,12 +564,12 @@ mod tests {
             .zip(sr_strings.iter())
             .for_each(|(&id, &sr)| {
                 let mut imvec = vec![0u8; (4 * width * height) as usize];
-                multitrack.get_spec_image(imvec.as_mut_slice(), id, width, height);
+                multitrack.get_spec_image(imvec.as_mut_slice(), id, 0, width, height);
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
                 im.save(format!("../../samples/spec_{}.png", sr)).unwrap();
                 let mut imvec = vec![0u8; (4 * width * height) as usize];
-                multitrack.get_wav_image(imvec.as_mut_slice(), id, width, height, (-1., 1.));
+                multitrack.get_wav_image(imvec.as_mut_slice(), id, 0, width, height, (-1., 1.));
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
                 im.save(format!("../../samples/wav_{}.png", sr)).unwrap();
