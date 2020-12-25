@@ -21,7 +21,7 @@ pub mod windows;
 use decibel::DeciBelInplace;
 use display::GreyF32Image;
 use realfft::RealFFT;
-use utils::{calc_proper_n_fft, pad, par_collect_to_hashmap, PadMode};
+use utils::{calc_proper_n_fft, pad, PadMode};
 
 pub enum FreqScale {
     Linear,
@@ -159,25 +159,25 @@ impl TrackManager {
     }
 
     fn update_specs(&mut self, id_list: &[usize], new_sr_set: HashSet<(u32, usize, usize)>) {
-        let new_windows = par_collect_to_hashmap(
+        let new_windows = par_collect_to_hashmap!(
             new_sr_set
                 .par_iter()
                 .map(|&(sr, win_length, n_fft)| (sr, TrackManager::calc_window(win_length, n_fft))),
-            Some(new_sr_set.len()),
+            new_sr_set.len()
         );
         self.windows.extend(new_windows);
 
         if let FreqScale::Mel = self.setting.freq_scale {
-            let mel_fbs = par_collect_to_hashmap(
+            let mel_fbs = par_collect_to_hashmap!(
                 new_sr_set
                     .par_iter()
                     .map(|&(sr, _, n_fft)| (sr, mel::calc_mel_fb_default(sr, n_fft))),
-                Some(new_sr_set.len()),
+                new_sr_set.len()
             );
             self.mel_fbs.extend(mel_fbs);
         }
 
-        let specs = par_collect_to_hashmap(
+        let specs = par_collect_to_hashmap!(
             id_list
                 .par_iter()
                 .flat_map_iter(|id| {
@@ -186,7 +186,7 @@ impl TrackManager {
                         .enumerate()
                 })
                 .map(|(ch, &id)| ((id, ch), self.calc_spec_of(id, ch, id_list.len() == 1))),
-            Some(id_list.len()),
+            id_list.len()
         );
         self.specs.extend(specs);
     }
@@ -250,7 +250,7 @@ impl TrackManager {
         if force_update_ids.is_some() || changed {
             let force_update_ids = force_update_ids.unwrap();
             let up_ratio = match self.setting.freq_scale {
-                FreqScale::Linear => par_collect_to_hashmap(
+                FreqScale::Linear => par_collect_to_hashmap!(
                     self.tracks.par_iter().filter_map(|(&id, track)| {
                         if changed || force_update_ids.contains(&id) {
                             Some((id, self.max_sr as f32 / track.sr as f32))
@@ -258,9 +258,9 @@ impl TrackManager {
                             None
                         }
                     }),
-                    Some(self.tracks.len()),
+                    self.tracks.len()
                 ),
-                FreqScale::Mel => par_collect_to_hashmap(
+                FreqScale::Mel => par_collect_to_hashmap!(
                     self.tracks.par_iter().filter_map(|(&id, track)| {
                         if changed || force_update_ids.contains(&id) {
                             Some((
@@ -272,10 +272,10 @@ impl TrackManager {
                             None
                         }
                     }),
-                    Some(self.tracks.len()),
+                    self.tracks.len()
                 ),
             };
-            let new_spec_greys = par_collect_to_hashmap(
+            let new_spec_greys = par_collect_to_hashmap!(
                 self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                     if changed || force_update_ids.contains(&id) {
                         let grey = display::spec_to_grey(
@@ -289,7 +289,7 @@ impl TrackManager {
                         None
                     }
                 }),
-                Some(self.specs.len()),
+                self.specs.len()
             );
             if changed {
                 self.spec_greys = new_spec_greys;

@@ -23,13 +23,13 @@ macro_rules! get_track {
 }
 
 macro_rules! get_num_arg {
-    ($cx:expr, $i_arg:expr $(, $type:ident)?) => {
+    ($cx:expr, $i_arg:expr $(, $type:ty)?) => {
         $cx.argument::<JsNumber>($i_arg)?.value() $(as $type)?
     };
 }
 
 macro_rules! get_arr_arg {
-    ($cx:expr, $i_arg:expr, JsNumber $(, $type:ident)?) => {
+    ($cx:expr, $i_arg:expr, JsNumber $(, $type:ty)?) => {
         $cx.argument::<JsArray>($i_arg)?
             .to_vec(&mut $cx)?
             .into_iter()
@@ -40,7 +40,7 @@ macro_rules! get_arr_arg {
             })
             .collect()
     };
-    ($cx:expr, $i_arg:expr, JsNumber, $default:expr $(, $type:ident)?) => {
+    ($cx:expr, $i_arg:expr, JsNumber, $default:expr $(, $type:ty)?) => {
         $cx.argument::<JsArray>($i_arg)?
             .to_vec(&mut $cx)?
             .into_iter()
@@ -134,13 +134,13 @@ fn get_filename(mut cx: FunctionContext) -> JsResult<JsString> {
 }
 
 fn get_colormap(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
-    let (vec, len) = get_colormap_iter_size();
+    let (c_iter, len) = get_colormap_iter_size();
     let mut buf = JsArrayBuffer::new(&mut cx, len as u32)?;
     cx.borrow_mut(&mut buf, |slice| {
         slice
             .as_mut_slice()
             .iter_mut()
-            .zip(vec)
+            .zip(c_iter)
             .for_each(|(x, &y)| {
                 *x = y;
             })

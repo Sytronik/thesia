@@ -1,8 +1,4 @@
-use std::collections::HashMap;
-use std::hash::Hash;
-
 use ndarray::{concatenate, prelude::*, Data, RemoveAxis, Slice};
-use rayon::prelude::*;
 use rustfft::{
     num_complex::Complex,
     num_traits::{
@@ -86,25 +82,42 @@ where
     }
 }
 
-pub fn par_collect_to_hashmap<A, K, V>(par_map: A, length: Option<usize>) -> HashMap<K, V>
-where
-    A: ParallelIterator<Item = (K, V)>,
-    K: Send + Eq + Hash,
-    V: Send,
-{
-    let identity_spec_greys = || match length {
-        Some(l) => HashMap::<K, V>::with_capacity(l),
-        None => HashMap::<K, V>::new(),
+#[macro_export(local_inner_macros)]
+macro_rules! par_collect_to_hashmap {
+    ($par_map: expr) => {
+        $par_map
+            .fold(
+                || HashMap::new(),
+                |mut hm, (k, v)| {
+                    hm.insert(k, v);
+                    hm
+                },
+            )
+            .reduce(
+                || HashMap::new(),
+                |mut hm1, hm2| {
+                    hm1.extend(hm2);
+                    hm1
+                },
+            )
     };
-    par_map
-        .fold(identity_spec_greys, |mut hm, (k, v)| {
-            hm.insert(k, v);
-            hm
-        })
-        .reduce(identity_spec_greys, |mut hm1, hm2| {
-            hm1.extend(hm2);
-            hm1
-        })
+    ($par_map: expr, $length: expr) => {
+        $par_map
+            .fold(
+                || HashMap::with_capacity($length),
+                |mut hm, (k, v)| {
+                    hm.insert(k, v);
+                    hm
+                },
+            )
+            .reduce(
+                || HashMap::with_capacity($length),
+                |mut hm1, hm2| {
+                    hm1.extend(hm2);
+                    hm1
+                },
+            )
+    };
 }
 
 #[cfg(test)]
