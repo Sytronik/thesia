@@ -11,7 +11,7 @@ lazy_static! {
 }
 
 macro_rules! get_track {
-    ($locked:expr, $cx:expr, $i_arg_id:expr) => (
+    ($locked:expr, $cx:expr, $i_arg_id:expr) => {
         match $locked
             .tracks
             .get(&($cx.argument::<JsNumber>($i_arg_id)?.value() as usize))
@@ -19,7 +19,7 @@ macro_rules! get_track {
             Some(t) => t,
             None => return $cx.throw_error("Wrong track id!"),
         }
-    );
+    };
 }
 
 macro_rules! get_num_arg {
@@ -85,6 +85,9 @@ fn get_spec_wav_image(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let width = get_num_arg!(cx, 2, u32);
     let height = get_num_arg!(cx, 3, u32);
     let blend = get_num_arg!(cx, 4);
+    if width * height == 0 {
+        return cx.throw_error("zero width or height!");
+    }
     let mut buf = JsArrayBuffer::new(&mut cx, width * height * 4u32)?;
     cx.borrow_mut(&mut buf, |slice| {
         let locked = TM.read().unwrap();
@@ -148,11 +151,85 @@ fn get_colormap(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     Ok(buf)
 }
 
+struct GetSpecImageTask {
+    track_id: usize,
+    ch: usize,
+    width: u32,
+    height: u32,
+    blend: f64,
+}
+
+impl Task for GetSpecImageTask {
+    type Output = Vec<u8>;
+    type Error = String;
+    type JsEvent = JsArrayBuffer;
+
+    fn perform(&self) -> Result<Vec<u8>, String> {
+        let locked = TM.read().unwrap();
+        let mut vec = vec![0u8; (self.width * self.height * 4) as usize];
+        if let Err(e) = locked.get_spec_wav_image(
+            vec.as_mut_slice(),
+            self.track_id,
+            self.ch,
+            self.width,
+            self.height,
+            self.blend,
+        ) {
+            return Err(e.to_string());
+        }
+        Ok(vec)
+    }
+
+    fn complete(
+        self,
+        mut cx: TaskContext,
+        result: Result<Vec<u8>, String>,
+    ) -> JsResult<JsArrayBuffer> {
+        match result {
+            Ok(vec) => {
+                let mut buf = JsArrayBuffer::new(&mut cx, self.width * self.height * 4)?;
+                cx.borrow_mut(&mut buf, |slice| {
+                    slice
+                        .as_mut_slice()
+                        .iter_mut()
+                        .zip(vec.into_iter())
+                        .for_each(|(y, x)| *y = x)
+                });
+                Ok(buf)
+            }
+            Err(e) => cx.throw_error(e),
+        }
+    }
+}
+impl GetSpecImageTask {
+    fn perform(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+        let track_id = get_num_arg!(cx, 0, usize);
+        let ch = get_num_arg!(cx, 1, usize);
+        let width = get_num_arg!(cx, 2, u32);
+        let height = get_num_arg!(cx, 3, u32);
+        let blend = get_num_arg!(cx, 4);
+        let callback = cx.argument::<JsFunction>(5)?;
+        if width * height == 0 {
+            return cx.throw_error("zero width or height!");
+        }
+        let task = GetSpecImageTask {
+            track_id,
+            ch,
+            width,
+            height,
+            blend,
+        };
+        task.schedule(callback);
+        Ok(cx.undefined())
+    }
+}
+
 register_module!(mut m, {
     initialize(&TM);
     m.export_function("addTracks", add_tracks)?;
     m.export_function("removeTrack", remove_track)?;
     m.export_function("getSpecWavImage", get_spec_wav_image)?;
+    m.export_function("getSpecWavImageAsync", GetSpecImageTask::perform)?;
     m.export_function("getMaxdB", get_max_db)?;
     m.export_function("getMindB", get_min_db)?;
     m.export_function("getNumCh", get_n_ch)?;
