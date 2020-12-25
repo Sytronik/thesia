@@ -81,14 +81,15 @@ fn remove_track(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
 fn get_spec_wav_image(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let track_id = get_num_arg!(cx, 0, usize);
-    let width = get_num_arg!(cx, 1, u32);
-    let height = get_num_arg!(cx, 2, u32);
-    let blend = get_num_arg!(cx, 3);
+    let ch = get_num_arg!(cx, 1, usize);
+    let width = get_num_arg!(cx, 2, u32);
+    let height = get_num_arg!(cx, 3, u32);
+    let blend = get_num_arg!(cx, 4);
     let mut buf = JsArrayBuffer::new(&mut cx, width * height * 4u32)?;
     cx.borrow_mut(&mut buf, |slice| {
         let locked = TM.read().unwrap();
         locked
-            .get_spec_wav_image(slice.as_mut_slice(), track_id, width, height, blend)
+            .get_spec_wav_image(slice.as_mut_slice(), track_id, ch, width, height, blend)
             .unwrap();
     });
     Ok(buf)
@@ -100,6 +101,12 @@ fn get_max_db(mut cx: FunctionContext) -> JsResult<JsNumber> {
 
 fn get_min_db(mut cx: FunctionContext) -> JsResult<JsNumber> {
     Ok(cx.number(TM.read().unwrap().min_db))
+}
+
+fn get_n_ch(mut cx: FunctionContext) -> JsResult<JsNumber> {
+    let locked = TM.read().unwrap();
+    let track = get_track!(locked, cx, 0);
+    Ok(cx.number(track.n_ch as u32))
 }
 
 fn get_sec(mut cx: FunctionContext) -> JsResult<JsNumber> {
@@ -148,6 +155,7 @@ register_module!(mut m, {
     m.export_function("getSpecWavImage", get_spec_wav_image)?;
     m.export_function("getMaxdB", get_max_db)?;
     m.export_function("getMindB", get_min_db)?;
+    m.export_function("getNumCh", get_n_ch)?;
     m.export_function("getSec", get_sec)?;
     m.export_function("getSr", get_sr)?;
     m.export_function("getPath", get_path)?;

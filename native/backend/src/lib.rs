@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error as stdError;
 use std::io;
+use std::iter;
 use std::ops::*;
 use std::path::PathBuf;
 
@@ -30,8 +31,9 @@ pub enum FreqScale {
 #[readonly::make]
 pub struct AudioTrack {
     path: PathBuf,
-    pub wav: Array1<f32>,
+    wavs: Array2<f32>,
     pub sr: u32,
+    pub n_ch: usize,
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
@@ -39,8 +41,8 @@ pub struct AudioTrack {
 
 impl AudioTrack {
     pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
-        let (wav, sr) = audio::open_audio_file(path.as_str())?;
-        let wav = wav.sum_axis(Axis(0)); // TODO: stereo support
+        let (wavs, sr) = audio::open_audio_file(path.as_str())?;
+        let n_ch = wavs.shape()[0];
         // let wav = wav.slice_move(s![144000..144000 + 4096]);
         let win_length = setting.win_ms * sr as f32 / 1000.;
         let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
@@ -48,8 +50,9 @@ impl AudioTrack {
         let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
         Ok(AudioTrack {
             path: PathBuf::from(path),
-            wav,
+            wavs,
             sr,
+            n_ch,
             win_length,
             hop_length,
             n_fft,
@@ -75,7 +78,7 @@ impl AudioTrack {
     }
 
     pub fn sec(&self) -> f32 {
-        self.wav.len() as f32 / self.sr as f32
+        self.wavs.shape()[1] as f32 / self.sr as f32
     }
 }
 
@@ -93,8 +96,8 @@ pub struct TrackManager {
     setting: SpecSetting,
     windows: HashMap<u32, Array1<f32>>,
     mel_fbs: HashMap<u32, Array2<f32>>,
-    specs: HashMap<usize, Array2<f32>>,
-    spec_greys: HashMap<usize, GreyF32Image>,
+    specs: HashMap<(usize, usize), Array2<f32>>,
+    spec_greys: HashMap<(usize, usize), GreyF32Image>,
     pub max_db: f32,
     pub min_db: f32,
     max_sec: f32,
@@ -125,11 +128,11 @@ impl TrackManager {
         }
     }
 
-    fn calc_spec_of(&self, id: usize, parallel: bool) -> Array2<f32> {
+    fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
         let track = self.tracks.get(&id).unwrap();
         let window = Some(CowArray::from(self.windows.get(&track.sr).unwrap().view()));
         let stft = perform_stft(
-            track.wav.view(),
+            track.wavs.index_axis(Axis(0), ch),
             track.win_length,
             track.hop_length,
             track.n_fft,
@@ -177,7 +180,12 @@ impl TrackManager {
         let specs = par_collect_to_hashmap(
             id_list
                 .par_iter()
-                .map(|&id| (id, self.calc_spec_of(id, id_list.len() == 1))),
+                .flat_map_iter(|id| {
+                    iter::repeat(id)
+                        .take(self.tracks.get(id).unwrap().n_ch)
+                        .enumerate()
+                })
+                .map(|(ch, &id)| ((id, ch), self.calc_spec_of(id, ch, id_list.len() == 1))),
             Some(id_list.len()),
         );
         self.specs.extend(specs);
@@ -187,7 +195,7 @@ impl TrackManager {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         for (&id, path) in id_list.iter().zip(path_list.into_iter()) {
             let track = AudioTrack::new(path, &self.setting)?;
-            let sec = track.wav.len() as f32 / track.sr as f32;
+            let sec = track.sec();
             if sec > self.max_sec {
                 self.max_sec = sec;
                 self.id_max_sec = id;
@@ -268,7 +276,7 @@ impl TrackManager {
                 ),
             };
             let new_spec_greys = par_collect_to_hashmap(
-                self.specs.par_iter().filter_map(|(&id, spec)| {
+                self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                     if changed || force_update_ids.contains(&id) {
                         let grey = display::spec_to_grey(
                             spec.view(),
@@ -276,7 +284,7 @@ impl TrackManager {
                             self.max_db,
                             self.min_db,
                         );
-                        Some((id, grey))
+                        Some(((id, ch), grey))
                     } else {
                         None
                     }
@@ -293,14 +301,16 @@ impl TrackManager {
     }
 
     pub fn remove_track(&mut self, id: usize) -> bool {
-        let sr = self.tracks.remove_entry(&id).unwrap().1.sr;
-        self.specs.remove(&id);
-        self.spec_greys.remove(&id);
+        let removed_track = self.tracks.remove_entry(&id).unwrap().1;
+        for ch in (0..removed_track.n_ch).into_iter() {
+            self.specs.remove(&(id, ch));
+            self.spec_greys.remove(&(id, ch));
+        }
         if self.id_max_sec == id {
             let (id, max_sec) = self
                 .tracks
                 .par_iter()
-                .map(|(&id, track)| (id, track.wav.len() as f32 / track.sr as f32))
+                .map(|(&id, track)| (id, track.sec()))
                 .reduce(
                     || (0, 0.),
                     |(id_max, max), (id, sec)| {
@@ -314,9 +324,13 @@ impl TrackManager {
             self.id_max_sec = id;
             self.max_sec = max_sec;
         }
-        if self.tracks.par_iter().all(|(_, track)| track.sr != sr) {
-            self.windows.remove(&sr);
-            self.mel_fbs.remove(&sr);
+        if self
+            .tracks
+            .par_iter()
+            .all(|(_, track)| track.sr != removed_track.sr)
+        {
+            self.windows.remove(&removed_track.sr);
+            self.mel_fbs.remove(&removed_track.sr);
         }
         self.update_spec_greys(None)
     }
@@ -325,34 +339,48 @@ impl TrackManager {
         &self,
         output: &mut [u8],
         id: usize,
+        ch: usize,
         width: u32,
         height: u32,
         blend: f64,
     ) -> Result<(), Box<dyn stdError>> {
         display::blend_spec_wav(
             output,
-            self.spec_greys.get(&id).unwrap(),
-            self.tracks.get(&id).unwrap().wav.view(),
+            self.spec_greys.get(&(id, ch)).unwrap(),
+            self.tracks.get(&id).unwrap().wavs.index_axis(Axis(0), ch),
             width,
             height,
             blend,
         )
     }
 
-    pub fn get_spec_image(&self, output: &mut [u8], id: usize, width: u32, height: u32) {
-        display::grey_to_rgb(output, self.spec_greys.get(&id).unwrap(), width, height);
+    pub fn get_spec_image(&self, output: &mut [u8], id: usize, ch: usize, width: u32, height: u32) {
+        display::grey_to_rgb(
+            output,
+            self.spec_greys.get(&(id, ch)).unwrap(),
+            width,
+            height,
+        );
     }
 
     pub fn get_wav_image(
         &self,
         output: &mut [u8],
         id: usize,
+        ch: usize,
         width: u32,
         height: u32,
         amp_range: (f32, f32),
     ) {
         let track = self.tracks.get(&id).unwrap();
-        display::draw_wav(output, track.wav.view(), width, height, 255, amp_range)
+        display::draw_wav(
+            output,
+            track.wavs.index_axis(Axis(0), ch),
+            width,
+            height,
+            255,
+            amp_range,
+        )
     }
 
     pub fn get_frequency_hz(&self, id: usize, relative_freq: f32) -> f32 {
@@ -362,27 +390,6 @@ impl TrackManager {
             FreqScale::Linear => half_sr * relative_freq,
             FreqScale::Mel => mel::mel_to_hz(mel::hz_to_mel(half_sr) * relative_freq),
         }
-    }
-
-    pub fn get_max_db(&self) -> f32 {
-        self.max_db
-    }
-
-    pub fn get_min_db(&self) -> f32 {
-        self.min_db
-    }
-
-    pub fn get_max_sec(&self) -> f32 {
-        self.max_sec
-    }
-
-    pub fn get_sec(&self, id: usize) -> f32 {
-        let track = self.tracks.get(&id).unwrap();
-        track.wav.len() as f32 / track.sr as f32
-    }
-
-    pub fn get_sr(&self, id: usize) -> u32 {
-        self.tracks.get(&id).unwrap().sr
     }
 }
 
