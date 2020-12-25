@@ -5,14 +5,10 @@ use image::{
     imageops::{resize, FilterType},
     ImageBuffer, Luma, Rgba,
 };
-use imageproc::{
-    drawing::{draw_filled_rect_mut, Blend, Canvas as ImProcCanvas},
-    pixelops::interpolate,
-    rect::Rect,
-};
+use imageproc::pixelops::interpolate;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
-use tiny_skia::{Canvas, FillRule, LineCap, Paint, PathBuilder, PixmapMut, Stroke};
+use tiny_skia::{Canvas, FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke};
 
 pub type GreyF32Image = ImageBuffer<Luma<f32>, Vec<f32>>;
 
@@ -29,24 +25,6 @@ pub const COLORMAP: [[u8; 4]; 10] = [
     [252, 255, 164, 255],
 ];
 pub const WAVECOLOR: [u8; 4] = [200, 21, 103, 255];
-
-fn convert_grey_to_color_raw(x: f32) -> [u8; 4] {
-    assert!(x >= 0.);
-    let position = (COLORMAP.len() as f32) * x;
-    let index = position.floor() as usize;
-    if index >= COLORMAP.len() - 1 {
-        COLORMAP[COLORMAP.len() - 1]
-    } else {
-        let ratio = position - index as f32;
-        let mut color = [255u8; 4];
-        for i in (0..3).into_iter() {
-            color[i] = (ratio * COLORMAP[index + 1][i] as f32
-                + (1. - ratio) * COLORMAP[index][i] as f32)
-                .round() as u8;
-        }
-        color
-    }
-}
 
 fn convert_grey_to_color(x: &Luma<f32>) -> Rgba<u8> {
     assert!(x.0[0] >= 0.);
@@ -80,59 +58,55 @@ pub fn blend_spec_wav(
     height: u32,
     blend: f64,
 ) -> Result<(), Box<dyn stdError>> {
-    let mut out_blend = Blend(ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, output).unwrap());
+    let pixmap = PixmapMut::from_bytes(output, width, height).unwrap();
+    let mut canvas = Canvas::from(pixmap);
 
+    // spec
     if blend > 0. {
-        // spec
-        let resized = resize(spec_grey, width, height, FilterType::Lanczos3);
-        resized.enumerate_pixels().for_each(|(x, y, p)| {
-            out_blend.draw_pixel(x, y, convert_grey_to_color(p));
-        });
+        let start = Instant::now();
+        grey_to_rgb(canvas.pixmap().data_mut(), spec_grey, width, height);
+        println!("drawing spec: {:?}", start.elapsed());
     }
 
     if blend < 1. {
+        // black
+        let start = Instant::now();
         if blend < 0.5 {
-            // black
-            let black_blend = Rgba([0, 0, 0, (255. * (1. - 2. * blend)) as u8]);
-            draw_filled_rect_mut(
-                &mut out_blend,
-                Rect::at(0, 0).of_size(width, height),
-                black_blend,
-            );
+            let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
+            let mut paint = Paint::default();
+            paint.set_color_rgba8(0, 0, 0, (255. * (1. - 2. * blend)) as u8);
+            canvas.fill_rect(rect, &paint);
         }
+        println!("drawing blackbox: {:?}", start.elapsed());
 
         // wave
+        let start = Instant::now();
         draw_wav(
-            out_blend.0.into_raw(),
+            canvas.pixmap().data_mut(),
             wav,
             width,
             height,
             (255. * (2. - 2. * blend).min(1.)) as u8,
             (-1., 1.),
         );
+        println!("drawing wav: {:?}", start.elapsed());
     }
 
     Ok(())
 }
 
 pub fn grey_to_rgb(output: &mut [u8], grey: &GreyF32Image, width: u32, height: u32) {
-    let start = Instant::now();
     let resized = resize(grey, width, height, FilterType::Lanczos3);
-    println!("resizing: {:?}", start.elapsed());
-    let start = Instant::now();
-    let im = resized
-        .into_raw()
-        .into_iter()
+    resized
+        .pixels()
         .zip(output.chunks_exact_mut(4))
         .for_each(|(x, y)| {
-            let [r, g, b, a] = convert_grey_to_color_raw(x);
+            let [r, g, b, a] = convert_grey_to_color(x).0;
             y[0] = r;
             y[1] = g;
             y[2] = b;
             y[3] = a;
         });
-    println!("Applying colormap: {:?}", start.elapsed());
-    im
 }
 
 pub fn draw_wav(
@@ -171,7 +145,7 @@ pub fn draw_wav(
     let [r, g, b, _] = WAVECOLOR;
     paint.set_color_rgba8(r, g, b, alpha);
     paint.anti_alias = true;
-    if n_short_height < width / 3 {
+    if width == 1 || n_short_height < width / 3 {
         // println!("min-max rendering. short height ratio: {}", n_short_height as f32 / width as f32);
         let path = {
             let mut pb = PathBuilder::new();
