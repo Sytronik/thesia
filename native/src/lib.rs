@@ -11,7 +11,7 @@ lazy_static! {
 }
 
 macro_rules! get_track {
-    ($locked:expr, $cx:expr, $i_arg_id:expr) => {
+    ($locked:expr, $cx:expr, $i_arg_id:expr) => (
         match $locked
             .tracks
             .get(&($cx.argument::<JsNumber>($i_arg_id)?.value() as usize))
@@ -19,7 +19,7 @@ macro_rules! get_track {
             Some(t) => t,
             None => return $cx.throw_error("Wrong track id!"),
         }
-    };
+    );
 }
 
 macro_rules! get_num_arg {
@@ -105,8 +105,7 @@ fn get_min_db(mut cx: FunctionContext) -> JsResult<JsNumber> {
 fn get_sec(mut cx: FunctionContext) -> JsResult<JsNumber> {
     let locked = TM.read().unwrap();
     let track = get_track!(locked, cx, 0);
-    let sec = track.wav.len() as f32 / track.sr as f32;
-    Ok(cx.number(sec))
+    Ok(cx.number(track.sec()))
 }
 
 fn get_sr(mut cx: FunctionContext) -> JsResult<JsNumber> {

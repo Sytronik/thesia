@@ -73,6 +73,10 @@ impl AudioTrack {
             .to_string_lossy()
             .into_owned()
     }
+
+    pub fn sec(&self) -> f32 {
+        self.wav.len() as f32 / self.sr as f32
+    }
 }
 
 pub struct SpecSetting {
