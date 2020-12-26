@@ -355,7 +355,7 @@ impl TrackManager {
     }
 
     pub fn get_spec_image(&self, output: &mut [u8], id: usize, ch: usize, width: u32, height: u32) {
-        display::grey_to_rgb(
+        display::colorize_grey_with_size(
             output,
             self.spec_greys.get(&(id, ch)).unwrap(),
             width,
@@ -501,8 +501,8 @@ where
 
 pub fn get_colormap_iter_size() -> (impl Iterator<Item = &'static u8>, usize) {
     (
-        display::COLORMAP.iter().flat_map(|x| x.iter()),
-        display::COLORMAP.len() * display::COLORMAP[0].len(),
+        display::COLORMAP.iter().flat_map(|x| x.0.iter()),
+        display::COLORMAP.len() * display::COLORMAP[0].0.len(),
     )
 }
 
