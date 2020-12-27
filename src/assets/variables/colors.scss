@@ -1,0 +1,14 @@
+@import "color-system.scss";
+// Color variables
+
+// Border colors
+$border-temp:         $gray-500 !default;
+$border-gray-light:   $gray-300 !default;
+
+// Background colors
+$bg-main:             $primary-900 !default;
+$bg-primary-light:    $primary-700 !default;
+$bg-primary:          $primary-800 !default;
+
+// Text colors
+$text-white:          $white !default;

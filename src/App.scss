@@ -1,0 +1,9 @@
+@import "./assets/index.scss";
+
+.App {
+  color: $text-white;
+
+  div {
+    margin: $spacer;
+  }
+}
