@@ -8,7 +8,6 @@ class MainViewer extends Component {
         🚩 main viewer
         {/* <TimeRuler /> */}
         <Tracks />
-        <div className="empty">🚩 empty</div>
       </div>
     );
   }
