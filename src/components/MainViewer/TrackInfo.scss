@@ -13,9 +13,13 @@
 
 .filename {
   margin-bottom: $spacer-3;
+
+  @include body-title;
 }
 
 .time,
 .bitandhz {
   margin-bottom: $spacer;
+
+  @include body-assist;
 }
