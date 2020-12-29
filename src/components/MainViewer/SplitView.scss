@@ -1,25 +1,24 @@
 // using template default
 
+.splitView {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  height: 100%;
+}
+
 .divider-hitbox {
   cursor: col-resize;
-  align-self: stretch;
   display: flex;
+  align-self: stretch;
   align-items: center;
-  padding: 0 1rem;
 }
 
 .divider {
   height: 100%;
-  border: 1px solid #808080;
+  border: 1px solid transparent;
 }
 
 .rightPane {
   flex: 1;
-}
-
-.splitView {
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
 }

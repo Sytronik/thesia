@@ -1,7 +1,7 @@
 import React, { createRef, useEffect, useState } from "react";
 import "./SplitView.scss"
 
-const MIN_WIDTH = 75;
+const MIN_WIDTH = 160;
 
 interface SplitViewProps {
   left: React.ReactElement;

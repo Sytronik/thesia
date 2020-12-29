@@ -12,10 +12,14 @@ function App() {
   return (
     <div className="App">
       <Control />
-      <Overview />
-      <SlideBar />
-      <MainViewer />
-      <ColorBar />
+      <div>
+        <Overview />
+        <SlideBar />
+      </div>
+      <div>
+        <ColorBar />
+        <MainViewer />
+      </div>
     </div>
   );
 }

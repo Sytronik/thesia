@@ -1,9 +1,42 @@
 @import "./assets/index.scss";
 
+// temporary guide
+
+.Control,
+.Overview,
+.SlideBar,
+.MainViewer,
+.ColorBar {
+  border: $border;
+}
+
+// Variables
+$SlideBarWidth: 160px;
+$ColorBarWidth: 104px;
+
 .App {
   color: $text-white;
+  width: 100%;
 
-  div {
+  > div {
     margin: $spacer;
   }
+}
+
+.Overview {
+  display: inline-block;
+}
+
+.SlideBar {
+  float: right;
+  width: $SlideBarWidth;
+}
+
+.MainViewer {
+  margin-right: $ColorBarWidth;
+}
+
+.ColorBar {
+  float: right;
+  width: $ColorBarWidth;
 }

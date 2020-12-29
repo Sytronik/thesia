@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import "./TrackInfo.scss"
 
 class TrackInfo extends Component {
 
@@ -9,7 +10,9 @@ class TrackInfo extends Component {
         { /* TODO */ }
         <span className="filename">Sample.wav</span>
         <span className="time">00:00:00.000</span>
-        <span className="bit">24 bit</span> | <span className="hz">44.1 kHz</span>
+        <span className="bitandhz">
+          <span className="bit">24 bit</span> | <span className="hz">44.1 kHz</span>
+        </span>
       </div>
     );
   }

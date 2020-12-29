@@ -13,7 +13,7 @@ class Tracks extends Component {
           left={<TrackInfo />}
           right={<Canvas />}
         />
-        <div className="empty">🚩 empty</div>
+        { /*<div className="empty">🚩 empty</div>*/ }
       </div>
     );
   }
