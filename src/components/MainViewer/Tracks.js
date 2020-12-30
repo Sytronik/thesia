@@ -3,20 +3,17 @@ import { SplitView } from "./SplitView";
 import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
-class Tracks extends Component {
+function Tracks() {
 
-  render() {
-
-    return (
-      <div className="tracks">
-        <SplitView
-          left={<TrackInfo />}
-          right={<Canvas />}
-        />
-        { /*<div className="empty">🚩 empty</div>*/ }
-      </div>
-    );
-  }
+  return (
+    <div className="tracks">
+      <SplitView
+        left={<TrackInfo />}
+        right={<Canvas />}
+      />
+      { /*<div className="empty">🚩 empty</div>*/ }
+    </div>
+  );
 }
 
 export default Tracks;

@@ -1,16 +1,13 @@
-import React, { Component } from 'react';
+import React, { useRef } from 'react';
 
-class Canvas extends Component {
+// -ing 검토 해봐야할듯.
+function Canvas ({ width, height }) {
 
-  render() {
-
-    return (
-      <div className="Canvas">
-        { /* TODO */ }
-        <canvas ref="canvas" />
-      </div>
-    );
-  }
+  return (
+    <>
+      <canvas ref={canvasRef} height={height} width={width} className="Canvas"/>
+    </>
+  );
 }
 
 export default Canvas;
