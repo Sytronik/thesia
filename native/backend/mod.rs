@@ -3,6 +3,7 @@ use std::fmt;
 use std::io;
 use std::iter;
 use std::path::PathBuf;
+use std::time::Instant;
 
 use approx::abs_diff_ne;
 use ndarray::prelude::*;
@@ -11,18 +12,22 @@ use rayon::prelude::*;
 
 mod audio;
 mod decibel;
-mod display;
+pub mod display;
 mod mel;
 mod realfft;
 mod stft;
-mod utils;
+pub mod utils;
 mod windows;
+
 use decibel::DeciBelInplace;
 use stft::{calc_up_ratio, perform_stft, FreqScale};
 use utils::calc_proper_n_fft;
 use windows::{calc_normalized_win, WindowType};
 
+pub use display::COLORMAP;
 pub type IdChVec = Vec<(usize, usize)>;
+pub type IdChArr = [(usize, usize)];
+pub type IdChSet = HashSet<(usize, usize)>;
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 pub type SrMap<T> = HashMap<u32, T>;
 
@@ -97,7 +102,7 @@ impl AudioTrack {
 
     #[inline]
     pub fn path_string(&self) -> String {
-        self.path.as_path().display().to_string()
+        self.path.as_os_str().to_string_lossy().into_owned()
     }
 
     #[inline]
@@ -204,13 +209,19 @@ impl TrackManager {
         Ok(self.update_greys(Some(id_list)))
     }
 
-    pub fn remove_track(&mut self, id: usize) -> bool {
-        let removed = self.tracks.remove_entry(&id).unwrap().1;
-        for ch in (0..removed.n_ch).into_iter() {
-            self.specs.remove(&(id, ch));
-            self.spec_greys.remove(&(id, ch));
+    pub fn remove_tracks(&mut self, id_list: &[usize]) -> bool {
+        for id in id_list.iter() {
+            let (_, removed) = self.tracks.remove_entry(&id).unwrap();
+            for ch in (0..removed.n_ch).into_iter() {
+                self.specs.remove(&(*id, ch));
+                self.spec_greys.remove(&(*id, ch));
+            }
+            if self.tracks.par_iter().all(|(_, tr)| tr.sr != removed.sr) {
+                self.windows.remove(&removed.sr);
+                self.mel_fbs.remove(&removed.sr);
+            }
         }
-        if self.id_max_sec == id {
+        if id_list.contains(&self.id_max_sec) {
             let (id, max_sec) = self
                 .tracks
                 .par_iter()
@@ -228,21 +239,19 @@ impl TrackManager {
             self.id_max_sec = id;
             self.max_sec = max_sec;
         }
-        if self.tracks.par_iter().all(|(_, tr)| tr.sr != removed.sr) {
-            self.windows.remove(&removed.sr);
-            self.mel_fbs.remove(&removed.sr);
-        }
+
         self.update_greys(None)
     }
 
     pub fn get_entire_images(
         &self,
-        id_ch_tuples: &[(usize, usize)],
+        id_ch_tuples: &IdChArr,
         option: DrawOption,
         kind: ImageKind,
-    ) -> Vec<Array3<u8>> {
+    ) -> IdChMap<Array3<u8>> {
+        let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
-        let mut result = Vec::<Array3<u8>>::with_capacity(id_ch_tuples.len());
+        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
             let track = self.tracks.get(&id).unwrap();
             let width = track.calc_width(px_per_sec);
@@ -269,85 +278,88 @@ impl TrackManager {
                 }
             }
 
-            arr
+            ((id, ch), arr)
         }));
+        println!("draw entire: {:?}", start.elapsed());
         result
     }
 
-    pub fn draw_part_images_to(
+    pub fn get_part_images(
         &self,
-        id_ch_tuples: &[(usize, usize)],
-        outputs: &mut [u8],
+        id_ch_tuples: &IdChArr,
         sec: f64,
         width: u32,
         option: DrawOption,
         kind: ImageKind,
-        fast_resize: bool,
-    ) {
+        fast_resize_vec: Option<Vec<bool>>,
+    ) -> IdChMap<Vec<u8>> {
+        let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
-        let chunks = outputs.par_chunks_exact_mut((width * height * 4) as usize);
-        id_ch_tuples
-            .par_iter()
-            .zip_eq(chunks)
-            .for_each(|(&(id, ch), output)| {
-                let (pad_left, drawing_width) =
-                    self.calc_drawing_pad_width_of(id, sec, width, px_per_sec);
-                if drawing_width == 0 {
-                    return;
-                }
-                let mut temp_out = if drawing_width != width {
-                    Some(Array3::zeros((height as usize, drawing_width as usize, 4)))
-                } else {
-                    None
-                };
+        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
+        let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
+            // let par_iter = id_ch_tuples.iter().enumerate().map(|(i, &(id, ch))| {
+            let (pad_left, drawing_width, pad_right) =
+                self.calc_drawing_pad_width_of(id, sec, width, px_per_sec);
 
-                match kind {
-                    ImageKind::Spec => {
-                        let grey_sub = match self.crop_grey_of(id, ch, sec, width, px_per_sec) {
-                            Some(x) => x,
-                            None => return,
-                        };
-                        display::colorize_grey_with_size_to(
-                            match temp_out {
-                                Some(ref mut arr) => arr.as_slice_mut().unwrap(),
-                                None => output,
-                            },
-                            grey_sub.view(),
-                            width,
-                            height,
-                            fast_resize,
-                        );
-                    }
-                    ImageKind::Wav(option_for_wav) => {
-                        let wav_slice = match self.slice_wav_of(id, ch, sec, width, px_per_sec) {
-                            Some(x) => x,
-                            None => return,
-                        };
-                        display::draw_wav_to(
-                            match temp_out {
-                                Some(ref mut arr) => arr.as_slice_mut().unwrap(),
-                                None => output,
-                            },
-                            wav_slice,
-                            width,
-                            height,
-                            255,
-                            option_for_wav.amp_range,
-                        );
-                    }
-                }
+            let empty_image_entry = || ((id, ch), vec![0u8; width as usize * height as usize * 4]);
+            if drawing_width == 0 {
+                return empty_image_entry();
+            }
 
-                match temp_out {
-                    Some(arr) => {
-                        let shape = (height as usize, width as usize, 4);
-                        let mut out_view = ArrayViewMut3::from_shape(shape, output).unwrap();
-                        arr.indexed_iter().for_each(|((h, w, i), &x)| {
-                            out_view[[h, w + pad_left as usize, i]] = x;
-                        });
-                    }
-                    None => {}
-                };
-            });
+            let get_drawing_image = || Array3::zeros((height as usize, drawing_width as usize, 4));
+
+            let mut arr;
+            match kind {
+                ImageKind::Spec => {
+                    let grey_sub = match self.crop_grey_of(id, ch, sec, width, px_per_sec) {
+                        Some(x) => x,
+                        None => return empty_image_entry(),
+                    };
+                    arr = get_drawing_image();
+                    display::colorize_grey_with_size_to(
+                        arr.as_slice_mut().unwrap(),
+                        grey_sub.view(),
+                        drawing_width,
+                        height,
+                        match fast_resize_vec {
+                            Some(ref vec) => vec[i],
+                            None => false,
+                        },
+                    );
+                }
+                ImageKind::Wav(option_for_wav) => {
+                    let wav_slice = match self.slice_wav_of(id, ch, sec, width, px_per_sec) {
+                        Some(x) => x,
+                        None => return empty_image_entry(),
+                    };
+                    arr = get_drawing_image();
+                    display::draw_wav_to(
+                        arr.as_slice_mut().unwrap(),
+                        wav_slice,
+                        drawing_width,
+                        height,
+                        255,
+                        option_for_wav.amp_range,
+                    );
+                }
+            }
+
+            if width == drawing_width {
+                ((id, ch), arr.into_raw_vec())
+            } else {
+                let arr = utils::pad(
+                    arr.view(),
+                    (pad_left as usize, pad_right as usize),
+                    Axis(1),
+                    utils::PadMode::Constant(0),
+                );
+                ((id, ch), arr.into_raw_vec())
+            }
+        });
+        result.par_extend(par_iter);
+
+        println!("draw: {:?}", start.elapsed());
+        result
     }
 
     pub fn get_spec_image_of(&self, id: usize, ch: usize, width: u32, height: u32) -> Vec<u8> {
@@ -411,18 +423,18 @@ impl TrackManager {
         sec: f64,
         width: u32,
         px_per_sec: f64,
-    ) -> (u32, u32) {
+    ) -> (u32, u32, u32) {
         let track = self.tracks.get(&id).unwrap();
 
         let total_width = (px_per_sec * track.wavlen() as f64 / track.sr as f64).max(1.);
-        let pad_left = (-sec * px_per_sec).max(0.).round() as u32;
+        let pad_left = ((-sec * px_per_sec).max(0.).round() as u32).min(width);
         let pad_right = ((sec * px_per_sec + width as f64 - total_width)
             .max(0.)
             .round() as u32)
             .min(width - pad_left);
 
         let drawing_width = width - pad_left - pad_right;
-        (pad_left, drawing_width)
+        (pad_left, drawing_width, pad_right)
     }
 
     #[inline]
@@ -448,6 +460,11 @@ impl TrackManager {
             FreqScale::Linear => half_sr * relative_freq,
             FreqScale::Mel => mel::to_hz(mel::from_hz(half_sr) * relative_freq),
         }
+    }
+
+    #[inline]
+    pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
+        self.tracks.get(&id).map_or(false, |track| ch < track.n_ch)
     }
 
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
@@ -490,12 +507,18 @@ impl TrackManager {
             );
         }
 
-        let specs = par_collect_to_hashmap!(
-            self.id_ch_tuples_from(id_list)
-                .into_par_iter()
-                .map(|(id, ch)| ((id, ch), self.calc_spec_of(id, ch, id_list.len() == 1))),
-            id_list.len()
-        );
+        let specs = {
+            let id_ch_tuples = self.id_ch_tuples_from(id_list);
+            let len = id_ch_tuples.len();
+            let mut map = IdChMap::with_capacity(len);
+            map.par_extend(
+                id_ch_tuples
+                    .into_par_iter()
+                    .map(|(id, ch)| ((id, ch), self.calc_spec_of(id, ch, len == 1))),
+            );
+            map
+        };
+
         self.specs.extend(specs);
     }
 
@@ -556,20 +579,24 @@ impl TrackManager {
                 map.par_extend(iter);
                 map
             };
-            let par_iter = self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                if changed || force_update_ids.contains(&id) {
-                    let grey = display::convert_spec_to_grey(
-                        spec.view(),
-                        *up_ratio_map.get(&id).unwrap(),
-                        self.max_db,
-                        self.min_db,
-                    );
-                    Some(((id, ch), grey))
-                } else {
-                    None
-                }
-            });
-            let new_spec_greys = par_collect_to_hashmap!(par_iter, self.specs.len());
+            let new_spec_greys = {
+                let mut map = IdChMap::with_capacity(self.specs.len());
+                map.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
+                    if changed || force_update_ids.contains(&id) {
+                        let grey = display::convert_spec_to_grey(
+                            spec.view(),
+                            *up_ratio_map.get(&id).unwrap(),
+                            self.max_db,
+                            self.min_db,
+                        );
+                        Some(((id, ch), grey))
+                    } else {
+                        None
+                    }
+                }));
+                map
+            };
+
             if changed {
                 self.spec_greys = new_spec_greys;
             } else {
@@ -617,13 +644,6 @@ impl TrackManager {
     }
 }
 
-pub fn get_colormap_iter_size() -> (impl Iterator<Item = &'static u8>, usize) {
-    (
-        display::COLORMAP.iter().flatten(),
-        display::COLORMAP.len() * display::COLORMAP[0].len(),
-    )
-}
-
 pub fn calc_effective_w(i_w: isize, width: usize, total_width: usize) -> Option<(usize, usize)> {
     if i_w >= total_width as isize {
         None
@@ -651,7 +671,7 @@ mod tests {
         let id_list: Vec<usize> = (0..sr_strings.len()).collect();
         let path_list: Vec<String> = sr_strings
             .iter()
-            .map(|x| format!("../../samples/sample_{}.wav", x))
+            .map(|x| format!("samples/sample_{}.wav", x))
             .collect();
         let mut multitrack = TrackManager::new();
         multitrack
@@ -671,13 +691,13 @@ mod tests {
                 let imvec = multitrack.get_spec_image_of(id, 0, width, height);
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-                im.save(format!("../../samples/spec_{}.png", sr)).unwrap();
+                im.save(format!("samples/spec_{}.png", sr)).unwrap();
                 let imvec = multitrack.get_wav_image_of(id, 0, width, height, (-1., 1.));
                 let im =
                     RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-                im.save(format!("../../samples/wav_{}.png", sr)).unwrap();
+                im.save(format!("samples/wav_{}.png", sr)).unwrap();
             });
 
-        multitrack.remove_track(0);
+        multitrack.remove_tracks(&[0]);
     }
 }

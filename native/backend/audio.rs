@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn open_audio_works() {
-        let (wav, sr) = open_audio_file("../../samples/sample_48k.wav").unwrap();
+        let (wav, sr) = open_audio_file("samples/sample_48k.wav").unwrap();
         let arr = arr2(&[[
             0.00000000e+00f32,
             0.00000000e+00,

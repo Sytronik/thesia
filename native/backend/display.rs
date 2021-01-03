@@ -1,3 +1,4 @@
+use std::iter;
 // use std::time::Instant;
 
 use ndarray::prelude::*;
@@ -25,6 +26,7 @@ pub const COLORMAP: [[u8; 3]; 10] = [
     [252, 255, 164],
 ];
 pub const WAVECOLOR: [u8; 3] = [200, 21, 103];
+pub const MAX_SIZE: u32 = 8192;
 
 #[inline]
 fn interpolate(rgba1: &[u8; 3], rgba2: &[u8; 3], ratio: f32) -> [u8; 3] {
@@ -213,6 +215,11 @@ pub fn draw_wav_to(
     let [r, g, b] = WAVECOLOR;
     paint.set_color_rgba8(r, g, b, alpha);
     paint.anti_alias = true;
+    if amp_range.1 - amp_range.0 < 1e-16 {
+        let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
+        canvas.fill_rect(rect, &paint);
+        return;
+    }
 
     let amp_to_height_px = |x: f32| {
         ((amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0))
@@ -271,6 +278,13 @@ pub fn draw_wav_to(
     }
 }
 
+pub fn get_colormap_rgba() -> Vec<u8> {
+    COLORMAP
+        .iter()
+        .flat_map(|x| x.iter().cloned().chain(iter::once(255)))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,7 +302,7 @@ mod tests {
 
         RgbImage::from_raw(width as u32, height as u32, imvec)
             .unwrap()
-            .save("../../samples/colorbar.png")
+            .save("samples/colorbar.png")
             .unwrap();
     }
 }

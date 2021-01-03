@@ -8,7 +8,7 @@ use rustfft::{
     FFTnum,
 };
 
-use crate::realfft::RealFFT;
+use super::realfft::RealFFT;
 
 pub fn calc_proper_n_fft(win_length: usize) -> usize {
     2usize.pow((win_length as f32).log2().ceil() as u32)
@@ -80,44 +80,6 @@ where
             concatenate![axis, pad_left, array, pad_right]
         }
     }
-}
-
-#[macro_export(local_inner_macros)]
-macro_rules! par_collect_to_hashmap {
-    ($par_map: expr) => {
-        $par_map
-            .fold(
-                || HashMap::new(),
-                |mut hm, (k, v)| {
-                    hm.insert(k, v);
-                    hm
-                },
-            )
-            .reduce(
-                || HashMap::new(),
-                |mut hm1, hm2| {
-                    hm1.extend(hm2);
-                    hm1
-                },
-            )
-    };
-    ($par_map: expr, $length: expr) => {
-        $par_map
-            .fold(
-                || HashMap::with_capacity($length),
-                |mut hm, (k, v)| {
-                    hm.insert(k, v);
-                    hm
-                },
-            )
-            .reduce(
-                || HashMap::with_capacity($length),
-                |mut hm1, hm2| {
-                    hm1.extend(hm2);
-                    hm1
-                },
-            )
-    };
 }
 
 #[cfg(test)]

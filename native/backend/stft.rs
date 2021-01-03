@@ -3,10 +3,10 @@ use rayon::prelude::*;
 use rustfft::{num_complex::Complex, num_traits::Float, FFTnum};
 use std::ops::*;
 
-use crate::mel;
-use crate::realfft::RealFFT;
-use crate::utils::{pad, PadMode};
-use crate::windows::{calc_normalized_win, WindowType};
+use super::mel;
+use super::realfft::RealFFT;
+use super::utils::{pad, PadMode};
+use super::windows::{calc_normalized_win, WindowType};
 
 #[derive(Clone, Copy, Debug)]
 pub enum FreqScale {
@@ -135,8 +135,8 @@ mod tests {
     use ndarray::{arr2, Array1};
     use rustfft::num_complex::Complex;
 
+    use super::super::utils::Impulse;
     use super::*;
-    use crate::utils::Impulse;
     #[test]
     fn stft_works() {
         let impulse = Array1::<f32>::impulse(4, 2);
