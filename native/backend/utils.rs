@@ -5,7 +5,7 @@ use rustfft::{
         identities::{One, Zero},
         Float, Num,
     },
-    FFTnum,
+    FftNum,
 };
 
 use super::realfft::RealFFT;
@@ -31,7 +31,7 @@ where
 
 pub fn rfft<A, S, D>(input: ArrayBase<S, D>) -> Array1<Complex<A>>
 where
-    A: FFTnum + Float,
+    A: FftNum + Float,
     S: Data<Elem = A>,
     D: Dimension,
 {
