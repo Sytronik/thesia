@@ -12,6 +12,7 @@ use rustfft::{
 
 use super::realfft::RealFFT;
 
+#[inline]
 pub fn calc_proper_n_fft(win_length: usize) -> usize {
     2usize.pow((win_length as f32).log2().ceil() as u32)
 }
