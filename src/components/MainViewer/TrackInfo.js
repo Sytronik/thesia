@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React from 'react';
 import "./TrackInfo.scss"
 
 function TrackInfo() {
