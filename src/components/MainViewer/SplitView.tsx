@@ -26,7 +26,7 @@ const LeftPane: React.FunctionComponent<{
     }
   }, [leftRef, leftWidth, setLeftWidth]);
 
-  return <div ref={leftRef}>{children}</div>;
+  return <div className="LeftPane" ref={leftRef}>{children}</div>;
 };
 
 export const SplitView: React.FunctionComponent<SplitViewProps> = ({
@@ -101,7 +101,7 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   });
 
   return (
-    <div className={`splitView ${className ?? ""}`} ref={splitPaneRef}>
+    <div className={`SplitView ${className ?? ""}`} ref={splitPaneRef}>
       <LeftPane leftWidth={leftWidth} setLeftWidth={setLeftWidth}>
         {left}
       </LeftPane>

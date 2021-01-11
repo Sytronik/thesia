@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { throttle, debounce } from 'throttle-debounce';
 
+import "./MainViewer.scss";
 import { SplitView } from "./SplitView";
 import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
@@ -91,6 +92,14 @@ function MainViewer({ native }) {
       🚩 main viewer
       {/* <TimeRuler /> */}
       {canvas_arr}
+      <SplitView
+        left={
+          <div className="emptyTrack">
+            🚩 empty
+          </div>
+        }
+        right={null}
+      />
     </div>
   );
 }
