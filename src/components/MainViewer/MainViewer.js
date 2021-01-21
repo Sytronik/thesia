@@ -16,26 +16,15 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({ native }) {
+function MainViewer({ native, openDialog, refresh_list, track_ids }) {
 
-  const {addTracks, removeTrack, getSpecWavImages} = native;
+  const {getSpecWavImages} = native;
 
-  const paths = [
-    "samples/sample_48k.wav",
-    "samples/sample_44k1.wav",
-  ];
-  const track_ids = [...paths.keys()];
-
-  addTracks(track_ids, paths);
-  
-  /* canvas managing */
   const sec = useRef(0.);
   const width = 600;
   const [height, setHeight] = useState(250);
   const draw_option = useRef({ px_per_sec: 100. });
   const [children, registerChild] = useRefs();
-
-  const getIdChArr = () => Object.keys(children.current);
 
   const canvas_arr = track_ids.map((i) => {
     return (
@@ -48,6 +37,7 @@ function MainViewer({ native }) {
       />
     )
   });
+  const getIdChArr = () => Object.keys(children.current);
 
   const draw = useCallback(
     async (id_ch_arr) => {
@@ -78,6 +68,7 @@ function MainViewer({ native }) {
         }
       }
     }, [height, width]);
+
   const throttled_draw = useCallback(throttle(1000 / 120, draw), [draw]);
   const debounced_draw = useCallback(debounce(1000 / 120, draw), [draw]);
   // const throttled_draw = draw;
@@ -86,6 +77,13 @@ function MainViewer({ native }) {
   useEffect(() => {
     throttled_draw([getIdChArr()]);
   }, [draw, height, width]);
+
+  useEffect(() => {
+    if (refresh_list) {
+      console.log('draw refreshed');
+      throttled_draw(refresh_list); 
+    }
+  }, [refresh_list]);
 
   return (
     <div className="MainViewer">
@@ -96,6 +94,7 @@ function MainViewer({ native }) {
         left={
           <div className="emptyTrack">
             🚩 empty
+            <button onClick={openDialog}><span className="plusbtn"></span></button>
           </div>
         }
         right={null}

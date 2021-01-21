@@ -2,5 +2,35 @@
 
 // Empty Track
 .emptyTrack {
+  position: relative;
   padding: $spacer;
+  height: 320px; // [TEMP]
+
+  > button {
+    display: inline-block;
+    position: absolute;
+    top: $spacer;
+    right: $spacer;
+    width: $spacer-3;
+    width: $spacer-3;
+  }
+}
+
+$plusbtn-weight: 1px;
+$plusbtn-unit: $spacer-2;
+.plusbtn {
+  display: inline-block;
+  position: relative;
+  width: $plusbtn-weight;
+  height: $plusbtn-unit + $plusbtn-weight;
+  background: $button-white;
+}
+.plusbtn:after {
+  background: $button-white;
+  position: absolute;
+  left: -$plusbtn-unit/2;
+  top: $plusbtn-unit/2;
+  content: "";
+  width: $plusbtn-unit + $plusbtn-weight;
+  height: $plusbtn-weight;
 }
