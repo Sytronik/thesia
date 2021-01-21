@@ -4,6 +4,7 @@
 .emptyTrack {
   position: relative;
   padding: $spacer;
+  width: 160px; // [TEMP]
   height: 320px; // [TEMP]
 
   > button {
