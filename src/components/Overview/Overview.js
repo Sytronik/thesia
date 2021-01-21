@@ -4,7 +4,7 @@ function Overview() {
 
   return (
     <div className="Overview">
-      🚩 overview
+      overview
     </div>
   );
 }

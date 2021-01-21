@@ -4,7 +4,7 @@ function Control() {
 
   return (
     <div className="control">
-      🚩 control
+      control
     </div>
   );
 }

@@ -87,13 +87,12 @@ function MainViewer({ native, openDialog, refresh_list, track_ids }) {
 
   return (
     <div className="MainViewer">
-      🚩 main viewer
+      main viewer
       {/* <TimeRuler /> */}
       {canvas_arr}
       <SplitView
         left={
           <div className="emptyTrack">
-            🚩 empty
             <button onClick={openDialog}><span className="plusbtn"></span></button>
           </div>
         }

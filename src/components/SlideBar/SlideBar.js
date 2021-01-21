@@ -4,7 +4,7 @@ function SlideBar() {
 
   return (
     <div className="SlideBar">
-      🚩 slidebar
+      slidebar
     </div>
   );
 }

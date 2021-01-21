@@ -4,7 +4,7 @@ function ColorBar() {
 
   return (
     <div className="ColorBar">
-      🚩 colorbar
+      colorbar
       {/*<img className="bar"/>*/}
       {/* <Axis /> */}
     </div>

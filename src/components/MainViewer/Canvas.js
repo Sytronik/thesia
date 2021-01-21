@@ -58,9 +58,4 @@ const Canvas = forwardRef(({ width, height }, ref) => {
   );
 });
 
-Canvas.defaultProps = {
-  width: 1200,
-  height: 600
-};
-
 export default Canvas;
