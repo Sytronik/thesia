@@ -64,13 +64,13 @@ function MainViewer({ native, openDialog, refresh_list, track_ids }) {
         const arr = await promise;
         if (arr) {
           // console.log(arr);
-          await debounced_draw(arr);
+          debounced_draw(arr);
         }
       }
     }, [height, width]);
 
-  const throttled_draw = useCallback(throttle(1000 / 120, draw), [draw]);
-  const debounced_draw = useCallback(debounce(1000 / 120, draw), [draw]);
+  const throttled_draw = useCallback(throttle(1000 / 60, draw), [draw]);
+  const debounced_draw = useCallback(debounce(1000 / 60, draw), [draw]);
   // const throttled_draw = draw;
   // const debounced_draw = draw;
 
