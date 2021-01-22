@@ -47,6 +47,28 @@ function App() {
     }; 
   };
 
+  async function dropFile(e) {
+    e.preventDefault(); 
+    e.stopPropagation(); 
+    
+    try {
+      e.target.style.border = 'none';
+
+      const new_paths = [];
+      for (const file of e.dataTransfer.files) {
+        new_paths.push(file.path);
+      };
+      const new_track_ids = [...new_paths.keys()]; // [Temp]
+
+      const _refresh_list = await native.addTracks(new_track_ids, new_paths);
+      setTrackIds(track_ids => track_ids.concat(new_track_ids));
+      setRefreshList(_refresh_list);
+    } catch(err) {
+      console.log(err);
+      alert('file upload error');
+    };
+  }; 
+
   return (
     <div className="App">
       <Control />
@@ -58,6 +80,7 @@ function App() {
         <ColorBar />
         <MainViewer
           native={p.native} 
+          dropFile={dropFile}
           openDialog={openDialog} 
           refresh_list={refresh_list} 
           track_ids={track_ids}

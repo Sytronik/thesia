@@ -16,9 +16,22 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({ native, openDialog, refresh_list, track_ids }) {
+function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
 
   const {getSpecWavImages} = native;
+
+  const dragOver = (e) => {
+    e.preventDefault(); 
+    e.stopPropagation(); 
+  };
+  const dragEnter = (e) => {
+    e.target.style.border = '2px dashed #5b548c';
+    return false;
+  };
+  const dragLeave = (e) => {
+    e.target.style.border = 'none';
+    return false;
+  }
 
   const sec = useRef(0.);
   const width = 600;
@@ -80,7 +93,6 @@ function MainViewer({ native, openDialog, refresh_list, track_ids }) {
 
   useEffect(() => {
     if (refresh_list) {
-      console.log('draw refreshed');
       throttled_draw(refresh_list); 
     }
   }, [refresh_list]);
@@ -92,7 +104,13 @@ function MainViewer({ native, openDialog, refresh_list, track_ids }) {
       {canvas_arr}
       <SplitView
         left={
-          <div className="emptyTrack">
+          <div 
+            className="emptyTrack"
+            onDrop={dropFile}
+            onDragOver={dragOver}
+            onDragEnter={dragEnter}
+            onDragLeave={dragLeave}
+          >
             <button onClick={openDialog}><span className="plusbtn"></span></button>
           </div>
         }

@@ -2,16 +2,16 @@
 
 // Empty Track
 .emptyTrack {
-  position: relative;
-  padding: $spacer;
-  width: 160px; // [TEMP]
-  height: 320px; // [TEMP]
+  min-width: 160px - 16px; // [TEMP]
+  height: 320px - 16px; // [TEMP]
+  margin: $spacer;
+  border-radius: $spacer-1;
 
   > button {
     display: inline-block;
     position: absolute;
-    top: $spacer;
-    right: $spacer;
+    top: $spacer-3;
+    right: $spacer-3;
     width: $spacer-3;
     width: $spacer-3;
   }
