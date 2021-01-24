@@ -190,23 +190,27 @@ impl TrackManager {
         }
     }
 
-    pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> io::Result<bool> {
+    pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> (Vec<usize>, bool) {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
+        let mut added_ids = Vec::new();
         for (&id, path) in id_list.iter().zip(path_list.into_iter()) {
-            let track = AudioTrack::new(path, &self.setting)?;
-            let sec = track.sec();
-            if sec > self.max_sec {
-                self.max_sec = sec;
-                self.id_max_sec = id;
+            if let Ok(track) = AudioTrack::new(path, &self.setting) {
+                let sec = track.sec();
+                if sec > self.max_sec {
+                    self.max_sec = sec;
+                    self.id_max_sec = id;
+                }
+                if self.windows.get(&track.sr).is_none() {
+                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                }
+                self.tracks.insert(id, track);
+                added_ids.push(id);
             }
-            if self.windows.get(&track.sr).is_none() {
-                new_sr_set.insert((track.sr, track.win_length, track.n_fft));
-            }
-            self.tracks.insert(id, track);
         }
 
-        self.update_specs(id_list, new_sr_set);
-        Ok(self.update_greys(Some(id_list)))
+        self.update_specs(&added_ids[..], new_sr_set);
+        let need_draw_all = self.update_greys(Some(&added_ids[..]));
+        (added_ids, need_draw_all)
     }
 
     pub fn remove_tracks(&mut self, id_list: &[usize]) -> bool {
@@ -685,12 +689,10 @@ mod tests {
             .map(|x| format!("samples/sample_{}.wav", x))
             .collect();
         let mut multitrack = TrackManager::new();
-        multitrack
-            .add_tracks(&id_list[0..3], path_list[0..3].to_owned())
-            .unwrap();
-        multitrack
-            .add_tracks(&id_list[3..6], path_list[3..6].to_owned())
-            .unwrap();
+        let (added_ids, _) = multitrack.add_tracks(&id_list[0..3], path_list[0..3].to_owned());
+        assert_eq!(&added_ids[..], &id_list[0..3]);
+        let (added_ids, _) = multitrack.add_tracks(&id_list[3..6], path_list[3..6].to_owned());
+        assert_eq!(&added_ids[..], &id_list[3..6]);
         dbg!(multitrack.tracks.get(&0).unwrap().path_string());
         dbg!(multitrack.tracks.get(&0).unwrap().filename());
         let width: u32 = 1500;

@@ -35,9 +35,10 @@ function App() {
         const new_paths = file.filePaths;
         const new_track_ids = [...new_paths.keys()]; // [Temp]
 
-        const _refresh_list = await native.addTracks(new_track_ids, new_paths);
-        setTrackIds(track_ids => track_ids.concat(new_track_ids));
-        setRefreshList(_refresh_list);
+        const [added_ids, promise_refresh_list] = native.addTracks(new_track_ids, new_paths);
+        console.log(added_ids); // TODO: alert unsupported files to user
+        setTrackIds(track_ids => track_ids.concat(added_ids));
+        setRefreshList(await promise_refresh_list);
       } else {
         console.log('file canceled: ', file.canceled);
       }
@@ -60,9 +61,10 @@ function App() {
       };
       const new_track_ids = [...new_paths.keys()]; // [Temp]
 
-      const _refresh_list = await native.addTracks(new_track_ids, new_paths);
-      setTrackIds(track_ids => track_ids.concat(new_track_ids));
-      setRefreshList(_refresh_list);
+      const [added_ids, promise_refresh_list] = native.addTracks(new_track_ids, new_paths);
+      console.log(added_ids); // TODO: alert unsupported files to user
+      setTrackIds(track_ids => track_ids.concat(added_ids));
+      setRefreshList(await promise_refresh_list);
     } catch(err) {
       console.log(err);
       alert('file upload error');

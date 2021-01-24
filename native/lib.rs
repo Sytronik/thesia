@@ -53,29 +53,30 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let new_track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     let new_paths: Vec<String> = vec_str_from(&ctx, 1)?;
     let mut tm = TM.write().unwrap();
-    match tm.add_tracks(&new_track_ids[..], new_paths) {
-        Ok(should_draw_all) => {
-            let tuples = if should_draw_all {
-                tm.id_ch_tuples()
-            } else {
-                tm.id_ch_tuples_from(&new_track_ids[..])
-            };
-            let task = DrawingTask {
-                id_ch_tuples_spec: tuples.clone(),
-                id_ch_tuples_wav: tuples,
-                option: *DRAWOPTION.read().unwrap(),
-                opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
-            };
-            ctx.env
-                .spawn(task)
-                .map(|async_task| async_task.promise_object())
-        }
-        Err(_) => Err(ctx
-            .env
-            .throw_error("Unsupported file type!", None)
-            .err()
-            .unwrap()),
-    }
+    let (added_ids, need_draw_all) = tm.add_tracks(&new_track_ids[..], new_paths);
+    let tuples = if need_draw_all {
+        tm.id_ch_tuples()
+    } else {
+        tm.id_ch_tuples_from(&added_ids[..])
+    };
+    let task = DrawingTask {
+        id_ch_tuples_spec: tuples.clone(),
+        id_ch_tuples_wav: tuples,
+        option: *DRAWOPTION.read().unwrap(),
+        opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
+    };
+    let mut arr = ctx.env.create_array_with_length(2)?;
+    arr.set_element(
+        0,
+        convert_vec_usize_to_jsarr(ctx.env, added_ids.iter(), added_ids.len())?,
+    )?;
+    arr.set_element(
+        1,
+        ctx.env
+            .spawn(task)
+            .map(|async_task| async_task.promise_object())?,
+    )?;
+    Ok(arr)
 }
 
 #[js_function(1)]

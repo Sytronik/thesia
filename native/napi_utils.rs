@@ -117,6 +117,18 @@ pub fn convert_id_ch_vec_to_jsarr<'a>(
     Ok(obj)
 }
 
+pub fn convert_vec_usize_to_jsarr<'a>(
+    env: &Env,
+    arr: impl Iterator<Item = &'a usize>,
+    len: usize,
+) -> JsResult<JsObject> {
+    let mut obj = env.create_array_with_length(len)?;
+    for (i, &x) in arr.enumerate() {
+        obj.set_element(i as u32, env.create_double(x as f64)?)?;
+    }
+    Ok(obj)
+}
+
 #[inline]
 pub fn draw_option_from_js_obj(js_obj: JsObject) -> JsResult<DrawOption> {
     Ok(DrawOption {
