@@ -34,23 +34,66 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
   }
 
   const sec = useRef(0.);
-  const width = 600;
+  const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const draw_option = useRef({ px_per_sec: 100. });
   const [children, registerChild] = useRefs();
 
+  const info_arr = track_ids.map((i) => {      
+    return (
+      <TrackInfo key={`${i}`} height={height}/>
+    );
+  });
+  const empty = (
+    <div key="empty" className="emptyTrack" >
+      <button onClick={openDialog}><span className="plusbtn"></span></button>
+      <div className="dropbox"
+        onDrop={dropFile}
+        onDragOver={dragOver}
+        onDragEnter={dragEnter}
+        onDragLeave={dragLeave}
+      ></div>
+    </div>
+  );
   const canvas_arr = track_ids.map((i) => {
     return (
-      <SplitView
-        key={`${i}`}
-        left={<TrackInfo />}
-        right={
-          <Canvas ref={registerChild(`${i}_0`)} width={width} height={height} />
-        }
-      />
+      <Canvas key={`${i}`} ref={registerChild(`${i}_0`)} width={width} height={height} />
     )
   });
   const getIdChArr = () => Object.keys(children.current);
+
+  function handleWheel(e) {
+    let y_is_larger;
+    let delta;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      delta = e.deltaY;
+      y_is_larger = true;
+    } else {
+      delta = e.deltaX;
+      y_is_larger = false;
+    }
+    if (e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if ((e.shiftKey && y_is_larger) || !y_is_larger) {
+        setHeight(Math.round(Math.min(Math.max(height * (1 + delta / 1000), 10), 5000)));
+      } else {
+        const px_per_sec = Math.min(
+          Math.max(draw_option.current.px_per_sec * (1 + e.deltaY / 1000), 0.),
+          384000
+        );
+        if (draw_option.current.px_per_sec !== px_per_sec) {
+          draw_option.current.px_per_sec = px_per_sec;
+          throttled_draw([getIdChArr()]);
+        }
+      }
+    } else if ((e.shiftKey && y_is_larger) || !y_is_larger) {
+      e.preventDefault();
+      e.stopPropagation();
+      sec.current += delta / draw_option.current.px_per_sec;
+      throttled_draw([getIdChArr()]);
+    }
+  }
 
   const draw = useCallback(
     async (id_ch_arr) => {
@@ -98,23 +141,14 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
   }, [refresh_list]);
 
   return (
-    <div className="MainViewer">
+    <div onWheel={handleWheel} className="MainViewer">
       main viewer
       {/* <TimeRuler /> */}
-      {canvas_arr}
-      <SplitView
-        left={
-          <div 
-            className="emptyTrack"
-            onDrop={dropFile}
-            onDragOver={dragOver}
-            onDragEnter={dragEnter}
-            onDragLeave={dragLeave}
-          >
-            <button onClick={openDialog}><span className="plusbtn"></span></button>
-          </div>
-        }
-        right={null}
+      <SplitView 
+        left={[...info_arr, empty]}
+        right={canvas_arr}
+        canvasWidth={width}
+        setCanvasWidth={setWidth}
       />
     </div>
   );

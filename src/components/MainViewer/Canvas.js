@@ -1,6 +1,5 @@
 import React, { forwardRef, useRef, useImperativeHandle } from 'react';
 
-// -ing 검토 해봐야할듯.
 const Canvas = forwardRef(({ width, height }, ref) => {
   const canvas = useRef(null);
   const time = useRef(0.);

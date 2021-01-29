@@ -1,4 +1,4 @@
-import React, { createRef, useEffect, useState } from "react";
+import React, { createRef, useRef, useEffect, useLayoutEffect, useState } from "react";
 import "./SplitView.scss"
 
 const MIN_WIDTH = 160;
@@ -6,6 +6,8 @@ const MIN_WIDTH = 160;
 interface SplitViewProps {
   left: React.ReactElement;
   right: React.ReactElement;
+  canvasWidth: number;
+  setCanvasWidth: (value: number) => void;
   className?: string;
 }
 
@@ -32,15 +34,16 @@ const LeftPane: React.FunctionComponent<{
 export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   left,
   right,
+  canvasWidth,
+  setCanvasWidth,
   className
 }) => {
-  const [leftWidth, setLeftWidth] = useState<undefined | number>(undefined);
-  const [separatorXPosition, setSeparatorXPosition] = useState<
-    undefined | number
-  >(undefined);
+  const [leftWidth, setLeftWidth] = useState<undefined | number>(MIN_WIDTH);
+  const [separatorXPosition, setSeparatorXPosition] = useState< undefined | number >(undefined);
   const [dragging, setDragging] = useState(false);
 
   const splitPaneRef = createRef<HTMLDivElement>();
+  const rightPaneRef = useRef<HTMLDivElement>(null);
 
   const onMouseDown = (e: React.MouseEvent) => {
     setSeparatorXPosition(e.clientX);
@@ -88,6 +91,13 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
     setDragging(false);
   };
 
+  const resizeObserver = new ResizeObserver(entries => {
+    const target = entries[0].target
+    if (canvasWidth !== target.clientWidth) {
+      setCanvasWidth(target.clientWidth);
+    };
+  });
+
   React.useEffect(() => {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("touchmove", onTouchMove);
@@ -99,6 +109,16 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
       document.removeEventListener("mouseup", onMouseUp);
     };
   });
+
+  useLayoutEffect(() => {
+    if(rightPaneRef.current) {
+      resizeObserver.observe(rightPaneRef.current);
+    }
+
+    return (() => {
+      resizeObserver.disconnect();
+    })
+  }, [rightPaneRef, resizeObserver]);
 
   return (
     <div className={`SplitView ${className ?? ""}`} ref={splitPaneRef}>
@@ -113,7 +133,7 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
       >
         <div className="divider" />
       </div>
-      <div className="rightPane">{right}</div>
+      <div className="rightPane" ref={rightPaneRef}>{right}</div>
     </div>
   );
 };

@@ -8,9 +8,11 @@
 }
 
 .LeftPane {
-  position: relative;
-  background-color: $bg-primary;
-}
+  flex: 0 0 auto;
+  > div {
+    background-color: $bg-primary;
+  }
+} 
 
 .divider-hitbox {
   cursor: col-resize;
@@ -25,5 +27,6 @@
 }
 
 .rightPane {
-  flex: 1;
+  overflow: hidden;
+  flex: 1 1 auto;
 }
