@@ -1,8 +1,9 @@
 import React, { createRef, useRef, useEffect, useLayoutEffect, useState } from "react";
 import "./SplitView.scss"
 
+const MARGIN = 2;
 const MIN_WIDTH = 160;
-
+const MAX_WIDTH = 480;
 interface SplitViewProps {
   left: React.ReactElement;
   right: React.ReactElement;
@@ -68,10 +69,15 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
       if (splitPaneRef.current) {
         const splitPaneWidth = splitPaneRef.current.clientWidth;
 
-        if (newLeftWidth > splitPaneWidth - MIN_WIDTH) {
-          setLeftWidth(splitPaneWidth - MIN_WIDTH);
+        if (newLeftWidth > splitPaneWidth - MARGIN) {
+          setLeftWidth(splitPaneWidth - MARGIN);
           return;
         }
+      }
+
+      if (newLeftWidth > MAX_WIDTH) {
+        setLeftWidth(MAX_WIDTH);
+        return;
       }
 
       setLeftWidth(newLeftWidth);
@@ -92,8 +98,10 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   };
 
   const resizeObserver = new ResizeObserver(entries => {
+    console.log('observer callback with width: ', entries[0].target.clientWidth); // [TEMP]
     const target = entries[0].target
     if (canvasWidth !== target.clientWidth) {
+      console.log('set canvas width', canvasWidth); // [TEMP]
       setCanvasWidth(target.clientWidth);
     };
   });
