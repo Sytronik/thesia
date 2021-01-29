@@ -10,8 +10,8 @@ let main_window;
 function createWindow() {
   app.allowRendererProcessReuse = false;
   main_window = new browser_window({
-    width: 1920 / 2,
-    height: 1080 / 2,
+    width: 1600,
+    height: 1200,
     webPreferences: { preload: `${__dirname}/preload.js` }
   });
   main_window.loadURL(
