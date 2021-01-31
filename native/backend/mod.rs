@@ -21,7 +21,7 @@ mod windows;
 
 use decibel::DeciBelInplace;
 use stft::{calc_up_ratio, perform_stft, FreqScale};
-use utils::calc_proper_n_fft;
+use utils::{calc_proper_n_fft, unique_filenames};
 use windows::{calc_normalized_win, WindowType};
 
 pub use display::COLORMAP;
@@ -79,7 +79,7 @@ impl AudioTrack {
         let win_length = hop_length * setting.t_overlap;
         let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
         Ok(AudioTrack {
-            path: PathBuf::from(path),
+            path: PathBuf::from(path).canonicalize()?,
             wavs,
             sr,
             n_ch,
@@ -103,15 +103,6 @@ impl AudioTrack {
     #[inline]
     pub fn path_string(&self) -> String {
         self.path.as_os_str().to_string_lossy().into_owned()
-    }
-
-    #[inline]
-    pub fn filename(&self) -> String {
-        self.path
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .into_owned()
     }
 
     #[inline]
@@ -155,6 +146,7 @@ impl fmt::Debug for AudioTrack {
 #[readonly::make]
 pub struct TrackManager {
     pub tracks: HashMap<usize, AudioTrack>,
+    pub filenames: HashMap<usize, String>,
     pub max_db: f32,
     pub min_db: f32,
     pub max_sec: f64,
@@ -171,6 +163,7 @@ impl TrackManager {
     pub fn new() -> Self {
         TrackManager {
             tracks: HashMap::new(),
+            filenames: HashMap::new(),
             setting: SpecSetting {
                 win_ms: 40.,
                 t_overlap: 4,
@@ -208,6 +201,7 @@ impl TrackManager {
             }
         }
 
+        self.update_filenames();
         self.update_specs(&added_ids[..], new_sr_set);
         let need_draw_all = self.update_greys(Some(&added_ids[..]));
         (added_ids, need_draw_all)
@@ -244,6 +238,7 @@ impl TrackManager {
             self.max_sec = max_sec;
         }
 
+        self.update_filenames();
         self.update_greys(None)
     }
 
@@ -603,6 +598,16 @@ impl TrackManager {
         changed
     }
 
+    fn update_filenames(&mut self) {
+        let mut paths = HashMap::<usize, PathBuf>::with_capacity(self.tracks.len());
+        paths.extend(
+            self.tracks
+                .iter()
+                .map(|(&id, track)| (id, track.path.clone())),
+        );
+        self.filenames = unique_filenames(paths);
+    }
+
     fn calc_part_grey_info(
         &self,
         id: usize,
@@ -682,34 +687,31 @@ mod tests {
 
     #[test]
     fn multitrack_works() {
-        let sr_strings = ["8k", "16k", "22k05", "24k", "44k1", "48k"];
-        let id_list: Vec<usize> = (0..sr_strings.len()).collect();
-        let path_list: Vec<String> = sr_strings
+        let tags = ["8k", "16k", "22k05", "24k", "44k1", "48k", "stereo_48k"];
+        let id_list: Vec<usize> = (0..tags.len()).collect();
+        let mut path_list: Vec<String> = tags
             .iter()
+            .take(6)
             .map(|x| format!("samples/sample_{}.wav", x))
             .collect();
+        path_list.push(String::from("samples/stereo/sample_48k.wav"));
         let mut multitrack = TrackManager::new();
         let (added_ids, _) = multitrack.add_tracks(&id_list[0..3], path_list[0..3].to_owned());
         assert_eq!(&added_ids[..], &id_list[0..3]);
-        let (added_ids, _) = multitrack.add_tracks(&id_list[3..6], path_list[3..6].to_owned());
-        assert_eq!(&added_ids[..], &id_list[3..6]);
-        dbg!(multitrack.tracks.get(&0).unwrap().path_string());
-        dbg!(multitrack.tracks.get(&0).unwrap().filename());
+        let (added_ids, _) = multitrack.add_tracks(&id_list[3..], path_list[3..].to_owned());
+        assert_eq!(&added_ids[..], &id_list[3..]);
+        dbg!(multitrack.filenames.get(&5).unwrap());
+        dbg!(multitrack.filenames.get(&6).unwrap());
         let width: u32 = 1500;
         let height: u32 = 500;
-        id_list
-            .iter()
-            .zip(sr_strings.iter())
-            .for_each(|(&id, &sr)| {
-                let imvec = multitrack.get_spec_image_of(id, 0, width, height);
-                let im =
-                    RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-                im.save(format!("samples/spec_{}.png", sr)).unwrap();
-                let imvec = multitrack.get_wav_image_of(id, 0, width, height, (-1., 1.));
-                let im =
-                    RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-                im.save(format!("samples/wav_{}.png", sr)).unwrap();
-            });
+        id_list.iter().zip(tags.iter()).for_each(|(&id, &sr)| {
+            let imvec = multitrack.get_spec_image_of(id, 0, width, height);
+            let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
+            im.save(format!("samples/spec_{}.png", sr)).unwrap();
+            let imvec = multitrack.get_wav_image_of(id, 0, width, height, (-1., 1.));
+            let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
+            im.save(format!("samples/wav_{}.png", sr)).unwrap();
+        });
 
         multitrack.remove_tracks(&[0]);
     }

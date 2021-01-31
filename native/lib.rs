@@ -292,9 +292,10 @@ fn get_path(ctx: CallContext) -> JsResult<JsString> {
 
 #[js_function(1)]
 fn get_filename(ctx: CallContext) -> JsResult<JsString> {
+    let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
     let tm = TM.read().unwrap();
-    let track = get_track!(ctx, 0, tm);
-    ctx.env.create_string_from_std(track.filename())
+    ctx.env
+        .create_string_from_std(tm.filenames.get(&id).unwrap().clone())
 }
 
 #[contextless_function]

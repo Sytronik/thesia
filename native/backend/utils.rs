@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::mem::MaybeUninit;
+use std::path::{self, PathBuf};
 
 use ndarray::{prelude::*, Data, RemoveAxis, Slice, Zip};
 use rustfft::{
@@ -11,6 +13,42 @@ use rustfft::{
 };
 
 use super::realfft::RealFFT;
+
+pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
+    let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
+    let mut result = HashMap::<usize, String>::new();
+    for (id, path) in paths.into_iter() {
+        match path.file_name() {
+            Some(x) => {
+                let name = x.to_string_lossy().into_owned();
+                let parent = path.parent().unwrap().to_path_buf();
+                if groups.contains_key(&name) {
+                    groups.get_mut(&name).unwrap().insert(id, parent);
+                } else {
+                    let mut hm = HashMap::<usize, PathBuf>::new();
+                    hm.insert(id, parent);
+                    groups.insert(name, hm);
+                }
+            }
+            None => {
+                result.insert(id, path.to_string_lossy().to_string());
+            }
+        };
+    }
+    for (name, hm) in groups.into_iter() {
+        if hm.len() == 1 {
+            let (id, _) = hm.into_iter().next().unwrap();
+            result.insert(id, name);
+        } else {
+            let mut parents = unique_filenames(hm);
+            for (_, parent) in parents.iter_mut() {
+                *parent = format!("{}{}{}", parent, path::MAIN_SEPARATOR, name);
+            }
+            result.extend(parents)
+        }
+    }
+    result
+}
 
 #[inline]
 pub fn calc_proper_n_fft(win_length: usize) -> usize {
