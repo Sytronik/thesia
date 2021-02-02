@@ -7,6 +7,9 @@ use ndarray_stats::QuantileExt;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use tiny_skia::{Canvas, FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke};
 
+use super::mel;
+use super::stft::FreqScale;
+
 pub type ResizeType = resize::Type;
 
 const BLACK: [u8; 3] = [0; 3];
@@ -151,6 +154,72 @@ pub fn colorize_grey_with_size(
         })
         .collect()
     // println!("drawing spec: {:?}", start.elapsed());
+}
+
+#[cached(size = 3)]
+pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(f64, f64)> {
+    fn coarse_band(fine_band: f64) -> f64 {
+        if fine_band <= 100. {
+            100.
+        } else if fine_band <= 200. {
+            200.
+        } else if fine_band <= 500. {
+            500.
+        } else {
+            (fine_band / 1000.).ceil() * 1000.
+        }
+    }
+
+    let mut result = Vec::with_capacity(max_ticks as usize);
+    result.push((1., 0.));
+    let max_freq = sr as f64 / 2.;
+
+    if max_ticks >= 3 {
+        match freq_scale {
+            FreqScale::Mel if max_freq > 1000. => {
+                let max_mel = mel::from_hz(max_freq);
+                let mel_1k = mel::MIN_LOG_MEL as f64;
+                let fine_band_mel = max_mel / (max_ticks as f64 - 1.);
+                if max_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
+                    // divide [0, 1kHz] region
+                    let fine_band = mel::to_hz(fine_band_mel);
+                    let band = coarse_band(fine_band);
+                    let mut freq = band;
+                    let max_minus_band = 1000. - fine_band + 1.;
+                    while freq < max_minus_band {
+                        result.push((1. - mel::from_hz(freq) / max_mel, freq));
+                        freq += band;
+                    }
+                }
+                result.push((1. - mel_1k / max_mel, 1000.));
+                if max_ticks >= 4 {
+                    // divide [1kHz, max_freq] region
+                    let ratio_step =
+                        2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
+                    let mut freq = ratio_step as f64 * 1000.;
+                    let mut mel_f = mel::from_hz(freq);
+                    let max_mel_minus_band = max_mel - fine_band_mel + 0.01;
+                    while mel_f < max_mel_minus_band {
+                        result.push((1. - mel_f / max_mel, freq));
+                        freq *= ratio_step as f64;
+                        mel_f = mel::from_hz(freq);
+                    }
+                }
+            }
+            _ => {
+                let fine_band = max_freq / (max_ticks as f64 - 1.);
+                let band = coarse_band(fine_band);
+                let mut freq = band;
+                while freq < max_freq - fine_band + 1. {
+                    result.push((1. - freq / max_freq, freq));
+                    freq += band;
+                }
+            }
+        }
+    }
+
+    result.push((0., max_freq));
+    result
 }
 
 fn draw_wav_directly(wav_avg: &[f32], canvas: &mut Canvas, paint: &Paint) {
@@ -306,6 +375,7 @@ fn create_resizer(
 mod tests {
     use super::*;
 
+    use approx::assert_abs_diff_eq;
     use image::RgbImage;
     use resize::Pixel::RGB24;
 
@@ -321,5 +391,89 @@ mod tests {
             .unwrap()
             .save("samples/colorbar.png")
             .unwrap();
+    }
+
+    #[test]
+    fn freq_axis_works() {
+        let assert_axis_eq = |a: &[(f64, f64)], b: &[(f64, f64)]| {
+            a.into_iter()
+                .flat_map(|x| vec![x.0, x.1].into_iter())
+                .zip(b.into_iter().flat_map(|x| vec![x.0, x.1].into_iter()))
+                .for_each(|(x, y)| assert_abs_diff_eq!(x, y));
+        };
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Linear, 24000, 2),
+            &vec![(1., 0.), (0., 12000.)],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Linear, 24000, 8),
+            &vec![
+                (1., 0.),
+                (5. / 6., 2000.),
+                (4. / 6., 4000.),
+                (3. / 6., 6000.),
+                (2. / 6., 8000.),
+                (1. / 6., 10000.),
+                (0., 12000.),
+            ],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Linear, 24000, 24)[..3],
+            &vec![(1., 0.), (11. / 12., 1000.), (10. / 12., 2000.)],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Linear, 24000, 25)[..3],
+            &vec![(1., 0.), (23. / 24., 500.), (22. / 24., 1000.)],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Linear, 22050, 24)[20..],
+            &vec![
+                (1. - 10000. / 11025., 10000.),
+                (1. - 10500. / 11025., 10500.),
+                (0., 11025.),
+            ],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Mel, 24000, 2),
+            &vec![(1., 0.), (0., 12000.)],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Mel, 24000, 3),
+            &vec![
+                (1., 0.),
+                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(12000.), 1000.),
+                (0., 12000.),
+            ],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Mel, 3000, 4),
+            &vec![
+                (1., 0.),
+                (1. - mel::from_hz(500.) / mel::from_hz(1500.), 500.),
+                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(1500.), 1000.),
+                (0., 1500.),
+            ],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Mel, 24000, 8),
+            &vec![
+                (1., 0.),
+                (1. - mel::from_hz(500.) / mel::from_hz(12000.), 500.),
+                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(12000.), 1000.),
+                (1. - mel::from_hz(2000.) / mel::from_hz(12000.), 2000.),
+                (1. - mel::from_hz(4000.) / mel::from_hz(12000.), 4000.),
+                (0., 12000.),
+            ],
+        );
+        assert_axis_eq(
+            &create_freq_axis(FreqScale::Mel, 96000, 6),
+            &vec![
+                (1., 0.),
+                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(48000.), 1000.),
+                (1. - mel::from_hz(4000.) / mel::from_hz(48000.), 4000.),
+                (1. - mel::from_hz(16000.) / mel::from_hz(48000.), 16000.),
+                (0., 48000.),
+            ],
+        );
     }
 }

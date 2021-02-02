@@ -8,7 +8,7 @@ use super::realfft::RealFFT;
 use super::utils::{pad, PadMode};
 use super::windows::{calc_normalized_win, WindowType};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
 pub enum FreqScale {
     Linear,
     Mel,

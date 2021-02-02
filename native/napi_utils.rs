@@ -129,6 +129,17 @@ pub fn convert_vec_usize_to_jsarr<'a>(
     Ok(obj)
 }
 
+pub fn convert_vec_tup_f64_to_jsarr<'a>(env: &Env, vec: Vec<(f64, f64)>) -> JsResult<JsObject> {
+    let mut obj = env.create_array_with_length(vec.len())?;
+    for (i, x) in vec.into_iter().enumerate() {
+        let mut tup_arr = env.create_array_with_length(2)?;
+        tup_arr.set_element(0, env.create_double(x.0)?)?;
+        tup_arr.set_element(1, env.create_double(x.1)?)?;
+        obj.set_element(i as u32, tup_arr)?;
+    }
+    Ok(obj)
+}
+
 #[inline]
 pub fn draw_option_from_js_obj(js_obj: JsObject) -> JsResult<DrawOption> {
     Ok(DrawOption {

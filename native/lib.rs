@@ -250,6 +250,13 @@ fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
     ctx.env.create_double(tm.calc_hz_of(y, height) as f64)
 }
 
+#[js_function(2)]
+fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
+    let max_ticks: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
+    let tm = TM.read().unwrap();
+    convert_vec_tup_f64_to_jsarr(ctx.env, tm.get_freq_axis(max_ticks))
+}
+
 #[contextless_function]
 fn get_max_db(env: Env) -> ContextlessResult<JsNumber> {
     env.create_double(TM.read().unwrap().max_db as f64)
@@ -467,6 +474,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("getSpecWavImages", get_spec_wav_images)?;
     exports.create_named_method("getOverview", get_overview)?;
     exports.create_named_method("getHzAt", get_hz_at)?;
+    exports.create_named_method("getFreqAxis", get_freq_axis)?;
     exports.create_named_method("getMaxdB", get_max_db)?;
     exports.create_named_method("getMindB", get_min_db)?;
     exports.create_named_method("getNumCh", get_n_ch)?;

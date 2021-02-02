@@ -454,6 +454,10 @@ impl TrackManager {
         }
     }
 
+    pub fn get_freq_axis(&self, max_ticks: u32) -> Vec<(f64, f64)> {
+        display::create_freq_axis(self.setting.freq_scale, self.max_sr, max_ticks)
+    }
+
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
         self.tracks.get(&id).map_or(false, |track| ch < track.n_ch)

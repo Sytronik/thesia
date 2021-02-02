@@ -5,7 +5,8 @@ use std::ops::*;
 use ndarray::{prelude::*, ScalarOperand, Zip};
 use rustfft::num_traits::Float;
 
-const MIN_LOG_MEL: usize = 15;
+pub const MEL_DIFF_2K_1K: f64 = 10.081880157308321; // from_hz(2000) - from_hz(1000)
+pub const MIN_LOG_MEL: usize = 15;
 const MIN_LOG_HZ: f64 = 1000.;
 const LOGSTEP: f64 = 0.06875177742094912; // 6.4.ln() / 27.
 const LINEARSCALE: f64 = 200. / 3.;
