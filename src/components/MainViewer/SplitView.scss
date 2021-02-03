@@ -9,10 +9,11 @@
 
 .LeftPane {
   flex: 0 0 auto;
+
   > div {
     background-color: $bg-primary;
   }
-} 
+}
 
 .divider-hitbox {
   cursor: col-resize;

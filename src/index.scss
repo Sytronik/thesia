@@ -1,7 +1,7 @@
 @import "./assets/index.scss";
 
 // Type Selector Reset
-
+// prettier-ignore
 html, body {
 	width: 100%;
 	height: 100%;
@@ -10,21 +10,23 @@ html, body {
 	font-size: 100%;
 }
 
+// prettier-ignore
 div, dl, dt, dd, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, code, form, fieldset, legend, input, textarea, p, blockquote, th, td, figure, span {
 	margin: 0;
 	padding: 0;
 }
 
+// prettier-ignore
 header, footer, section, article, aside, nav, hgroup, details, menu, figure, figcaption {
 	display: block;
 }
 
 button {
-	overflow: visible;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	background: transparent;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 a {
@@ -36,36 +38,37 @@ table {
 }
 
 // Box-Sizing
-
 html {
   box-sizing: border-box;
 }
-*, *:before, *:after {
+
+*,
+*:before,
+*:after {
   box-sizing: inherit;
-}
-
-// temporary guide
-
-.App > div {
-  border: $border;
 }
 
 body {
   background-color: $bg-main;
 }
 
-// create-react-app default 
-
+// create-react-app default
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  padding: $spacer / 2;
 }

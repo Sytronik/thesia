@@ -3,7 +3,7 @@ import React from 'react';
 function Control() {
 
   return (
-    <div className="control">
+    <div className="Control">
       control
     </div>
   );

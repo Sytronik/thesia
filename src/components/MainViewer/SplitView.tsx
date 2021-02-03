@@ -98,10 +98,8 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   };
 
   const resizeObserver = new ResizeObserver(entries => {
-    console.log('observer callback with width: ', entries[0].target.clientWidth); // [TEMP]
     const target = entries[0].target
     if (canvasWidth !== target.clientWidth) {
-      console.log('set canvas width', canvasWidth); // [TEMP]
       setCanvasWidth(target.clientWidth);
     };
   });

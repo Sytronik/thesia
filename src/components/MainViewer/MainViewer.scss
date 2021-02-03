@@ -1,44 +1,25 @@
 @import "../../assets/index.scss";
 
 // SplitView
-.SplitView {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  height: 100%;
-}
-
 .LeftPane {
-  > div {
-    background-color: $bg-primary;
-  }
-} 
-
-.divider-hitbox {
-  cursor: col-resize;
   display: flex;
-  align-self: stretch;
-  align-items: center;
-}
-
-.divider {
+  flex-direction: column;
   height: 100%;
-  border: 1px solid transparent;
-}
-
-.rightPane {
-  flex: 1;
 }
 
 // TrackInfo
 .TrackInfo {
+  flex: 0 0 auto;
   margin-bottom: 2px;
 }
+
+$emptytrack-height: 320px;
 
 // Empty Track
 .emptyTrack {
   position: relative;
-  height: 320px - 16px; // [TEMP]
+  flex: 1 1 auto;
+  min-height: $emptytrack-height;
   padding: $spacer;
 
   > button {
@@ -51,7 +32,7 @@
   }
 }
 
-.dropbox{
+.dropbox {
   width: 100%;
   height: 100%;
   border-radius: $spacer-1;

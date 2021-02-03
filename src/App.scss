@@ -1,7 +1,6 @@
 @import "./assets/index.scss";
 
 // temporary guide
-
 .Control,
 .Overview,
 .SlideBar,
@@ -11,32 +10,64 @@
 }
 
 // Variables
-$SlideBarWidth: 160px;
-$ColorBarWidth: 104px;
+$control-height: 80px;
+$overview-height: 64px;
+$slidebar-width: 160px;
+$colorbar-width: 104px;
+$component-gap: $spacer;
 
 .App {
-  color: $text-white;
+  display: flex;
+  flex-direction: column;
+
   width: 100%;
+  height: 100%;
+  color: $text-white;
 
   > div {
-    margin: $spacer;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  > div > div {
+    margin: $component-gap / 2;
   }
 }
 
+.row {
+  &-control {
+    flex: 0 0 auto;
+    height: $control-height;
+  }
+  &-overview {
+    flex: 0 0 auto;
+    height: $overview-height;
+  }
+  &-mainviewer {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+.Control {
+  flex: 1 1 auto;
+}
+
 .Overview {
-  display: inline-block;
+  flex: 1 1 auto;
 }
 
 .SlideBar {
-  float: right;
-  width: $SlideBarWidth;
+  flex: 0 0 auto;
+  width: $slidebar-width;
 }
 
 .MainViewer {
-  margin-right: $ColorBarWidth;
+  flex: 1 1 auto;
+  width: calc(100% - #{$colorbar-width + $component-gap * 2});
 }
 
 .ColorBar {
-  float: right;
-  width: $ColorBarWidth;
+  flex: 0 0 auto;
+  width: $colorbar-width;
 }

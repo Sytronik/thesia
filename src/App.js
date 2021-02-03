@@ -73,13 +73,14 @@ function App() {
 
   return (
     <div className="App">
-      <Control />
-      <div>
+      <div className="row-control">
+        <Control />
+      </div>
+      <div className="row-overview">
         <Overview />
         <SlideBar />
       </div>
-      <div>
-        <ColorBar />
+      <div className="row-mainviewer">
         <MainViewer
           native={p.native} 
           dropFile={dropFile}
@@ -87,6 +88,7 @@ function App() {
           refresh_list={refresh_list} 
           track_ids={track_ids}
         />
+        <ColorBar />
       </div>
     </div>
   );

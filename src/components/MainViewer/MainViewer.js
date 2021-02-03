@@ -142,7 +142,6 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
 
   return (
     <div onWheel={handleWheel} className="MainViewer">
-      main viewer
       {/* <TimeRuler /> */}
       <SplitView 
         left={[...info_arr, empty]}
