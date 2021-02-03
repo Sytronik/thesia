@@ -10,7 +10,7 @@
 // TrackInfo
 .TrackInfo {
   flex: 0 0 auto;
-  margin-bottom: 2px;
+  margin-bottom: $track-margin;
 }
 
 // Empty Track
@@ -26,7 +26,7 @@
     top: $spacer-3;
     right: $spacer-3;
     width: $spacer-3;
-    width: $spacer-3;
+    height: $spacer-3;
   }
 }
 
@@ -53,4 +53,10 @@ $plusbtn-unit: $spacer-2;
   content: "";
   width: $plusbtn-unit + $plusbtn-weight;
   height: $plusbtn-weight;
+}
+
+// Canvas
+canvas {
+  display: block;
+  margin-bottom: $track-margin;
 }
