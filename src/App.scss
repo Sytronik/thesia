@@ -9,13 +9,6 @@
   border: $border;
 }
 
-// Variables
-$control-height: 80px;
-$overview-height: 64px;
-$slidebar-width: 160px;
-$colorbar-width: 104px;
-$component-gap: $spacer;
-
 .App {
   display: flex;
   flex-direction: column;
