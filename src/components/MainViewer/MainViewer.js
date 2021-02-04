@@ -84,14 +84,14 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
         );
         if (draw_option.current.px_per_sec !== px_per_sec) {
           draw_option.current.px_per_sec = px_per_sec;
-          throttled_draw([getIdChArr()]);
+          throttledDraw([getIdChArr()]);
         }
       }
     } else if ((e.shiftKey && y_is_larger) || !y_is_larger) {
       e.preventDefault();
       e.stopPropagation();
       sec.current += delta / draw_option.current.px_per_sec;
-      throttled_draw([getIdChArr()]);
+      throttledDraw([getIdChArr()]);
     }
   }
 
@@ -120,23 +120,23 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
         const arr = await promise;
         if (arr) {
           // console.log(arr);
-          debounced_draw(arr);
+          debouncedDraw(arr);
         }
       }
     }, [height, width]);
 
-  const throttled_draw = useCallback(throttle(1000 / 60, draw), [draw]);
-  const debounced_draw = useCallback(debounce(1000 / 60, draw), [draw]);
-  // const throttled_draw = draw;
-  // const debounced_draw = draw;
+  const throttledDraw = useCallback(throttle(1000 / 60, draw), [draw]);
+  const debouncedDraw = useCallback(debounce(1000 / 60, draw), [draw]);
+  // const throttledDraw = draw;
+  // const debouncedDraw = draw;
 
   useEffect(() => {
-    throttled_draw([getIdChArr()]);
+    throttledDraw([getIdChArr()]);
   }, [draw, height, width]);
 
   useEffect(() => {
     if (refresh_list) {
-      throttled_draw(refresh_list); 
+      throttledDraw(refresh_list); 
     }
   }, [refresh_list]);
 
