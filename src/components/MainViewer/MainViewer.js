@@ -136,7 +136,7 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
 
   useEffect(() => {
     if (refresh_list) {
-      throttledDraw(refresh_list); 
+      draw(refresh_list); 
     }
   }, [refresh_list]);
 
