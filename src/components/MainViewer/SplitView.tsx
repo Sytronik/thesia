@@ -123,7 +123,7 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
 
     return (() => {
       resizeObserver.disconnect();
-    })
+    });
   }, [rightPaneRef, resizeObserver]);
 
   return (

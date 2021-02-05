@@ -31,7 +31,7 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
   const dragLeave = (e) => {
     e.target.style.border = 'none';
     return false;
-  }
+  };
 
   const sec = useRef(0.);
   const [width, setWidth] = useState(600);

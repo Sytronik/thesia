@@ -1,5 +1,5 @@
 try {
-  const path = require('path')
+  const path = require('path');
 
   // Export to an electron client ( App.js and etc. )
   window.preload = {

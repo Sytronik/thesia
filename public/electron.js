@@ -21,7 +21,7 @@ function createWindow() {
   );
 
   if(is_dev){
-    main_window.webContents.openDevTools()
+    main_window.webContents.openDevTools();
   }
 
   main_window.on("closed", () => (main_window = null));
