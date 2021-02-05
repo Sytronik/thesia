@@ -1,9 +1,10 @@
 try {
   const path = require('path')
+
   // Export to an electron client ( App.js and etc. )
   window.preload = {
     __dirname:  path.join(__dirname, "../"),
-    dialog:     require('electron').remote.dialog,
+    remote:     require('electron').remote,
     is_dev:     require("electron-is-dev"),
     native:     require("../index.node")
 
