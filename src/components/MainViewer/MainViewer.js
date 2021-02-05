@@ -44,15 +44,17 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
       <TrackInfo key={`${i}`} height={height}/>
     );
   });
+  const dropbox = (
+    <div key="dropbox" className="dropbox"
+      onDrop={dropFile}
+      onDragOver={dragOver}
+      onDragEnter={dragEnter}
+      onDragLeave={dragLeave}
+    />
+  );
   const empty = (
     <div key="empty" className="emptyTrack" >
       <button onClick={openDialog}><span className="plusbtn"></span></button>
-      <div className="dropbox"
-        onDrop={dropFile}
-        onDragOver={dragOver}
-        onDragEnter={dragEnter}
-        onDragLeave={dragLeave}
-      ></div>
     </div>
   );
   const canvas_arr = track_ids.map((i) => {
@@ -144,7 +146,7 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
     <div onWheel={handleWheel} className="MainViewer">
       {/* <TimeRuler /> */}
       <SplitView 
-        left={[...info_arr, empty]}
+        left={[...info_arr, empty, dropbox]}
         right={canvas_arr}
         canvasWidth={width}
         setCanvasWidth={setWidth}

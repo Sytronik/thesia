@@ -1,5 +1,20 @@
 @import "../../assets/index.scss";
 
+.MainViewer {
+  position: relative;
+}
+
+// Dropbox
+.dropbox {
+  $margin: $spacer;
+
+  position: absolute;
+  width: calc(100% - #{$margin * 2});
+  height: calc(100% - #{$margin * 2});
+  margin: $margin;
+  border-radius: $spacer-1;
+}
+
 // SplitView
 .LeftPane {
   display: flex;
@@ -18,22 +33,16 @@
   position: relative;
   flex: 1 1 auto;
   min-height: $emptytrack-height;
-  padding: $spacer;
 
   > button {
     display: inline-block;
     position: absolute;
+    z-index: 2;
     top: $spacer-3;
     right: $spacer-3;
-    width: $spacer-3;
-    height: $spacer-3;
+    width: $button-size;
+    height: $button-size;
   }
-}
-
-.dropbox {
-  width: 100%;
-  height: 100%;
-  border-radius: $spacer-1;
 }
 
 $plusbtn-weight: 1px;
