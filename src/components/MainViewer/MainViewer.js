@@ -1,51 +1,53 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
-import { throttle, debounce } from 'throttle-debounce';
+import React, {useRef, useCallback, useEffect, useState} from "react";
+import {throttle, debounce} from "throttle-debounce";
 
 import "./MainViewer.scss";
-import { SplitView } from "./SplitView";
+import {SplitView} from "./SplitView";
 import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
 function useRefs() {
   const refs = useRef({});
 
-  const register = useCallback((refName) => ref => {
-    refs.current[refName] = ref;
-  }, []);
+  const register = useCallback(
+    (refName) => (ref) => {
+      refs.current[refName] = ref;
+    },
+    [],
+  );
 
   return [refs, register];
 }
 
-function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
-
+function MainViewer({native, dropFile, openDialog, refresh_list, track_ids}) {
   const {getSpecWavImages} = native;
 
   const dragOver = (e) => {
-    e.preventDefault(); 
-    e.stopPropagation(); 
+    e.preventDefault();
+    e.stopPropagation();
   };
   const dragEnter = (e) => {
-    e.target.style.border = '2px dashed #5b548c';
+    e.target.style.border = "2px dashed #5b548c";
     return false;
   };
   const dragLeave = (e) => {
-    e.target.style.border = 'none';
+    e.target.style.border = "none";
     return false;
   };
 
-  const sec = useRef(0.);
+  const sec = useRef(0);
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
-  const draw_option = useRef({ px_per_sec: 100. });
+  const draw_option = useRef({px_per_sec: 100});
   const [children, registerChild] = useRefs();
 
-  const info_arr = track_ids.map((i) => {      
-    return (
-      <TrackInfo key={`${i}`} height={height}/>
-    );
+  const info_arr = track_ids.map((i) => {
+    return <TrackInfo key={`${i}`} height={height} />;
   });
   const dropbox = (
-    <div key="dropbox" className="dropbox"
+    <div
+      key="dropbox"
+      className="dropbox"
       onDrop={dropFile}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
@@ -53,14 +55,14 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
     />
   );
   const empty = (
-    <div key="empty" className="emptyTrack" >
-      <button onClick={openDialog}><span className="plusbtn"></span></button>
+    <div key="empty" className="emptyTrack">
+      <button onClick={openDialog}>
+        <span className="plusbtn"></span>
+      </button>
     </div>
   );
   const canvas_arr = track_ids.map((i) => {
-    return (
-      <Canvas key={`${i}`} ref={registerChild(`${i}_0`)} width={width} height={height} />
-    )
+    return <Canvas key={`${i}`} ref={registerChild(`${i}_0`)} width={width} height={height} />;
   });
   const getIdChArr = () => Object.keys(children.current);
 
@@ -81,8 +83,8 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
         setHeight(Math.round(Math.min(Math.max(height * (1 + delta / 1000), 10), 5000)));
       } else {
         const px_per_sec = Math.min(
-          Math.max(draw_option.current.px_per_sec * (1 + e.deltaY / 1000), 0.),
-          384000
+          Math.max(draw_option.current.px_per_sec * (1 + e.deltaY / 1000), 0),
+          384000,
         );
         if (draw_option.current.px_per_sec !== px_per_sec) {
           draw_option.current.px_per_sec = px_per_sec;
@@ -101,9 +103,10 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
     async (id_ch_arr) => {
       const [images, promise] = getSpecWavImages(
         id_ch_arr[0],
-        sec.current, width,
-        { ...draw_option.current, height: height },
-        { min_amp: -1., max_amp: 1. }
+        sec.current,
+        width,
+        {...draw_option.current, height: height},
+        {min_amp: -1, max_amp: 1},
       );
 
       for (const [id_ch_str, bufs] of Object.entries(images)) {
@@ -125,7 +128,9 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
           debouncedDraw(arr);
         }
       }
-    }, [height, width]);
+    },
+    [height, width],
+  );
 
   const throttledDraw = useCallback(throttle(1000 / 60, draw), [draw]);
   const debouncedDraw = useCallback(debounce(1000 / 60, draw), [draw]);
@@ -138,14 +143,14 @@ function MainViewer({ native, dropFile, openDialog, refresh_list, track_ids }) {
 
   useEffect(() => {
     if (refresh_list) {
-      draw(refresh_list); 
+      draw(refresh_list);
     }
   }, [refresh_list]);
 
   return (
     <div onWheel={handleWheel} className="MainViewer">
       {/* <TimeRuler /> */}
-      <SplitView 
+      <SplitView
         left={[...info_arr, empty, dropbox]}
         right={canvas_arr}
         canvasWidth={width}

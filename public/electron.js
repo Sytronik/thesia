@@ -12,15 +12,13 @@ function createWindow() {
   main_window = new browser_window({
     width: 1600,
     height: 1200,
-    webPreferences: { preload: `${__dirname}/preload.js` }
+    webPreferences: {preload: `${__dirname}/preload.js`},
   });
   main_window.loadURL(
-    is_dev
-    ? "http://localhost:3000"
-    : `file://${path.join(__dirname, "../build/index.html")}`
+    is_dev ? "http://localhost:3000" : `file://${path.join(__dirname, "../build/index.html")}`,
   );
 
-  if(is_dev){
+  if (is_dev) {
     main_window.webContents.openDevTools();
   }
 

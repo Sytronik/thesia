@@ -1,12 +1,7 @@
-import React from 'react';
+import React from "react";
 
 function Control() {
-
-  return (
-    <div className="Control">
-      control
-    </div>
-  );
+  return <div className="Control">control</div>;
 }
 
 export default Control;
