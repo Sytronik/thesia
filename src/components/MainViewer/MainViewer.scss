@@ -9,9 +9,11 @@
   $margin: $spacer;
 
   position: absolute;
+  z-index: 2;
   width: calc(100% - #{$margin * 2});
   height: calc(100% - #{$margin * 2});
   margin: $margin;
+  border: 2px dashed $border-primary-light;
   border-radius: $spacer-1;
 }
 
@@ -37,7 +39,6 @@
   > button {
     display: inline-block;
     position: absolute;
-    z-index: 2;
     top: $spacer-3;
     right: $spacer-3;
     width: $button-size;

@@ -98,8 +98,6 @@ function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    e.target.style.border = "none";
-
     const new_paths = [];
     const unsupported_paths = [];
 

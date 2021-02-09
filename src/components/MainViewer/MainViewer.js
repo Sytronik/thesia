@@ -22,17 +22,36 @@ function useRefs() {
 function MainViewer({native, dropFile, openDialog, refresh_list, track_ids}) {
   const {getSpecWavImages} = native;
 
+  const dragcounter = useRef(0);
+  const [show_dropbox, setShowDropbox] = useState(false);
+
   const dragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
   };
   const dragEnter = (e) => {
-    e.target.style.border = "2px dashed #5b548c";
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragcounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setShowDropbox(true);
+    }
     return false;
   };
   const dragLeave = (e) => {
-    e.target.style.border = "none";
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragcounter.current--;
+    if (dragcounter.current === 0) {
+      setShowDropbox(false);
+    }
     return false;
+  };
+  const dropReset = () => {
+    dragcounter.current = 0;
+    setShowDropbox(false);
   };
 
   const sec = useRef(0);
@@ -41,19 +60,10 @@ function MainViewer({native, dropFile, openDialog, refresh_list, track_ids}) {
   const draw_option = useRef({px_per_sec: 100});
   const [children, registerChild] = useRefs();
 
+  const dropbox = <div className="dropbox"></div>;
   const info_arr = track_ids.map((i) => {
     return <TrackInfo key={`${i}`} height={height} />;
   });
-  const dropbox = (
-    <div
-      key="dropbox"
-      className="dropbox"
-      onDrop={dropFile}
-      onDragOver={dragOver}
-      onDragEnter={dragEnter}
-      onDragLeave={dragLeave}
-    />
-  );
   const empty = (
     <div key="empty" className="emptyTrack">
       <button onClick={openDialog}>
@@ -145,13 +155,22 @@ function MainViewer({native, dropFile, openDialog, refresh_list, track_ids}) {
     if (refresh_list) {
       draw(refresh_list);
     }
+    dropReset();
   }, [refresh_list]);
 
   return (
-    <div onWheel={handleWheel} className="MainViewer">
+    <div
+      onDrop={dropFile}
+      onDragOver={dragOver}
+      onDragEnter={dragEnter}
+      onDragLeave={dragLeave}
+      onWheel={handleWheel}
+      className="MainViewer"
+    >
+      {show_dropbox && dropbox}
       {/* <TimeRuler /> */}
       <SplitView
-        left={[...info_arr, empty, dropbox]}
+        left={[...info_arr, empty]}
         right={canvas_arr}
         canvasWidth={width}
         setCanvasWidth={setWidth}
