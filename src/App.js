@@ -8,10 +8,8 @@ import ColorBar from "./components/ColorBar/ColorBar";
 
 import path from "path";
 
-const p = window.preload;
-const native = p.native;
-const {dialog} = p.remote;
-const __dirname = p.__dirname;
+const {__dirname, remote, native} = window.preload;
+const {dialog} = remote;
 
 const supported_types = ["flac", "mp3", "oga", "ogg", "wav"];
 const supported_MIME = supported_types.map((subtype) => `audio/${subtype}`);
@@ -71,6 +69,21 @@ function App() {
     }
   }
 
+  async function removeTracks(ids) {
+    try {
+      const promise_refresh_list = native.removeTracks(ids);
+      setTrackIds((track_ids) => track_ids.filter((id) => !ids.includes(id)));
+
+      // [Temp] change when return type changes to null
+      if ((await promise_refresh_list).isArray) {
+        setRefreshList(promise_refresh_list);
+      }
+    } catch (err) {
+      console.log(err);
+      alert("Could not remove track");
+    }
+  }
+
   async function openDialog() {
     const file = await dialog.showOpenDialog({
       title: "Select the File to be uploaded",
@@ -122,7 +135,7 @@ function App() {
       </div>
       <div className="row-mainviewer">
         <MainViewer
-          native={p.native}
+          removeTracks={removeTracks}
           dropFile={dropFile}
           openDialog={openDialog}
           refresh_list={refresh_list}

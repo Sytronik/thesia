@@ -6,6 +6,8 @@ import {SplitView} from "./SplitView";
 import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
+const {native} = window.preload;
+
 function useRefs() {
   const refs = useRef({});
 
@@ -19,7 +21,7 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({native, dropFile, openDialog, refresh_list, track_ids}) {
+function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids}) {
   const {getSpecWavImages} = native;
 
   const dragcounter = useRef(0);
@@ -62,7 +64,7 @@ function MainViewer({native, dropFile, openDialog, refresh_list, track_ids}) {
 
   const dropbox = <div className="dropbox"></div>;
   const info_arr = track_ids.map((i) => {
-    return <TrackInfo key={`${i}`} height={height} />;
+    return <TrackInfo key={`${i}`} trackid={i} removeTracks={removeTracks} height={height} />;
   });
   const empty = (
     <div key="empty" className="emptyTrack">

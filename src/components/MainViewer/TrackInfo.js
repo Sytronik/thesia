@@ -1,14 +1,40 @@
-import React, {useRef} from "react";
+import React, {useEffect, useRef} from "react";
 import "./TrackInfo.scss";
 
-function TrackInfo({height}) {
+const {remote} = window.preload;
+
+function TrackInfo({trackid, removeTracks, height}) {
+  const {Menu, MenuItem} = remote;
+
   const track_info = useRef();
-  if (track_info.current) {
-    track_info.current.style.height = `${height}px`;
-  }
+
+  const showContextMenu = (e) => {
+    e.preventDefault();
+
+    const id = trackid;
+    const ids = [id];
+
+    const menu = new Menu();
+    menu.append(
+      new MenuItem({
+        label: "Delete Track",
+        click() {
+          removeTracks(ids);
+        },
+      }),
+    );
+
+    menu.popup(remote.getCurrentWindow());
+  };
+
+  useEffect(() => {
+    if (track_info.current) {
+      track_info.current.style.height = `${height}px`;
+    }
+  }, [height]);
 
   return (
-    <div ref={track_info} className="TrackInfo">
+    <div onContextMenu={showContextMenu} ref={track_info} className="TrackInfo">
       {/* TODO */}
       <span className="filename">Sample.wav</span>
       <span className="time">00:00:00.000</span>
