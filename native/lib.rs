@@ -231,7 +231,7 @@ fn get_spec_wav_images(ctx: CallContext) -> JsResult<JsObject> {
     Ok(result)
 }
 
-#[js_function(1)]
+#[js_function(3)]
 fn get_overview(ctx: CallContext) -> JsResult<JsBuffer> {
     let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
     let width: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
@@ -250,7 +250,7 @@ fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
     ctx.env.create_double(tm.calc_hz_of(y, height) as f64)
 }
 
-#[js_function(2)]
+#[js_function(1)]
 fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
     let max_ticks: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
     let tm = TM.read().unwrap();
