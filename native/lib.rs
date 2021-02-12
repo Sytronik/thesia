@@ -4,10 +4,7 @@ use std::convert::TryInto;
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::Instant;
 
-use napi::{
-    CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString,
-    Result as JsResult, Task,
-};
+use napi::{CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, Result as JsResult, Task};
 use napi_derive::*;
 
 use lazy_static::{initialize, lazy_static};
@@ -59,28 +56,33 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     } else {
         tm.id_ch_tuples_from(&added_ids[..])
     };
-    let task = DrawingTask {
-        id_ch_tuples_spec: tuples.clone(),
-        id_ch_tuples_wav: tuples,
-        option: *DRAWOPTION.read().unwrap(),
-        opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
-    };
     let mut arr = ctx.env.create_array_with_length(2)?;
     arr.set_element(
         0,
         convert_vec_usize_to_jsarr(ctx.env, added_ids.iter(), added_ids.len())?,
     )?;
-    arr.set_element(
-        1,
-        ctx.env
-            .spawn(task)
-            .map(|async_task| async_task.promise_object())?,
-    )?;
+    if !tuples.is_empty() {
+        let task = DrawingTask {
+            id_ch_tuples_spec: tuples.clone(),
+            id_ch_tuples_wav: tuples,
+            option: *DRAWOPTION.read().unwrap(),
+            opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
+        };
+        arr.set_element(
+            1,
+            ctx.env
+                .spawn(task)
+                .map(|async_task| async_task.promise_object())?,
+        )?;
+    }
+    else {
+        arr.set_element(1, ctx.env.get_null()?)?;
+    }
     Ok(arr)
 }
 
 #[js_function(1)]
-fn remove_tracks(ctx: CallContext) -> JsResult<JsObject> {
+fn remove_tracks(ctx: CallContext) -> JsResult<JsUnknown> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     let mut tm = TM.write().unwrap();
     {
@@ -101,9 +103,9 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsObject> {
         };
         ctx.env
             .spawn(task)
-            .map(|async_task| async_task.promise_object())
+            .map(|async_task| async_task.promise_object().into_unknown())
     } else {
-        ctx.env.create_object()
+        Ok(ctx.env.get_null()?.into_unknown())
     }
 }
 
