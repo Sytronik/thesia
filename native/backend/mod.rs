@@ -535,14 +535,14 @@ impl TrackManager {
             );
         max = max.min(0.);
         min = min.max(max - self.setting.db_range);
-        let mut changed = false;
+        let mut has_changed_all = false;
         if abs_diff_ne!(self.max_db, max, epsilon = 1e-3) {
             self.max_db = max;
-            changed = true;
+            has_changed_all = true;
         }
         if abs_diff_ne!(self.min_db, min, epsilon = 1e-3) {
             self.min_db = min;
-            changed = true;
+            has_changed_all = true;
         }
 
         let max_sr = self
@@ -552,19 +552,24 @@ impl TrackManager {
             .reduce(|| 0u32, |max, x| max.max(x));
         if self.max_sr != max_sr {
             self.max_sr = max_sr;
-            changed = true;
+            has_changed_all = true;
         }
+        let force_update_ids = if has_changed_all {
+            self.tracks.keys().cloned().collect()
+        } else {
+            match force_update_ids {
+                Some(v) => v.iter().cloned().collect(),
+                None => HashSet::new(),
+            }
+        };
 
-        if force_update_ids.is_some() || changed {
-            let force_update_ids = force_update_ids.unwrap();
+        if !force_update_ids.is_empty() {
             let up_ratio_map = {
-                let mut map = HashMap::<usize, f32>::with_capacity(if changed {
-                    self.tracks.len()
-                } else {
+                let mut map = HashMap::<usize, f32>::with_capacity(
                     force_update_ids.len()
-                });
+                );
                 let iter = self.tracks.par_iter().filter_map(|(id, track)| {
-                    if changed || force_update_ids.contains(id) {
+                    if force_update_ids.contains(id) {
                         let up_ratio =
                             calc_up_ratio(track.sr, self.max_sr, self.setting.freq_scale);
                         Some((*id, up_ratio))
@@ -578,7 +583,7 @@ impl TrackManager {
             let new_spec_greys = {
                 let mut map = IdChMap::with_capacity(self.specs.len());
                 map.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                    if changed || force_update_ids.contains(&id) {
+                    if force_update_ids.contains(&id) {
                         let grey = display::convert_spec_to_grey(
                             spec.view(),
                             *up_ratio_map.get(&id).unwrap(),
@@ -593,13 +598,13 @@ impl TrackManager {
                 map
             };
 
-            if changed {
+            if has_changed_all {
                 self.spec_greys = new_spec_greys;
             } else {
                 self.spec_greys.extend(new_spec_greys)
             }
         }
-        changed
+        has_changed_all
     }
 
     fn update_filenames(&mut self) {
