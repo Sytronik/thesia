@@ -7,7 +7,6 @@ const MAX_WIDTH = 480;
 interface SplitViewProps {
   left: React.ReactElement;
   right: React.ReactElement;
-  canvasWidth: number;
   setCanvasWidth: (value: number) => void;
   className?: string;
 }
@@ -35,7 +34,6 @@ const LeftPane: React.FunctionComponent<{
 export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   left,
   right,
-  canvasWidth,
   setCanvasWidth,
   className
 }) => {
@@ -97,12 +95,10 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
     setDragging(false);
   };
 
-  const resizeObserver = new ResizeObserver(entries => {
+  const [resizeObserver, _] = useState(new ResizeObserver(entries => {
     const target = entries[0].target
-    if (canvasWidth !== target.clientWidth) {
       setCanvasWidth(target.clientWidth);
-    };
-  });
+  }));
 
   React.useEffect(() => {
     document.addEventListener("mousemove", onMouseMove);

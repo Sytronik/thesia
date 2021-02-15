@@ -145,13 +145,17 @@ function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids
   );
 
   const throttledDraw = useCallback(throttle(1000 / 60, draw), [draw]);
-  const debouncedDraw = useCallback(debounce(1000 / 60, draw), [draw]);
+  const debouncedDraw = useCallback(debounce(100, draw), [draw]);
   // const throttledDraw = draw;
   // const debouncedDraw = draw;
 
   useEffect(() => {
     throttledDraw([getIdChArr()]);
-  }, [draw, height, width]);
+  }, [throttledDraw, width]);
+
+  useEffect(() => {
+    debouncedDraw([getIdChArr()]);
+  }, [debouncedDraw, height]);
 
   useEffect(() => {
     if (refresh_list) {
@@ -171,12 +175,7 @@ function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids
     >
       {show_dropbox && dropbox}
       {/* <TimeRuler /> */}
-      <SplitView
-        left={[...info_arr, empty]}
-        right={canvas_arr}
-        canvasWidth={width}
-        setCanvasWidth={setWidth}
-      />
+      <SplitView left={[...info_arr, empty]} right={canvas_arr} setCanvasWidth={setWidth} />
     </div>
   );
 }

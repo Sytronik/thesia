@@ -27,9 +27,9 @@ const Canvas = forwardRef(({width, height}, ref) => {
         time.current = timestamp;
         const im_spec = new ImageData(new Uint8ClampedArray(buf_spec), width, height);
         const im_wav = new ImageData(new Uint8ClampedArray(buf_wav), width, height);
-        const offscreen = new OffscreenCanvas(canvas.current.width, canvas.current.height);
+        const offscreen = new OffscreenCanvas(width, height);
         const ctx = offscreen.getContext("2d");
-        ctx.clearRect(0, 0, canvas.current.width, canvas.current.height);
+        ctx.clearRect(0, 0, width, height);
         const promise_bmp_spec = createImageBitmap(im_spec);
         const promise_bmp_wav = createImageBitmap(im_wav);
         const [bmp_spec, bmp_wav] = await Promise.all([promise_bmp_spec, promise_bmp_wav]);
