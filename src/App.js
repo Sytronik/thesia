@@ -74,8 +74,7 @@ function App() {
       const promise_refresh_list = native.removeTracks(ids);
       setTrackIds((track_ids) => track_ids.filter((id) => !ids.includes(id)));
 
-      // [Temp] change when return type changes to null
-      if ((await promise_refresh_list).isArray) {
+      if (!(await promise_refresh_list)) {
         setRefreshList(promise_refresh_list);
       }
     } catch (err) {
@@ -135,11 +134,11 @@ function App() {
       </div>
       <div className="row-mainviewer">
         <MainViewer
-          removeTracks={removeTracks}
-          dropFile={dropFile}
-          openDialog={openDialog}
           refresh_list={refresh_list}
           track_ids={track_ids}
+          dropFile={dropFile}
+          openDialog={openDialog}
+          removeTracks={removeTracks}
         />
         <ColorBar />
       </div>

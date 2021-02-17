@@ -21,11 +21,17 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids}) {
+function MainViewer({refresh_list, track_ids, dropFile, openDialog, removeTracks}) {
   const {getSpecWavImages} = native;
 
   const dragcounter = useRef(0);
   const [show_dropbox, setShowDropbox] = useState(false);
+
+  const sec = useRef(0);
+  const [width, setWidth] = useState(600);
+  const [height, setHeight] = useState(250);
+  const draw_option = useRef({px_per_sec: 100});
+  const [children, registerChild] = useRefs();
 
   const dragOver = (e) => {
     e.preventDefault();
@@ -56,29 +62,7 @@ function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids
     setShowDropbox(false);
   };
 
-  const sec = useRef(0);
-  const [width, setWidth] = useState(600);
-  const [height, setHeight] = useState(250);
-  const draw_option = useRef({px_per_sec: 100});
-  const [children, registerChild] = useRefs();
-
-  const dropbox = <div className="dropbox"></div>;
-  const info_arr = track_ids.map((i) => {
-    return <TrackInfo key={`${i}`} trackid={i} removeTracks={removeTracks} height={height} />;
-  });
-  const empty = (
-    <div key="empty" className="emptyTrack">
-      <button onClick={openDialog}>
-        <span className="plusbtn"></span>
-      </button>
-    </div>
-  );
-  const canvas_arr = track_ids.map((i) => {
-    return <Canvas key={`${i}`} ref={registerChild(`${i}_0`)} width={width} height={height} />;
-  });
-  const getIdChArr = () => Object.keys(children.current);
-
-  function handleWheel(e) {
+  const handleWheel = (e) => {
     let y_is_larger;
     let delta;
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -109,7 +93,7 @@ function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids
       sec.current += delta / draw_option.current.px_per_sec;
       throttledDraw([getIdChArr()]);
     }
-  }
+  };
 
   const draw = useCallback(
     async (id_ch_arr) => {
@@ -149,6 +133,22 @@ function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids
   // const throttledDraw = draw;
   // const debouncedDraw = draw;
 
+  const dropbox = <div className="dropbox"></div>;
+  const info_arr = track_ids.map((i) => {
+    return <TrackInfo key={`${i}`} height={height} trackid={i} removeTracks={removeTracks} />;
+  });
+  const empty = (
+    <div key="empty" className="emptyTrack">
+      <button onClick={openDialog}>
+        <span className="plusbtn"></span>
+      </button>
+    </div>
+  );
+  const canvas_arr = track_ids.map((i) => {
+    return <Canvas key={`${i}`} ref={registerChild(`${i}_0`)} width={width} height={height} />;
+  });
+  const getIdChArr = () => Object.keys(children.current);
+
   useEffect(() => {
     throttledDraw([getIdChArr()]);
   }, [throttledDraw, width]);
@@ -166,12 +166,12 @@ function MainViewer({removeTracks, dropFile, openDialog, refresh_list, track_ids
 
   return (
     <div
+      className="MainViewer"
       onDrop={dropFile}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
       onDragLeave={dragLeave}
       onWheel={handleWheel}
-      className="MainViewer"
     >
       {show_dropbox && dropbox}
       {/* <TimeRuler /> */}

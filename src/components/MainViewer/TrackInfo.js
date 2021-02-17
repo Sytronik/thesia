@@ -3,7 +3,7 @@ import "./TrackInfo.scss";
 
 const {remote} = window.preload;
 
-function TrackInfo({trackid, removeTracks, height}) {
+function TrackInfo({height, trackid, removeTracks}) {
   const {Menu, MenuItem} = remote;
 
   const track_info = useRef();
@@ -11,9 +11,7 @@ function TrackInfo({trackid, removeTracks, height}) {
   const showContextMenu = (e) => {
     e.preventDefault();
 
-    const id = trackid;
-    const ids = [id];
-
+    const ids = [trackid];
     const menu = new Menu();
     menu.append(
       new MenuItem({
@@ -34,7 +32,12 @@ function TrackInfo({trackid, removeTracks, height}) {
   }, [height]);
 
   return (
-    <div onContextMenu={showContextMenu} ref={track_info} className="TrackInfo">
+    <div
+      className="TrackInfo"
+      ref={track_info}
+      onClick={selectTrack}
+      onContextMenu={showContextMenu}
+    >
       {/* TODO */}
       <span className="filename">Sample.wav</span>
       <span className="time">00:00:00.000</span>
