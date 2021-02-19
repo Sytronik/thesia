@@ -96,6 +96,7 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
 
   const draw = useCallback(
     async (id_ch_arr) => {
+      if (id_ch_arr.reduce((sum, x) => sum + x.length, 0) === 0) return;
       const [images, promise] = getSpecWavImages(
         id_ch_arr[0],
         sec.current,
@@ -118,17 +119,14 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       // cached image
       if (promise !== null) {
         const arr = await promise;
-        if (arr) {
-          // console.log(arr);
-          debouncedDraw(arr);
-        }
+        debouncedDraw(arr);
       }
     },
     [height, width],
   );
 
   const throttledDraw = useCallback(throttle(1000 / 60, draw), [draw]);
-  const debouncedDraw = useCallback(debounce(100, draw), [draw]);
+  const debouncedDraw = useCallback(debounce(1000 / 30, draw), [draw]);
   // const throttledDraw = draw;
   // const debouncedDraw = draw;
 
@@ -158,11 +156,11 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
 
   useEffect(() => {
     throttledDraw([getIdChArr()]);
-  }, [throttledDraw, width]);
+  }, [width]);
 
   useEffect(() => {
     debouncedDraw([getIdChArr()]);
-  }, [debouncedDraw, height]);
+  }, [height]);
 
   useEffect(() => {
     if (refresh_list) {
