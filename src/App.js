@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import "./App.scss";
 import Control from "./components/Control/Control";
 import Overview from "./components/Overview/Overview";
@@ -9,12 +9,14 @@ import ColorBar from "./components/ColorBar/ColorBar";
 import path from "path";
 
 const {__dirname, remote, native} = window.preload;
-const {dialog} = remote;
+const {dialog, Menu, MenuItem} = remote;
 
 const supported_types = ["flac", "mp3", "oga", "ogg", "wav"];
 const supported_MIME = supported_types.map((subtype) => `audio/${subtype}`);
 
 function App() {
+  const selected_list = useRef([]);
+
   const [track_ids, setTrackIds] = useState([]);
   const [refresh_list, setRefreshList] = useState(null);
 
@@ -68,7 +70,6 @@ function App() {
       alert("File upload error");
     }
   }
-
   async function removeTracks(ids) {
     try {
       const promise_refresh_list = native.removeTracks(ids);
@@ -105,7 +106,6 @@ function App() {
       console.log("file canceled: ", file.canceled);
     }
   }
-
   function dropFile(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -123,6 +123,67 @@ function App() {
     addTracks(new_paths, unsupported_paths);
   }
 
+  const setSelected = (selected_list) => {
+    const track_infos = document.querySelectorAll(".TrackInfo");
+    track_infos.forEach((track_info) => {
+      if (selected_list.includes(Number(track_info.getAttribute("trackid")))) {
+        track_info.classList.add("selected");
+      } else {
+        track_info.classList.remove("selected");
+      }
+    });
+  };
+  const selectTrack = (e) => {
+    e.preventDefault();
+
+    const classlist = e.target.classList;
+    const id = Number(e.target.getAttribute("trackid"));
+
+    if (!classlist.contains("selected")) {
+      selected_list.current = [id];
+      setSelected(selected_list.current);
+    } else {
+      // logic doesn't allow unselect track
+      selected_list.current.splice(selected_list.current.indexOf("id"), 1);
+      setSelected(selected_list.current);
+    }
+  };
+  const deleteSelected = (e) => {
+    e.preventDefault();
+
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (selected_list.current.length > 0) {
+        removeTracks(selected_list.current);
+        selected_list.current = [];
+      }
+    }
+  };
+  const showContextMenu = (e) => {
+    e.preventDefault();
+
+    const id = Number(e.target.getAttribute("trackId"));
+    const ids = [id];
+    const menu = new Menu();
+    menu.append(
+      new MenuItem({
+        label: "Delete Track",
+        click() {
+          removeTracks(ids);
+        },
+      }),
+    );
+
+    menu.popup(remote.getCurrentWindow());
+  };
+
+  useEffect(() => {
+    document.addEventListener("keydown", deleteSelected);
+
+    return () => {
+      document.removeEventListener("keydown", deleteSelected);
+    };
+  });
+
   return (
     <div className="App">
       <div className="row-control">
@@ -138,7 +199,8 @@ function App() {
           track_ids={track_ids}
           dropFile={dropFile}
           openDialog={openDialog}
-          removeTracks={removeTracks}
+          selectTrack={selectTrack}
+          showContextMenu={showContextMenu}
         />
         <ColorBar />
       </div>

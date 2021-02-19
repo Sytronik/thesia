@@ -1,29 +1,8 @@
 import React, {useEffect, useRef} from "react";
 import "./TrackInfo.scss";
 
-const {remote} = window.preload;
-
-function TrackInfo({height, trackid, removeTracks}) {
-  const {Menu, MenuItem} = remote;
-
+function TrackInfo({trackid, height, selectTrack, showContextMenu}) {
   const track_info = useRef();
-
-  const showContextMenu = (e) => {
-    e.preventDefault();
-
-    const ids = [trackid];
-    const menu = new Menu();
-    menu.append(
-      new MenuItem({
-        label: "Delete Track",
-        click() {
-          removeTracks(ids);
-        },
-      }),
-    );
-
-    menu.popup(remote.getCurrentWindow());
-  };
 
   useEffect(() => {
     if (track_info.current) {
@@ -35,6 +14,7 @@ function TrackInfo({height, trackid, removeTracks}) {
     <div
       className="TrackInfo"
       ref={track_info}
+      trackid={trackid}
       onClick={selectTrack}
       onContextMenu={showContextMenu}
     >

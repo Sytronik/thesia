@@ -2,10 +2,13 @@
 
 .TrackInfo {
   padding: $spacer-3;
-  
+
+  &.selected {
+    background-color: $bg-primary-light;
+  }
   > span {
     display: inline-block;
-    width: 100%
+    width: 100%;
   }
 }
 

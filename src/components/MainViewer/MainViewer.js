@@ -7,6 +7,7 @@ import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
 const {native} = window.preload;
+const {getSpecWavImages} = native;
 
 function useRefs() {
   const refs = useRef({});
@@ -21,9 +22,7 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({refresh_list, track_ids, dropFile, openDialog, removeTracks}) {
-  const {getSpecWavImages} = native;
-
+function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack, showContextMenu}) {
   const dragcounter = useRef(0);
   const [show_dropbox, setShowDropbox] = useState(false);
 
@@ -135,7 +134,15 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, removeTracks
 
   const dropbox = <div className="dropbox"></div>;
   const info_arr = track_ids.map((i) => {
-    return <TrackInfo key={`${i}`} height={height} trackid={i} removeTracks={removeTracks} />;
+    return (
+      <TrackInfo
+        key={`${i}`}
+        trackid={i}
+        height={height}
+        selectTrack={selectTrack}
+        showContextMenu={showContextMenu}
+      />
+    );
   });
   const empty = (
     <div key="empty" className="emptyTrack">
