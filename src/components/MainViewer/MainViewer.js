@@ -155,6 +155,15 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   const getIdChArr = () => Object.keys(children.current);
 
   useEffect(() => {
+    const mainviewer = document.querySelector(".MainViewer");
+    document.addEventListener("wheel", handleWheel, {passive: false});
+
+    return () => {
+      document.removeEventListener("wheel", handleWheel, {passive: false});
+    };
+  });
+
+  useEffect(() => {
     throttledDraw([getIdChArr()]);
   }, [width]);
 
@@ -176,7 +185,6 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       onDragOver={dragOver}
       onDragEnter={dragEnter}
       onDragLeave={dragLeave}
-      onWheel={handleWheel}
     >
       {show_dropbox && dropbox}
       {/* <TimeRuler /> */}
