@@ -15,6 +15,7 @@ const supported_types = ["flac", "mp3", "oga", "ogg", "wav"];
 const supported_MIME = supported_types.map((subtype) => `audio/${subtype}`);
 
 function App() {
+  const temp_ids = useRef([]);
   const selected_list = useRef([]);
 
   const [track_ids, setTrackIds] = useState([]);
@@ -24,8 +25,19 @@ function App() {
     try {
       let invalid_ids = [];
       let invalid_paths = [];
+      let new_track_ids = [];
 
-      const new_track_ids = [...new_paths.keys()]; // [Temp]
+      if (track_ids.length === 0) {
+        new_track_ids = [...new_paths.keys()];
+      } else {
+        for (let i = 0; i < new_paths.length; i++) {
+          if (temp_ids.current.length > 0) {
+            new_track_ids.push(temp_ids.current.shift());
+          } else {
+            new_track_ids.push(track_ids.length + i);
+          }
+        }
+      }
 
       const [added_ids, promise_refresh_list] = native.addTracks(new_track_ids, new_paths);
       setTrackIds((track_ids) => track_ids.concat(added_ids));
@@ -77,6 +89,11 @@ function App() {
 
       if (!(await promise_refresh_list)) {
         setRefreshList(promise_refresh_list);
+      }
+
+      temp_ids.current = temp_ids.current.concat(ids);
+      if (temp_ids.current.length > 1) {
+        temp_ids.current.sort((a, b) => a - b);
       }
     } catch (err) {
       console.log(err);
@@ -161,7 +178,7 @@ function App() {
   const showContextMenu = (e) => {
     e.preventDefault();
 
-    const id = Number(e.target.getAttribute("trackId"));
+    const id = Number(e.target.getAttribute("trackid"));
     const ids = [id];
     const menu = new Menu();
     menu.append(
