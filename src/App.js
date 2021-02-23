@@ -27,11 +27,11 @@ function App() {
       let invalid_paths = [];
       let new_track_ids = [];
 
-      if (track_ids.length === 0) {
+      if (!track_ids.length) {
         new_track_ids = [...new_paths.keys()];
       } else {
         for (let i = 0; i < new_paths.length; i++) {
-          if (temp_ids.current.length > 0) {
+          if (temp_ids.current.length) {
             new_track_ids.push(temp_ids.current.shift());
           } else {
             new_track_ids.push(track_ids.length + i);
@@ -87,8 +87,8 @@ function App() {
       const promise_refresh_list = native.removeTracks(ids);
       setTrackIds((track_ids) => track_ids.filter((id) => !ids.includes(id)));
 
-      if (!(await promise_refresh_list)) {
-        setRefreshList(promise_refresh_list);
+      if (promise_refresh_list) {
+        setRefreshList(await promise_refresh_list);
       }
 
       temp_ids.current = temp_ids.current.concat(ids);
@@ -169,7 +169,7 @@ function App() {
     e.preventDefault();
 
     if (e.key === "Delete" || e.key === "Backspace") {
-      if (selected_list.current.length > 0) {
+      if (selected_list.current.length) {
         removeTracks(selected_list.current);
         selected_list.current = [];
       }
