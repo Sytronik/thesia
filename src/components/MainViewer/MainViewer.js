@@ -7,7 +7,7 @@ import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
 const {native} = window.preload;
-const {getSpecWavImages} = native;
+const {getFileName, getSec, getSr, getSpecWavImages} = native;
 
 function useRefs() {
   const refs = useRef({});
@@ -31,6 +31,15 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   const [height, setHeight] = useState(250);
   const draw_option = useRef({px_per_sec: 100});
   const [children, registerChild] = useRefs();
+
+  const track_infos = track_ids.map((id) => {
+    return {
+      filename: getFileName(id),
+      time: new Date(getSec(id).toFixed(3) * 1000).toISOString().substr(11, 12),
+      bit: "24 bit",
+      sr: `${getSr(id)} Hz`,
+    };
+  });
 
   const dragOver = (e) => {
     e.preventDefault();
@@ -136,6 +145,7 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       <TrackInfo
         key={`${i}`}
         trackid={i}
+        trackinfo={track_infos[i]}
         height={height}
         selectTrack={selectTrack}
         showContextMenu={showContextMenu}

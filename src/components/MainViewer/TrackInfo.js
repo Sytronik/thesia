@@ -1,8 +1,9 @@
 import React, {useEffect, useRef} from "react";
 import "./TrackInfo.scss";
 
-function TrackInfo({trackid, height, selectTrack, showContextMenu}) {
+function TrackInfo({trackid, trackinfo, height, selectTrack, showContextMenu}) {
   const track_info = useRef();
+  const {filename, time, bit, sr} = trackinfo;
 
   useEffect(() => {
     if (track_info.current) {
@@ -18,11 +19,10 @@ function TrackInfo({trackid, height, selectTrack, showContextMenu}) {
       onClick={selectTrack}
       onContextMenu={showContextMenu}
     >
-      {/* TODO */}
-      <span className="filename">Sample.wav</span>
-      <span className="time">00:00:00.000</span>
-      <span className="bitandhz">
-        <span className="bit">24 bit</span> | <span className="hz">44.1 kHz</span>
+      <span className="filename">{filename}</span>
+      <span className="time">{time}</span>
+      <span className="bit-sr">
+        <span className="bit">{bit}</span> | <span className="sr">{sr}</span>
       </span>
     </div>
   );
