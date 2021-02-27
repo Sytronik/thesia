@@ -62,6 +62,7 @@ pub enum ImageKind {
 pub struct AudioTrack {
     pub sr: u32,
     pub n_ch: usize,
+    pub sample_format_str: String,
     path: PathBuf,
     wavs: Array2<f32>,
     win_length: usize,
@@ -71,7 +72,7 @@ pub struct AudioTrack {
 
 impl AudioTrack {
     pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
-        let (wavs, sr) = audio::open_audio_file(path.as_str())?;
+        let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
         let n_ch = wavs.shape()[0];
         // let wav = wav.slice_move(s![144000..144000 + 4096]);
         let win_length = setting.win_ms * sr as f32 / 1000.;
@@ -79,10 +80,11 @@ impl AudioTrack {
         let win_length = hop_length * setting.t_overlap;
         let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
         Ok(AudioTrack {
-            path: PathBuf::from(path).canonicalize()?,
-            wavs,
             sr,
             n_ch,
+            sample_format_str,
+            path: PathBuf::from(path).canonicalize()?,
+            wavs,
             win_length,
             hop_length,
             n_fft,
@@ -565,9 +567,7 @@ impl TrackManager {
 
         if !force_update_ids.is_empty() {
             let up_ratio_map = {
-                let mut map = HashMap::<usize, f32>::with_capacity(
-                    force_update_ids.len()
-                );
+                let mut map = HashMap::<usize, f32>::with_capacity(force_update_ids.len());
                 let iter = self.tracks.par_iter().filter_map(|(id, track)| {
                     if force_update_ids.contains(id) {
                         let up_ratio =

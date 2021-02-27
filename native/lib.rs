@@ -4,7 +4,10 @@ use std::convert::TryInto;
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::Instant;
 
-use napi::{CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, Result as JsResult, Task};
+use napi::{
+    CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown,
+    Result as JsResult, Task,
+};
 use napi_derive::*;
 
 use lazy_static::{initialize, lazy_static};
@@ -74,8 +77,7 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
                 .spawn(task)
                 .map(|async_task| async_task.promise_object())?,
         )?;
-    }
-    else {
+    } else {
         arr.set_element(1, ctx.env.get_null()?)?;
     }
     Ok(arr)
@@ -293,6 +295,13 @@ fn get_sr(ctx: CallContext) -> JsResult<JsNumber> {
 }
 
 #[js_function(1)]
+fn get_sample_format(ctx: CallContext) -> JsResult<JsString> {
+    let tm = TM.read().unwrap();
+    let track = get_track!(ctx, 0, tm);
+    ctx.env.create_string(&track.sample_format_str)
+}
+
+#[js_function(1)]
 fn get_path(ctx: CallContext) -> JsResult<JsString> {
     let tm = TM.read().unwrap();
     let track = get_track!(ctx, 0, tm);
@@ -482,6 +491,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("getNumCh", get_n_ch)?;
     exports.create_named_method("getSec", get_sec)?;
     exports.create_named_method("getSr", get_sr)?;
+    exports.create_named_method("getSampleFormat", get_sample_format)?;
     exports.create_named_method("getPath", get_path)?;
     exports.create_named_method("getFileName", get_filename)?;
     exports.create_named_method("getColormap", get_colormap)?;
