@@ -13,7 +13,7 @@ pub fn open_audio_file(path: &str) -> io::Result<(Array2<f32>, u32, String)> {
     let sr = source.sample_rate();
     let channels = source.channels();
     let sample_format_str = source.sample_format_str().clone();
-    let mut vec: Vec<f32> = source.convert_samples::<f32>().into_iter().collect();
+    let mut vec: Vec<f32> = source.collect();
 
     let shape = (channels as usize, vec.len() / channels as usize);
     vec.truncate(shape.0 * shape.1); // defensive code
