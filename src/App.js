@@ -159,10 +159,6 @@ function App() {
     if (!classlist.contains("selected")) {
       selected_list.current = [id];
       setSelected(selected_list.current);
-    } else {
-      // logic doesn't allow unselect track
-      selected_list.current.splice(selected_list.current.indexOf("id"), 1);
-      setSelected(selected_list.current);
     }
   };
   const deleteSelected = (e) => {
