@@ -140,11 +140,11 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   // const debouncedDraw = draw;
 
   const dropbox = <div className="dropbox"></div>;
-  const info_arr = track_ids.map((i) => {
+  const info_arr = track_ids.map((id, i) => {
     return (
       <TrackInfo
-        key={`${i}`}
-        trackid={i}
+        key={`${id}`}
+        trackid={id}
         trackinfo={track_infos[i]}
         height={height}
         selectTrack={selectTrack}
