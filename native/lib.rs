@@ -52,6 +52,8 @@ lazy_static! {
 fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let new_track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     let new_paths: Vec<String> = vec_str_from(&ctx, 1)?;
+    assert!(new_track_ids.len() > 0 && new_track_ids.len() == new_paths.len());
+
     let mut tm = TM.write().unwrap();
     let (added_ids, need_draw_all) = tm.add_tracks(&new_track_ids[..], new_paths);
     let tuples = if need_draw_all {
@@ -86,6 +88,8 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
 #[js_function(1)]
 fn remove_tracks(ctx: CallContext) -> JsResult<JsUnknown> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
+    assert!(track_ids.len() > 0);
+
     let mut tm = TM.write().unwrap();
     {
         let mut spec_images = SPEC_IMAGES.write().unwrap();
@@ -117,11 +121,13 @@ fn get_spec_wav_images(ctx: CallContext) -> JsResult<JsObject> {
     let id_ch_tuples = id_ch_tuples_from(&ctx, 0)?;
     let sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
     let width: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
-    assert!(width >= 1);
     let option = draw_option_from_js_obj(ctx.get::<JsObject>(3)?)?;
-    assert!(option.height >= 1);
     let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
-    assert!(opt_for_wav.amp_range.1 >= opt_for_wav.amp_range.0);
+    assert!(id_ch_tuples.len() > 0);
+    assert!(width >= 1);
+    assert!(option.px_per_sec >= 0.);
+    assert!(option.height >= 1);
+    assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
     let mut result = ctx.env.create_array_with_length(2)?;
     let mut result_im = ctx.env.create_object()?;
@@ -240,6 +246,8 @@ fn get_overview(ctx: CallContext) -> JsResult<JsBuffer> {
     let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
     let width: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
     let height: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    assert!(width >= 1 && height >= 1);
+
     let tm = TM.read().unwrap();
     ctx.env
         .create_buffer_with_data(tm.get_overview_of(id, width, height))
@@ -250,6 +258,8 @@ fn get_overview(ctx: CallContext) -> JsResult<JsBuffer> {
 fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
     let y: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
     let height: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    assert!(height >= 1 && y < height);
+
     let tm = TM.read().unwrap();
     ctx.env.create_double(tm.calc_hz_of(y, height) as f64)
 }
@@ -257,6 +267,8 @@ fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
 #[js_function(1)]
 fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
     let max_ticks: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
+    assert!(max_ticks >= 2);
+
     let tm = TM.read().unwrap();
     convert_vec_tup_f64_to_jsarr(ctx.env, tm.get_freq_axis(max_ticks))
 }
