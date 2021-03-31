@@ -17,6 +17,7 @@ const supported_MIME = supported_types.map((subtype) => `audio/${subtype}`);
 function App() {
   const temp_ids = useRef([]);
   const selected_list = useRef([]);
+  const selected_next = useRef(null);
 
   const [track_ids, setTrackIds] = useState([]);
   const [refresh_list, setRefreshList] = useState(null);
@@ -39,6 +40,7 @@ function App() {
         }
       }
 
+      selected_next.current = track_ids.length;
       const [added_ids, promise_refresh_list] = native.addTracks(new_track_ids, new_paths);
       setTrackIds((track_ids) => track_ids.concat(added_ids));
       setRefreshList(await promise_refresh_list);
@@ -84,6 +86,7 @@ function App() {
   }
   async function removeTracks(ids) {
     try {
+      selected_next.current = track_ids.indexOf(ids[0]);
       const promise_refresh_list = native.removeTracks(ids);
       setTrackIds((track_ids) => track_ids.filter((id) => !ids.includes(id)));
 
@@ -167,7 +170,6 @@ function App() {
     if (e.key === "Delete" || e.key === "Backspace") {
       if (selected_list.current.length) {
         removeTracks(selected_list.current);
-        selected_list.current = [];
       }
     }
   };
@@ -196,6 +198,19 @@ function App() {
       document.removeEventListener("keydown", deleteSelected);
     };
   });
+
+  useEffect(() => {
+    const track_num = track_ids.length;
+    if (!track_num) {
+      selected_list.current = [];
+    } else if (selected_next.current < track_num) {
+      selected_list.current = [track_ids[selected_next.current]];
+    } else {
+      selected_list.current = [track_ids[track_num - 1]];
+    }
+    setSelected(selected_list.current);
+    selected_next.current = null;
+  }, [track_ids]);
 
   return (
     <div className="App">
