@@ -95,7 +95,7 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
     setDragging(false);
   };
 
-  const [resizeObserver, _] = useState(new ResizeObserver(entries => {
+  const [resizeObserver, _] = useState(new ResizeObserver((entries: ResizeObserverEntry[]) => {
     const target = entries[0].target
       setCanvasWidth(target.clientWidth);
   }));
