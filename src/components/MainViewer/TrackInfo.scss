@@ -6,16 +6,43 @@
   &.selected {
     background-color: $bg-primary-light;
   }
-  > span {
+  > span:not(:first-child) {
     display: inline-block;
     width: 100%;
   }
 }
 
 .filename {
+  display: flex;
+  position: relative;
   margin-bottom: $spacer-3;
 
   @include body-title;
+
+  & span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+$path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
+.paths {
+  min-width: $path-min;
+  flex: 0 1 auto;
+}
+
+.name {
+  flex: 0 0 auto;
+  max-width: 100%;
+
+  &.w-path {
+    max-width: calc(100% - #{$path-min});
+
+    &::before {
+      content: "/";
+    }
+  }
 }
 
 .time,
