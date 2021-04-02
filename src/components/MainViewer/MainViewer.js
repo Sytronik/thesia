@@ -27,6 +27,7 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   const [show_dropbox, setShowDropbox] = useState(false);
 
   const sec = useRef(0);
+  const max_sec = useRef(0);
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const draw_option = useRef({px_per_sec: 100});
@@ -99,6 +100,11 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       e.preventDefault();
       e.stopPropagation();
       sec.current += delta / draw_option.current.px_per_sec;
+      if (sec.current < 0) {
+        sec.current = 0;
+      } else if (sec.current + width / draw_option.current.px_per_sec > max_sec.current) {
+        sec.current = max_sec.current - width / draw_option.current.px_per_sec;
+      }
       throttledDraw([getIdChArr()]);
     }
   };
@@ -187,6 +193,15 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
     }
     dropReset();
   }, [refresh_list]);
+
+  useEffect(() => {
+    max_sec.current = track_ids.length
+      ? track_ids.reduce((max, id) => {
+          const now = getSec(id);
+          return now > max ? now : max;
+        })
+      : 0;
+  }, [track_ids]);
 
   return (
     <div
