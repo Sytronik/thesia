@@ -24,6 +24,7 @@ function useRefs() {
 
 function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack, showContextMenu}) {
   const dragcounter = useRef(0);
+  const prev_track_num = useRef(0);
   const [show_dropbox, setShowDropbox] = useState(false);
 
   const sec = useRef(0);
@@ -195,12 +196,17 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   }, [refresh_list]);
 
   useEffect(() => {
-    max_sec.current = track_ids.length
-      ? track_ids.reduce((max, id) => {
-          const now = getSec(id);
-          return now > max ? now : max;
-        })
-      : 0;
+    if (track_ids.length) {
+      max_sec.current = track_ids.reduce((max, id) => {
+        const now = getSec(id);
+        return now > max ? now : max;
+      });
+      if (!prev_track_num.current) {
+        draw_option.current.px_per_sec = width / max_sec.current;
+        sec.current = 0;
+      }
+    }
+    prev_track_num.current = track_ids.length;
   }, [track_ids]);
 
   return (
