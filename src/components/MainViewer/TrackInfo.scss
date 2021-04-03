@@ -46,7 +46,7 @@ $path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
 }
 
 .time,
-.bit-sr {
+.sampleformat-sr {
   margin-bottom: $spacer;
 
   @include body-assist;

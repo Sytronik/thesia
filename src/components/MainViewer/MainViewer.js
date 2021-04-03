@@ -7,7 +7,7 @@ import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
 const {native} = window.preload;
-const {getFileName, getSec, getSr, getSpecWavImages} = native;
+const {getFileName, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
 
 function useRefs() {
   const refs = useRef({});
@@ -38,7 +38,7 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
     return {
       filename: getFileName(id),
       time: new Date(getSec(id).toFixed(3) * 1000).toISOString().substr(11, 12),
-      bit: "24 bit",
+      sampleformat: getSampleFormat(id),
       sr: `${getSr(id)} Hz`,
     };
   });

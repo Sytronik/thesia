@@ -3,7 +3,7 @@ import "./TrackInfo.scss";
 
 function TrackInfo({trackid, trackinfo, height, selectTrack, showContextMenu}) {
   const track_info = useRef();
-  const {filename, time, bit, sr} = trackinfo;
+  const {filename, time, sampleformat, sr} = trackinfo;
 
   const paths = filename.split("/");
   const name = paths.pop();
@@ -27,8 +27,8 @@ function TrackInfo({trackid, trackinfo, height, selectTrack, showContextMenu}) {
         <span className={paths.length ? "name w-path" : "name"}>{name}</span>
       </span>
       <span className="time">{time}</span>
-      <span className="bit-sr">
-        <span className="bit">{bit}</span> | <span className="sr">{sr}</span>
+      <span className="sampleformat-sr">
+        <span className="sampleformat">{sampleformat}</span> | <span className="sr">{sr}</span>
       </span>
     </div>
   );
