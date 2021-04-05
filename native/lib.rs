@@ -125,6 +125,7 @@ fn get_spec_wav_images(ctx: CallContext) -> JsResult<JsObject> {
     let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
     assert!(id_ch_tuples.len() > 0);
     assert!(width >= 1);
+    assert!(option.px_per_sec.is_finite());
     assert!(option.px_per_sec >= 0.);
     assert!(option.height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
