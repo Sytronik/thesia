@@ -7,7 +7,11 @@ import TrackInfo from "./TrackInfo";
 import Canvas from "./Canvas";
 
 const {native} = window.preload;
-const {getFileName, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
+const {getFileName, getNumCh, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
+const channel = {
+  1: ["M"],
+  2: ["L", "R"],
+};
 
 function useRefs() {
   const refs = useRef({});
@@ -148,15 +152,25 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
 
   const dropbox = <div className="dropbox"></div>;
   const info_arr = track_ids.map((id, i) => {
+    const ch_info = [...Array(getNumCh(id)).keys()].map((ch) => {
+      return (
+        <div key={ch} className="ch">
+          <span>{channel[getNumCh(id)][ch]}</span>
+        </div>
+      );
+    });
+
     return (
-      <TrackInfo
+      <div
         key={`${id}`}
+        className="TrackInfo"
         trackid={id}
-        trackinfo={track_infos[i]}
-        height={height}
-        selectTrack={selectTrack}
-        showContextMenu={showContextMenu}
-      />
+        onClick={selectTrack}
+        onContextMenu={showContextMenu}
+      >
+        <div className="trackch">{ch_info}</div>
+        <TrackInfo trackinfo={track_infos[i]} height={(height + 2) * getNumCh(id) - 2} />
+      </div>
     );
   });
   const empty = (
@@ -166,8 +180,22 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       </button>
     </div>
   );
-  const canvas_arr = track_ids.map((i) => {
-    return <Canvas key={`${i}`} ref={registerChild(`${i}_0`)} width={width} height={height} />;
+  const canvas_arr = track_ids.map((id) => {
+    const ch_canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
+      return (
+        <Canvas
+          key={`${id}_${ch}`}
+          ref={registerChild(`${id}_${ch}`)}
+          width={width}
+          height={height}
+        />
+      );
+    });
+    return (
+      <div key={`${id}`} className="trackcanvas">
+        {ch_canvases}
+      </div>
+    );
   });
   const getIdChArr = () => Object.keys(children.current);
 

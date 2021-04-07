@@ -1,11 +1,55 @@
 @import "../../assets/index.scss";
 
+// TrackInfo
 .TrackInfo {
-  padding: $spacer-3;
+  position: relative;
 
   &.selected {
-    background-color: $bg-primary-light;
+    .trackinfo {
+      background-color: $bg-primary-light;
+    }
+    .ch {
+      background-color: $bg-primary-lighter;
+    }
   }
+}
+
+// trackch
+$trackch-width: 32px;
+
+.trackch {
+  display: flex;
+  flex-direction: column;
+  float: right;
+  width: $trackch-width;
+  height: 100%;
+}
+
+.ch {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  flex: 1 1 auto;
+  width: 100%;
+  background-color: $bg-primary-light;
+  text-align: center;
+
+  > span {
+    @include body-assist;
+  }
+
+  &:not(:last-child) {
+    margin-bottom: $track-margin;
+  }
+}
+
+// trackinfo
+.trackinfo {
+  height: 100%;
+  padding: $spacer-3;
+  margin-right: $trackch-width;
+
   > span:not(:first-child) {
     display: inline-block;
     width: 100%;

@@ -156,8 +156,8 @@ function App() {
   const selectTrack = (e) => {
     e.preventDefault();
 
-    const classlist = e.target.classList;
-    const id = Number(e.target.getAttribute("trackid"));
+    const classlist = e.currentTarget.classList;
+    const id = Number(e.currentTarget.getAttribute("trackid"));
 
     if (!classlist.contains("selected")) {
       selected_list.current = [id];

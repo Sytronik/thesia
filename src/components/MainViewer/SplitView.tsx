@@ -2,8 +2,8 @@ import React, { createRef, useRef, useEffect, useLayoutEffect, useState } from "
 import "./SplitView.scss"
 
 const MARGIN = 2;
-const MIN_WIDTH = 160;
-const MAX_WIDTH = 480;
+const MIN_WIDTH = 160 + 32;
+const MAX_WIDTH = 480 + 32;
 interface SplitViewProps {
   left: React.ReactElement;
   right: React.ReactElement;
