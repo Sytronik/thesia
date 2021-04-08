@@ -228,7 +228,7 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       max_sec.current = track_ids.reduce((max, id) => {
         const now = getSec(id);
         return now > max ? now : max;
-      });
+      }, 0);
       if (!prev_track_num.current) {
         draw_option.current.px_per_sec = width / max_sec.current;
         sec.current = 0;
