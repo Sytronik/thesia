@@ -105,7 +105,7 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       e.preventDefault();
       e.stopPropagation();
       sec.current += delta / draw_option.current.px_per_sec;
-      if (sec.current < 0) {
+      if (sec.current < 0 || width / draw_option.current.px_per_sec > max_sec.current) {
         sec.current = 0;
       } else if (sec.current + width / draw_option.current.px_per_sec > max_sec.current) {
         sec.current = max_sec.current - width / draw_option.current.px_per_sec;
