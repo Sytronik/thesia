@@ -115,6 +115,18 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUnknown> {
     }
 }
 
+#[js_function(1)]
+fn find_id_by_path(ctx: CallContext) -> JsResult<JsNumber> {
+    let path = ctx.get::<JsString>(0)?.into_utf8()?;
+    let tm = TM.read().unwrap();
+    for (id, track) in tm.tracks.iter() {
+        if track.is_path_same(path.as_str()?) {
+            return ctx.env.create_int64(*id as i64);
+        }
+    }
+    ctx.env.create_int64(-1)
+}
+
 #[js_function(5)]
 fn get_spec_wav_images(ctx: CallContext) -> JsResult<JsObject> {
     // let start = Instant::now();
@@ -495,6 +507,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
 
     exports.create_named_method("addTracks", add_tracks)?;
     exports.create_named_method("removeTracks", remove_tracks)?;
+    exports.create_named_method("findIDbyPath", find_id_by_path)?;
     exports.create_named_method("getSpecWavImages", get_spec_wav_images)?;
     exports.create_named_method("getOverview", get_overview)?;
     exports.create_named_method("getHzAt", get_hz_at)?;

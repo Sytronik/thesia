@@ -123,6 +123,14 @@ impl AudioTrack {
             .max(MIN_WIDTH as f64)
             .round() as u32
     }
+
+    #[inline]
+    pub fn is_path_same(&self, path: &str) -> bool {
+        match PathBuf::from(path).canonicalize() {
+            Ok(path_buf) => path_buf == self.path,
+            Err(_) => false,
+        }
+    }
 }
 
 impl fmt::Debug for AudioTrack {
