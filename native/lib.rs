@@ -86,6 +86,42 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
 }
 
 #[js_function(1)]
+fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
+    let new_track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
+    assert!(new_track_ids.len() > 0);
+
+    let mut tm = TM.write().unwrap();
+    let (reloaded_ids, wrong_path_ids, need_draw_all) = tm.reload_tracks(&new_track_ids[..]);
+    let tuples = if need_draw_all {
+        tm.id_ch_tuples()
+    } else {
+        tm.id_ch_tuples_from(&reloaded_ids[..])
+    };
+    let mut arr = ctx.env.create_array_with_length(2)?;
+    arr.set_element(
+        0,
+        convert_vec_usize_to_jsarr(ctx.env, wrong_path_ids.iter(), wrong_path_ids.len())?,
+    )?;
+    if !tuples.is_empty() {
+        let task = DrawingTask {
+            id_ch_tuples_spec: tuples.clone(),
+            id_ch_tuples_wav: tuples,
+            option: *DRAWOPTION.read().unwrap(),
+            opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
+        };
+        arr.set_element(
+            1,
+            ctx.env
+                .spawn(task)
+                .map(|async_task| async_task.promise_object())?,
+        )?;
+    } else {
+        arr.set_element(1, ctx.env.get_null()?)?;
+    }
+    Ok(arr)
+}
+
+#[js_function(1)]
 fn remove_tracks(ctx: CallContext) -> JsResult<JsUnknown> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     assert!(track_ids.len() > 0);
@@ -506,6 +542,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     initialize(&WAV_IMAGES);
 
     exports.create_named_method("addTracks", add_tracks)?;
+    exports.create_named_method("reloadTracks", reload_tracks)?;
     exports.create_named_method("removeTracks", remove_tracks)?;
     exports.create_named_method("findIDbyPath", find_id_by_path)?;
     exports.create_named_method("getSpecWavImages", get_spec_wav_images)?;

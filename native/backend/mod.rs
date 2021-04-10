@@ -74,11 +74,7 @@ impl AudioTrack {
     pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
         let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
         let n_ch = wavs.shape()[0];
-        // let wav = wav.slice_move(s![144000..144000 + 4096]);
-        let win_length = setting.win_ms * sr as f32 / 1000.;
-        let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
-        let win_length = hop_length * setting.t_overlap;
-        let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
+        let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
         Ok(AudioTrack {
             sr,
             n_ch,
@@ -91,10 +87,21 @@ impl AudioTrack {
         })
     }
 
-    pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<()> {
-        let new = AudioTrack::new(self.path.as_path().display().to_string(), setting)?;
-        *self = new;
-        Ok(())
+    pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<bool> {
+        let (wavs, sr, sample_format_str) =
+            audio::open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if sr == self.sr && sample_format_str == self.sample_format_str && wavs == self.wavs {
+            return Ok(false);
+        }
+        let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
+        self.sr = sr;
+        self.n_ch = wavs.shape()[0];
+        self.sample_format_str = sample_format_str;
+        self.wavs = wavs;
+        self.win_length = win_length;
+        self.hop_length = hop_length;
+        self.n_fft = n_fft;
+        Ok(true)
     }
 
     #[inline]
@@ -130,6 +137,14 @@ impl AudioTrack {
             Ok(path_buf) => path_buf == self.path,
             Err(_) => false,
         }
+    }
+
+    fn calc_framing_params(sr: u32, setting: &SpecSetting) -> (usize, usize, usize) {
+        let win_length = setting.win_ms * sr as f32 / 1000.;
+        let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
+        let win_length = hop_length * setting.t_overlap;
+        let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
+        (win_length, hop_length, n_fft)
     }
 }
 
@@ -215,6 +230,34 @@ impl TrackManager {
         self.update_specs(&added_ids[..], new_sr_set);
         let need_draw_all = self.update_greys(Some(&added_ids[..]));
         (added_ids, need_draw_all)
+    }
+
+    pub fn reload_tracks(&mut self, id_list: &[usize]) -> (Vec<usize>, Vec<usize>, bool) {
+        let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
+        let mut reloaded_ids = Vec::new();
+        let mut wrong_path_ids = Vec::new();
+        for &id in id_list.iter() {
+            let track = self.tracks.get_mut(&id).unwrap();
+            match track.reload(&self.setting) {
+                Ok(true) => {
+                    let sec = track.sec();
+                    if sec > self.max_sec {
+                        self.max_sec = sec;
+                        self.id_max_sec = id;
+                    }
+                    if self.windows.get(&track.sr).is_none() {
+                        new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                    }
+                    reloaded_ids.push(id);
+                }
+                Err(_) => wrong_path_ids.push(id),
+                _ => {}
+            }
+        }
+
+        self.update_specs(&reloaded_ids[..], new_sr_set);
+        let need_draw_all = self.update_greys(Some(&reloaded_ids[..]));
+        (reloaded_ids, wrong_path_ids, need_draw_all)
     }
 
     pub fn remove_tracks(&mut self, id_list: &[usize]) -> bool {
