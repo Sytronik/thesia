@@ -104,13 +104,14 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
     } else if ((e.shiftKey && y_is_larger) || !y_is_larger) {
       e.preventDefault();
       e.stopPropagation();
-      sec.current += delta / draw_option.current.px_per_sec;
-      if (sec.current < 0 || width / draw_option.current.px_per_sec > max_sec.current) {
-        sec.current = 0;
-      } else if (sec.current + width / draw_option.current.px_per_sec > max_sec.current) {
-        sec.current = max_sec.current - width / draw_option.current.px_per_sec;
+      const temp_sec = Math.min(
+        Math.max(sec.current + delta / draw_option.current.px_per_sec, 0),
+        max_sec.current - width / draw_option.current.px_per_sec,
+      );
+      if (sec.current !== temp_sec) {
+        sec.current = temp_sec;
+        throttledDraw([getIdChArr()]);
       }
-      throttledDraw([getIdChArr()]);
     }
   };
 
