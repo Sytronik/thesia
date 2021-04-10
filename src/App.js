@@ -176,7 +176,7 @@ function App() {
   const showContextMenu = (e) => {
     e.preventDefault();
 
-    const id = Number(e.target.getAttribute("trackid"));
+    const id = Number(e.currentTarget.getAttribute("trackid"));
     const ids = [id];
     const menu = new Menu();
     menu.append(
