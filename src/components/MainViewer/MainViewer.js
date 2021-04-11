@@ -8,7 +8,7 @@ import Canvas from "./Canvas";
 
 const {native} = window.preload;
 const {getFileName, getNumCh, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
-const channel = {
+const CHANNEL = {
   1: ["M"],
   2: ["L", "R"],
 };
@@ -26,26 +26,24 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack, showContextMenu}) {
-  const dragcounter = useRef(0);
-  const prev_track_num = useRef(0);
-  const [show_dropbox, setShowDropbox] = useState(false);
+function MainViewer({
+  refreshList,
+  trackIds,
+  addDroppedFile,
+  showOpenDialog,
+  selectTrack,
+  showContextMenu,
+}) {
+  const dragCounterRef = useRef(0);
+  const prevTrackCountRef = useRef(0);
+  const [dropboxIsVisible, setDropboxIsVisible] = useState(false);
 
-  const sec = useRef(0);
-  const max_sec = useRef(0);
+  const secRef = useRef(0);
+  const maxTrackSecRef = useRef(0);
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
-  const draw_option = useRef({px_per_sec: 100});
+  const drawOptionRef = useRef({px_per_sec: 100});
   const [children, registerChild] = useRefs();
-
-  const track_infos = track_ids.map((id) => {
-    return {
-      filename: getFileName(id),
-      time: new Date(getSec(id).toFixed(3) * 1000).toISOString().substr(11, 12),
-      sampleformat: getSampleFormat(id),
-      sr: `${getSr(id)} Hz`,
-    };
-  });
 
   const dragOver = (e) => {
     e.preventDefault();
@@ -55,9 +53,9 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
     e.preventDefault();
     e.stopPropagation();
 
-    dragcounter.current++;
+    dragCounterRef.current++;
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setShowDropbox(true);
+      setDropboxIsVisible(true);
     }
     return false;
   };
@@ -65,69 +63,69 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
     e.preventDefault();
     e.stopPropagation();
 
-    dragcounter.current--;
-    if (dragcounter.current === 0) {
-      setShowDropbox(false);
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setDropboxIsVisible(false);
     }
     return false;
   };
   const dropReset = () => {
-    dragcounter.current = 0;
-    setShowDropbox(false);
+    dragCounterRef.current = 0;
+    setDropboxIsVisible(false);
   };
 
   const handleWheel = (e) => {
-    let y_is_larger;
+    let yIsLarger;
     let delta;
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
       delta = e.deltaY;
-      y_is_larger = true;
+      yIsLarger = true;
     } else {
       delta = e.deltaX;
-      y_is_larger = false;
+      yIsLarger = false;
     }
     if (e.altKey) {
       e.preventDefault();
       e.stopPropagation();
-      if ((e.shiftKey && y_is_larger) || !y_is_larger) {
+      if ((e.shiftKey && yIsLarger) || !yIsLarger) {
         setHeight(Math.round(Math.min(Math.max(height * (1 + delta / 1000), 10), 5000)));
       } else {
-        const px_per_sec = Math.min(
-          Math.max(draw_option.current.px_per_sec * (1 + e.deltaY / 1000), 0),
+        const pxPerSec = Math.min(
+          Math.max(drawOptionRef.current.px_per_sec * (1 + e.deltaY / 1000), 0),
           384000,
         );
-        if (draw_option.current.px_per_sec !== px_per_sec) {
-          draw_option.current.px_per_sec = px_per_sec;
+        if (drawOptionRef.current.px_per_sec !== pxPerSec) {
+          drawOptionRef.current.px_per_sec = pxPerSec;
           throttledDraw([getIdChArr()]);
         }
       }
-    } else if ((e.shiftKey && y_is_larger) || !y_is_larger) {
+    } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
       e.preventDefault();
       e.stopPropagation();
-      const temp_sec = Math.min(
-        Math.max(sec.current + delta / draw_option.current.px_per_sec, 0),
-        max_sec.current - width / draw_option.current.px_per_sec,
+      const tempSec = Math.min(
+        Math.max(secRef.current + delta / drawOptionRef.current.px_per_sec, 0),
+        maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec,
       );
-      if (sec.current !== temp_sec) {
-        sec.current = temp_sec;
+      if (secRef.current !== tempSec) {
+        secRef.current = tempSec;
         throttledDraw([getIdChArr()]);
       }
     }
   };
 
   const draw = useCallback(
-    async (id_ch_arr) => {
-      if (id_ch_arr.reduce((sum, x) => sum + x.length, 0) === 0) return;
+    async (idChArr) => {
+      if (idChArr.reduce((sum, x) => sum + x.length, 0) === 0) return;
       const [images, promise] = getSpecWavImages(
-        id_ch_arr[0],
-        sec.current,
+        idChArr[0],
+        secRef.current,
         width,
-        {...draw_option.current, height: height},
+        {...drawOptionRef.current, height: height},
         {min_amp: -1, max_amp: 1},
       );
 
-      for (const [id_ch_str, bufs] of Object.entries(images)) {
-        const ref = children.current[id_ch_str];
+      for (const [idChStr, bufs] of Object.entries(images)) {
+        const ref = children.current[idChStr];
         // let promises = [];
         if (ref) {
           // promises.push(
@@ -152,37 +150,45 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   // const debouncedDraw = draw;
 
   const dropbox = <div className="dropbox"></div>;
-  const info_arr = track_ids.map((id, i) => {
-    const ch_info = [...Array(getNumCh(id)).keys()].map((ch) => {
+
+  const leftElements = trackIds.map((id) => {
+    const channels = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
         <div key={ch} className="ch">
-          <span>{channel[getNumCh(id)][ch]}</span>
+          <span>{CHANNEL[getNumCh(id)][ch]}</span>
         </div>
       );
     });
+    const trackSummary = {
+      fileName: getFileName(id),
+      time: new Date(getSec(id).toFixed(3) * 1000).toISOString().substr(11, 12),
+      sampleFormat: getSampleFormat(id),
+      sampleRate: `${getSr(id)} Hz`,
+    };
 
     return (
       <div
         key={`${id}`}
-        className="TrackInfo"
-        trackid={id}
+        className="LeftPane-track js-LeftPane-track"
+        id={id}
         onClick={selectTrack}
         onContextMenu={showContextMenu}
       >
-        <div className="trackch">{ch_info}</div>
-        <TrackInfo trackinfo={track_infos[i]} height={(height + 2) * getNumCh(id) - 2} />
+        <div className="channels">{channels}</div>
+        <TrackInfo data={trackSummary} height={(height + 2) * getNumCh(id) - 2} />
       </div>
     );
   });
-  const empty = (
-    <div key="empty" className="emptyTrack">
-      <button onClick={openDialog}>
-        <span className="plusbtn"></span>
+  const emptyTrack = (
+    <div key="empty" className="LeftPane-empty">
+      <button onClick={showOpenDialog}>
+        <span className="btn-plus"></span>
       </button>
     </div>
   );
-  const canvas_arr = track_ids.map((id) => {
-    const ch_canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
+
+  const rightElements = trackIds.map((id) => {
+    const canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
         <Canvas
           key={`${id}_${ch}`}
@@ -193,19 +199,20 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
       );
     });
     return (
-      <div key={`${id}`} className="trackcanvas">
-        {ch_canvases}
+      <div key={`${id}`} className="canvases">
+        {canvases}
       </div>
     );
   });
+
   const getIdChArr = () => Object.keys(children.current);
 
   useEffect(() => {
-    const mainviewer = document.querySelector(".MainViewer");
-    document.addEventListener("wheel", handleWheel, {passive: false});
+    const viewer = document.querySelector(".js-MainViewer");
+    viewer.addEventListener("wheel", handleWheel, {passive: false});
 
     return () => {
-      document.removeEventListener("wheel", handleWheel, {passive: false});
+      viewer.removeEventListener("wheel", handleWheel, {passive: false});
     };
   });
 
@@ -218,37 +225,41 @@ function MainViewer({refresh_list, track_ids, dropFile, openDialog, selectTrack,
   }, [height]);
 
   useEffect(() => {
-    if (refresh_list) {
-      draw(refresh_list);
+    if (refreshList) {
+      draw(refreshList);
     }
     dropReset();
-  }, [refresh_list]);
+  }, [refreshList]);
 
   useEffect(() => {
-    if (track_ids.length) {
-      max_sec.current = track_ids.reduce((max, id) => {
+    if (trackIds.length) {
+      maxTrackSecRef.current = trackIds.reduce((max, id) => {
         const now = getSec(id);
         return now > max ? now : max;
       }, 0);
-      if (!prev_track_num.current) {
-        draw_option.current.px_per_sec = width / max_sec.current;
-        sec.current = 0;
+      if (!prevTrackCountRef.current) {
+        drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
+        secRef.current = 0;
       }
     }
-    prev_track_num.current = track_ids.length;
-  }, [track_ids]);
+    prevTrackCountRef.current = trackIds.length;
+  }, [trackIds]);
 
   return (
     <div
-      className="MainViewer"
-      onDrop={dropFile}
+      className="MainViewer js-MainViewer"
+      onDrop={addDroppedFile}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
       onDragLeave={dragLeave}
     >
-      {show_dropbox && dropbox}
+      {dropboxIsVisible && dropbox}
       {/* <TimeRuler /> */}
-      <SplitView left={[...info_arr, empty]} right={canvas_arr} setCanvasWidth={setWidth} />
+      <SplitView
+        left={[...leftElements, emptyTrack]}
+        right={rightElements}
+        setCanvasWidth={setWidth}
+      />
     </div>
   );
 }

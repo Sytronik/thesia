@@ -15,20 +15,20 @@ const LeftPane: React.FunctionComponent<{
   leftWidth: number | undefined;
   setLeftWidth: (value: number) => void;
 }> = ({ children, leftWidth, setLeftWidth }) => {
-  const leftRef = createRef<HTMLDivElement>();
+  const leftElem = createRef<HTMLDivElement>();
 
   useEffect(() => {
-    if (leftRef.current) {
+    if (leftElem.current) {
       if (!leftWidth) {
-        setLeftWidth(leftRef.current.clientWidth);
+        setLeftWidth(leftElem.current.clientWidth);
         return;
       }
 
-      leftRef.current.style.width = `${leftWidth}px`;
+      leftElem.current.style.width = `${leftWidth}px`;
     }
-  }, [leftRef, leftWidth, setLeftWidth]);
+  }, [leftElem, leftWidth, setLeftWidth]);
 
-  return <div className="LeftPane" ref={leftRef}>{children}</div>;
+  return <div className="LeftPane" ref={leftElem}>{children}</div>;
 };
 
 export const SplitView: React.FunctionComponent<SplitViewProps> = ({
@@ -41,8 +41,8 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   const [separatorXPosition, setSeparatorXPosition] = useState< undefined | number >(undefined);
   const [dragging, setDragging] = useState(false);
 
-  const splitPaneRef = createRef<HTMLDivElement>();
-  const rightPaneRef = useRef<HTMLDivElement>(null);
+  const splitPaneElem = createRef<HTMLDivElement>();
+  const rightPaneElem = useRef<HTMLDivElement>(null);
 
   const onMouseDown = (e: React.MouseEvent) => {
     setSeparatorXPosition(e.clientX);
@@ -64,8 +64,8 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
         return;
       }
 
-      if (splitPaneRef.current) {
-        const splitPaneWidth = splitPaneRef.current.clientWidth;
+      if (splitPaneElem.current) {
+        const splitPaneWidth = splitPaneElem.current.clientWidth;
 
         if (newLeftWidth > splitPaneWidth - MARGIN) {
           setLeftWidth(splitPaneWidth - MARGIN);
@@ -113,29 +113,29 @@ export const SplitView: React.FunctionComponent<SplitViewProps> = ({
   });
 
   useLayoutEffect(() => {
-    if(rightPaneRef.current) {
-      resizeObserver.observe(rightPaneRef.current);
+    if(rightPaneElem.current) {
+      resizeObserver.observe(rightPaneElem.current);
     }
 
     return (() => {
       resizeObserver.disconnect();
     });
-  }, [rightPaneRef, resizeObserver]);
+  }, [rightPaneElem, resizeObserver]);
 
   return (
-    <div className={`SplitView ${className ?? ""}`} ref={splitPaneRef}>
+    <div className={`SplitView ${className ?? ""}`} ref={splitPaneElem}>
       <LeftPane leftWidth={leftWidth} setLeftWidth={setLeftWidth}>
         {left}
       </LeftPane>
       <div
-        className="divider-hitbox"
+        className="divider"
         onMouseDown={onMouseDown}
         onTouchStart={onTouchStart}
         onTouchEnd={onMouseUp}
       >
-        <div className="divider" />
+        <div className="divider-line" />
       </div>
-      <div className="rightPane" ref={rightPaneRef}>{right}</div>
+      <div className="RightPane" ref={rightPaneElem}>{right}</div>
     </div>
   );
 };

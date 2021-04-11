@@ -15,19 +15,19 @@
   }
 }
 
-.divider-hitbox {
+.divider {
   cursor: col-resize;
   display: flex;
   align-self: stretch;
   align-items: center;
 }
 
-.divider {
+.divider-line {
   height: 100%;
   border: 1px solid transparent;
 }
 
-.rightPane {
+.RightPane {
   overflow: hidden;
   flex: 1 1 auto;
 }

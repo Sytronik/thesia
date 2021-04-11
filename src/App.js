@@ -11,45 +11,45 @@ import path from "path";
 const {__dirname, remote, native} = window.preload;
 const {dialog, Menu, MenuItem} = remote;
 
-const supported_types = ["flac", "mp3", "oga", "ogg", "wav"];
-const supported_MIME = supported_types.map((subtype) => `audio/${subtype}`);
+const SUPPORTED_TYPES = ["flac", "mp3", "oga", "ogg", "wav"];
+const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);
 
 function App() {
-  const temp_ids = useRef([]);
-  const selected_list = useRef([]);
-  const selected_next = useRef(null);
+  const waitingIdsRef = useRef([]);
+  const selectedIdsRef = useRef([]);
+  const nextSelectedIndexRef = useRef(null);
 
-  const [track_ids, setTrackIds] = useState([]);
-  const [refresh_list, setRefreshList] = useState(null);
+  const [trackIds, setTrackIds] = useState([]);
+  const [refreshList, setRefreshList] = useState(null);
 
-  async function addTracks(new_paths, unsupported_paths) {
+  async function addTracks(newPaths, unsupportedPaths) {
     try {
-      let invalid_ids = [];
-      let invalid_paths = [];
-      let new_track_ids = [];
+      let newIds = [];
+      let invalidIds = [];
+      let invalidPaths = [];
 
-      if (!track_ids.length) {
-        new_track_ids = [...new_paths.keys()];
+      if (!trackIds.length) {
+        newIds = [...newPaths.keys()];
       } else {
-        for (let i = 0; i < new_paths.length; i++) {
-          if (temp_ids.current.length) {
-            new_track_ids.push(temp_ids.current.shift());
+        for (let i = 0; i < newPaths.length; i++) {
+          if (waitingIdsRef.current.length) {
+            newIds.push(waitingIdsRef.current.shift());
           } else {
-            new_track_ids.push(track_ids.length + i);
+            newIds.push(trackIds.length + i);
           }
         }
       }
 
-      selected_next.current = track_ids.length;
-      const [added_ids, promise_refresh_list] = native.addTracks(new_track_ids, new_paths);
-      setTrackIds((track_ids) => track_ids.concat(added_ids));
-      setRefreshList(await promise_refresh_list);
+      nextSelectedIndexRef.current = trackIds.length;
+      const [addedIds, promiseRefreshList] = native.addTracks(newIds, newPaths);
+      setTrackIds((trackIds) => trackIds.concat(addedIds));
+      setRefreshList(await promiseRefreshList);
 
-      if (new_track_ids.length !== added_ids.length) {
-        invalid_ids = new_track_ids.filter((id) => !added_ids.includes(id));
-        invalid_paths = invalid_ids.map((id) => new_paths[new_track_ids.indexOf(id)]);
+      if (newIds.length !== addedIds.length) {
+        invalidIds = newIds.filter((id) => !addedIds.includes(id));
+        invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
       }
-      if (unsupported_paths.length || invalid_paths.length) {
+      if (unsupportedPaths.length || invalidPaths.length) {
         dialog.showMessageBox({
           type: "error",
           buttons: [],
@@ -58,22 +58,22 @@ function App() {
           title: "File Open Error",
           message: "The following files could not be opened",
           detail: `${
-            unsupported_paths.length
+            unsupportedPaths.length
               ? `-- Not Supported Type --
-              ${unsupported_paths.join("\n")}
+              ${unsupportedPaths.join("\n")}
               `
               : ""
           }\
           ${
-            invalid_paths.length
+            invalidPaths.length
               ? `-- Not Valid Format --
-              ${invalid_paths.join("\n")}
+              ${invalidPaths.join("\n")}
               `
               : ""
           }\
           
           Please ensure that the file properties are correct and that it is a supported file type.
-          Only files with the following extensions are allowed: ${supported_types.join(", ")}`,
+          Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
           cancelId: 0,
           noLink: false,
           normalizeAccessKeys: false,
@@ -84,19 +84,19 @@ function App() {
       alert("File upload error");
     }
   }
-  async function removeTracks(ids) {
+  async function removeTracks(selectedIds) {
     try {
-      selected_next.current = track_ids.indexOf(ids[0]);
-      const promise_refresh_list = native.removeTracks(ids);
-      setTrackIds((track_ids) => track_ids.filter((id) => !ids.includes(id)));
+      nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
+      const promiseRefreshList = native.removeTracks(selectedIds);
+      setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
 
-      if (promise_refresh_list) {
-        setRefreshList(await promise_refresh_list);
+      if (promiseRefreshList) {
+        setRefreshList(await promiseRefreshList);
       }
 
-      temp_ids.current = temp_ids.current.concat(ids);
-      if (temp_ids.current.length > 1) {
-        temp_ids.current.sort((a, b) => a - b);
+      waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
+      if (waitingIdsRef.current.length > 1) {
+        waitingIdsRef.current.sort((a, b) => a - b);
       }
     } catch (err) {
       console.log(err);
@@ -104,86 +104,85 @@ function App() {
     }
   }
 
-  async function openDialog() {
+  async function showOpenDialog() {
     const file = await dialog.showOpenDialog({
       title: "Select the File to be uploaded",
       defaultPath: path.join(__dirname, "/samples/"),
       filters: [
         {
           name: "Audio Files",
-          extensions: supported_types,
+          extensions: SUPPORTED_TYPES,
         },
       ],
       properties: ["openFile", "multiSelections"],
     });
 
     if (!file.canceled) {
-      const new_paths = file.filePaths;
-      const unsupported_paths = [];
+      const newPaths = file.filePaths;
+      const unsupportedPaths = [];
 
-      addTracks(new_paths, unsupported_paths);
+      addTracks(newPaths, unsupportedPaths);
     } else {
       console.log("file canceled: ", file.canceled);
     }
   }
-  function dropFile(e) {
+  function addDroppedFile(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    const new_paths = [];
-    const unsupported_paths = [];
+    const newPaths = [];
+    const unsupportedPaths = [];
 
     for (const file of e.dataTransfer.files) {
-      if (supported_MIME.includes(file.type)) {
-        new_paths.push(file.path);
+      if (SUPPORTED_MIME.includes(file.type)) {
+        newPaths.push(file.path);
       } else {
-        unsupported_paths.push(file.path);
+        unsupportedPaths.push(file.path);
       }
     }
-    addTracks(new_paths, unsupported_paths);
+    addTracks(newPaths, unsupportedPaths);
   }
 
-  const setSelected = (selected_list) => {
-    const track_infos = document.querySelectorAll(".TrackInfo");
-    track_infos.forEach((track_info) => {
-      if (selected_list.includes(Number(track_info.getAttribute("trackid")))) {
-        track_info.classList.add("selected");
+  const assignSelectedClass = (selectedIds) => {
+    const targets = document.querySelectorAll(".js-LeftPane-track");
+    targets.forEach((target) => {
+      if (selectedIds.includes(Number(target.getAttribute("id")))) {
+        target.classList.add("selected");
       } else {
-        track_info.classList.remove("selected");
+        target.classList.remove("selected");
       }
     });
   };
   const selectTrack = (e) => {
     e.preventDefault();
 
-    const classlist = e.currentTarget.classList;
-    const id = Number(e.currentTarget.getAttribute("trackid"));
+    const targetClassList = e.currentTarget.classList;
+    const targetTrackId = Number(e.currentTarget.getAttribute("id"));
 
-    if (!classlist.contains("selected")) {
-      selected_list.current = [id];
-      setSelected(selected_list.current);
+    if (!targetClassList.contains("selected")) {
+      selectedIdsRef.current = [targetTrackId];
+      assignSelectedClass(selectedIdsRef.current);
     }
   };
-  const deleteSelected = (e) => {
+  const deleteSelectedTracks = (e) => {
     e.preventDefault();
 
     if (e.key === "Delete" || e.key === "Backspace") {
-      if (selected_list.current.length) {
-        removeTracks(selected_list.current);
+      if (selectedIdsRef.current.length) {
+        removeTracks(selectedIdsRef.current);
       }
     }
   };
   const showContextMenu = (e) => {
     e.preventDefault();
 
-    const id = Number(e.currentTarget.getAttribute("trackid"));
-    const ids = [id];
+    const targetTrackId = Number(e.currentTarget.getAttribute("id"));
     const menu = new Menu();
     menu.append(
       new MenuItem({
         label: "Delete Track",
         click() {
-          removeTracks(ids);
+          removeTracks([targetTrackId]);
         },
       }),
     );
@@ -192,25 +191,25 @@ function App() {
   };
 
   useEffect(() => {
-    document.addEventListener("keydown", deleteSelected);
+    document.addEventListener("keydown", deleteSelectedTracks);
 
     return () => {
-      document.removeEventListener("keydown", deleteSelected);
+      document.removeEventListener("keydown", deleteSelectedTracks);
     };
   });
 
   useEffect(() => {
-    const track_num = track_ids.length;
-    if (!track_num) {
-      selected_list.current = [];
-    } else if (selected_next.current < track_num) {
-      selected_list.current = [track_ids[selected_next.current]];
+    const track_count = trackIds.length;
+    if (!track_count) {
+      selectedIdsRef.current = [];
+    } else if (nextSelectedIndexRef.current < track_count) {
+      selectedIdsRef.current = [trackIds[nextSelectedIndexRef.current]];
     } else {
-      selected_list.current = [track_ids[track_num - 1]];
+      selectedIdsRef.current = [trackIds[track_count - 1]];
     }
-    setSelected(selected_list.current);
-    selected_next.current = null;
-  }, [track_ids]);
+    assignSelectedClass(selectedIdsRef.current);
+    nextSelectedIndexRef.current = null;
+  }, [trackIds]);
 
   return (
     <div className="App">
@@ -223,10 +222,10 @@ function App() {
       </div>
       <div className="row-mainviewer">
         <MainViewer
-          refresh_list={refresh_list}
-          track_ids={track_ids}
-          dropFile={dropFile}
-          openDialog={openDialog}
+          refreshList={refreshList}
+          trackIds={trackIds}
+          addDroppedFile={addDroppedFile}
+          showOpenDialog={showOpenDialog}
           selectTrack={selectTrack}
           showContextMenu={showContextMenu}
         />

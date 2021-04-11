@@ -1,28 +1,29 @@
 import React, {useEffect, useRef} from "react";
 import "./TrackInfo.scss";
 
-function TrackInfo({trackinfo, height}) {
-  const trackinfo_div = useRef();
-  const {filename, time, sampleformat, sr} = trackinfo;
+function TrackInfo({data, height}) {
+  const trackSummaryElem = useRef();
+  const {fileName, time, sampleFormat, sampleRate} = data;
 
-  const paths = filename.split("/");
-  const name = paths.pop();
+  const pathPieces = fileName.split("/");
+  const name = pathPieces.pop();
 
   useEffect(() => {
-    if (trackinfo_div.current) {
-      trackinfo_div.current.style.height = `${height}px`;
+    if (trackSummaryElem.current) {
+      trackSummaryElem.current.style.height = `${height}px`;
     }
   }, [height]);
 
   return (
-    <div className="trackinfo" ref={trackinfo_div}>
-      <span className="filename">
-        {paths.length ? <span className="paths">{paths.join("/")}</span> : null}
-        <span className={paths.length ? "name w-path" : "name"}>{name}</span>
+    <div className="track-summary" ref={trackSummaryElem}>
+      <span className="path-name">
+        {pathPieces.length ? <span className="path">{pathPieces.join("/")}</span> : null}
+        <span className={pathPieces.length ? "name w-path" : "name"}>{name}</span>
       </span>
       <span className="time">{time}</span>
-      <span className="sampleformat-sr">
-        <span className="sampleformat">{sampleformat}</span> | <span className="sr">{sr}</span>
+      <span className="sample-format-rate">
+        <span className="sample-format">{sampleFormat}</span> |{" "}
+        <span className="sample-rate">{sampleRate}</span>
       </span>
     </div>
   );
