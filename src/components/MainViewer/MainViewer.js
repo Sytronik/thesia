@@ -88,16 +88,16 @@ function MainViewer({
       e.preventDefault();
       e.stopPropagation();
       if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-        setHeight(Math.round(Math.min(Math.max(height * (1 + delta / 1000), 10), 5000)));
-      } else {
         const pxPerSec = Math.min(
-          Math.max(drawOptionRef.current.px_per_sec * (1 + e.deltaY / 1000), 0),
+          Math.max(drawOptionRef.current.px_per_sec * (1 + delta / 1000), 0),
           384000,
         );
         if (drawOptionRef.current.px_per_sec !== pxPerSec) {
           drawOptionRef.current.px_per_sec = pxPerSec;
           throttledDraw([getIdChArr()]);
         }
+      } else {
+        setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
       }
     } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
       e.preventDefault();
