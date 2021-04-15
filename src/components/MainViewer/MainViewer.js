@@ -3,7 +3,7 @@ import {throttle, debounce} from "throttle-debounce";
 
 import "./MainViewer.scss";
 import {SplitView} from "./SplitView";
-import TrackInfo from "./TrackInfo";
+import TrackSummary from "./TrackSummary";
 import Canvas from "./Canvas";
 
 const {native} = window.preload;
@@ -175,7 +175,7 @@ function MainViewer({
         onContextMenu={showContextMenu}
       >
         <div className="channels">{channels}</div>
-        <TrackInfo data={trackSummary} height={(height + 2) * getNumCh(id) - 2} />
+        <TrackSummary data={trackSummary} height={(height + 2) * getNumCh(id) - 2} />
       </div>
     );
   });

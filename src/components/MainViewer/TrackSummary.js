@@ -1,7 +1,7 @@
 import React, {useEffect, useRef} from "react";
-import "./TrackInfo.scss";
+import "./TrackSummary.scss";
 
-function TrackInfo({data, height}) {
+function TrackSummary({data, height}) {
   const trackSummaryElem = useRef();
   const {fileName, time, sampleFormat, sampleRate} = data;
 
@@ -29,4 +29,4 @@ function TrackInfo({data, height}) {
   );
 }
 
-export default TrackInfo;
+export default TrackSummary;
