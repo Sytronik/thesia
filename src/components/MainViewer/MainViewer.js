@@ -5,11 +5,11 @@ import "./MainViewer.scss";
 import {SplitView} from "./SplitView";
 import TrackSummary from "./TrackSummary";
 import Canvas from "./Canvas";
-import {FACTOR} from "../Factor";
+import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
 const {getFileName, getNumCh, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
-const CHANNEL = FACTOR.CHANNEL;
+const CHANNEL = PROPERTY.CHANNEL;
 
 function useRefs() {
   const refs = useRef({});

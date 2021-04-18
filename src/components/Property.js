@@ -1,4 +1,4 @@
-export const FACTOR = {
+export const PROPERTY = {
   CHANNEL: {
     1: ["M"],
     2: ["L", "R"],

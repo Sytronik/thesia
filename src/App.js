@@ -5,14 +5,14 @@ import Overview from "./components/Overview/Overview";
 import SlideBar from "./components/SlideBar/SlideBar";
 import MainViewer from "./components/MainViewer/MainViewer";
 import ColorBar from "./components/ColorBar/ColorBar";
-import {FACTOR} from "./components/Factor";
+import {PROPERTY} from "./components/Property";
 
 import path from "path";
 
 const {__dirname, remote, native} = window.preload;
 const {dialog, Menu, MenuItem} = remote;
 
-const SUPPORTED_TYPES = FACTOR.SUPPORTED_TYPES;
+const SUPPORTED_TYPES = PROPERTY.SUPPORTED_TYPES;
 const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);
 
 function App() {
