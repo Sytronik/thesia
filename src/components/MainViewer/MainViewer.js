@@ -38,6 +38,7 @@ function MainViewer({
 
   const secRef = useRef(0);
   const maxTrackSecRef = useRef(0);
+  const canvasIsFitRef = useRef(false);
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
@@ -92,6 +93,7 @@ function MainViewer({
         );
         if (drawOptionRef.current.px_per_sec !== pxPerSec) {
           drawOptionRef.current.px_per_sec = pxPerSec;
+          canvasIsFitRef.current = false;
           throttledDraw([getIdChArr()]);
         }
       } else {
@@ -216,7 +218,21 @@ function MainViewer({
 
   useEffect(() => {
     if (!trackIds.length) return;
-    throttledDraw([getIdChArr()]);
+
+    const secOutOfCanvas = maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec;
+    if (canvasIsFitRef.current) {
+      drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
+      throttledDraw([getIdChArr()]);
+    } else {
+      if (secOutOfCanvas <= 0) {
+        canvasIsFitRef.current = true;
+        return;
+      }
+      if (secRef.current > secOutOfCanvas) {
+        secRef.current = secOutOfCanvas;
+      }
+      throttledDraw([getIdChArr()]);
+    }
   }, [width]);
 
   useEffect(() => {
@@ -240,9 +256,11 @@ function MainViewer({
       if (!prevTrackCountRef.current) {
         drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
         secRef.current = 0;
+        canvasIsFitRef.current = true;
       }
     } else {
       maxTrackSecRef.current = 0;
+      canvasIsFitRef.current = false;
     }
     prevTrackCountRef.current = trackIds.length;
   }, [trackIds]);
