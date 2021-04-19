@@ -239,6 +239,8 @@ function MainViewer({
         drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
         secRef.current = 0;
       }
+    } else {
+      maxTrackSecRef.current = 0;
     }
     prevTrackCountRef.current = trackIds.length;
   }, [trackIds]);
