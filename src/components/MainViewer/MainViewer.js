@@ -215,10 +215,12 @@ function MainViewer({
   });
 
   useEffect(() => {
+    if (!trackIds.length) return;
     throttledDraw([getIdChArr()]);
   }, [width]);
 
   useEffect(() => {
+    if (!trackIds.length) return;
     debouncedDraw([getIdChArr()]);
   }, [height]);
 
