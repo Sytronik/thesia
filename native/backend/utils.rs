@@ -105,14 +105,14 @@ where
 {
     let mut shape = array.raw_dim();
     shape[axis.index()] += n_pad_left + n_pad_right;
-    let mut result = Array::maybe_uninit(shape);
+    let mut result = Array::uninit(shape);
 
     let s_result_main = if n_pad_right > 0 {
         Slice::from(n_pad_left as isize..-(n_pad_right as isize))
     } else {
         Slice::from(n_pad_left as isize..)
     };
-    Zip::from(&array).apply_assign_into(result.slice_axis_mut(axis, s_result_main), A::clone);
+    Zip::from(&array).map_assign_into(result.slice_axis_mut(axis, s_result_main), A::clone);
     match mode {
         PadMode::Constant(constant) => {
             result
@@ -136,7 +136,7 @@ where
                 .take(n_pad_left)
                 .rev()
                 .zip(pad_left)
-                .for_each(|(y, x)| Zip::from(x).apply_assign_into(y, A::clone));
+                .for_each(|(y, x)| Zip::from(x).map_assign_into(y, A::clone));
 
             if n_pad_right > 0 {
                 let pad_right = array
@@ -152,7 +152,7 @@ where
                     .take(n_pad_right)
                     .rev()
                     .zip(pad_right)
-                    .for_each(|(y, x)| Zip::from(x).apply_assign_into(y, A::clone));
+                    .for_each(|(y, x)| Zip::from(x).map_assign_into(y, A::clone));
             }
         }
     }

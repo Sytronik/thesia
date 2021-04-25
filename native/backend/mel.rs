@@ -64,7 +64,7 @@ where
     mel_freqs.par_mapv_inplace(to_hz);
 
     let mut weights = Array2::<A>::zeros((n_freq, n_mel));
-    Zip::indexed(weights.axis_iter_mut(Axis(1))).par_apply(|i_m, mut w| {
+    Zip::indexed(weights.axis_iter_mut(Axis(1))).par_for_each(|i_m, mut w| {
         for (i_f, &f) in linear_freqs.indexed_iter() {
             if f <= mel_freqs[i_m] {
                 continue;

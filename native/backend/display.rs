@@ -68,7 +68,7 @@ pub fn convert_spec_to_grey(
     // return: grey image with F(inverted) x T
     let width = spec.shape()[0];
     let height = (spec.shape()[1] as f32 * up_ratio).round() as usize;
-    let mut grey = Array2::maybe_uninit((height, width));
+    let mut grey = Array2::uninit((height, width));
     grey.indexed_iter_mut().for_each(|((i, j), x)| {
         if height - 1 - i < spec.raw_dim()[1] {
             *x = MaybeUninit::new((spec[[j, height - 1 - i]] - min) / (max - min));
