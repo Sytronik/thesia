@@ -13,8 +13,8 @@ path = "native/lib.rs"
 image = "0.23.12"
 
 [dependencies]
-napi = {version = "1.1.0", features = ["napi7"]}
-napi-derive = "1.0.0"
+napi = "1.6.0"
+napi-derive = "1.1.0"
 
 approx = {version = "0.4.0", features = ["num-complex"]}
 cached = "0.23.0"
@@ -36,13 +36,13 @@ git = "https://github.com/Sytronik/rodio.git"
 rev = "209dd4c3587c9828d9b3eb3075fe449b41cf9353"
 
 [target.'cfg(all(unix, not(target_env = "musl"), not(target_arch = "aarch64")))'.dependencies]
-jemallocator = {version = "0.3", features = ["disable_initial_exec_tls"]}
+jemallocator = {version = "0.3.2", features = ["disable_initial_exec_tls"]}
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
-mimalloc = {version = "0.1"}
+mimalloc = {version = "0.1.25"}
 
 [build-dependencies]
-napi-build = "1.0.1"
+napi-build = "1.0.2"
 
 [profile.release]
 codegen-units = 1
