@@ -1,5 +1,4 @@
 use std::f64::consts::PI as PIf64;
-use std::iter::FromIterator;
 use std::ops::Div;
 
 use ndarray::{prelude::*, ScalarOperand};
