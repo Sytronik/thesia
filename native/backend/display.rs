@@ -5,6 +5,7 @@ use cached::proc_macro::cached;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
+use rgb::FromSlice;
 use tiny_skia::{FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke, Transform};
 
 use super::mel;
@@ -139,11 +140,13 @@ pub fn colorize_grey_with_size(
         fast_resize,
     );
     let mut resized = vec![0f32; width as usize * height as usize];
-    resizer.resize_stride(
-        &grey.as_slice().unwrap()[trim_left..],
-        grey.shape()[1],
-        &mut resized[..],
-    );
+    resizer
+        .resize_stride(
+            &grey.as_slice().unwrap()[trim_left..].as_gray(),
+            grey.shape()[1],
+            &mut resized[..].as_gray_mut(),
+        )
+        .unwrap();
     resized
         .into_iter()
         .flat_map(|x| {
@@ -301,7 +304,12 @@ pub fn draw_wav_to(
         let mut upsampled = Array1::<f32>::zeros(width as usize);
         // naive upsampling
         let mut resizer = create_resizer(wav.len(), 1, width as usize, 1, false);
-        resizer.resize(wav.as_slice().unwrap(), upsampled.as_slice_mut().unwrap());
+        resizer
+            .resize(
+                wav.as_slice().unwrap().as_gray(),
+                upsampled.as_slice_mut().unwrap().as_gray_mut(),
+            )
+            .unwrap();
         upsampled.mapv_inplace(amp_to_height_px);
         draw_wav_directly(upsampled.as_slice().unwrap(), &mut pixmap, &paint);
         return;
@@ -367,6 +375,7 @@ fn create_resizer(
             ResizeType::Lanczos3
         },
     )
+    .unwrap()
 }
 
 #[cfg(test)]
@@ -375,15 +384,17 @@ mod tests {
 
     use approx::assert_abs_diff_eq;
     use image::RgbImage;
-    use resize::Pixel::RGB24;
+    use resize::Pixel::RGB8;
 
     #[test]
     fn show_colorbar() {
         let (width, height) = (50, 500);
         let colormap: Vec<u8> = COLORMAP.iter().rev().flatten().cloned().collect();
         let mut imvec = vec![0u8; width * height * 3];
-        let mut resizer = resize::new(1, 10, width, height, RGB24, ResizeType::Triangle);
-        resizer.resize(&colormap, &mut imvec);
+        let mut resizer = resize::new(1, 10, width, height, RGB8, ResizeType::Triangle).unwrap();
+        resizer
+            .resize(&colormap.as_rgb(), imvec.as_rgb_mut())
+            .unwrap();
 
         RgbImage::from_raw(width as u32, height as u32, imvec)
             .unwrap()
