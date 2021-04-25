@@ -300,7 +300,7 @@ mod tests {
         c2r.process(&indata[0..129], &mut out_a).unwrap();
         fft.process(&mut indata);
 
-        let out_b: Vec<f64> = indata.iter().map(|val| 0.5 * val.re).collect();
-        assert_abs_diff_eq!(&out_a[..], &out_b[..], epsilon = 1e-15);
+        let out_b: Vec<f64> = indata.iter().map(|val| val.re).collect();
+        assert_abs_diff_eq!(&out_a[..], &out_b[..], epsilon = 1e-14);
     }
 }
