@@ -5,7 +5,7 @@ use cached::proc_macro::cached;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
-use tiny_skia::{Canvas, FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke};
+use tiny_skia::{FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke, Transform};
 
 use super::mel;
 use super::stft::FreqScale;
@@ -95,8 +95,7 @@ pub fn draw_blended_spec_wav(
         vec![0u8; width as usize * height as usize * 4]
     };
 
-    let pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
-    let mut canvas = Canvas::from(pixmap);
+    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
 
     if blend < 1. {
         // black
@@ -104,12 +103,12 @@ pub fn draw_blended_spec_wav(
             let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
             let mut paint = Paint::default();
             paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
-            canvas.fill_rect(rect, &paint);
+            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
         }
 
         // wave
         draw_wav_to(
-            canvas.pixmap().data_mut(),
+            pixmap.data_mut(),
             wav,
             width,
             height,
@@ -222,7 +221,7 @@ pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(
     result
 }
 
-fn draw_wav_directly(wav_avg: &[f32], canvas: &mut Canvas, paint: &Paint) {
+fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
     // println!("avg rendering. short height ratio: {}", n_short_height as f32 / width as f32);
     let path = {
         let mut pb = PathBuilder::new();
@@ -239,13 +238,13 @@ fn draw_wav_directly(wav_avg: &[f32], canvas: &mut Canvas, paint: &Paint) {
     let mut stroke = Stroke::default();
     stroke.width = WAV_STROKE_WIDTH;
     stroke.line_cap = LineCap::Round;
-    canvas.stroke_path(&path, paint, &stroke);
+    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
 }
 
 fn draw_wav_topbottom(
     top_envelope: &[f32],
     bottom_envelope: &[f32],
-    canvas: &mut Canvas,
+    pixmap: &mut PixmapMut,
     paint: &Paint,
 ) {
     // println!("top-bottom rendering. short height ratio: {}", n_short_height as f32 / width as f32);
@@ -262,7 +261,7 @@ fn draw_wav_topbottom(
         pb.finish().unwrap()
     };
 
-    canvas.fill_path(&path, paint, FillRule::Winding);
+    pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
 }
 
 pub fn draw_wav_to(
@@ -278,8 +277,7 @@ pub fn draw_wav_to(
         Some(x) => x,
         None => u8::MAX,
     };
-    let pixmap = PixmapMut::from_bytes(output, width, height).unwrap();
-    let mut canvas = Canvas::from(pixmap);
+    let mut pixmap = PixmapMut::from_bytes(output, width, height).unwrap();
 
     let mut paint = Paint::default();
     let [r, g, b] = WAVECOLOR;
@@ -287,7 +285,7 @@ pub fn draw_wav_to(
     paint.anti_alias = true;
     if amp_range.1 - amp_range.0 < 1e-16 {
         let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
-        canvas.fill_rect(rect, &paint);
+        pixmap.fill_rect(rect, &paint, Transform::identity(), None);
         return;
     }
 
@@ -305,7 +303,7 @@ pub fn draw_wav_to(
         let mut resizer = create_resizer(wav.len(), 1, width as usize, 1, false);
         resizer.resize(wav.as_slice().unwrap(), upsampled.as_slice_mut().unwrap());
         upsampled.mapv_inplace(amp_to_height_px);
-        draw_wav_directly(upsampled.as_slice().unwrap(), &mut canvas, &paint);
+        draw_wav_directly(upsampled.as_slice().unwrap(), &mut pixmap, &paint);
         return;
     }
     let mut top_envelope = Vec::<f32>::with_capacity(width as usize);
@@ -335,9 +333,9 @@ pub fn draw_wav_to(
     }
     max_n_conseq = max_n_conseq.max(n_conseq_long_h);
     if max_n_conseq > THR_N_CONSEQ_LONG_H {
-        draw_wav_topbottom(&top_envelope[..], &bottom_envelope[..], &mut canvas, &paint);
+        draw_wav_topbottom(&top_envelope[..], &bottom_envelope[..], &mut pixmap, &paint);
     } else {
-        draw_wav_directly(&wav_avg[..], &mut canvas, &paint);
+        draw_wav_directly(&wav_avg[..], &mut pixmap, &paint);
     }
     // println!("drawing wav: {:?}", start.elapsed());
 }
