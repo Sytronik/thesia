@@ -5,8 +5,8 @@ use std::sync::{RwLock, RwLockReadGuard};
 use std::time::Instant;
 
 use napi::{
-    CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown,
-    Result as JsResult, Task,
+    CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString, JsUndefined,
+    JsUnknown, Result as JsResult, Task,
 };
 use napi_derive::*;
 
@@ -55,74 +55,22 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     assert!(new_track_ids.len() > 0 && new_track_ids.len() == new_paths.len());
 
     let mut tm = TM.write().unwrap();
-    let (added_ids, need_draw_all) = tm.add_tracks(&new_track_ids[..], new_paths);
-    let tuples = if need_draw_all {
-        tm.id_ch_tuples()
-    } else {
-        tm.id_ch_tuples_from(&added_ids[..])
-    };
-    let mut arr = ctx.env.create_array_with_length(2)?;
-    arr.set_element(
-        0,
-        convert_vec_usize_to_jsarr(ctx.env, added_ids.iter(), added_ids.len())?,
-    )?;
-    if !tuples.is_empty() {
-        let task = DrawingTask {
-            id_ch_tuples_spec: tuples.clone(),
-            id_ch_tuples_wav: tuples,
-            option: *DRAWOPTION.read().unwrap(),
-            opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
-        };
-        arr.set_element(
-            1,
-            ctx.env
-                .spawn(task)
-                .map(|async_task| async_task.promise_object())?,
-        )?;
-    } else {
-        arr.set_element(1, ctx.env.get_null()?)?;
-    }
-    Ok(arr)
+    let added_ids = tm.add_tracks(&new_track_ids[..], new_paths);
+    convert_vec_usize_to_jsarr(ctx.env, added_ids.iter(), added_ids.len())
 }
 
 #[js_function(1)]
 fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
-    let new_track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
-    assert!(new_track_ids.len() > 0);
+    let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
+    assert!(track_ids.len() > 0);
 
     let mut tm = TM.write().unwrap();
-    let (reloaded_ids, wrong_path_ids, need_draw_all) = tm.reload_tracks(&new_track_ids[..]);
-    let tuples = if need_draw_all {
-        tm.id_ch_tuples()
-    } else {
-        tm.id_ch_tuples_from(&reloaded_ids[..])
-    };
-    let mut arr = ctx.env.create_array_with_length(2)?;
-    arr.set_element(
-        0,
-        convert_vec_usize_to_jsarr(ctx.env, wrong_path_ids.iter(), wrong_path_ids.len())?,
-    )?;
-    if !tuples.is_empty() {
-        let task = DrawingTask {
-            id_ch_tuples_spec: tuples.clone(),
-            id_ch_tuples_wav: tuples,
-            option: *DRAWOPTION.read().unwrap(),
-            opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
-        };
-        arr.set_element(
-            1,
-            ctx.env
-                .spawn(task)
-                .map(|async_task| async_task.promise_object())?,
-        )?;
-    } else {
-        arr.set_element(1, ctx.env.get_null()?)?;
-    }
-    Ok(arr)
+    let reloaded_ids = tm.reload_tracks(&track_ids[..]);
+    convert_vec_usize_to_jsarr(ctx.env, reloaded_ids.iter(), reloaded_ids.len())
 }
 
 #[js_function(1)]
-fn remove_tracks(ctx: CallContext) -> JsResult<JsUnknown> {
+fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     assert!(track_ids.len() > 0);
 
@@ -135,19 +83,27 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUnknown> {
             wav_images.remove(tup);
         }
     }
-    if tm.remove_tracks(&track_ids[..]) {
-        let tuples = tm.id_ch_tuples();
+    tm.remove_tracks(&track_ids[..]);
+    ctx.env.get_undefined()
+}
+
+#[contextless_function]
+fn apply_track_list_changes(env: Env) -> ContextlessResult<JsUnknown> {
+    let mut tm = TM.write().unwrap();
+    let updated_ids: Vec<usize> = tm.update_greys().into_iter().collect();
+    let tuples = tm.id_ch_tuples_from(&updated_ids);
+    if !tuples.is_empty() {
         let task = DrawingTask {
             id_ch_tuples_spec: tuples.clone(),
             id_ch_tuples_wav: tuples,
             option: *DRAWOPTION.read().unwrap(),
             opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
         };
-        ctx.env
-            .spawn(task)
-            .map(|async_task| async_task.promise_object().into_unknown())
+        Ok(Some(env.spawn(task).map(|async_task| {
+            async_task.promise_object().into_unknown()
+        })?))
     } else {
-        Ok(ctx.env.get_null()?.into_unknown())
+        Ok(Some(env.get_null()?.into_unknown()))
     }
 }
 
@@ -544,6 +500,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("addTracks", add_tracks)?;
     exports.create_named_method("reloadTracks", reload_tracks)?;
     exports.create_named_method("removeTracks", remove_tracks)?;
+    exports.create_named_method("applyTrackListChanges", apply_track_list_changes)?;
     exports.create_named_method("findIDbyPath", find_id_by_path)?;
     exports.create_named_method("getSpecWavImages", get_spec_wav_images)?;
     exports.create_named_method("getOverview", get_overview)?;

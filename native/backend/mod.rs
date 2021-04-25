@@ -180,6 +180,7 @@ pub struct TrackManager {
     windows: SrMap<Array1<f32>>,
     mel_fbs: SrMap<Array2<f32>>,
     specs: IdChMap<Array2<f32>>,
+    no_grey_ids: Vec<usize>,
     spec_greys: IdChMap<Array2<f32>>,
     id_max_sec: usize,
 }
@@ -189,6 +190,10 @@ impl TrackManager {
         TrackManager {
             tracks: HashMap::new(),
             filenames: HashMap::new(),
+            max_db: -f32::INFINITY,
+            min_db: f32::INFINITY,
+            max_sec: 0.,
+            max_sr: 0,
             setting: SpecSetting {
                 win_ms: 40.,
                 t_overlap: 4,
@@ -199,16 +204,13 @@ impl TrackManager {
             windows: HashMap::new(),
             mel_fbs: HashMap::new(),
             specs: HashMap::new(),
+            no_grey_ids: Vec::new(),
             spec_greys: HashMap::new(),
-            max_db: -f32::INFINITY,
-            min_db: f32::INFINITY,
-            max_sec: 0.,
             id_max_sec: 0,
-            max_sr: 0,
         }
     }
 
-    pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> (Vec<usize>, bool) {
+    pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut added_ids = Vec::new();
         for (&id, path) in id_list.iter().zip(path_list.into_iter()) {
@@ -228,39 +230,34 @@ impl TrackManager {
 
         self.update_filenames();
         self.update_specs(&added_ids[..], new_sr_set);
-        let need_draw_all = self.update_greys(Some(&added_ids[..]));
-        (added_ids, need_draw_all)
+        self.no_grey_ids.extend(added_ids.iter().cloned());
+        added_ids
     }
 
-    pub fn reload_tracks(&mut self, id_list: &[usize]) -> (Vec<usize>, Vec<usize>, bool) {
+    pub fn reload_tracks(&mut self, id_list: &[usize]) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut reloaded_ids = Vec::new();
-        let mut wrong_path_ids = Vec::new();
         for &id in id_list.iter() {
             let track = self.tracks.get_mut(&id).unwrap();
-            match track.reload(&self.setting) {
-                Ok(true) => {
-                    let sec = track.sec();
-                    if sec > self.max_sec {
-                        self.max_sec = sec;
-                        self.id_max_sec = id;
-                    }
-                    if self.windows.get(&track.sr).is_none() {
-                        new_sr_set.insert((track.sr, track.win_length, track.n_fft));
-                    }
-                    reloaded_ids.push(id);
+            if let Ok(true) = track.reload(&self.setting) {
+                let sec = track.sec();
+                if sec > self.max_sec {
+                    self.max_sec = sec;
+                    self.id_max_sec = id;
                 }
-                Err(_) => wrong_path_ids.push(id),
-                _ => {}
+                if self.windows.get(&track.sr).is_none() {
+                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                }
+                reloaded_ids.push(id);
             }
         }
 
         self.update_specs(&reloaded_ids[..], new_sr_set);
-        let need_draw_all = self.update_greys(Some(&reloaded_ids[..]));
-        (reloaded_ids, wrong_path_ids, need_draw_all)
+        self.no_grey_ids.extend(reloaded_ids.iter().cloned());
+        reloaded_ids
     }
 
-    pub fn remove_tracks(&mut self, id_list: &[usize]) -> bool {
+    pub fn remove_tracks(&mut self, id_list: &[usize]) {
         for id in id_list.iter() {
             let (_, removed) = self.tracks.remove_entry(&id).unwrap();
             for ch in (0..removed.n_ch).into_iter() {
@@ -292,7 +289,6 @@ impl TrackManager {
         }
 
         self.update_filenames();
-        self.update_greys(None)
     }
 
     pub fn get_entire_images(
@@ -571,7 +567,7 @@ impl TrackManager {
         self.specs.extend(specs);
     }
 
-    fn update_greys(&mut self, force_update_ids: Option<&[usize]>) -> bool {
+    pub fn update_greys(&mut self) -> HashSet<usize> {
         let (mut max, mut min) = self
             .specs
             .par_iter()
@@ -607,20 +603,18 @@ impl TrackManager {
             self.max_sr = max_sr;
             has_changed_all = true;
         }
-        let force_update_ids = if has_changed_all {
+        let ids_need_update: HashSet<usize> = if has_changed_all {
+            self.no_grey_ids.clear();
             self.tracks.keys().cloned().collect()
         } else {
-            match force_update_ids {
-                Some(v) => v.iter().cloned().collect(),
-                None => HashSet::new(),
-            }
+            self.no_grey_ids.drain(..).collect()
         };
 
-        if !force_update_ids.is_empty() {
+        if !ids_need_update.is_empty() {
             let up_ratio_map = {
-                let mut map = HashMap::<usize, f32>::with_capacity(force_update_ids.len());
+                let mut map = HashMap::<usize, f32>::with_capacity(ids_need_update.len());
                 let iter = self.tracks.par_iter().filter_map(|(id, track)| {
-                    if force_update_ids.contains(id) {
+                    if ids_need_update.contains(id) {
                         let up_ratio =
                             calc_up_ratio(track.sr, self.max_sr, self.setting.freq_scale);
                         Some((*id, up_ratio))
@@ -634,7 +628,7 @@ impl TrackManager {
             let new_spec_greys = {
                 let mut map = IdChMap::with_capacity(self.specs.len());
                 map.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                    if force_update_ids.contains(&id) {
+                    if ids_need_update.contains(&id) {
                         let grey = display::convert_spec_to_grey(
                             spec.view(),
                             *up_ratio_map.get(&id).unwrap(),
@@ -655,7 +649,7 @@ impl TrackManager {
                 self.spec_greys.extend(new_spec_greys)
             }
         }
-        has_changed_all
+        ids_need_update
     }
 
     fn update_filenames(&mut self) {
@@ -746,7 +740,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn multitrack_works() {
+    fn trackmanager_works() {
         let tags = ["8k", "16k", "22k05", "24k", "44k1", "48k", "stereo_48k"];
         let id_list: Vec<usize> = (0..tags.len()).collect();
         let mut path_list: Vec<String> = tags
@@ -755,24 +749,33 @@ mod tests {
             .map(|x| format!("samples/sample_{}.wav", x))
             .collect();
         path_list.push(String::from("samples/stereo/sample_48k.wav"));
-        let mut multitrack = TrackManager::new();
-        let (added_ids, _) = multitrack.add_tracks(&id_list[0..3], path_list[0..3].to_owned());
+        let mut tm = TrackManager::new();
+        let added_ids = tm.add_tracks(&id_list[0..3], path_list[0..3].to_owned());
         assert_eq!(&added_ids[..], &id_list[0..3]);
-        let (added_ids, _) = multitrack.add_tracks(&id_list[3..], path_list[3..].to_owned());
+        let added_ids = tm.add_tracks(&id_list[3..], path_list[3..].to_owned());
         assert_eq!(&added_ids[..], &id_list[3..]);
-        dbg!(multitrack.filenames.get(&5).unwrap());
-        dbg!(multitrack.filenames.get(&6).unwrap());
+        assert_eq!(tm.tracks.len(), id_list.len());
+
+        assert_eq!(tm.spec_greys.len(), 0);
+        let mut updated_ids: Vec<usize> = tm.update_greys().into_iter().collect();
+        updated_ids.sort();
+        assert_eq!(updated_ids, id_list);
+
+        dbg!(tm.filenames.get(&5).unwrap());
+        dbg!(tm.filenames.get(&6).unwrap());
         let width: u32 = 1500;
         let height: u32 = 500;
         id_list.iter().zip(tags.iter()).for_each(|(&id, &sr)| {
-            let imvec = multitrack.get_spec_image_of(id, 0, width, height);
+            let imvec = tm.get_spec_image_of(id, 0, width, height);
             let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
             im.save(format!("samples/spec_{}.png", sr)).unwrap();
-            let imvec = multitrack.get_wav_image_of(id, 0, width, height, (-1., 1.));
+            let imvec = tm.get_wav_image_of(id, 0, width, height, (-1., 1.));
             let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
             im.save(format!("samples/wav_{}.png", sr)).unwrap();
         });
 
-        multitrack.remove_tracks(&[0]);
+        tm.remove_tracks(&[0]);
+        let updated_ids = tm.update_greys();
+        assert!(updated_ids.is_empty());
     }
 }
