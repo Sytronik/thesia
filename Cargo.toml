@@ -16,7 +16,6 @@ image = "0.23.12"
 napi = "1.6.0"
 napi-derive = "1.1.0"
 
-approx = {version = "0.4.0", features = ["num-complex"]}
 cached = "0.23.0"
 cpal = "0.13.1"
 lazy_static = "1.4.0"
@@ -25,7 +24,13 @@ ndarray-stats = "0.5.0"
 num-traits = "0.2.14"
 rayon = "1.5.0"
 readonly = "0.2"
+rustfft = "6.0.0"
 tiny-skia = "0.5.1"
+
+[dependencies.approx]
+features = ["num-complex"]
+git = "https://github.com/brendanzab/approx.git"
+rev = "195a9584bd7cb095cb09d0b37df22553cb08cc0a"
 
 [dependencies.resize]
 git = "https://github.com/Sytronik/resize.git"
