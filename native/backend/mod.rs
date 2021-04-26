@@ -291,6 +291,91 @@ impl TrackManager {
         self.update_filenames();
     }
 
+    pub fn update_greys(&mut self) -> HashSet<usize> {
+        let (mut max, mut min) = self
+            .specs
+            .par_iter()
+            .map(|(_, spec)| {
+                let max = *spec.max().unwrap_or(&-f32::INFINITY);
+                let min = *spec.min().unwrap_or(&f32::INFINITY);
+                (max, min)
+            })
+            .reduce(
+                || (-f32::INFINITY, f32::INFINITY),
+                |(max, min): (f32, f32), (current_max, current_min)| {
+                    (max.max(current_max), min.min(current_min))
+                },
+            );
+        max = max.min(0.);
+        min = min.max(max - self.setting.db_range);
+        let mut has_changed_all = false;
+        if abs_diff_ne!(self.max_db, max, epsilon = 1e-3) {
+            self.max_db = max;
+            has_changed_all = true;
+        }
+        if abs_diff_ne!(self.min_db, min, epsilon = 1e-3) {
+            self.min_db = min;
+            has_changed_all = true;
+        }
+
+        let max_sr = self
+            .tracks
+            .par_iter()
+            .map(|(_, track)| track.sr)
+            .reduce(|| 0u32, |max, x| max.max(x));
+        if self.max_sr != max_sr {
+            self.max_sr = max_sr;
+            has_changed_all = true;
+        }
+        let ids_need_update: HashSet<usize> = if has_changed_all {
+            self.no_grey_ids.clear();
+            self.tracks.keys().cloned().collect()
+        } else {
+            self.no_grey_ids.drain(..).collect()
+        };
+
+        if !ids_need_update.is_empty() {
+            let up_ratio_map = {
+                let mut map = HashMap::<usize, f32>::with_capacity(ids_need_update.len());
+                let iter = self.tracks.par_iter().filter_map(|(id, track)| {
+                    if ids_need_update.contains(id) {
+                        let up_ratio =
+                            calc_up_ratio(track.sr, self.max_sr, self.setting.freq_scale);
+                        Some((*id, up_ratio))
+                    } else {
+                        None
+                    }
+                });
+                map.par_extend(iter);
+                map
+            };
+            let new_spec_greys = {
+                let mut map = IdChMap::with_capacity(self.specs.len());
+                map.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
+                    if ids_need_update.contains(&id) {
+                        let grey = display::convert_spec_to_grey(
+                            spec.view(),
+                            *up_ratio_map.get(&id).unwrap(),
+                            self.max_db,
+                            self.min_db,
+                        );
+                        Some(((id, ch), grey))
+                    } else {
+                        None
+                    }
+                }));
+                map
+            };
+
+            if has_changed_all {
+                self.spec_greys = new_spec_greys;
+            } else {
+                self.spec_greys.extend(new_spec_greys)
+            }
+        }
+        ids_need_update
+    }
+
     pub fn get_entire_images(
         &self,
         id_ch_tuples: &IdChArr,
@@ -565,91 +650,6 @@ impl TrackManager {
         };
 
         self.specs.extend(specs);
-    }
-
-    pub fn update_greys(&mut self) -> HashSet<usize> {
-        let (mut max, mut min) = self
-            .specs
-            .par_iter()
-            .map(|(_, spec)| {
-                let max = *spec.max().unwrap_or(&-f32::INFINITY);
-                let min = *spec.min().unwrap_or(&f32::INFINITY);
-                (max, min)
-            })
-            .reduce(
-                || (-f32::INFINITY, f32::INFINITY),
-                |(max, min): (f32, f32), (current_max, current_min)| {
-                    (max.max(current_max), min.min(current_min))
-                },
-            );
-        max = max.min(0.);
-        min = min.max(max - self.setting.db_range);
-        let mut has_changed_all = false;
-        if abs_diff_ne!(self.max_db, max, epsilon = 1e-3) {
-            self.max_db = max;
-            has_changed_all = true;
-        }
-        if abs_diff_ne!(self.min_db, min, epsilon = 1e-3) {
-            self.min_db = min;
-            has_changed_all = true;
-        }
-
-        let max_sr = self
-            .tracks
-            .par_iter()
-            .map(|(_, track)| track.sr)
-            .reduce(|| 0u32, |max, x| max.max(x));
-        if self.max_sr != max_sr {
-            self.max_sr = max_sr;
-            has_changed_all = true;
-        }
-        let ids_need_update: HashSet<usize> = if has_changed_all {
-            self.no_grey_ids.clear();
-            self.tracks.keys().cloned().collect()
-        } else {
-            self.no_grey_ids.drain(..).collect()
-        };
-
-        if !ids_need_update.is_empty() {
-            let up_ratio_map = {
-                let mut map = HashMap::<usize, f32>::with_capacity(ids_need_update.len());
-                let iter = self.tracks.par_iter().filter_map(|(id, track)| {
-                    if ids_need_update.contains(id) {
-                        let up_ratio =
-                            calc_up_ratio(track.sr, self.max_sr, self.setting.freq_scale);
-                        Some((*id, up_ratio))
-                    } else {
-                        None
-                    }
-                });
-                map.par_extend(iter);
-                map
-            };
-            let new_spec_greys = {
-                let mut map = IdChMap::with_capacity(self.specs.len());
-                map.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                    if ids_need_update.contains(&id) {
-                        let grey = display::convert_spec_to_grey(
-                            spec.view(),
-                            *up_ratio_map.get(&id).unwrap(),
-                            self.max_db,
-                            self.min_db,
-                        );
-                        Some(((id, ch), grey))
-                    } else {
-                        None
-                    }
-                }));
-                map
-            };
-
-            if has_changed_all {
-                self.spec_greys = new_spec_greys;
-            } else {
-                self.spec_greys.extend(new_spec_greys)
-            }
-        }
-        ids_need_update
     }
 
     fn update_filenames(&mut self) {
