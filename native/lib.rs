@@ -97,7 +97,7 @@ fn apply_track_list_changes(env: Env) -> ContextlessResult<JsUnknown> {
             id_ch_tuples_spec: tuples.clone(),
             id_ch_tuples_wav: tuples,
             option: *DRAWOPTION.read().unwrap(),
-            opt_for_wav: *DRAWOPTION_FOR_WAV.read().unwrap(),
+            opt_for_wav: Some(*DRAWOPTION_FOR_WAV.read().unwrap()),
         };
         Ok(Some(env.spawn(task).map(|async_task| {
             async_task.promise_object().into_unknown()
@@ -134,116 +134,57 @@ fn get_spec_wav_images(ctx: CallContext) -> JsResult<JsObject> {
     assert!(option.height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
-    let mut result = ctx.env.create_array_with_length(2)?;
-    let mut result_im = ctx.env.create_object()?;
-
-    let tm = TM.read().unwrap();
-
-    // Categorize id_ch_tuples
-    // 1. DrawingTask is needed, 2. drawing part of image is needed, 3. Cached image is used
-    let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
-    let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
-    total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-        (
-            (id, ch),
-            tm.tracks.get(&id).unwrap().calc_width(option.px_per_sec),
-        )
-    }));
-    let (need_spec_task, need_spec_parts, use_spec_caches) = categorize_id_ch(
-        &id_ch_tuples[..],
-        SPEC_TASK_EXISTS.read().unwrap(),
-        SPEC_IMAGES.read().unwrap(),
-        &total_widths,
+    get_images(
+        ctx.env,
+        id_ch_tuples,
+        sec,
+        width,
         option,
-        ImageKind::Spec,
-    );
-    let (need_wav_task, need_wav_parts, use_wav_caches) = categorize_id_ch(
-        &id_ch_tuples[..],
-        WAV_TASK_EXISTS.read().unwrap(),
-        WAV_IMAGES.read().unwrap(),
-        &total_widths,
+        true,
+        Some(opt_for_wav),
+    )
+}
+
+#[js_function(4)]
+fn get_spec_images(ctx: CallContext) -> JsResult<JsObject> {
+    // let start = Instant::now();
+    let id_ch_tuples = id_ch_tuples_from(&ctx, 0)?;
+    let sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let width: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    let option = draw_option_from_js_obj(ctx.get::<JsObject>(3)?)?;
+    assert!(id_ch_tuples.len() > 0);
+    assert!(width >= 1);
+    assert!(option.px_per_sec.is_finite());
+    assert!(option.px_per_sec >= 0.);
+    assert!(option.height >= 1);
+
+    get_images(ctx.env, id_ch_tuples, sec, width, option, true, None)
+}
+
+#[js_function(5)]
+fn get_wav_images(ctx: CallContext) -> JsResult<JsObject> {
+    // let start = Instant::now();
+    let id_ch_tuples = id_ch_tuples_from(&ctx, 0)?;
+    let sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let width: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    let option = draw_option_from_js_obj(ctx.get::<JsObject>(3)?)?;
+    let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
+    assert!(id_ch_tuples.len() > 0);
+    assert!(width >= 1);
+    assert!(option.px_per_sec.is_finite());
+    assert!(option.px_per_sec >= 0.);
+    assert!(option.height >= 1);
+    assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
+
+    get_images(
+        ctx.env,
+        id_ch_tuples,
+        sec,
+        width,
         option,
-        ImageKind::Wav(opt_for_wav),
-    );
-
-    // spawn DrawingTask
-    let need_task = !need_spec_task.is_empty() || !need_wav_task.is_empty();
-    // let need_task = false;
-    if need_task {
-        let task = DrawingTask {
-            id_ch_tuples_spec: need_spec_task.clone(),
-            id_ch_tuples_wav: need_wav_task.clone(),
-            option,
-            opt_for_wav,
-        };
-        result.set_element(
-            1,
-            ctx.env
-                .spawn(task)
-                .map(|async_task| async_task.promise_object())?,
-        )?;
-    } else {
-        result.set_element(1, ctx.env.get_null()?)?;
-    };
-
-    // draw part
-    if !need_spec_parts.is_empty() {
-        let fast_resize_vec = if option.height <= display::MAX_SIZE {
-            Some(
-                need_spec_parts
-                    .iter()
-                    .map(|tup| *total_widths.get(tup).unwrap() <= display::MAX_SIZE)
-                    .collect(),
-            )
-        } else {
-            None
-        };
-        let spec_images = TM.read().unwrap().get_part_images(
-            &need_spec_parts[..],
-            sec,
-            width,
-            option,
-            ImageKind::Spec,
-            fast_resize_vec,
-        );
-        set_images_to(ctx.env, &mut result_im, spec_images, 0)?;
-    }
-    if !need_wav_parts.is_empty() {
-        let wav_images = TM.read().unwrap().get_part_images(
-            &need_wav_parts[..],
-            sec,
-            width,
-            option,
-            ImageKind::Wav(opt_for_wav),
-            None,
-        );
-        set_images_to(ctx.env, &mut result_im, wav_images, 1)?;
-    }
-
-    // crop image cache
-    if !use_spec_caches.is_empty() {
-        let spec_images = crop_cached_images_(
-            SPEC_IMAGES.read().unwrap(),
-            &use_spec_caches[..],
-            sec,
-            width,
-            option,
-        );
-        set_images_to(ctx.env, &mut result_im, spec_images, 0)?;
-    }
-    if !use_wav_caches.is_empty() {
-        let wav_images = crop_cached_images_(
-            WAV_IMAGES.read().unwrap(),
-            &use_wav_caches[..],
-            sec,
-            width,
-            option,
-        );
-        set_images_to(ctx.env, &mut result_im, wav_images, 1)?;
-    }
-
-    result.set_element(0, result_im)?;
-    Ok(result)
+        false,
+        Some(opt_for_wav),
+    )
 }
 
 #[js_function(3)]
@@ -339,11 +280,141 @@ fn get_colormap(env: Env) -> ContextlessResult<JsBuffer> {
         .map(|x| Some(x.into_raw()))
 }
 
+fn get_images(
+    env: &mut Env,
+    id_ch_tuples: IdChVec,
+    sec: f64,
+    width: u32,
+    option: DrawOption,
+    need_spec: bool,
+    opt_for_wav: Option<DrawOptionForWav>,
+) -> JsResult<JsObject> {
+    let mut result = env.create_array_with_length(2)?;
+    let mut result_im = env.create_object()?;
+
+    let tm = TM.read().unwrap();
+
+    // Categorize id_ch_tuples
+    // 1. DrawingTask is needed, 2. drawing part of image is needed, 3. Cached image is used
+    let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
+    let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
+    total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
+        (
+            (id, ch),
+            tm.tracks.get(&id).unwrap().calc_width(option.px_per_sec),
+        )
+    }));
+    let (need_spec_task, need_spec_parts, use_spec_caches) = if need_spec {
+        categorize_id_ch(
+            &id_ch_tuples[..],
+            SPEC_TASK_EXISTS.read().unwrap(),
+            SPEC_IMAGES.read().unwrap(),
+            &total_widths,
+            option,
+            ImageKind::Spec,
+        )
+    } else {
+        (IdChVec::new(), IdChVec::new(), IdChVec::new())
+    };
+    let (need_wav_task, need_wav_parts, use_wav_caches) = if let Some(x) = opt_for_wav {
+        categorize_id_ch(
+            &id_ch_tuples[..],
+            WAV_TASK_EXISTS.read().unwrap(),
+            WAV_IMAGES.read().unwrap(),
+            &total_widths,
+            option,
+            ImageKind::Wav(x),
+        )
+    } else {
+        (IdChVec::new(), IdChVec::new(), IdChVec::new())
+    };
+
+    // spawn DrawingTask
+    let need_task = !need_spec_task.is_empty() || !need_wav_task.is_empty();
+    // let need_task = false;
+    if need_task {
+        let task = DrawingTask {
+            id_ch_tuples_spec: need_spec_task.clone(),
+            id_ch_tuples_wav: need_wav_task.clone(),
+            option,
+            opt_for_wav,
+        };
+        result.set_element(
+            1,
+            env.spawn(task)
+                .map(|async_task| async_task.promise_object())?,
+        )?;
+    } else {
+        result.set_element(1, env.get_null()?)?;
+    };
+
+    // draw part
+    if !need_spec_parts.is_empty() {
+        let fast_resize_vec = if option.height <= display::MAX_SIZE {
+            Some(
+                need_spec_parts
+                    .iter()
+                    .map(|tup| *total_widths.get(tup).unwrap() <= display::MAX_SIZE)
+                    .collect(),
+            )
+        } else {
+            None
+        };
+        let spec_images = TM.read().unwrap().get_part_images(
+            &need_spec_parts[..],
+            sec,
+            width,
+            option,
+            ImageKind::Spec,
+            fast_resize_vec,
+        );
+        set_images_to(env, &mut result_im, spec_images, 0)?;
+    }
+    if let Some(x) = opt_for_wav {
+        if !need_wav_parts.is_empty() {
+            let wav_images = TM.read().unwrap().get_part_images(
+                &need_wav_parts[..],
+                sec,
+                width,
+                option,
+                ImageKind::Wav(x),
+                None,
+            );
+            set_images_to(env, &mut result_im, wav_images, 1)?;
+        }
+    }
+
+    // crop image cache
+    if !use_spec_caches.is_empty() {
+        let spec_images = crop_cached_images_(
+            SPEC_IMAGES.read().unwrap(),
+            &use_spec_caches[..],
+            sec,
+            width,
+            option,
+        );
+        set_images_to(env, &mut result_im, spec_images, 0)?;
+    }
+    if !use_wav_caches.is_empty() {
+        let wav_images = crop_cached_images_(
+            WAV_IMAGES.read().unwrap(),
+            &use_wav_caches[..],
+            sec,
+            width,
+            option,
+        );
+        set_images_to(env, &mut result_im, wav_images, 1)?;
+    }
+
+    result.set_element(0, result_im)?;
+    Ok(result)
+}
+
 struct DrawingTask {
     id_ch_tuples_spec: IdChVec,
     id_ch_tuples_wav: IdChVec,
     option: DrawOption,
-    opt_for_wav: DrawOptionForWav,
+    opt_for_wav: Option<DrawOptionForWav>,
 }
 
 impl Task for DrawingTask {
@@ -363,11 +434,15 @@ impl Task for DrawingTask {
             self.option,
             ImageKind::Spec,
         );
-        let new_wav_images = TM.read().unwrap().get_entire_images(
-            &self.id_ch_tuples_wav[..],
-            self.option,
-            ImageKind::Wav(self.opt_for_wav),
-        );
+        let new_wav_images = if let Some(opt_for_wav) = self.opt_for_wav {
+            TM.read().unwrap().get_entire_images(
+                &self.id_ch_tuples_wav[..],
+                self.option,
+                ImageKind::Wav(opt_for_wav),
+            )
+        } else {
+            IdChMap::new()
+        };
         let mut for_spec = new_spec_images.keys().cloned().collect();
         let mut for_wav = new_wav_images.keys().cloned().collect();
         let for_both = extract_intersect(&mut for_spec, &mut for_wav);
@@ -381,14 +456,20 @@ impl Task for DrawingTask {
             wav_images.clear();
             *option = self.option;
         }
-        if self.opt_for_wav != *opt_for_wav {
-            wav_images.clear();
-            *opt_for_wav = self.opt_for_wav;
+        if let Some(x) = self.opt_for_wav {
+            if x != *opt_for_wav {
+                wav_images.clear();
+                *opt_for_wav = x;
+            }
         }
         spec_images.par_extend(new_spec_images.into_par_iter());
         wav_images.par_extend(new_wav_images.into_par_iter());
-        *SPEC_TASK_EXISTS.write().unwrap() = false;
-        *WAV_TASK_EXISTS.write().unwrap() = false;
+        if !self.id_ch_tuples_spec.is_empty() {
+            *SPEC_TASK_EXISTS.write().unwrap() = false;
+        }
+        if !self.id_ch_tuples_wav.is_empty() {
+            *WAV_TASK_EXISTS.write().unwrap() = false;
+        }
         Ok([for_both, for_spec, for_wav])
     }
 
@@ -503,6 +584,8 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("applyTrackListChanges", apply_track_list_changes)?;
     exports.create_named_method("findIDbyPath", find_id_by_path)?;
     exports.create_named_method("getSpecWavImages", get_spec_wav_images)?;
+    exports.create_named_method("getSpecImages", get_spec_images)?;
+    exports.create_named_method("getWavImages", get_wav_images)?;
     exports.create_named_method("getOverview", get_overview)?;
     exports.create_named_method("getHzAt", get_hz_at)?;
     exports.create_named_method("getFreqAxis", get_freq_axis)?;

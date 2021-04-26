@@ -176,7 +176,10 @@ pub fn set_images_to(
         let name = format!("{}_{}", id, ch);
         let buf = env.create_buffer_with_data(im)?.into_raw();
         if !this.has_named_property(name.as_str())? {
-            this.set_named_property(name.as_str(), env.create_array_with_length(2)?)?;
+            let mut arr = env.create_array_with_length(2)?;
+            arr.set_element(0, env.get_null()?)?;
+            arr.set_element(1, env.get_null()?)?;
+            this.set_named_property(name.as_str(), arr)?;
         }
         this.get_named_property_unchecked::<JsObject>(name.as_str())?
             .set_element(index, buf)?;
