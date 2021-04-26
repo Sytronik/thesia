@@ -355,7 +355,7 @@ impl Task for DrawingTask {
         if !self.id_ch_tuples_spec.is_empty() {
             *SPEC_TASK_EXISTS.write().unwrap() = true;
         }
-        if !self.id_ch_tuples_spec.is_empty() {
+        if !self.id_ch_tuples_wav.is_empty() {
             *WAV_TASK_EXISTS.write().unwrap() = true;
         }
         let new_spec_images = TM.read().unwrap().get_entire_images(
