@@ -1,12 +1,14 @@
+use std::ops::*;
+use std::sync::Arc;
+
 use ndarray::{prelude::*, ScalarOperand};
 use rayon::prelude::*;
 use rustfft::{num_complex::Complex, num_traits::Float, FftNum};
-use std::ops::*;
 
 use super::mel;
-use super::realfft::RealFFT;
 use super::utils::{pad, PadMode};
 use super::windows::{calc_normalized_win, WindowType};
+use realfft::{RealFftPlanner, RealToComplex};
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
 pub enum FreqScale {
@@ -20,7 +22,7 @@ pub fn perform_stft<A>(
     hop_length: usize,
     n_fft: usize,
     window: Option<CowArray<A, Ix1>>,
-    fft_module: Option<&mut RealFFT<A>>,
+    fft_module: Option<Arc<dyn RealToComplex<A>>>,
     parallel: bool,
 ) -> Array2<Complex<A>>
 where
@@ -68,25 +70,20 @@ where
         .map(|x| x.into_slice().unwrap())
         .collect();
 
+    let fft_module = match fft_module {
+        Some(m) => m,
+        None => RealFftPlanner::<A>::new().plan_fft_forward(n_fft),
+    };
     if parallel {
         let in_frames = front_frames
             .par_iter_mut()
             .chain(frames.par_iter_mut())
             .chain(back_frames.par_iter_mut());
         in_frames.zip(out_frames).for_each(|(x, y)| {
-            let mut fft_module = RealFFT::<A>::new(n_fft).unwrap();
             let x = x.as_slice_mut().unwrap();
             fft_module.process(x, y).unwrap();
         });
     } else {
-        let mut new_module;
-        let fft_module = match fft_module {
-            Some(m) => m,
-            None => {
-                new_module = RealFFT::<A>::new(n_fft).unwrap();
-                &mut new_module
-            }
-        };
         let in_frames = front_frames
             .iter_mut()
             .chain(frames.iter_mut())

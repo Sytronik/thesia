@@ -12,7 +12,7 @@ use rustfft::{
     FftNum,
 };
 
-use super::realfft::RealFFT;
+use realfft::RealFftPlanner;
 
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
@@ -77,13 +77,15 @@ where
     D: Dimension,
 {
     let n_fft = input.shape()[0];
-    let mut r2c = RealFFT::<A>::new(n_fft).unwrap();
+    let mut real_fft_planner = RealFftPlanner::<A>::new();
+    let fft_module = real_fft_planner.plan_fft_forward(n_fft);
     let mut output = Array1::<Complex<A>>::zeros(n_fft / 2 + 1);
-    r2c.process(
-        input.into_owned().as_slice_mut().unwrap(),
-        output.as_slice_mut().unwrap(),
-    )
-    .unwrap();
+    fft_module
+        .process(
+            input.into_owned().as_slice_mut().unwrap(),
+            output.as_slice_mut().unwrap(),
+        )
+        .unwrap();
 
     output
 }

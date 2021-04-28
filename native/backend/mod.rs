@@ -3,18 +3,19 @@ use std::fmt;
 use std::io;
 use std::iter;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 use approx::abs_diff_ne;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
+use realfft::{RealFftPlanner, RealToComplex};
 
 mod audio;
 mod decibel;
 pub mod display;
 mod mel;
-mod realfft;
 mod stft;
 pub mod utils;
 mod windows;
@@ -67,11 +68,17 @@ pub struct AudioTrack {
     wavs: Array2<f32>,
     win_length: usize,
     hop_length: usize,
-    n_fft: usize,
+    fft_module: Arc<dyn RealToComplex<f32>>,
 }
 
 impl AudioTrack {
-    pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
+    /// new() function gets real_fft_planner
+    /// because users open new tracks of the same sample rate in most cases.
+    pub fn new(
+        path: String,
+        setting: &SpecSetting,
+        real_fft_planner: &mut RealFftPlanner<f32>,
+    ) -> io::Result<Self> {
         let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
         let n_ch = wavs.shape()[0];
         let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
@@ -83,10 +90,12 @@ impl AudioTrack {
             wavs,
             win_length,
             hop_length,
-            n_fft,
+            fft_module: real_fft_planner.plan_fft_forward(n_fft),
         })
     }
 
+    /// reload() function doesn't get real_fft_planner
+    /// because sample rates usually don't be changed by reloading.
     pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<bool> {
         let (wavs, sr, sample_format_str) =
             audio::open_audio_file(self.path.to_string_lossy().as_ref())?;
@@ -100,7 +109,9 @@ impl AudioTrack {
         self.wavs = wavs;
         self.win_length = win_length;
         self.hop_length = hop_length;
-        self.n_fft = n_fft;
+        if self.n_fft() != n_fft {
+            self.fft_module = RealFftPlanner::<f32>::new().plan_fft_forward(n_fft);
+        }
         Ok(true)
     }
 
@@ -122,6 +133,11 @@ impl AudioTrack {
     #[inline]
     pub fn sec(&self) -> f64 {
         self.wavs.shape()[1] as f64 / self.sr as f64
+    }
+
+    #[inline]
+    pub fn n_fft(&self) -> usize {
+        self.fft_module.len()
     }
 
     #[inline]
@@ -163,7 +179,7 @@ impl fmt::Debug for AudioTrack {
             self.sec(),
             self.win_length,
             self.hop_length,
-            self.n_fft,
+            self.n_fft(),
         )
     }
 }
@@ -213,15 +229,16 @@ impl TrackManager {
     pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut added_ids = Vec::new();
+        let mut real_fft_planner = RealFftPlanner::<f32>::new();
         for (&id, path) in id_list.iter().zip(path_list.into_iter()) {
-            if let Ok(track) = AudioTrack::new(path, &self.setting) {
+            if let Ok(track) = AudioTrack::new(path, &self.setting, &mut real_fft_planner) {
                 let sec = track.sec();
                 if sec > self.max_sec {
                     self.max_sec = sec;
                     self.id_max_sec = id;
                 }
                 if self.windows.get(&track.sr).is_none() {
-                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                    new_sr_set.insert((track.sr, track.win_length, track.n_fft()));
                 }
                 self.tracks.insert(id, track);
                 added_ids.push(id);
@@ -246,7 +263,7 @@ impl TrackManager {
                     self.id_max_sec = id;
                 }
                 if self.windows.get(&track.sr).is_none() {
-                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                    new_sr_set.insert((track.sr, track.win_length, track.n_fft()));
                 }
                 reloaded_ids.push(id);
             }
@@ -604,9 +621,9 @@ impl TrackManager {
             track.get_wav(ch),
             track.win_length,
             track.hop_length,
-            track.n_fft,
+            track.n_fft(),
             window,
-            None,
+            Some(Arc::clone(&track.fft_module)),
             parallel,
         );
         let mut linspec = stft.mapv(|x| x.norm());
