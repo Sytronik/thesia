@@ -39,7 +39,7 @@ rev = "860ff756349d6580f95324374f0ffce4d1675607"
 
 [dependencies.rodio]
 git = "https://github.com/Sytronik/rodio.git"
-rev = "209dd4c3587c9828d9b3eb3075fe449b41cf9353"
+rev = "261c144369a3f38d0f0948a44dc991db9c8bc26b"
 
 [target.'cfg(all(unix, not(target_env = "musl"), not(target_arch = "aarch64")))'.dependencies]
 jemallocator = {version = "0.3.2", features = ["disable_initial_exec_tls"]}
