@@ -264,18 +264,25 @@ impl TrackManager {
 
     pub fn remove_tracks(&mut self, id_list: &[usize]) {
         let mut removed_sr_set = HashSet::<u32>::new();
-        for id in id_list.iter() {
-            let (_, removed) = self.tracks.remove_entry(&id).unwrap();
-            for ch in (0..removed.n_ch).into_iter() {
-                self.specs.remove(&(*id, ch));
-                self.spec_greys.remove(&(*id, ch));
-            }
-            if self.tracks.par_iter().all(|(_, tr)| tr.sr != removed.sr) {
-                removed_sr_set.insert(removed.sr);
+        let mut need_update_max_sec = false;
+        for &id in id_list.iter() {
+            if let Some((_, removed)) = self.tracks.remove_entry(&id) {
+                for ch in (0..removed.n_ch).into_iter() {
+                    self.specs.remove(&(id, ch));
+                    self.spec_greys.remove(&(id, ch));
+                }
+                if self.tracks.par_iter().all(|(_, tr)| tr.sr != removed.sr) {
+                    removed_sr_set.insert(removed.sr);
+                }
+                if id == self.id_max_sec {
+                    need_update_max_sec = true;
+                }
+            } else {
+                println!("Track_id {} does not exist! Ignore it ...", id);
             }
         }
 
-        if id_list.contains(&self.id_max_sec) {
+        if need_update_max_sec {
             let (id, max_sec) = self
                 .tracks
                 .par_iter()
@@ -343,37 +350,25 @@ impl TrackManager {
         };
 
         if !ids_need_update.is_empty() {
-            let up_ratio_map = {
-                let mut map = HashMap::<usize, f32>::with_capacity(ids_need_update.len());
-                let iter = self.tracks.par_iter().filter_map(|(id, track)| {
-                    if ids_need_update.contains(id) {
-                        let up_ratio =
-                            calc_up_ratio(track.sr, self.max_sr, self.setting.freq_scale);
-                        Some((*id, up_ratio))
-                    } else {
-                        None
-                    }
-                });
-                map.par_extend(iter);
-                map
-            };
-            let new_spec_greys = {
-                let mut map = IdChMap::with_capacity(self.specs.len());
-                map.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                    if ids_need_update.contains(&id) {
-                        let grey = display::convert_spec_to_grey(
-                            spec.view(),
-                            *up_ratio_map.get(&id).unwrap(),
-                            self.max_db,
-                            self.min_db,
-                        );
-                        Some(((id, ch), grey))
-                    } else {
-                        None
-                    }
-                }));
-                map
-            };
+            let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
+            new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
+                if ids_need_update.contains(&id) {
+                    let up_ratio = calc_up_ratio(
+                        self.tracks.get(&id).unwrap().sr,
+                        self.max_sr,
+                        self.setting.freq_scale,
+                    );
+                    let grey = display::convert_spec_to_grey(
+                        spec.view(),
+                        up_ratio,
+                        self.max_db,
+                        self.min_db,
+                    );
+                    Some(((id, ch), grey))
+                } else {
+                    None
+                }
+            }));
 
             if has_changed_all {
                 self.spec_greys = new_spec_greys;
@@ -615,6 +610,7 @@ impl TrackManager {
                 .par_extend(new_sr_set.par_iter().map(|&(sr, win_length, n_fft)| {
                     (sr, calc_normalized_win(WindowType::Hann, win_length, n_fft))
                 }));
+
             let mut real_fft_planner = RealFftPlanner::<f32>::new();
             self.fft_modules.extend(
                 new_sr_set
@@ -641,14 +637,18 @@ impl TrackManager {
 
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
         let track = self.tracks.get(&id).unwrap();
-        let window = Some(CowArray::from(self.windows.get(&track.sr).unwrap().view()));
+        let window = self
+            .windows
+            .get(&track.sr)
+            .map(|x| CowArray::from(x.view()));
+        let fft_module = self.fft_modules.get(&track.sr).map(|x| Arc::clone(&x));
         let stft = perform_stft(
             track.get_wav(ch),
             track.win_length,
             track.hop_length,
             track.n_fft,
             window,
-            self.fft_modules.get(&track.sr).map(|x| Arc::clone(&x)),
+            fft_module,
             parallel,
         );
         let mut linspec = stft.mapv(|x| x.norm());
@@ -666,18 +666,14 @@ impl TrackManager {
     }
 
     fn update_specs(&mut self, id_list: &[usize]) {
-        let specs = {
-            let id_ch_tuples = self.id_ch_tuples_from(id_list);
-            let len = id_ch_tuples.len();
-            let mut map = IdChMap::with_capacity(len);
-            map.par_extend(
-                id_ch_tuples
-                    .into_par_iter()
-                    .map(|(id, ch)| ((id, ch), self.calc_spec_of(id, ch, len == 1))),
-            );
-            map
-        };
-
+        let id_ch_tuples = self.id_ch_tuples_from(id_list);
+        let len = id_ch_tuples.len();
+        let mut specs = IdChMap::with_capacity(len);
+        specs.par_extend(
+            id_ch_tuples
+                .into_par_iter()
+                .map(|(id, ch)| ((id, ch), self.calc_spec_of(id, ch, len == 1))),
+        );
         self.specs.extend(specs);
     }
 
