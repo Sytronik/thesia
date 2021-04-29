@@ -235,7 +235,7 @@ fn get_min_db(env: Env) -> ContextlessResult<JsNumber> {
 fn get_n_ch(ctx: CallContext) -> JsResult<JsNumber> {
     let tm = TM.read().unwrap();
     let track = get_track!(ctx, 0, tm);
-    ctx.env.create_uint32(track.n_ch as u32)
+    ctx.env.create_uint32(track.n_ch() as u32)
 }
 
 #[js_function(1)]

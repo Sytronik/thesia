@@ -62,7 +62,6 @@ pub enum ImageKind {
 #[readonly::make]
 pub struct AudioTrack {
     pub sr: u32,
-    pub n_ch: usize,
     pub sample_format_str: String,
     path: PathBuf,
     wavs: Array2<f32>,
@@ -74,11 +73,9 @@ pub struct AudioTrack {
 impl AudioTrack {
     pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
         let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
-        let n_ch = wavs.shape()[0];
         let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
         Ok(AudioTrack {
             sr,
-            n_ch,
             sample_format_str,
             path: PathBuf::from(path).canonicalize()?,
             wavs,
@@ -96,7 +93,6 @@ impl AudioTrack {
         }
         let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
         self.sr = sr;
-        self.n_ch = wavs.shape()[0];
         self.sample_format_str = sample_format_str;
         self.wavs = wavs;
         self.win_length = win_length;
@@ -113,6 +109,11 @@ impl AudioTrack {
     #[inline]
     pub fn path_string(&self) -> String {
         self.path.as_os_str().to_string_lossy().into_owned()
+    }
+
+    #[inline]
+    pub fn n_ch(&self) -> usize {
+        self.wavs.shape()[0]
     }
 
     #[inline]
@@ -159,7 +160,7 @@ impl fmt::Debug for AudioTrack {
             }}",
             self.path.to_str().unwrap(),
             self.sr,
-            self.n_ch,
+            self.n_ch(),
             self.wavs.shape()[1],
             self.sec(),
             self.win_length,
@@ -275,7 +276,7 @@ impl TrackManager {
         let mut need_update_max_sec = false;
         for &id in id_list.iter() {
             if let Some((_, removed)) = self.tracks.remove_entry(&id) {
-                for ch in (0..removed.n_ch).into_iter() {
+                for ch in (0..removed.n_ch()).into_iter() {
                     self.specs.remove(&(id, ch));
                     self.spec_greys.remove(&(id, ch));
                 }
@@ -510,9 +511,9 @@ impl TrackManager {
 
     pub fn get_overview_of(&self, id: usize, width: u32, height: u32) -> Vec<u8> {
         let track = self.tracks.get(&id).unwrap();
-        let ch_h = height / track.n_ch as u32;
-        let i_start = (height % track.n_ch as u32 / 2 * width * 4) as usize;
-        let i_end = i_start + (track.n_ch as u32 * ch_h * width * 4) as usize;
+        let ch_h = height / track.n_ch() as u32;
+        let i_start = (height % track.n_ch() as u32 / 2 * width * 4) as usize;
+        let i_end = i_start + (track.n_ch() as u32 * ch_h * width * 4) as usize;
         let mut result = vec![0u8; width as usize * height as usize * 4];
         result[i_start..i_end]
             .par_chunks_exact_mut(ch_h as usize * width as usize * 4)
@@ -583,7 +584,7 @@ impl TrackManager {
         id_list
             .iter()
             .flat_map(|&id| {
-                let n_ch = self.tracks.get(&id).unwrap().n_ch;
+                let n_ch = self.tracks.get(&id).unwrap().n_ch();
                 iter::repeat(id).zip((0..n_ch).into_iter())
             })
             .collect()
@@ -605,7 +606,9 @@ impl TrackManager {
 
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
-        self.tracks.get(&id).map_or(false, |track| ch < track.n_ch)
+        self.tracks
+            .get(&id)
+            .map_or(false, |track| ch < track.n_ch())
     }
 
     fn update_srmaps(
