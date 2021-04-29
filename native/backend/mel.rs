@@ -31,6 +31,7 @@ pub fn from_hz<A: Float>(freq: A) -> A {
     }
 }
 
+/// Returns size (n_fft / 2 + 1, n_mel) array
 pub fn calc_mel_fb<A>(
     sr: u32,
     n_fft: usize,

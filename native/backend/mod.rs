@@ -68,17 +68,11 @@ pub struct AudioTrack {
     wavs: Array2<f32>,
     win_length: usize,
     hop_length: usize,
-    fft_module: Arc<dyn RealToComplex<f32>>,
+    n_fft: usize,
 }
 
 impl AudioTrack {
-    /// new() function gets real_fft_planner
-    /// because users open new tracks of the same sample rate in most cases.
-    pub fn new(
-        path: String,
-        setting: &SpecSetting,
-        real_fft_planner: &mut RealFftPlanner<f32>,
-    ) -> io::Result<Self> {
+    pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
         let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
         let n_ch = wavs.shape()[0];
         let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
@@ -90,12 +84,10 @@ impl AudioTrack {
             wavs,
             win_length,
             hop_length,
-            fft_module: real_fft_planner.plan_fft_forward(n_fft),
+            n_fft,
         })
     }
 
-    /// reload() function doesn't get real_fft_planner
-    /// because sample rates usually don't be changed by reloading.
     pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<bool> {
         let (wavs, sr, sample_format_str) =
             audio::open_audio_file(self.path.to_string_lossy().as_ref())?;
@@ -109,9 +101,7 @@ impl AudioTrack {
         self.wavs = wavs;
         self.win_length = win_length;
         self.hop_length = hop_length;
-        if self.n_fft() != n_fft {
-            self.fft_module = RealFftPlanner::<f32>::new().plan_fft_forward(n_fft);
-        }
+        self.n_fft = n_fft;
         Ok(true)
     }
 
@@ -133,11 +123,6 @@ impl AudioTrack {
     #[inline]
     pub fn sec(&self) -> f64 {
         self.wavs.shape()[1] as f64 / self.sr as f64
-    }
-
-    #[inline]
-    pub fn n_fft(&self) -> usize {
-        self.fft_module.len()
     }
 
     #[inline]
@@ -179,7 +164,7 @@ impl fmt::Debug for AudioTrack {
             self.sec(),
             self.win_length,
             self.hop_length,
-            self.n_fft(),
+            self.n_fft,
         )
     }
 }
@@ -194,6 +179,7 @@ pub struct TrackManager {
     pub max_sr: u32,
     setting: SpecSetting,
     windows: SrMap<Array1<f32>>,
+    fft_modules: SrMap<Arc<dyn RealToComplex<f32>>>,
     mel_fbs: SrMap<Array2<f32>>,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
@@ -218,6 +204,7 @@ impl TrackManager {
                 db_range: 120.,
             },
             windows: HashMap::new(),
+            fft_modules: HashMap::new(),
             mel_fbs: HashMap::new(),
             specs: HashMap::new(),
             no_grey_ids: Vec::new(),
@@ -229,16 +216,15 @@ impl TrackManager {
     pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut added_ids = Vec::new();
-        let mut real_fft_planner = RealFftPlanner::<f32>::new();
         for (&id, path) in id_list.iter().zip(path_list.into_iter()) {
-            if let Ok(track) = AudioTrack::new(path, &self.setting, &mut real_fft_planner) {
+            if let Ok(track) = AudioTrack::new(path, &self.setting) {
                 let sec = track.sec();
                 if sec > self.max_sec {
                     self.max_sec = sec;
                     self.id_max_sec = id;
                 }
                 if self.windows.get(&track.sr).is_none() {
-                    new_sr_set.insert((track.sr, track.win_length, track.n_fft()));
+                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
                 }
                 self.tracks.insert(id, track);
                 added_ids.push(id);
@@ -246,7 +232,8 @@ impl TrackManager {
         }
 
         self.update_filenames();
-        self.update_specs(&added_ids[..], new_sr_set);
+        self.update_srmaps(Some(new_sr_set), None);
+        self.update_specs(&added_ids[..]);
         self.no_grey_ids.extend(added_ids.iter().cloned());
         added_ids
     }
@@ -263,18 +250,20 @@ impl TrackManager {
                     self.id_max_sec = id;
                 }
                 if self.windows.get(&track.sr).is_none() {
-                    new_sr_set.insert((track.sr, track.win_length, track.n_fft()));
+                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
                 }
                 reloaded_ids.push(id);
             }
         }
 
-        self.update_specs(&reloaded_ids[..], new_sr_set);
+        self.update_srmaps(Some(new_sr_set), None);
+        self.update_specs(&reloaded_ids[..]);
         self.no_grey_ids.extend(reloaded_ids.iter().cloned());
         reloaded_ids
     }
 
     pub fn remove_tracks(&mut self, id_list: &[usize]) {
+        let mut removed_sr_set = HashSet::<u32>::new();
         for id in id_list.iter() {
             let (_, removed) = self.tracks.remove_entry(&id).unwrap();
             for ch in (0..removed.n_ch).into_iter() {
@@ -282,10 +271,10 @@ impl TrackManager {
                 self.spec_greys.remove(&(*id, ch));
             }
             if self.tracks.par_iter().all(|(_, tr)| tr.sr != removed.sr) {
-                self.windows.remove(&removed.sr);
-                self.mel_fbs.remove(&removed.sr);
+                removed_sr_set.insert(removed.sr);
             }
         }
+
         if id_list.contains(&self.id_max_sec) {
             let (id, max_sec) = self
                 .tracks
@@ -304,10 +293,12 @@ impl TrackManager {
             self.id_max_sec = id;
             self.max_sec = max_sec;
         }
-
+        self.update_srmaps(None, Some(removed_sr_set));
         self.update_filenames();
     }
 
+    /// update spec_greys, max_db, min_db, max_sr
+    /// clear no_grey_ids
     pub fn update_greys(&mut self) -> HashSet<usize> {
         let (mut max, mut min) = self
             .specs
@@ -614,6 +605,40 @@ impl TrackManager {
         self.tracks.get(&id).map_or(false, |track| ch < track.n_ch)
     }
 
+    fn update_srmaps(
+        &mut self,
+        new_sr_set: Option<HashSet<(u32, usize, usize)>>,
+        removed_sr_set: Option<HashSet<u32>>,
+    ) {
+        if let Some(new_sr_set) = new_sr_set {
+            self.windows
+                .par_extend(new_sr_set.par_iter().map(|&(sr, win_length, n_fft)| {
+                    (sr, calc_normalized_win(WindowType::Hann, win_length, n_fft))
+                }));
+            let mut real_fft_planner = RealFftPlanner::<f32>::new();
+            self.fft_modules.extend(
+                new_sr_set
+                    .iter()
+                    .map(|&(sr, _, n_fft)| (sr, real_fft_planner.plan_fft_forward(n_fft))),
+            );
+
+            if let FreqScale::Mel = self.setting.freq_scale {
+                self.mel_fbs.par_extend(
+                    new_sr_set
+                        .par_iter()
+                        .map(|&(sr, _, n_fft)| (sr, mel::calc_mel_fb_default(sr, n_fft))),
+                );
+            }
+        }
+        if let Some(removed_sr_set) = removed_sr_set {
+            for sr in removed_sr_set.iter() {
+                self.windows.remove(&sr);
+                self.fft_modules.remove(&sr);
+                self.mel_fbs.remove(&sr);
+            }
+        }
+    }
+
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
         let track = self.tracks.get(&id).unwrap();
         let window = Some(CowArray::from(self.windows.get(&track.sr).unwrap().view()));
@@ -621,9 +646,9 @@ impl TrackManager {
             track.get_wav(ch),
             track.win_length,
             track.hop_length,
-            track.n_fft(),
+            track.n_fft,
             window,
-            Some(Arc::clone(&track.fft_module)),
+            self.fft_modules.get(&track.sr).map(|x| Arc::clone(&x)),
             parallel,
         );
         let mut linspec = stft.mapv(|x| x.norm());
@@ -640,20 +665,7 @@ impl TrackManager {
         }
     }
 
-    fn update_specs(&mut self, id_list: &[usize], new_sr_set: HashSet<(u32, usize, usize)>) {
-        self.windows
-            .par_extend(new_sr_set.par_iter().map(|&(sr, win_length, n_fft)| {
-                (sr, calc_normalized_win(WindowType::Hann, win_length, n_fft))
-            }));
-
-        if let FreqScale::Mel = self.setting.freq_scale {
-            self.mel_fbs.par_extend(
-                new_sr_set
-                    .par_iter()
-                    .map(|&(sr, _, n_fft)| (sr, mel::calc_mel_fb_default(sr, n_fft))),
-            );
-        }
-
+    fn update_specs(&mut self, id_list: &[usize]) {
         let specs = {
             let id_ch_tuples = self.id_ch_tuples_from(id_list);
             let len = id_ch_tuples.len();
