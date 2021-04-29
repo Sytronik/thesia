@@ -797,6 +797,7 @@ mod tests {
         updated_ids.sort();
         assert_eq!(updated_ids, id_list);
 
+        dbg!(tm.tracks.get(&0).unwrap());
         dbg!(tm.filenames.get(&5).unwrap());
         dbg!(tm.filenames.get(&6).unwrap());
         let width: u32 = 1500;
