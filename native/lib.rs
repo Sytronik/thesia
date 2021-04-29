@@ -65,8 +65,8 @@ fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
     assert!(track_ids.len() > 0);
 
     let mut tm = TM.write().unwrap();
-    let reloaded_ids = tm.reload_tracks(&track_ids[..]);
-    convert_vec_usize_to_jsarr(ctx.env, reloaded_ids.iter(), reloaded_ids.len())
+    let no_err_ids = tm.reload_tracks(&track_ids[..]);
+    convert_vec_usize_to_jsarr(ctx.env, no_err_ids.iter(), no_err_ids.len())
 }
 
 #[js_function(1)]

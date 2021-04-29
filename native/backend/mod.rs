@@ -241,25 +241,33 @@ impl TrackManager {
     pub fn reload_tracks(&mut self, id_list: &[usize]) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut reloaded_ids = Vec::new();
+        let mut no_err_ids = Vec::new();
         for &id in id_list.iter() {
             let track = self.tracks.get_mut(&id).unwrap();
-            if let Ok(true) = track.reload(&self.setting) {
-                let sec = track.sec();
-                if sec > self.max_sec {
-                    self.max_sec = sec;
-                    self.id_max_sec = id;
+            match track.reload(&self.setting) {
+                Ok(true) => {
+                    let sec = track.sec();
+                    if sec > self.max_sec {
+                        self.max_sec = sec;
+                        self.id_max_sec = id;
+                    }
+                    if self.windows.get(&track.sr).is_none() {
+                        new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                    }
+                    reloaded_ids.push(id);
+                    no_err_ids.push(id);
                 }
-                if self.windows.get(&track.sr).is_none() {
-                    new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                Ok(false) => {
+                    no_err_ids.push(id);
                 }
-                reloaded_ids.push(id);
+                Err(_) => {}
             }
         }
 
         self.update_srmaps(Some(new_sr_set), None);
         self.update_specs(&reloaded_ids[..]);
         self.no_grey_ids.extend(reloaded_ids.iter().cloned());
-        reloaded_ids
+        no_err_ids
     }
 
     pub fn remove_tracks(&mut self, id_list: &[usize]) {
