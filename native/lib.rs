@@ -1,7 +1,10 @@
 #![deny(clippy::all)]
 
 use std::convert::TryInto;
-use std::sync::{RwLock, RwLockReadGuard};
+use std::sync::{
+    atomic::{self, AtomicBool},
+    RwLock, RwLockReadGuard,
+};
 use std::time::Instant;
 
 use napi::{
@@ -40,8 +43,8 @@ lazy_static! {
     });
 
     // to ensure only one task exsits
-    static ref SPEC_TASK_EXISTS: RwLock<bool> = RwLock::new(false);
-    static ref WAV_TASK_EXISTS: RwLock<bool> = RwLock::new(false);
+    static ref SPEC_TASK_EXISTS: AtomicBool = AtomicBool::new(false);
+    static ref WAV_TASK_EXISTS: AtomicBool = AtomicBool::new(false);
 
     // image caches
     static ref SPEC_IMAGES: RwLock<IdChMap<Array3<u8>>> = RwLock::new(IdChMap::new());
@@ -307,7 +310,7 @@ fn get_images(
     let (need_spec_task, need_spec_parts, use_spec_caches) = if need_spec {
         categorize_id_ch(
             &id_ch_tuples[..],
-            SPEC_TASK_EXISTS.read().unwrap(),
+            &SPEC_TASK_EXISTS,
             SPEC_IMAGES.read().unwrap(),
             &total_widths,
             option,
@@ -319,7 +322,7 @@ fn get_images(
     let (need_wav_task, need_wav_parts, use_wav_caches) = if let Some(x) = opt_for_wav {
         categorize_id_ch(
             &id_ch_tuples[..],
-            WAV_TASK_EXISTS.read().unwrap(),
+            &WAV_TASK_EXISTS,
             WAV_IMAGES.read().unwrap(),
             &total_widths,
             option,
@@ -424,10 +427,10 @@ impl Task for DrawingTask {
     fn compute(&mut self) -> JsResult<Self::Output> {
         let _ = TM.read().unwrap();
         if !self.id_ch_tuples_spec.is_empty() {
-            *SPEC_TASK_EXISTS.write().unwrap() = true;
+            SPEC_TASK_EXISTS.store(true, atomic::Ordering::SeqCst);
         }
         if !self.id_ch_tuples_wav.is_empty() {
-            *WAV_TASK_EXISTS.write().unwrap() = true;
+            WAV_TASK_EXISTS.store(true, atomic::Ordering::SeqCst);
         }
         let new_spec_images = TM.read().unwrap().get_entire_images(
             &self.id_ch_tuples_spec[..],
@@ -465,10 +468,10 @@ impl Task for DrawingTask {
         spec_images.par_extend(new_spec_images.into_par_iter());
         wav_images.par_extend(new_wav_images.into_par_iter());
         if !self.id_ch_tuples_spec.is_empty() {
-            *SPEC_TASK_EXISTS.write().unwrap() = false;
+            SPEC_TASK_EXISTS.store(false, atomic::Ordering::SeqCst);
         }
         if !self.id_ch_tuples_wav.is_empty() {
-            *WAV_TASK_EXISTS.write().unwrap() = false;
+            WAV_TASK_EXISTS.store(false, atomic::Ordering::SeqCst);
         }
         Ok([for_both, for_spec, for_wav])
     }
@@ -526,7 +529,7 @@ fn crop_cached_images_(
 
 fn categorize_id_ch(
     id_ch_tuples: &IdChArr,
-    task_exists: RwLockReadGuard<bool>,
+    task_exists: &AtomicBool,
     images: RwLockReadGuard<IdChMap<Array3<u8>>>,
     total_widths: &IdChMap<u32>,
     option: DrawOption,
@@ -536,7 +539,7 @@ fn categorize_id_ch(
         ImageKind::Spec => true,
         ImageKind::Wav(opt_for_wav) => *DRAWOPTION_FOR_WAV.read().unwrap() == opt_for_wav,
     };
-    if !*task_exists && option.height <= display::MAX_SIZE {
+    if !task_exists.load(atomic::Ordering::SeqCst) && option.height <= display::MAX_SIZE {
         let mut need_task = IdChVec::new();
         let mut need_parts = IdChVec::new();
         let mut use_caches = IdChVec::new();
