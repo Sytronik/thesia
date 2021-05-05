@@ -3,7 +3,11 @@ use std::sync::Arc;
 
 use ndarray::{prelude::*, ScalarOperand};
 use rayon::prelude::*;
-use rustfft::{num_complex::Complex, num_traits::Float, FftNum};
+use rustfft::{
+    num_complex::Complex,
+    num_traits::{Float, FloatConst},
+    FftNum,
+};
 
 use super::mel;
 use super::utils::{pad, PadMode};
@@ -26,7 +30,7 @@ pub fn perform_stft<A>(
     parallel: bool,
 ) -> Array2<Complex<A>>
 where
-    A: FftNum + Float + DivAssign + ScalarOperand,
+    A: FftNum + Float + FloatConst + DivAssign + ScalarOperand,
 {
     let n_pad_left = (n_fft - win_length) / 2;
     let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;

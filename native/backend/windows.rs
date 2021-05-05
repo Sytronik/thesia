@@ -1,12 +1,11 @@
-use std::f64::consts::PI as PIf64;
 use std::ops::Div;
 
 use ndarray::{prelude::*, ScalarOperand};
-use num_traits::{FromPrimitive, ToPrimitive};
-use rustfft::num_traits::Float;
+use rustfft::num_traits::{Float, FloatConst, FromPrimitive, ToPrimitive};
 
 pub enum WindowType {
     Hann,
+    Blackman,
     BoxCar,
 }
 
@@ -17,16 +16,21 @@ pub fn calc_normalized_win<T>(
     norm_factor: impl ToPrimitive,
 ) -> Array1<T>
 where
-    T: Float + FromPrimitive + Div + ScalarOperand,
+    T: Float + FloatConst + FromPrimitive + Div + ScalarOperand,
 {
+    let norm_factor = T::from(norm_factor).unwrap();
     match win_type {
-        WindowType::Hann => hann(size, false) / T::from(norm_factor).unwrap(),
-        WindowType::BoxCar => Array1::from_elem(size, T::one() / T::from(norm_factor).unwrap()),
+        WindowType::Hann => hann(size, false) / norm_factor,
+        WindowType::Blackman => blackman(size, false) / norm_factor,
+        WindowType::BoxCar => Array1::from_elem(size, T::one() / norm_factor),
     }
 }
 
 #[inline]
-pub fn hann<T: Float + FromPrimitive>(size: usize, symmetric: bool) -> Array1<T> {
+pub fn hann<T>(size: usize, symmetric: bool) -> Array1<T>
+where
+    T: Float + FloatConst + FromPrimitive,
+{
     cosine_window(
         T::from(0.5).unwrap(),
         T::from(0.5).unwrap(),
@@ -37,15 +41,38 @@ pub fn hann<T: Float + FromPrimitive>(size: usize, symmetric: bool) -> Array1<T>
     )
 }
 
-fn cosine_window<T>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T>
+// from rubato crate
+pub fn blackman<T>(size: usize, symmetric: bool) -> Array1<T>
 where
-    T: Float + FromPrimitive,
+    T: Float + FloatConst + FromPrimitive,
 {
     assert!(size > 1);
-    let pi = T::from_f64(PIf64).unwrap();
+    let size2 = if symmetric { size + 1 } else { size };
+    let pi2 = T::from_u8(2).unwrap() * T::PI();
+    let pi4 = T::from_u8(4).unwrap() * T::PI();
+    let np_f = T::from(size2).unwrap();
+    let a = T::from(0.42).unwrap();
+    let b = T::from(0.5).unwrap();
+    let c = T::from(0.08).unwrap();
+    Array::from_iter(
+        (0..size2)
+            .into_iter()
+            .map(|x| {
+                let x_float = T::from_usize(x).unwrap();
+                a - b * (pi2 * x_float / np_f).cos() + c * (pi4 * x_float / np_f).cos()
+            })
+            .skip(if symmetric { 1 } else { 0 }),
+    )
+}
+
+fn cosine_window<T>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T>
+where
+    T: Float + FloatConst + FromPrimitive,
+{
+    assert!(size > 1);
     let size2 = if symmetric { size } else { size + 1 };
     let cos_fn = |i| {
-        let x = pi * T::from_usize(i).unwrap() / T::from_usize(size2 - 1).unwrap();
+        let x = T::PI() * T::from_usize(i).unwrap() / T::from_usize(size2 - 1).unwrap();
         let b_ = b * (T::from_u8(2).unwrap() * x).cos();
         let c_ = c * (T::from_u8(4).unwrap() * x).cos();
         let d_ = d * (T::from_u8(6).unwrap() * x).cos();

@@ -16,6 +16,8 @@ mod audio;
 mod decibel;
 pub mod display;
 mod mel;
+mod resample;
+mod sinc;
 mod stft;
 pub mod utils;
 mod windows;
@@ -817,6 +819,25 @@ mod tests {
             let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
             im.save(format!("samples/wav_{}.png", sr)).unwrap();
         });
+
+        let imvec = tm
+            .get_part_images(
+                &[(0, 0)],
+                20.,
+                1000,
+                DrawOption {
+                    px_per_sec: 16000.,
+                    height,
+                },
+                ImageKind::Wav(DrawOptionForWav {
+                    amp_range: (-1., 1.),
+                }),
+                Some(vec![false]),
+            )
+            .remove(&(0, 0))
+            .unwrap();
+        let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
+        im.save("samples/wav_part.png").unwrap();
 
         tm.remove_tracks(&[0]);
         let updated_ids = tm.apply_track_list_changes();

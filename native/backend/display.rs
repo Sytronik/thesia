@@ -10,6 +10,7 @@ use rgb::FromSlice;
 use tiny_skia::{FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke, Transform};
 
 use super::mel;
+use super::resample::FftResampler;
 use super::stft::FreqScale;
 
 pub type ResizeType = resize::Type;
@@ -303,16 +304,8 @@ pub fn draw_wav_to(
 
     // need upsampling
     if samples_per_px < 2. {
-        let mut upsampled = Array1::<f32>::zeros(width as usize);
-        // naive upsampling
-        let mut resizer = create_resizer(wav.len(), 1, width as usize, 1, false);
-        resizer
-            .resize(
-                wav.as_slice().unwrap().as_gray(),
-                upsampled.as_slice_mut().unwrap().as_gray_mut(),
-            )
-            .unwrap();
-        upsampled.mapv_inplace(amp_to_height_px);
+        let mut resampler = create_resampler(wav.len(), width as usize);
+        let upsampled = resampler.resample(wav).mapv(amp_to_height_px);
         draw_wav_directly(upsampled.as_slice().unwrap(), &mut pixmap, &paint);
         return;
     }
@@ -378,6 +371,11 @@ fn create_resizer(
         },
     )
     .unwrap()
+}
+
+#[cached(size = 64)]
+fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> {
+    FftResampler::new(input_size, output_size)
 }
 
 #[cfg(test)]
