@@ -93,7 +93,7 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
 #[contextless_function]
 fn apply_track_list_changes(env: Env) -> ContextlessResult<JsUnknown> {
     let mut tm = TM.write().unwrap();
-    let updated_ids: Vec<usize> = tm.update_greys().into_iter().collect();
+    let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
     let tuples = tm.id_ch_tuples_from(&updated_ids);
     if !tuples.is_empty() {
         let task = DrawingTask {
