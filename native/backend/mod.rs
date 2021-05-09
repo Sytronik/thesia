@@ -25,14 +25,11 @@ use stft::{calc_up_ratio, perform_stft, FreqScale};
 use utils::{calc_proper_n_fft, unique_filenames};
 use windows::{calc_normalized_win, WindowType};
 
-pub use display::COLORMAP;
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChSet = HashSet<(usize, usize)>;
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 pub type SrMap<T> = HashMap<u32, T>;
-
-const MIN_WIDTH: u32 = 1;
 
 #[derive(Debug)]
 pub struct SpecSetting {
@@ -127,9 +124,7 @@ impl AudioTrack {
 
     #[inline]
     pub fn calc_width(&self, px_per_sec: f64) -> u32 {
-        (px_per_sec * self.wavs.shape()[1] as f64 / self.sr as f64)
-            .max(MIN_WIDTH as f64)
-            .round() as u32
+        ((px_per_sec * self.wavs.shape()[1] as f64 / self.sr as f64).round() as u32).max(1)
     }
 
     #[inline]
@@ -157,7 +152,7 @@ impl fmt::Debug for AudioTrack {
                 path: {},\n sr: {} Hz, n_ch: {}, length: {}, sec: {}\n\
                 win_length: {}, hop_length: {}, n_fft: {}\n\
             }}",
-            self.path.to_str().unwrap(),
+            self.path.to_str().unwrap_or("err on path-to-str"),
             self.sr,
             self.n_ch(),
             self.wavs.shape()[1],
@@ -739,9 +734,10 @@ impl TrackManager {
         let wavlen = track.wavlen() as f64;
         let sr = track.sr as u64;
         let i_w = ((total_width * sr) as f64 * sec / wavlen).round() as isize;
-        let width = ((total_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec)
-            .max(MIN_WIDTH as f64)
-            .round() as usize;
+        let width =
+            (((total_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec).round()
+                as usize)
+                .max(1);
         calc_effective_w(i_w, width, total_width as usize)
     }
 
