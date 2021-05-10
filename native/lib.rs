@@ -236,6 +236,12 @@ fn get_min_db(env: Env) -> ContextlessResult<JsNumber> {
         .map(Some)
 }
 
+#[contextless_function]
+fn get_max_sec(env: Env) -> ContextlessResult<JsNumber> {
+    env.create_double(TM.read().unwrap().max_sec as f64)
+        .map(Some)
+}
+
 #[js_function(1)]
 fn get_n_ch(ctx: CallContext) -> JsResult<JsNumber> {
     let tm = TM.read().unwrap();
@@ -601,6 +607,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("getFreqAxis", get_freq_axis)?;
     exports.create_named_method("getMaxdB", get_max_db)?;
     exports.create_named_method("getMindB", get_min_db)?;
+    exports.create_named_method("getMaxSec", get_max_sec)?;
     exports.create_named_method("getNumCh", get_n_ch)?;
     exports.create_named_method("getSec", get_sec)?;
     exports.create_named_method("getSr", get_sr)?;
