@@ -11,11 +11,14 @@ pub fn open_audio_file(path: &str) -> io::Result<(Array2<f32>, u32, String)> {
         Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e)),
     };
     let sr = source.sample_rate();
-    let channels = source.channels();
+    let channels = source.channels() as usize;
     let sample_format_str = source.sample_format_str().clone();
     let mut vec: Vec<f32> = source.collect();
+    if vec.len() < channels {
+        (vec.len()..channels).into_iter().for_each(|_| vec.push(0.));
+    }
 
-    let shape = (channels as usize, vec.len() / channels as usize);
+    let shape = (channels, vec.len() / channels);
     vec.truncate(shape.0 * shape.1); // defensive code
     let wav = Array2::from_shape_vec(shape.strides((1, shape.0)), vec).unwrap();
     Ok((wav, sr, sample_format_str))
