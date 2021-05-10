@@ -1,6 +1,6 @@
 // reference: https://librosa.org/doc/0.8.0/_modules/librosa/core/spectrum.html
 use ndarray::{prelude::*, DataMut};
-use ndarray_stats::QuantileExt;
+use ndarray_stats::{MaybeNan, QuantileExt};
 use rustfft::num_traits::Float;
 
 const REF_DEFAULT: f32 = 1.0;
@@ -26,7 +26,8 @@ pub trait DeciBelInplace<A: Float> {
 
 impl<A, S, D> DeciBelInplace<A> for ArrayBase<S, D>
 where
-    A: Float,
+    A: Float + MaybeNan,
+    <A as MaybeNan>::NotNan: Ord,
     S: DataMut<Elem = A>,
     D: Dimension,
 {
@@ -38,7 +39,7 @@ where
                 assert!(v >= A::zero());
                 v.abs()
             }
-            DeciBelRef::Max => self.view().max().unwrap().clone(),
+            DeciBelRef::Max => self.view().max_skipnan().clone(),
         };
         let log_amin = amin.log10();
         let log_ref = if ref_value > amin {

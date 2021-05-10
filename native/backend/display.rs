@@ -324,8 +324,8 @@ pub fn draw_wav_to(
         let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
         let i_end = (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav.len());
         let wav_slice = wav.slice(s![i_start..i_end]);
-        let mut top = amp_to_height_px(*wav_slice.max().unwrap());
-        let mut bottom = amp_to_height_px(*wav_slice.min().unwrap());
+        let mut top = amp_to_height_px(*wav_slice.max_skipnan());
+        let mut bottom = amp_to_height_px(*wav_slice.min_skipnan());
         let avg = amp_to_height_px(wav_slice.mean().unwrap());
         let diff = THR_LONG_HEIGHT + top - bottom;
         if diff < 0. {
