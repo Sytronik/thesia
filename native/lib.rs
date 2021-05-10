@@ -57,8 +57,10 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let new_paths: Vec<String> = vec_str_from(&ctx, 1)?;
     assert!(new_track_ids.len() > 0 && new_track_ids.len() == new_paths.len());
 
-    let mut tm = TM.write().unwrap();
-    let added_ids = tm.add_tracks(&new_track_ids[..], new_paths);
+    let added_ids = TM
+        .write()
+        .unwrap()
+        .add_tracks(&new_track_ids[..], new_paths);
     convert_vec_usize_to_jsarr(ctx.env, added_ids.iter(), added_ids.len())
 }
 
@@ -67,8 +69,7 @@ fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     assert!(track_ids.len() > 0);
 
-    let mut tm = TM.write().unwrap();
-    let no_err_ids = tm.reload_tracks(&track_ids[..]);
+    let no_err_ids = TM.write().unwrap().reload_tracks(&track_ids[..]);
     convert_vec_usize_to_jsarr(ctx.env, no_err_ids.iter(), no_err_ids.len())
 }
 
@@ -92,9 +93,11 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
 
 #[contextless_function]
 fn apply_track_list_changes(env: Env) -> ContextlessResult<JsUnknown> {
-    let mut tm = TM.write().unwrap();
-    let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
-    let tuples = tm.id_ch_tuples_from(&updated_ids);
+    let tuples = {
+        let mut tm = TM.write().unwrap();
+        let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
+        tm.id_ch_tuples_from(&updated_ids)
+    };
     if !tuples.is_empty() {
         let task = DrawingTask {
             id_ch_tuples_spec: tuples.clone(),
@@ -218,8 +221,7 @@ fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
     let max_ticks: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
     assert!(max_ticks >= 2);
 
-    let tm = TM.read().unwrap();
-    convert_vec_tup_f64_to_jsarr(ctx.env, tm.get_freq_axis(max_ticks))
+    convert_vec_tup_f64_to_jsarr(ctx.env, TM.read().unwrap().get_freq_axis(max_ticks))
 }
 
 #[contextless_function]
@@ -294,98 +296,100 @@ fn get_images(
 ) -> JsResult<JsObject> {
     let mut result = env.create_array_with_length(2)?;
     let mut result_im = env.create_object()?;
+    let (use_spec_caches, use_wav_caches) = {
+        let tm = TM.read().unwrap();
 
-    let tm = TM.read().unwrap();
-
-    // Categorize id_ch_tuples
-    // 1. DrawingTask is needed, 2. drawing part of image is needed, 3. Cached image is used
-    let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
-    let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
-    total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-        (
-            (id, ch),
-            tm.tracks.get(&id).unwrap().calc_width(option.px_per_sec),
-        )
-    }));
-    let (need_spec_task, need_spec_parts, use_spec_caches) = if need_spec {
-        categorize_id_ch(
-            &id_ch_tuples[..],
-            &SPEC_TASK_EXISTS,
-            SPEC_IMAGES.read().unwrap(),
-            &total_widths,
-            option,
-            ImageKind::Spec,
-        )
-    } else {
-        (IdChVec::new(), IdChVec::new(), IdChVec::new())
-    };
-    let (need_wav_task, need_wav_parts, use_wav_caches) = if let Some(x) = opt_for_wav {
-        categorize_id_ch(
-            &id_ch_tuples[..],
-            &WAV_TASK_EXISTS,
-            WAV_IMAGES.read().unwrap(),
-            &total_widths,
-            option,
-            ImageKind::Wav(x),
-        )
-    } else {
-        (IdChVec::new(), IdChVec::new(), IdChVec::new())
-    };
-
-    // spawn DrawingTask
-    let need_task = !need_spec_task.is_empty() || !need_wav_task.is_empty();
-    // let need_task = false;
-    if need_task {
-        let task = DrawingTask {
-            id_ch_tuples_spec: need_spec_task.clone(),
-            id_ch_tuples_wav: need_wav_task.clone(),
-            option,
-            opt_for_wav,
-        };
-        result.set_element(
-            1,
-            env.spawn(task)
-                .map(|async_task| async_task.promise_object())?,
-        )?;
-    } else {
-        result.set_element(1, env.get_null()?)?;
-    };
-
-    // draw part
-    if !need_spec_parts.is_empty() {
-        let fast_resize_vec = if option.height <= display::MAX_SIZE {
-            Some(
-                need_spec_parts
-                    .iter()
-                    .map(|tup| *total_widths.get(tup).unwrap() <= display::MAX_SIZE)
-                    .collect(),
+        // Categorize id_ch_tuples
+        // 1. DrawingTask is needed, 2. drawing part of image is needed, 3. Cached image is used
+        let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
+        let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
+        total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
+            (
+                (id, ch),
+                tm.tracks.get(&id).unwrap().calc_width(option.px_per_sec),
+            )
+        }));
+        let (need_spec_task, need_spec_parts, use_spec_caches) = if need_spec {
+            categorize_id_ch(
+                &id_ch_tuples[..],
+                &SPEC_TASK_EXISTS,
+                SPEC_IMAGES.read().unwrap(),
+                &total_widths,
+                option,
+                ImageKind::Spec,
             )
         } else {
-            None
+            (IdChVec::new(), IdChVec::new(), IdChVec::new())
         };
-        let spec_images = TM.read().unwrap().get_part_images(
-            &need_spec_parts[..],
-            sec,
-            width,
-            option,
-            ImageKind::Spec,
-            fast_resize_vec,
-        );
-        set_images_to(env, &mut result_im, spec_images, 0)?;
-    }
-    if let Some(x) = opt_for_wav {
-        if !need_wav_parts.is_empty() {
-            let wav_images = TM.read().unwrap().get_part_images(
-                &need_wav_parts[..],
+        let (need_wav_task, need_wav_parts, use_wav_caches) = if let Some(x) = opt_for_wav {
+            categorize_id_ch(
+                &id_ch_tuples[..],
+                &WAV_TASK_EXISTS,
+                WAV_IMAGES.read().unwrap(),
+                &total_widths,
+                option,
+                ImageKind::Wav(x),
+            )
+        } else {
+            (IdChVec::new(), IdChVec::new(), IdChVec::new())
+        };
+
+        // spawn DrawingTask
+        let need_task = !need_spec_task.is_empty() || !need_wav_task.is_empty();
+        // let need_task = false;
+        if need_task {
+            let task = DrawingTask {
+                id_ch_tuples_spec: need_spec_task.clone(),
+                id_ch_tuples_wav: need_wav_task.clone(),
+                option,
+                opt_for_wav,
+            };
+            result.set_element(
+                1,
+                env.spawn(task)
+                    .map(|async_task| async_task.promise_object())?,
+            )?;
+        } else {
+            result.set_element(1, env.get_null()?)?;
+        };
+
+        // draw part
+        if !need_spec_parts.is_empty() {
+            let fast_resize_vec = if option.height <= display::MAX_SIZE {
+                Some(
+                    need_spec_parts
+                        .iter()
+                        .map(|tup| *total_widths.get(tup).unwrap() <= display::MAX_SIZE)
+                        .collect(),
+                )
+            } else {
+                None
+            };
+            let spec_images = tm.get_part_images(
+                &need_spec_parts[..],
                 sec,
                 width,
                 option,
-                ImageKind::Wav(x),
-                None,
+                ImageKind::Spec,
+                fast_resize_vec,
             );
-            set_images_to(env, &mut result_im, wav_images, 1)?;
+            set_images_to(env, &mut result_im, spec_images, 0)?;
         }
-    }
+        if let Some(x) = opt_for_wav {
+            if !need_wav_parts.is_empty() {
+                let wav_images = tm.get_part_images(
+                    &need_wav_parts[..],
+                    sec,
+                    width,
+                    option,
+                    ImageKind::Wav(x),
+                    None,
+                );
+                set_images_to(env, &mut result_im, wav_images, 1)?;
+            }
+        }
+        (use_spec_caches, use_wav_caches)
+    };
 
     // crop image cache
     if !use_spec_caches.is_empty() {
@@ -425,44 +429,47 @@ impl Task for DrawingTask {
     type JsValue = JsObject;
 
     fn compute(&mut self) -> JsResult<Self::Output> {
-        let _ = TM.read().unwrap();
-        if !self.id_ch_tuples_spec.is_empty() {
-            SPEC_TASK_EXISTS.store(true, atomic::Ordering::SeqCst);
+        let new_spec_images;
+        let new_wav_images;
+        {
+            let tm = TM.read().unwrap();
+            if !self.id_ch_tuples_spec.is_empty() {
+                SPEC_TASK_EXISTS.store(true, atomic::Ordering::SeqCst);
+            }
+            if !self.id_ch_tuples_wav.is_empty() {
+                WAV_TASK_EXISTS.store(true, atomic::Ordering::SeqCst);
+            }
+            new_spec_images =
+                tm.get_entire_images(&self.id_ch_tuples_spec[..], self.option, ImageKind::Spec);
+            new_wav_images = if let Some(opt_for_wav) = self.opt_for_wav {
+                tm.get_entire_images(
+                    &self.id_ch_tuples_wav[..],
+                    self.option,
+                    ImageKind::Wav(opt_for_wav),
+                )
+            } else {
+                IdChMap::new()
+            };
         }
-        if !self.id_ch_tuples_wav.is_empty() {
-            WAV_TASK_EXISTS.store(true, atomic::Ordering::SeqCst);
-        }
-        let new_spec_images = TM.read().unwrap().get_entire_images(
-            &self.id_ch_tuples_spec[..],
-            self.option,
-            ImageKind::Spec,
-        );
-        let new_wav_images = if let Some(opt_for_wav) = self.opt_for_wav {
-            TM.read().unwrap().get_entire_images(
-                &self.id_ch_tuples_wav[..],
-                self.option,
-                ImageKind::Wav(opt_for_wav),
-            )
-        } else {
-            IdChMap::new()
-        };
         let mut for_spec = new_spec_images.keys().cloned().collect();
         let mut for_wav = new_wav_images.keys().cloned().collect();
         let for_both = extract_intersect(&mut for_spec, &mut for_wav);
 
         let mut spec_images = SPEC_IMAGES.write().unwrap();
         let mut wav_images = WAV_IMAGES.write().unwrap();
-        let mut option = DRAWOPTION.write().unwrap();
-        let mut opt_for_wav = DRAWOPTION_FOR_WAV.write().unwrap();
-        if self.option != *option {
-            spec_images.clear();
-            wav_images.clear();
-            *option = self.option;
-        }
-        if let Some(x) = self.opt_for_wav {
-            if x != *opt_for_wav {
+        {
+            let mut option = DRAWOPTION.write().unwrap();
+            let mut opt_for_wav = DRAWOPTION_FOR_WAV.write().unwrap();
+            if self.option != *option {
+                spec_images.clear();
                 wav_images.clear();
-                *opt_for_wav = x;
+                *option = self.option;
+            }
+            if let Some(x) = self.opt_for_wav {
+                if x != *opt_for_wav {
+                    wav_images.clear();
+                    *opt_for_wav = x;
+                }
             }
         }
         spec_images.par_extend(new_spec_images.into_par_iter());
