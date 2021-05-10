@@ -22,13 +22,16 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
             Some(x) => {
                 let name = x.to_string_lossy().into_owned();
                 let parent = path.parent().unwrap().to_path_buf();
-                if groups.contains_key(&name) {
-                    groups.get_mut(&name).unwrap().insert(id, parent);
-                } else {
-                    let mut hm = HashMap::<usize, PathBuf>::new();
-                    hm.insert(id, parent);
-                    groups.insert(name, hm);
-                }
+                match groups.get_mut(&name) {
+                    Some(value) => {
+                        value.insert(id, parent);
+                    }
+                    None => {
+                        let mut hm = HashMap::<usize, PathBuf>::new();
+                        hm.insert(id, parent);
+                        groups.insert(name, hm);
+                    }
+                };
             }
             None => {
                 result.insert(id, path.to_string_lossy().to_string());
