@@ -2,17 +2,11 @@ use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use std::path::{self, PathBuf};
 
-use ndarray::{prelude::*, Data, RemoveAxis, Slice, Zip};
-use rustfft::{
-    num_complex::Complex,
-    num_traits::{
-        identities::{One, Zero},
-        Float, Num,
-    },
-    FftNum,
+use ndarray::{prelude::*, RemoveAxis, Slice, Zip};
+use rustfft::num_traits::{
+    identities::{One, Zero},
+    Num,
 };
-
-use realfft::RealFftPlanner;
 
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
@@ -71,26 +65,6 @@ where
         new[location] = A::one();
         new
     }
-}
-
-pub fn rfft<A, S, D>(input: ArrayBase<S, D>) -> Array1<Complex<A>>
-where
-    A: FftNum + Float,
-    S: Data<Elem = A>,
-    D: Dimension,
-{
-    let n_fft = input.shape()[0];
-    let mut real_fft_planner = RealFftPlanner::<A>::new();
-    let fft_module = real_fft_planner.plan_fft_forward(n_fft);
-    let mut output = Array1::<Complex<A>>::zeros(n_fft / 2 + 1);
-    fft_module
-        .process(
-            input.into_owned().as_slice_mut().unwrap(),
-            output.as_slice_mut().unwrap(),
-        )
-        .unwrap();
-
-    output
 }
 
 pub enum PadMode<T> {
@@ -168,16 +142,7 @@ where
 mod tests {
     use super::*;
 
-    use ndarray::{arr1, arr2, Array1};
-    use rustfft::num_complex::Complex;
-
-    #[test]
-    fn rfft_wrapper_works() {
-        assert_eq!(
-            rfft(Array1::<f32>::impulse(4, 0)),
-            arr1(&[Complex::<f32>::new(1., 0.); 3])
-        );
-    }
+    use ndarray::arr2;
 
     #[test]
     fn pad_works() {

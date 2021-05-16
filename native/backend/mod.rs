@@ -326,13 +326,8 @@ impl TrackManager {
             let width = track.calc_width(px_per_sec);
             let arr = match kind {
                 ImageKind::Spec => {
-                    let vec = display::colorize_grey_with_size(
-                        self.spec_greys.get(&(id, ch)).unwrap().view(),
-                        width,
-                        height,
-                        false,
-                        None,
-                    );
+                    let grey = self.spec_greys.get(&(id, ch)).unwrap().view();
+                    let vec = display::colorize_grey_with_size(grey, width, height, false, None);
                     Array3::from_shape_vec((height as usize, width as usize, 4), vec).unwrap()
                 }
                 ImageKind::Wav(option_for_wav) => {
@@ -369,7 +364,7 @@ impl TrackManager {
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
             // let par_iter = id_ch_tuples.iter().enumerate().map(|(i, &(id, ch))| {
             let (pad_left, drawing_width, pad_right) =
-                self.calc_drawing_pad_width_of(id, sec, width, px_per_sec);
+                self.decompose_width_of(id, sec, width, px_per_sec);
 
             let create_empty_im_entry =
                 || ((id, ch), vec![0u8; width as usize * height as usize * 4]);
@@ -449,13 +444,8 @@ impl TrackManager {
     }
 
     pub fn get_spec_image_of(&self, id: usize, ch: usize, width: u32, height: u32) -> Vec<u8> {
-        display::colorize_grey_with_size(
-            self.spec_greys.get(&(id, ch)).unwrap().view(),
-            width,
-            height,
-            false,
-            None,
-        )
+        let grey = self.spec_greys.get(&(id, ch)).unwrap().view();
+        display::colorize_grey_with_size(grey, width, height, false, None)
     }
 
     pub fn get_wav_image_of(
@@ -467,14 +457,8 @@ impl TrackManager {
         amp_range: (f32, f32),
     ) -> Vec<u8> {
         let mut result = vec![0u8; width as usize * height as usize * 4];
-        display::draw_wav_to(
-            &mut result[..],
-            self.tracks.get(&id).unwrap().get_wav(ch),
-            width,
-            height,
-            amp_range,
-            None,
-        );
+        let wav = self.tracks.get(&id).unwrap().get_wav(ch);
+        display::draw_wav_to(&mut result[..], wav, width, height, amp_range, None);
         result
     }
 
@@ -756,7 +740,7 @@ impl TrackManager {
         Some(track.wavs.slice(s![ch, i..i + length]))
     }
 
-    fn calc_drawing_pad_width_of(
+    fn decompose_width_of(
         &self,
         id: usize,
         sec: f64,

@@ -108,6 +108,7 @@ pub fn draw_blended_spec_wav(
             pixmap.fill_rect(rect, &paint, Transform::identity(), None);
         }
 
+        let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
         // wave
         draw_wav_to(
             pixmap.data_mut(),
@@ -115,7 +116,7 @@ pub fn draw_blended_spec_wav(
             width,
             height,
             amp_range,
-            Some((u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8),
+            Some(alpha),
         );
     }
     result
@@ -246,19 +247,19 @@ fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
 }
 
 fn draw_wav_topbottom(
-    top_envelope: &[f32],
-    bottom_envelope: &[f32],
+    top_envlop: &[f32],
+    btm_envlop: &[f32],
     pixmap: &mut PixmapMut,
     paint: &Paint,
 ) {
     // println!("top-bottom rendering. short height ratio: {}", n_short_height as f32 / width as f32);
     let path = {
         let mut pb = PathBuilder::new();
-        pb.move_to(0., top_envelope[0]);
-        for (x, &y) in top_envelope.iter().enumerate().skip(1) {
+        pb.move_to(0., top_envlop[0]);
+        for (x, &y) in top_envlop.iter().enumerate().skip(1) {
             pb.line_to(x as f32, y);
         }
-        for (x, &y) in bottom_envelope.iter().enumerate().rev() {
+        for (x, &y) in btm_envlop.iter().enumerate().rev() {
             pb.line_to(x as f32, y);
         }
         pb.close();
@@ -315,8 +316,8 @@ pub fn draw_wav_to(
         draw_wav_directly(upsampled.as_slice().unwrap(), &mut pixmap, &paint);
         return;
     }
-    let mut top_envelope = Vec::<f32>::with_capacity(width as usize);
-    let mut bottom_envelope = Vec::<f32>::with_capacity(width as usize);
+    let mut top_envlop = Vec::<f32>::with_capacity(width as usize);
+    let mut btm_envlop = Vec::<f32>::with_capacity(width as usize);
     let mut wav_avg = Vec::<f32>::with_capacity(width as usize);
     let mut n_conseq_long_h = 0usize;
     let mut max_n_conseq = 0usize;
@@ -336,13 +337,13 @@ pub fn draw_wav_to(
             top -= diff / 2.;
             bottom += diff / 2.;
         }
-        top_envelope.push(top);
-        bottom_envelope.push(bottom);
+        top_envlop.push(top);
+        btm_envlop.push(bottom);
         wav_avg.push(avg);
     }
     max_n_conseq = max_n_conseq.max(n_conseq_long_h);
     if max_n_conseq > THR_N_CONSEQ_LONG_H {
-        draw_wav_topbottom(&top_envelope[..], &bottom_envelope[..], &mut pixmap, &paint);
+        draw_wav_topbottom(&top_envlop[..], &btm_envlop[..], &mut pixmap, &paint);
     } else {
         draw_wav_directly(&wav_avg[..], &mut pixmap, &paint);
     }
