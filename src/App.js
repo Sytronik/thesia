@@ -42,9 +42,9 @@ function App() {
       }
 
       nextSelectedIndexRef.current = trackIds.length;
-      const [addedIds, promiseRefreshList] = native.addTracks(newIds, newPaths);
+      const addedIds = native.addTracks(newIds, newPaths);
       setTrackIds((trackIds) => trackIds.concat(addedIds));
-      setRefreshList(await promiseRefreshList);
+      setRefreshList(await native.applyTrackListChanges());
 
       if (newIds.length !== addedIds.length) {
         invalidIds = newIds.filter((id) => !addedIds.includes(id));
