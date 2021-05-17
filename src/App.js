@@ -21,77 +21,105 @@ function App() {
   const nextSelectedIndexRef = useRef(null);
 
   const [trackIds, setTrackIds] = useState([]);
+  const [erroredList, setErroredList] = useState([]);
   const [refreshList, setRefreshList] = useState(null);
 
+  async function reloadTracks(selectedIds) {
+    const reloadedIds = native.reloadTracks(selectedIds);
+
+    setErroredList(selectedIds.filter((id) => !reloadedIds.includes(id)));
+    setRefreshList(await native.applyTrackListChanges());
+  }
   async function addTracks(newPaths, unsupportedPaths) {
     try {
       let newIds = [];
+      let existingIds = [];
       let invalidIds = [];
       let invalidPaths = [];
 
-      for (let i = 0; i < newPaths.length; i++) {
-        if (waitingIdsRef.current.length) {
-          newIds.push(waitingIdsRef.current.shift());
-        } else {
-          newIds.push(trackIds.length + i);
+      newPaths.forEach((path, i, newPaths) => {
+        const id = native.findIDbyPath(path);
+        if (id != -1) {
+          newPaths.splice(i, 1);
+          existingIds.push(id);
+        }
+      });
+
+      if (newPaths.length) {
+        for (let i = 0; i < newPaths.length; i++) {
+          if (waitingIdsRef.current.length) {
+            newIds.push(waitingIdsRef.current.shift());
+          } else {
+            newIds.push(trackIds.length + i);
+          }
+        }
+
+        nextSelectedIndexRef.current = trackIds.length;
+        const addedIds = native.addTracks(newIds, newPaths);
+        setTrackIds((trackIds) => trackIds.concat(addedIds));
+
+        if (newIds.length !== addedIds.length) {
+          invalidIds = newIds.filter((id) => !addedIds.includes(id));
+          invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
+
+          waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
+          if (waitingIdsRef.current.length > 1) {
+            waitingIdsRef.current.sort((a, b) => a - b);
+          }
+        }
+        if (unsupportedPaths.length || invalidPaths.length) {
+          dialog.showMessageBox({
+            type: "error",
+            buttons: [],
+            defaultId: 0,
+            icon: "",
+            title: "File Open Error",
+            message: "The following files could not be opened",
+            detail: `${
+              unsupportedPaths.length
+                ? `-- Not Supported Type --
+                ${unsupportedPaths.join("\n")}
+                `
+                : ""
+            }\
+            ${
+              invalidPaths.length
+                ? `-- Not Valid Format --
+                ${invalidPaths.join("\n")}
+                `
+                : ""
+            }\
+            
+            Please ensure that the file properties are correct and that it is a supported file type.
+            Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
+            cancelId: 0,
+            noLink: false,
+            normalizeAccessKeys: false,
+          });
         }
       }
 
-      nextSelectedIndexRef.current = trackIds.length;
-      const addedIds = native.addTracks(newIds, newPaths);
-      setTrackIds((trackIds) => trackIds.concat(addedIds));
-      setRefreshList(await native.applyTrackListChanges());
-
-      if (newIds.length !== addedIds.length) {
-        invalidIds = newIds.filter((id) => !addedIds.includes(id));
-        invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
-
-        waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
-        if (waitingIdsRef.current.length > 1) {
-          waitingIdsRef.current.sort((a, b) => a - b);
-        }
-      }
-      if (unsupportedPaths.length || invalidPaths.length) {
-        dialog.showMessageBox({
-          type: "error",
-          buttons: [],
-          defaultId: 0,
-          icon: "",
-          title: "File Open Error",
-          message: "The following files could not be opened",
-          detail: `${
-            unsupportedPaths.length
-              ? `-- Not Supported Type --
-              ${unsupportedPaths.join("\n")}
-              `
-              : ""
-          }\
-          ${
-            invalidPaths.length
-              ? `-- Not Valid Format --
-              ${invalidPaths.join("\n")}
-              `
-              : ""
-          }\
-          
-          Please ensure that the file properties are correct and that it is a supported file type.
-          Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
-          cancelId: 0,
-          noLink: false,
-          normalizeAccessKeys: false,
-        });
+      if (existingIds.length) {
+        reloadTracks(existingIds);
+      } else {
+        setRefreshList(await native.applyTrackListChanges());
       }
     } catch (err) {
       console.log(err);
       alert("File upload error");
     }
   }
+  const ignoreError = (erroredId) => {
+    setErroredList(erroredList.filter((id) => ![erroredId].includes(id)));
+  };
   async function removeTracks(selectedIds) {
     try {
       nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-      const promiseRefreshList = native.removeTracks(selectedIds);
+      native.removeTracks(selectedIds);
       setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
+      setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
 
+      const promiseRefreshList = native.applyTrackListChanges();
       if (promiseRefreshList) {
         setRefreshList(await promiseRefreshList);
       }
@@ -224,9 +252,13 @@ function App() {
       </div>
       <div className="row-mainviewer">
         <MainViewer
+          erroredList={erroredList}
           refreshList={refreshList}
           trackIds={trackIds}
           addDroppedFile={addDroppedFile}
+          ignoreError={ignoreError}
+          reloadTracks={reloadTracks}
+          removeTracks={removeTracks}
           showOpenDialog={showOpenDialog}
           selectTrack={selectTrack}
           showContextMenu={showContextMenu}

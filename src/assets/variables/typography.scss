@@ -22,9 +22,13 @@ $lh-condensed: 1.25 !default;
 $lh-default: 1.5 !default;
 
 // The base body size
+$body-font-size-xlarge: 20px !default;
 $body-font-size-large: 16px !default;
 $body-font-size: 14px !default;
 $body-font-size-small: 12px !default;
 $body-font-size-xsmall: 10px !default;
 
 $body-line-height: $lh-default !default;
+
+// button size
+$button-font-size: 14px !default;

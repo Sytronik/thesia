@@ -117,6 +117,42 @@ $btn-unit: $spacer-2;
   height: $btn-weight;
 }
 
+// cavases
+.canvases {
+  position: relative;
+}
+
+// error box
+.error-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: $bg-main-transparent;
+
+  > p {
+    margin-bottom: $spacer-4;
+    font-size: $body-font-size-xlarge;
+    text-align: center;
+  }
+
+  > div {
+    text-align: center;
+  }
+
+  & button {
+    border: 1px solid $button-white;
+    border-radius: $spacer-1;
+    color: $button-white;
+    font-size: $button-font-size;
+    min-width: 80px;
+    height: $spacer-4;
+    margin: $spacer-2;
+  }
+}
+
 // canvas
 canvas {
   display: block;

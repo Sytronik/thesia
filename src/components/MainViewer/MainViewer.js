@@ -25,9 +25,13 @@ function useRefs() {
 }
 
 function MainViewer({
+  erroredList,
   refreshList,
   trackIds,
   addDroppedFile,
+  ignoreError,
+  reloadTracks,
+  removeTracks,
   showOpenDialog,
   selectTrack,
   showContextMenu,
@@ -188,6 +192,22 @@ function MainViewer({
   );
 
   const rightElements = trackIds.map((id) => {
+    const errorBox = (
+      <div className="error-box">
+        <p>The file is corrupted and cannot be opened</p>
+        <div>
+          <button type="button" onClick={() => reloadTracks([id])}>
+            Reload
+          </button>
+          <button type="button" onClick={() => ignoreError(id)}>
+            Ignore
+          </button>
+          <button type="button" onClick={() => removeTracks([id])}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
     const canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
         <Canvas
@@ -199,7 +219,8 @@ function MainViewer({
       );
     });
     return (
-      <div key={`${id}`} className="canvases">
+      <div key={`${id}`} className="canvases js-canvases">
+        {erroredList.includes(id) ? errorBox : null}
         {canvases}
       </div>
     );
@@ -239,6 +260,10 @@ function MainViewer({
     if (!trackIds.length) return;
     debouncedDraw([getIdChArr()]);
   }, [height]);
+
+  useEffect(() => {
+    dropReset();
+  }, [erroredList]);
 
   useEffect(() => {
     if (refreshList) {

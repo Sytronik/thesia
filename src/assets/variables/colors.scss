@@ -12,6 +12,9 @@ $bg-primary: $primary-800 !default;
 $bg-primary-light: $primary-700 !default;
 $bg-primary-lighter: $primary-600 !default;
 
+// transparent
+$bg-main-transparent: transparentize($bg-main, 0.2);
+
 // Text colors
 $text-white: $white !default;
 
