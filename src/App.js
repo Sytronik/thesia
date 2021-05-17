@@ -45,6 +45,11 @@ function App() {
       if (newIds.length !== addedIds.length) {
         invalidIds = newIds.filter((id) => !addedIds.includes(id));
         invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
+
+        waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
+        if (waitingIdsRef.current.length > 1) {
+          waitingIdsRef.current.sort((a, b) => a - b);
+        }
       }
       if (unsupportedPaths.length || invalidPaths.length) {
         dialog.showMessageBox({
