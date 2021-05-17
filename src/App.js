@@ -29,15 +29,11 @@ function App() {
       let invalidIds = [];
       let invalidPaths = [];
 
-      if (!trackIds.length) {
-        newIds = [...newPaths.keys()];
-      } else {
-        for (let i = 0; i < newPaths.length; i++) {
-          if (waitingIdsRef.current.length) {
-            newIds.push(waitingIdsRef.current.shift());
-          } else {
-            newIds.push(trackIds.length + i);
-          }
+      for (let i = 0; i < newPaths.length; i++) {
+        if (waitingIdsRef.current.length) {
+          newIds.push(waitingIdsRef.current.shift());
+        } else {
+          newIds.push(trackIds.length + i);
         }
       }
 
