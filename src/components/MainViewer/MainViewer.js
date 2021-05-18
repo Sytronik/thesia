@@ -92,7 +92,10 @@ function MainViewer({
       e.stopPropagation();
       if ((e.shiftKey && yIsLarger) || !yIsLarger) {
         const pxPerSec = Math.min(
-          Math.max(drawOptionRef.current.px_per_sec * (1 + delta / 1000), 0),
+          Math.max(
+            drawOptionRef.current.px_per_sec * (1 + delta / 1000),
+            width / (maxTrackSecRef.current - secRef.current),
+          ),
           384000,
         );
         if (drawOptionRef.current.px_per_sec !== pxPerSec) {
