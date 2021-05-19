@@ -8,7 +8,7 @@ import Canvas from "./Canvas";
 import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
-const {getFileName, getNumCh, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
+const {getFileName, getMaxSec, getNumCh, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
 const CHANNEL = PROPERTY.CHANNEL;
 
 function useRefs() {
@@ -277,10 +277,7 @@ function MainViewer({
 
   useEffect(() => {
     if (trackIds.length) {
-      maxTrackSecRef.current = trackIds.reduce((max, id) => {
-        const now = getSec(id);
-        return now > max ? now : max;
-      }, 0);
+      maxTrackSecRef.current = getMaxSec();
       if (!prevTrackCountRef.current) {
         drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
         secRef.current = 0;
