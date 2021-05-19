@@ -89,32 +89,17 @@ $channel-width: 32px;
   min-height: $emptytrack-height;
 
   > button {
+    @include btn-square($spacer-3);
+
     display: inline-block;
     position: absolute;
     top: $spacer-3;
     right: $spacer-3;
-    width: $button-size;
-    height: $button-size;
   }
 }
 
-$btn-weight: 1px;
-$btn-unit: $spacer-2;
 .btn-plus {
-  display: inline-block;
-  position: relative;
-  width: $btn-weight;
-  height: $btn-unit + $btn-weight;
-  background: $button-white;
-}
-.btn-plus:after {
-  background: $button-white;
-  position: absolute;
-  left: -$btn-unit/2;
-  top: $btn-unit/2;
-  content: "";
-  width: $btn-unit + $btn-weight;
-  height: $btn-weight;
+  @include plus-btn($button-white, $spacer-2, 1px);
 }
 
 // cavases
@@ -143,12 +128,8 @@ $btn-unit: $spacer-2;
   }
 
   & button {
-    border: 1px solid $button-white;
-    border-radius: $spacer-1;
-    color: $button-white;
-    font-size: $button-font-size;
-    min-width: 80px;
-    height: $spacer-4;
+    @include btn-medium;
+    @include btn-outline($button-white, $button-white);
     margin: $spacer-2;
   }
 }

@@ -1,0 +1,52 @@
+// button size
+@mixin btn-square($size) {
+  width: $size;
+  height: $size;
+}
+
+@mixin btn-medium {
+  min-width: 80px;
+  height: 24px;
+  font-size: $button-font-size;
+}
+
+// button type
+@mixin plus-btn($color: $btn-white, $unit: $spacer-2, $weight: 1px) {
+  display: inline-block;
+  position: relative;
+  width: $weight;
+  height: $unit + $weight;
+  background: $color;
+
+  &::after {
+    background: $color;
+    position: absolute;
+    left: -$unit/2;
+    top: $unit/2;
+    content: "";
+    width: $unit + $weight;
+    height: $weight;
+  }
+}
+
+@mixin btn-outline($text-color: $button-white, $border-color: $button-white) {
+  display: inline-block;
+  border: $border-color solid 1px;
+  border-radius: $spacer-1;
+  color: $text-color;
+
+  &:hover,
+  &:active,
+  &.selected,
+  [open] > & {
+    border-color: $text-color;
+    background-color: $text-color;
+    color: $text-main;
+  }
+
+  &:focus {
+    border-color: $text-color;
+    box-shadow: 0 0 0 0.2em rgba($text-color, 0.4);
+    outline: none;
+  }
+}
