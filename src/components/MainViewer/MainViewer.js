@@ -1,5 +1,5 @@
 import React, {useRef, useCallback, useEffect, useState} from "react";
-import {throttle, debounce} from "throttle-debounce";
+import {throttle} from "throttle-debounce";
 
 import "./MainViewer.scss";
 import {SplitView} from "./SplitView";
