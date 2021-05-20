@@ -4,7 +4,6 @@ use std::io;
 use std::iter;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 
 use approx::abs_diff_ne;
 use ndarray::prelude::*;
@@ -29,7 +28,6 @@ use windows::{calc_normalized_win, WindowType};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
-pub type IdChSet = HashSet<(usize, usize)>;
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 pub type SrMap<T> = HashMap<u32, T>;
 
@@ -320,7 +318,7 @@ impl TrackManager {
         option: DrawOption,
         kind: ImageKind,
     ) -> IdChMap<Array3<u8>> {
-        let start = Instant::now();
+        // let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
@@ -347,7 +345,7 @@ impl TrackManager {
             };
             ((id, ch), arr)
         }));
-        println!("draw entire: {:?}", start.elapsed());
+        // println!("draw entire: {:?}", start.elapsed());
         result
     }
 
@@ -360,7 +358,7 @@ impl TrackManager {
         kind: ImageKind,
         fast_resize_vec: Option<Vec<bool>>,
     ) -> IdChMap<Vec<u8>> {
-        let start = Instant::now();
+        // let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
@@ -426,7 +424,72 @@ impl TrackManager {
         });
         result.par_extend(par_iter);
 
-        println!("draw: {:?}", start.elapsed());
+        // println!("draw: {:?}", start.elapsed());
+        result
+    }
+
+    pub fn get_blended_part_images(
+        &self,
+        id_ch_tuples: &IdChArr,
+        sec: f64,
+        width: u32,
+        option: DrawOption,
+        opt_for_wav: DrawOptionForWav,
+        blend: f64,
+        fast_resize_vec: Option<Vec<bool>>,
+    ) -> IdChMap<Vec<u8>> {
+        // let start = Instant::now();
+        let DrawOption { px_per_sec, height } = option;
+        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
+        let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
+            let (pad_left, drawing_width, pad_right) =
+                self.decompose_width_of(id, sec, width, px_per_sec);
+
+            let create_empty_im_entry =
+                || ((id, ch), vec![0u8; width as usize * height as usize * 4]);
+            if drawing_width == 0 {
+                return create_empty_im_entry();
+            }
+            let (part_i_w, part_width) =
+                match self.calc_part_grey_info(id, ch, sec, width, px_per_sec) {
+                    Some(x) => x,
+                    None => return create_empty_im_entry(),
+                };
+            let wav_slice = match self.slice_wav_of(id, ch, sec, width, px_per_sec) {
+                Some(x) => x,
+                None => return create_empty_im_entry(),
+            };
+            let vec = display::draw_blended_spec_wav(
+                self.spec_greys.get(&(id, ch)).unwrap().view(),
+                wav_slice,
+                drawing_width,
+                height,
+                Some((part_i_w, part_width)),
+                opt_for_wav.amp_range,
+                match fast_resize_vec {
+                    Some(ref vec) => vec[i],
+                    None => false,
+                },
+                blend,
+            );
+            let arr =
+                Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
+
+            if width == drawing_width {
+                ((id, ch), arr.into_raw_vec())
+            } else {
+                let arr = utils::pad(
+                    arr.view(),
+                    (pad_left as usize, pad_right as usize),
+                    Axis(1),
+                    utils::PadMode::Constant(0),
+                );
+                ((id, ch), arr.into_raw_vec())
+            }
+        });
+        result.par_extend(par_iter);
+
+        // println!("draw: {:?}", start.elapsed());
         result
     }
 
@@ -462,26 +525,6 @@ impl TrackManager {
         let wav = self.tracks.get(&id).unwrap().get_wav(ch);
         display::draw_wav_to(&mut result[..], wav, width, height, amp_range, None);
         result
-    }
-
-    pub fn get_blended_image_of(
-        &self,
-        id: usize,
-        ch: usize,
-        width: u32,
-        height: u32,
-        option_for_wav: DrawOptionForWav,
-        blend: f64,
-    ) -> Vec<u8> {
-        display::draw_blended_spec_wav(
-            self.spec_greys.get(&(id, ch)).unwrap().view(),
-            self.tracks.get(&id).unwrap().get_wav(ch),
-            width,
-            height,
-            option_for_wav.amp_range,
-            false,
-            blend,
-        )
     }
 
     #[inline]

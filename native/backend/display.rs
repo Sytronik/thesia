@@ -7,7 +7,10 @@ use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use rgb::FromSlice;
-use tiny_skia::{FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke, Transform};
+use tiny_skia::{
+    FillRule, IntRect, LineCap, Paint, PathBuilder, PixmapMut, PixmapPaint, PixmapRef, Rect,
+    Stroke, Transform,
+};
 
 use super::mel;
 use super::resample::FftResampler;
@@ -82,18 +85,57 @@ pub fn convert_spec_to_grey(
     unsafe { grey.assume_init() }
 }
 
-pub fn draw_blended_spec_wav(
-    spec_grey: ArrayView2<f32>,
-    wav: ArrayView1<f32>,
+pub fn blend(
+    spec_grey: &Vec<u8>,
+    wav_img: &Vec<u8>,
     width: u32,
     height: u32,
+    blend: f64,
+) -> Vec<u8> {
+    assert!(0. < blend && blend < 1.);
+    let mut result = spec_grey.clone();
+    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
+    // black
+    if blend < 0.5 {
+        let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
+        let mut paint = Paint::default();
+        paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
+        pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+    }
+    {
+        let mut paint = PixmapPaint::default();
+        paint.opacity = (2. - 2. * blend).min(1.) as f32;
+        pixmap.draw_pixmap(
+            0,
+            0,
+            PixmapRef::from_bytes(wav_img, width, height).unwrap(),
+            &paint,
+            Transform::identity(),
+            None,
+        );
+    }
+    result
+}
+
+pub fn draw_blended_spec_wav(
+    entire_spec_grey: ArrayView2<f32>,
+    wav_slice: ArrayView1<f32>,
+    width: u32,
+    height: u32,
+    grey_left_width: Option<(usize, usize)>,
     amp_range: (f32, f32),
     fast_resize: bool,
     blend: f64,
 ) -> Vec<u8> {
     // spec
     let mut result = if blend > 0. {
-        colorize_grey_with_size(spec_grey, width, height, fast_resize, None)
+        colorize_grey_with_size(
+            entire_spec_grey,
+            width,
+            height,
+            fast_resize,
+            grey_left_width,
+        )
     } else {
         vec![0u8; width as usize * height as usize * 4]
     };
@@ -103,7 +145,7 @@ pub fn draw_blended_spec_wav(
     if blend < 1. {
         // black
         if blend < 0.5 {
-            let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
+            let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
             let mut paint = Paint::default();
             paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
             pixmap.fill_rect(rect, &paint, Transform::identity(), None);
@@ -113,7 +155,7 @@ pub fn draw_blended_spec_wav(
         // wave
         draw_wav_to(
             pixmap.data_mut(),
-            wav,
+            wav_slice,
             width,
             height,
             amp_range,
