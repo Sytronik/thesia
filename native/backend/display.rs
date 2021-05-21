@@ -86,14 +86,14 @@ pub fn convert_spec_to_grey(
 }
 
 pub fn blend(
-    spec_grey: &Vec<u8>,
+    spec_img: &Vec<u8>,
     wav_img: &Vec<u8>,
     width: u32,
     height: u32,
     blend: f64,
 ) -> Vec<u8> {
     assert!(0. < blend && blend < 1.);
-    let mut result = spec_grey.clone();
+    let mut result = spec_img.clone();
     let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
     // black
     if blend < 0.5 {
