@@ -312,7 +312,7 @@ impl TrackManager {
         self.update_greys(false)
     }
 
-    pub fn get_entire_images(
+    pub fn get_entire_imgs(
         &self,
         id_ch_tuples: &IdChArr,
         option: DrawOption,
@@ -349,86 +349,7 @@ impl TrackManager {
         result
     }
 
-    pub fn get_part_images(
-        &self,
-        id_ch_tuples: &IdChArr,
-        sec: f64,
-        width: u32,
-        option: DrawOption,
-        kind: ImageKind,
-        fast_resize_vec: Option<Vec<bool>>,
-    ) -> IdChMap<Vec<u8>> {
-        // let start = Instant::now();
-        let DrawOption { px_per_sec, height } = option;
-        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
-        let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
-            // let par_iter = id_ch_tuples.iter().enumerate().map(|(i, &(id, ch))| {
-            let (pad_left, drawing_width, pad_right) =
-                self.decompose_width_of(id, sec, width, px_per_sec);
-
-            let create_empty_im_entry =
-                || ((id, ch), vec![0u8; width as usize * height as usize * 4]);
-            if drawing_width == 0 {
-                return create_empty_im_entry();
-            }
-
-            let arr = match kind {
-                ImageKind::Spec => {
-                    let (part_i_w, part_width) =
-                        match self.calc_part_grey_info(id, ch, sec, width, px_per_sec) {
-                            Some(x) => x,
-                            None => return create_empty_im_entry(),
-                        };
-                    let vec = display::colorize_grey_with_size(
-                        self.spec_greys.get(&(id, ch)).unwrap().view(),
-                        drawing_width,
-                        height,
-                        match fast_resize_vec {
-                            Some(ref vec) => vec[i],
-                            None => false,
-                        },
-                        Some((part_i_w, part_width)),
-                    );
-                    Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec)
-                        .unwrap()
-                }
-                ImageKind::Wav(option_for_wav) => {
-                    let wav_slice = match self.slice_wav_of(id, ch, sec, width, px_per_sec) {
-                        Some(x) => x,
-                        None => return create_empty_im_entry(),
-                    };
-                    let mut arr = Array3::zeros((height as usize, drawing_width as usize, 4));
-                    display::draw_wav_to(
-                        arr.as_slice_mut().unwrap(),
-                        wav_slice,
-                        drawing_width,
-                        height,
-                        option_for_wav.amp_range,
-                        None,
-                    );
-                    arr
-                }
-            };
-
-            if width == drawing_width {
-                ((id, ch), arr.into_raw_vec())
-            } else {
-                let arr = utils::pad(
-                    arr.view(),
-                    (pad_left as usize, pad_right as usize),
-                    Axis(1),
-                    utils::PadMode::Constant(0),
-                );
-                ((id, ch), arr.into_raw_vec())
-            }
-        });
-        result.par_extend(par_iter);
-
-        // println!("draw: {:?}", start.elapsed());
-        result
-    }
-
-    pub fn get_blended_part_images(
+    pub fn get_part_imgs(
         &self,
         id_ch_tuples: &IdChArr,
         sec: f64,
@@ -445,19 +366,19 @@ impl TrackManager {
             let (pad_left, drawing_width, pad_right) =
                 self.decompose_width_of(id, sec, width, px_per_sec);
 
-            let create_empty_im_entry =
+            let create_empty_img_entry =
                 || ((id, ch), vec![0u8; width as usize * height as usize * 4]);
             if drawing_width == 0 {
-                return create_empty_im_entry();
+                return create_empty_img_entry();
             }
             let (part_i_w, part_width) =
                 match self.calc_part_grey_info(id, ch, sec, width, px_per_sec) {
                     Some(x) => x,
-                    None => return create_empty_im_entry(),
+                    None => return create_empty_img_entry(),
                 };
             let wav_slice = match self.slice_wav_of(id, ch, sec, width, px_per_sec) {
                 Some(x) => x,
-                None => return create_empty_im_entry(),
+                None => return create_empty_img_entry(),
             };
             let vec = display::draw_blended_spec_wav(
                 self.spec_greys.get(&(id, ch)).unwrap().view(),
@@ -767,7 +688,7 @@ impl TrackManager {
             (((total_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec).round()
                 as usize)
                 .max(1);
-        calc_effective_w(i_w, width, total_width as usize)
+        display::calc_effective_w(i_w, width, total_width as usize)
     }
 
     fn slice_wav_of(
@@ -781,7 +702,7 @@ impl TrackManager {
         let track = self.tracks.get(&id).unwrap();
         let i = (sec * track.sr as f64).round() as isize;
         let length = ((track.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
-        let (i, length) = calc_effective_w(i, length, track.wavlen())?;
+        let (i, length) = display::calc_effective_w(i, length, track.wavlen())?;
         Some(track.wavs.slice(s![ch, i..i + length]))
     }
 
@@ -803,21 +724,6 @@ impl TrackManager {
 
         let drawing_width = width - pad_left - pad_right;
         (pad_left, drawing_width, pad_right)
-    }
-}
-
-pub fn calc_effective_w(i_w: isize, width: usize, total_width: usize) -> Option<(usize, usize)> {
-    if i_w >= total_width as isize {
-        None
-    } else if i_w < 0 {
-        let i_right = width as isize + i_w;
-        if i_right <= 0 {
-            None
-        } else {
-            Some((0, (i_right as usize).min(total_width)))
-        }
-    } else {
-        Some((i_w as usize, width.min(total_width - i_w as usize)))
     }
 }
 
@@ -864,7 +770,7 @@ mod tests {
         });
 
         let imvec = tm
-            .get_part_images(
+            .get_part_imgs(
                 &[(0, 0)],
                 20.,
                 1000,
@@ -872,9 +778,10 @@ mod tests {
                     px_per_sec: 16000.,
                     height,
                 },
-                ImageKind::Wav(DrawOptionForWav {
+                DrawOptionForWav {
                     amp_range: (-1., 1.),
-                }),
+                },
+                0.,
                 Some(vec![false]),
             )
             .remove(&(0, 0))
