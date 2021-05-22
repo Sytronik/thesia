@@ -309,37 +309,56 @@ fn _crop_caches(
     sec: f64,
     width: u32,
     option: &DrawOption,
-) -> Images {
+) -> (Images, IdChMap<(u32, u32)>) {
     // let start = Instant::now();
-    let mut result = IdChMap::new();
-    let par_iter = id_ch_tuples.par_iter().filter_map(|tup| {
-        let image = images.get(&tup)?;
-        let total_width = image.len() / 4 / option.height as usize;
-        let i_w = (sec * option.px_per_sec) as isize;
-        let (i_w_eff, width_eff) = match calc_effective_w(i_w, width as usize, total_width) {
-            Some((i, w)) => (i as isize, w as isize),
-            None => return Some((*tup, vec![0u8; width as usize * option.height as usize * 4])),
-        };
-        let slice = Slice::from(i_w_eff..i_w_eff + width_eff);
-        let im_slice = image.slice_axis(Axis(1), slice);
+    let mut imgs = Images::new();
+    let mut eff_l_w_map = IdChMap::new();
+    let vec: Vec<_> = id_ch_tuples
+        .par_iter()
+        .filter_map(|tup| {
+            let image = images.get(&tup)?;
+            let total_width = image.len() / 4 / option.height as usize;
+            let i_w = (sec * option.px_per_sec) as isize;
+            let (i_w_eff, width_eff) = match calc_effective_w(i_w, width as usize, total_width) {
+                Some((i, w)) => (i as isize, w as isize),
+                None => {
+                    return Some((
+                        *tup,
+                        (
+                            vec![0u8; width as usize * option.height as usize * 4],
+                            (0, 0),
+                        ),
+                    ));
+                }
+            };
+            let slice = Slice::from(i_w_eff..i_w_eff + width_eff);
+            let im_slice = image.slice_axis(Axis(1), slice);
 
-        let pad_left = (-i_w.min(0)) as usize;
-        let pad_right = width as usize - width_eff as usize - pad_left;
-        if pad_left + pad_right == 0 {
-            Some((*tup, im_slice.to_owned().into_raw_vec()))
-        } else {
-            let arr = utils::pad(
-                im_slice,
-                (pad_left, pad_right),
-                Axis(1),
-                utils::PadMode::Constant(0),
-            );
-            Some((*tup, arr.into_raw_vec()))
-        }
-    });
-    result.par_extend(par_iter);
+            let pad_left = (-i_w.min(0)) as usize;
+            let pad_right = width as usize - width_eff as usize - pad_left;
+            if pad_left + pad_right == 0 {
+                Some((*tup, (im_slice.to_owned().into_raw_vec(), (0, width))))
+            } else {
+                let arr = utils::pad(
+                    im_slice,
+                    (pad_left, pad_right),
+                    Axis(1),
+                    utils::PadMode::Constant(0),
+                );
+                Some((
+                    *tup,
+                    (arr.into_raw_vec(), (pad_left as u32, width_eff as u32)),
+                ))
+            }
+        })
+        .collect();
+    eff_l_w_map.extend(
+        vec.iter()
+            .map(|(k, (_, eff_left_width))| (*k, *eff_left_width)),
+    );
+    imgs.extend(vec.into_iter().map(|(k, (img, _))| (k, img)));
     // println!("crop: {:?}", start.elapsed());
-    result
+    (imgs, eff_l_w_map)
 }
 
 fn _categorize_id_ch(
@@ -427,17 +446,19 @@ async fn _draw_imgs(
         opt_for_wav,
         blend,
     } = params_backup;
-    let blend_images = |spec_imgs: Images, wav_imgs: Images| {
+    let blend_images = |spec_imgs: Images, wav_imgs: Images, eff_l_w_map: IdChMap<(u32, u32)>| {
         if blend == 1. {
             spec_imgs
         } else if blend == 0. {
             wav_imgs
         } else {
             spec_imgs
-                .iter()
+                .par_iter()
                 .filter_map(|(k, spec_img)| {
                     let wav_img = wav_imgs.get(k)?;
-                    let img = display::blend(spec_img, wav_img, width, option.height, blend);
+                    let eff_l_w = eff_l_w_map.get(k).cloned().unwrap_or((0, 0));
+                    let img =
+                        display::blend(spec_img, wav_img, width, option.height, blend, eff_l_w);
                     Some((*k, img))
                 })
                 .collect()
@@ -464,7 +485,7 @@ async fn _draw_imgs(
         );
 
         // crop image cache
-        let spec_imgs = if !cat_by_spec.use_caches.is_empty() {
+        let (spec_imgs, eff_l_w_map) = if !cat_by_spec.use_caches.is_empty() {
             _crop_caches(
                 &spec_caches_lock,
                 &cat_by_spec.use_caches[..],
@@ -473,7 +494,7 @@ async fn _draw_imgs(
                 &option,
             )
         } else {
-            IdChMap::new()
+            (Images::new(), IdChMap::new())
         };
         let mut wav_imgs = if !cat_by_wav.use_caches.is_empty() {
             _crop_caches(
@@ -483,8 +504,9 @@ async fn _draw_imgs(
                 width,
                 &option,
             )
+            .0
         } else {
-            IdChMap::new()
+            Images::new()
         };
         if !need_wav_parts_only.is_empty() {
             wav_imgs.extend(tm.get_part_images(
@@ -500,7 +522,7 @@ async fn _draw_imgs(
             total_widths,
             cat_by_spec,
             cat_by_wav,
-            blend_images(spec_imgs, wav_imgs),
+            blend_images(spec_imgs, wav_imgs, eff_l_w_map),
         )
     };
     if !blended_imgs.is_empty() {
@@ -551,7 +573,7 @@ async fn _draw_imgs(
         let tm = TM.read().unwrap();
         let mut spec_caches_lock = spec_caches.lock().unwrap();
         let mut wav_caches_lock = wav_caches.lock().unwrap();
-        let spec_imgs = if !cat_by_spec.need_new_caches.is_empty() {
+        let (spec_imgs, eff_l_w_map) = if !cat_by_spec.need_new_caches.is_empty() {
             spec_caches_lock.extend(tm.get_entire_images(
                 &cat_by_spec.need_new_caches[..],
                 option,
@@ -565,7 +587,7 @@ async fn _draw_imgs(
                 &option,
             )
         } else {
-            IdChMap::new()
+            (Images::new(), IdChMap::new())
         };
         let wav_imgs = if !cat_by_wav.need_new_caches.is_empty() {
             wav_caches_lock.extend(tm.get_entire_images(
@@ -580,10 +602,11 @@ async fn _draw_imgs(
                 width,
                 &option,
             )
+            .0
         } else {
             IdChMap::new()
         };
-        blend_images(spec_imgs, wav_imgs)
+        blend_images(spec_imgs, wav_imgs, eff_l_w_map)
     };
     if !blended_imgs.is_empty() {
         // println!("send new cached images");
