@@ -103,7 +103,7 @@ function MainViewer({
         if (drawOptionRef.current.px_per_sec !== pxPerSec) {
           drawOptionRef.current.px_per_sec = pxPerSec;
           canvasIsFitRef.current = false;
-          throttledSetImgState(getIdChArr());
+          throttledSetImgState(getIdChArr(), width, height);
         }
       } else {
         setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
@@ -117,13 +117,13 @@ function MainViewer({
       );
       if (secRef.current !== tempSec) {
         secRef.current = tempSec;
-        throttledSetImgState(getIdChArr());
+        throttledSetImgState(getIdChArr(), width, height);
       }
     }
   };
 
   const throttledSetImgState = useCallback(
-    throttle(1000 / 120, (idChArr) => {
+    throttle(1000 / 240, (idChArr, width, height) => {
       if (idChArr.length === 0) return;
       setImgState(
         idChArr,
@@ -134,7 +134,7 @@ function MainViewer({
         0.3,
       );
     }),
-    [height, width],
+    [],
   );
 
   const draw = (_) => {
@@ -150,7 +150,7 @@ function MainViewer({
     requestRef.current = requestAnimationFrame(draw);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     requestRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(requestRef.current);
   }, []);
@@ -245,7 +245,7 @@ function MainViewer({
     const secOutOfCanvas = maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec;
     if (canvasIsFitRef.current) {
       drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
-      throttledSetImgState(getIdChArr());
+      throttledSetImgState(getIdChArr(), width, height);
     } else {
       if (secOutOfCanvas <= 0) {
         canvasIsFitRef.current = true;
@@ -254,13 +254,13 @@ function MainViewer({
       if (secRef.current > secOutOfCanvas) {
         secRef.current = secOutOfCanvas;
       }
-      throttledSetImgState(getIdChArr());
+      throttledSetImgState(getIdChArr(), width, height);
     }
   }, [width]);
 
   useEffect(() => {
     if (!trackIds.length) return;
-    throttledSetImgState(getIdChArr());
+    throttledSetImgState(getIdChArr(), width, height);
   }, [height]);
 
   useEffect(() => {
@@ -268,7 +268,7 @@ function MainViewer({
   }, [erroredList]);
 
   useEffect(() => {
-    throttledSetImgState(refreshList);
+    throttledSetImgState(refreshList, width, height);
     dropReset();
   }, [refreshList]);
 
