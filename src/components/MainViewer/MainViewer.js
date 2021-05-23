@@ -245,7 +245,6 @@ function MainViewer({
     const secOutOfCanvas = maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec;
     if (canvasIsFitRef.current) {
       drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
-      throttledSetImgState(getIdChArr(), width, height);
     } else {
       if (secOutOfCanvas <= 0) {
         canvasIsFitRef.current = true;
@@ -254,8 +253,8 @@ function MainViewer({
       if (secRef.current > secOutOfCanvas) {
         secRef.current = secOutOfCanvas;
       }
-      throttledSetImgState(getIdChArr(), width, height);
     }
+    throttledSetImgState(getIdChArr(), width, height);
   }, [width]);
 
   useEffect(() => {
