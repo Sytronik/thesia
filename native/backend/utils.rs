@@ -3,15 +3,12 @@ use std::mem::MaybeUninit;
 use std::path::{self, PathBuf};
 
 use ndarray::{prelude::*, RemoveAxis, Slice, Zip};
-use rustfft::num_traits::{
-    identities::{One, Zero},
-    Num,
-};
+use rustfft::num_traits::identities::{One, Zero};
 
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
     let mut result = HashMap::<usize, String>::new();
-    for (id, path) in paths.into_iter() {
+    for (id, path) in paths {
         match path.file_name() {
             Some(x) => {
                 let name = x.to_string_lossy().into_owned();
@@ -32,16 +29,16 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
             }
         };
     }
-    for (name, hm) in groups.into_iter() {
+    for (name, hm) in groups {
         if hm.len() == 1 {
             let (id, _) = hm.into_iter().next().unwrap();
             result.insert(id, name);
         } else {
             let mut parents = unique_filenames(hm);
-            for (_, parent) in parents.iter_mut() {
+            for (_, parent) in &mut parents {
                 *parent = format!("{}{}{}", parent, path::MAIN_SEPARATOR, name);
             }
-            result.extend(parents)
+            result.extend(parents);
         }
     }
     result
@@ -79,7 +76,7 @@ pub fn pad<A, D>(
     mode: PadMode<A>,
 ) -> Array<A, D>
 where
-    A: Copy + Num,
+    A: Copy,
     D: Dimension + RemoveAxis,
 {
     let mut shape = array.raw_dim();
@@ -91,7 +88,7 @@ where
     } else {
         Slice::from(n_pad_left as isize..)
     };
-    Zip::from(&array).map_assign_into(result.slice_axis_mut(axis, s_result_main), A::clone);
+    Zip::from(&array).map_assign_into(result.slice_axis_mut(axis, s_result_main), |x| *x);
     match mode {
         PadMode::Constant(constant) => {
             result
@@ -115,7 +112,7 @@ where
                 .take(n_pad_left)
                 .rev()
                 .zip(pad_left)
-                .for_each(|(y, x)| Zip::from(x).map_assign_into(y, A::clone));
+                .for_each(|(y, x)| Zip::from(x).map_assign_into(y, |x| *x));
 
             if n_pad_right > 0 {
                 let pad_right = array
@@ -131,7 +128,7 @@ where
                     .take(n_pad_right)
                     .rev()
                     .zip(pad_right)
-                    .for_each(|(y, x)| Zip::from(x).map_assign_into(y, A::clone));
+                    .for_each(|(y, x)| Zip::from(x).map_assign_into(y, |x| *x));
             }
         }
     }

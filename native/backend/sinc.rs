@@ -1,7 +1,5 @@
-use std::{
-    mem::MaybeUninit,
-    ops::{AddAssign, DivAssign},
-};
+use std::mem::MaybeUninit;
+use std::ops::{AddAssign, DivAssign};
 
 use ndarray::{prelude::*, ScalarOperand};
 use rustfft::num_traits::{Float, FloatConst, FromPrimitive};

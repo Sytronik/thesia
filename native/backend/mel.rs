@@ -130,17 +130,15 @@ mod tests {
         let mel_fb = mel_fb.t();
         mel_fb
             .iter()
-            .zip(answer.iter())
+            .zip(&answer)
             .for_each(|(&x, y)| assert_abs_diff_eq!(x, y, epsilon = 1e-8));
     }
 
     #[test]
     fn mel_default_works() {
-        for &sr in [
+        for &sr in &[
             400, 800, 1000, 2000, 4000, 8000, 16000, 24000, 44100, 48000, 88200, 96000,
-        ]
-        .iter()
-        {
+        ] {
             for n_fft_exp in 5..15 {
                 let n_fft = 2usize.pow(n_fft_exp);
                 let mel_fb = calc_mel_fb_default(sr, n_fft);

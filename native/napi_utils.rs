@@ -45,7 +45,7 @@ pub fn id_ch_tuples_from(ctx: &CallContext, i_arg: usize) -> JsResult<IdChVec> {
     let arr = ctx.get::<JsObject>(i_arg)?;
     let len = arr.get_array_length()?;
     let mut vec = IdChVec::with_capacity(len as usize);
-    for i in (0..len).into_iter() {
+    for i in 0..len {
         let js_str = arr.get_element::<JsString>(i)?.into_utf8()?;
         let s = js_str.as_str()?;
         let mut iter = s.split("_").map(|x| x.parse::<usize>());
@@ -69,7 +69,7 @@ pub fn vec_usize_from(ctx: &CallContext, i_arg: usize) -> JsResult<Vec<usize>> {
     let arr = ctx.get::<JsObject>(i_arg)?;
     let len = arr.get_array_length()?;
     let mut vec = Vec::<usize>::with_capacity(len as usize);
-    for i in (0..len).into_iter() {
+    for i in 0..len {
         if let Ok(x) = arr.get_element::<JsNumber>(i)?.try_into_usize() {
             vec.push(x);
         }
@@ -81,20 +81,16 @@ pub fn vec_str_from(ctx: &CallContext, i_arg: usize) -> JsResult<Vec<String>> {
     let arr = ctx.get::<JsObject>(i_arg)?;
     let len = arr.get_array_length()?;
     let mut vec = Vec::<String>::with_capacity(len as usize);
-    for i in (0..len).into_iter() {
+    for i in 0..len {
         let jsstr = arr.get_element::<JsString>(i)?.into_utf8()?;
         vec.push(jsstr.into_owned()?);
     }
     Ok(vec)
 }
 
-pub fn convert_id_ch_vec_to_jsarr<'a>(
-    env: &Env,
-    arr: impl Iterator<Item = &'a (usize, usize)>,
-    len: usize,
-) -> JsResult<JsObject> {
-    let mut obj = env.create_array_with_length(len)?;
-    for (i, &(id, ch)) in arr.enumerate() {
+pub fn convert_id_ch_arr_to_jsarr<'a>(env: &Env, arr: &[(usize, usize)]) -> JsResult<JsObject> {
+    let mut obj = env.create_array_with_length(arr.len())?;
+    for (i, &(id, ch)) in arr.iter().enumerate() {
         obj.set_element(
             i as u32,
             env.create_string_from_std(format!("{}_{}", id, ch))?,
@@ -103,13 +99,9 @@ pub fn convert_id_ch_vec_to_jsarr<'a>(
     Ok(obj)
 }
 
-pub fn convert_vec_usize_to_jsarr<'a>(
-    env: &Env,
-    arr: impl Iterator<Item = &'a usize>,
-    len: usize,
-) -> JsResult<JsObject> {
-    let mut obj = env.create_array_with_length(len)?;
-    for (i, &x) in arr.enumerate() {
+pub fn convert_usize_arr_to_jsarr<'a>(env: &Env, arr: &[usize]) -> JsResult<JsObject> {
+    let mut obj = env.create_array_with_length(arr.len())?;
+    for (i, &x) in arr.iter().enumerate() {
         obj.set_element(i as u32, env.create_double(x as f64)?)?;
     }
     Ok(obj)

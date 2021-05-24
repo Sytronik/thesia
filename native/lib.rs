@@ -38,7 +38,7 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
         .write()
         .unwrap()
         .add_tracks(&new_track_ids[..], new_paths);
-    convert_vec_usize_to_jsarr(ctx.env, added_ids.iter(), added_ids.len())
+    convert_usize_arr_to_jsarr(ctx.env, &added_ids[..])
 }
 
 #[js_function(1)]
@@ -47,7 +47,7 @@ fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
     assert!(track_ids.len() > 0);
 
     let no_err_ids = TM.write().unwrap().reload_tracks(&track_ids[..]);
-    convert_vec_usize_to_jsarr(ctx.env, no_err_ids.iter(), no_err_ids.len())
+    convert_usize_arr_to_jsarr(ctx.env, &no_err_ids[..])
 }
 
 #[js_function(1)]
@@ -70,7 +70,7 @@ fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
     };
 
     img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone()));
-    convert_id_ch_vec_to_jsarr(&env, id_ch_tuples.iter(), id_ch_tuples.len()).map(|x| Some(x))
+    convert_id_ch_arr_to_jsarr(&env, &id_ch_tuples[..]).map(|x| Some(x))
 }
 
 #[js_function(6)]
@@ -101,7 +101,7 @@ fn set_img_state(ctx: CallContext) -> JsResult<JsUndefined> {
 fn get_images(env: Env) -> ContextlessResult<JsObject> {
     let mut result = env.create_object()?;
     if let Some(images) = img_mgr::recv() {
-        for ((id, ch), im) in images.into_iter() {
+        for ((id, ch), im) in images {
             let name = format!("{}_{}", id, ch);
             let buf = env.create_buffer_with_data(im)?.into_raw();
             result.set_named_property(name.as_str(), buf)?;
@@ -114,7 +114,7 @@ fn get_images(env: Env) -> ContextlessResult<JsObject> {
 fn find_id_by_path(ctx: CallContext) -> JsResult<JsNumber> {
     let path = ctx.get::<JsString>(0)?.into_utf8()?;
     let tm = TM.read().unwrap();
-    for (id, track) in tm.tracks.iter() {
+    for (id, track) in &tm.tracks {
         if track.is_path_same(path.as_str()?) {
             return ctx.env.create_int64(*id as i64);
         }

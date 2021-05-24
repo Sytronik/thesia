@@ -127,13 +127,8 @@ fn crop_caches(
             let (i_w_eff, width_eff) = match calc_effective_w(i_w, width as usize, total_width) {
                 Some((i, w)) => (i as isize, w as isize),
                 None => {
-                    return Some((
-                        *tup,
-                        (
-                            vec![0u8; width as usize * option.height as usize * 4],
-                            (0, 0),
-                        ),
-                    ));
+                    let zeros = vec![0u8; width as usize * option.height as usize * 4];
+                    return Some((*tup, (zeros, (0, 0))));
                 }
             };
             let img_slice = image.slice_axis(Axis(1), Slice::from(i_w_eff..i_w_eff + width_eff));
@@ -173,16 +168,16 @@ fn categorize_id_ch(
     let categorize = |images: &GuardImgCaches| {
         if option.height <= display::MAX_SIZE {
             let mut result = CategorizedIdChVec::default();
-            for tup in id_ch_tuples.iter() {
-                let not_long_w = *total_widths.get(tup).unwrap() <= display::MAX_SIZE;
-                match (images.contains_key(tup), not_long_w) {
-                    (true, _) => result.use_caches.push(*tup),
+            for &tup in &id_ch_tuples {
+                let not_long_w = *total_widths.get(&tup).unwrap() <= display::MAX_SIZE;
+                match (images.contains_key(&tup), not_long_w) {
+                    (true, _) => result.use_caches.push(tup),
                     (false, true) => {
-                        result.need_parts.push(*tup);
-                        result.need_new_caches.push(*tup);
+                        result.need_parts.push(tup);
+                        result.need_new_caches.push(tup);
                     }
                     (false, false) => {
-                        result.need_parts.push(*tup);
+                        result.need_parts.push(tup);
                     }
                 }
             }
@@ -242,20 +237,20 @@ fn blend_imgs(
     blend: f64,
 ) -> Images {
     if blend == 1. {
-        spec_imgs
-    } else if blend == 0. {
-        wav_imgs
-    } else {
-        spec_imgs
-            .par_iter()
-            .filter_map(|(k, spec_img)| {
-                let wav_img = wav_imgs.get(k)?;
-                let eff_l_w = eff_l_w_map.get(k).cloned().unwrap_or((0, 0));
-                let img = display::blend(spec_img, wav_img, width, height, blend, eff_l_w);
-                Some((*k, img))
-            })
-            .collect()
+        return spec_imgs;
     }
+    if blend == 0. {
+        return wav_imgs;
+    }
+    spec_imgs
+        .par_iter()
+        .filter_map(|(k, spec_img)| {
+            let wav_img = wav_imgs.get(k)?;
+            let eff_l_w = eff_l_w_map.get(k).cloned().unwrap_or((0, 0));
+            let img = display::blend(spec_img, wav_img, width, height, blend, eff_l_w);
+            Some((*k, img))
+        })
+        .collect()
 }
 
 async fn draw_imgs(
@@ -479,7 +474,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
                 }
                 let mut spec_caches = spec_caches.lock().unwrap();
                 let mut wav_caches = wav_caches.lock().unwrap();
-                for tup in id_ch_tuples.iter() {
+                for tup in &id_ch_tuples {
                     spec_caches.remove(tup);
                     wav_caches.remove(tup);
                 }

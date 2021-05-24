@@ -43,7 +43,7 @@ where
     };
 
     let to_frames_wrapper =
-        |x| to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right));
+        move |x| to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right));
     let front_wav = pad(
         input.slice(s![..(win_length - 1)]),
         (win_length / 2, 0),
@@ -74,10 +74,8 @@ where
         .map(|x| x.into_slice().unwrap())
         .collect();
 
-    let fft_module = match fft_module {
-        Some(m) => m,
-        None => RealFftPlanner::<A>::new().plan_fft_forward(n_fft),
-    };
+    let fft_module =
+        fft_module.unwrap_or_else(|| RealFftPlanner::<A>::new().plan_fft_forward(n_fft));
     if parallel {
         let in_frames = front_frames
             .par_iter_mut()

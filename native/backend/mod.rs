@@ -129,10 +129,9 @@ impl AudioTrack {
 
     #[inline]
     pub fn is_path_same(&self, path: &str) -> bool {
-        match PathBuf::from(path).canonicalize() {
-            Ok(path_buf) => path_buf == self.path,
-            Err(_) => false,
-        }
+        PathBuf::from(path)
+            .canonicalize()
+            .map_or(false, |x| x == self.path)
     }
 
     fn calc_framing_params(sr: u32, setting: &SpecSetting) -> (usize, usize, usize) {
@@ -212,7 +211,7 @@ impl TrackManager {
     pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut added_ids = Vec::new();
-        for (&id, path) in id_list.iter().zip(path_list.into_iter()) {
+        for (&id, path) in id_list.iter().zip(path_list) {
             if let Ok(track) = AudioTrack::new(path, &self.setting) {
                 let sec = track.sec();
                 if sec > self.max_sec {
@@ -238,7 +237,7 @@ impl TrackManager {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut reloaded_ids = Vec::new();
         let mut no_err_ids = Vec::new();
-        for &id in id_list.iter() {
+        for &id in id_list {
             let track = self.tracks.get_mut(&id).unwrap();
             match track.reload(&self.setting) {
                 Ok(true) => {
@@ -269,9 +268,9 @@ impl TrackManager {
     pub fn remove_tracks(&mut self, id_list: &[usize]) {
         let mut removed_sr_set = HashSet::<u32>::new();
         let mut need_update_max_sec = false;
-        for &id in id_list.iter() {
+        for &id in id_list {
             if let Some((_, removed)) = self.tracks.remove_entry(&id) {
-                for ch in (0..removed.n_ch()).into_iter() {
+                for ch in 0..removed.n_ch() {
                     self.specs.remove(&(id, ch));
                     self.spec_greys.remove(&(id, ch));
                 }
@@ -387,26 +386,21 @@ impl TrackManager {
                 height,
                 Some((part_i_w, part_width)),
                 opt_for_wav.amp_range,
-                match fast_resize_vec {
-                    Some(ref vec) => vec[i],
-                    None => false,
-                },
+                fast_resize_vec.as_ref().map_or(false, |v| v[i]),
                 blend,
             );
-            let arr =
+            let mut arr =
                 Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
 
-            if width == drawing_width {
-                ((id, ch), arr.into_raw_vec())
-            } else {
-                let arr = utils::pad(
+            if width != drawing_width {
+                arr = utils::pad(
                     arr.view(),
                     (pad_left as usize, pad_right as usize),
                     Axis(1),
                     utils::PadMode::Constant(0),
                 );
-                ((id, ch), arr.into_raw_vec())
             }
+            ((id, ch), arr.into_raw_vec())
         });
         result.par_extend(par_iter);
 
@@ -459,7 +453,7 @@ impl TrackManager {
             .iter()
             .flat_map(|&id| {
                 let n_ch = self.tracks.get(&id).unwrap().n_ch();
-                iter::repeat(id).zip((0..n_ch).into_iter())
+                iter::repeat(id).zip(0..n_ch)
             })
             .collect()
     }
@@ -531,7 +525,7 @@ impl TrackManager {
             }
         }
         if let Some(removed_sr_set) = removed_sr_set {
-            for sr in removed_sr_set.iter() {
+            for sr in removed_sr_set {
                 self.windows.remove(&sr);
                 self.fft_modules.remove(&sr);
                 self.mel_fbs.remove(&sr);
@@ -593,7 +587,7 @@ impl TrackManager {
             })
             .reduce(
                 || (-f32::INFINITY, f32::INFINITY),
-                |(max, min): (f32, f32), (current_max, current_min)| {
+                |(max, min), (current_max, current_min)| {
                     (max.max(current_max), min.min(current_min))
                 },
             );
@@ -661,7 +655,7 @@ impl TrackManager {
     }
 
     fn update_filenames(&mut self) {
-        let mut paths = HashMap::<usize, PathBuf>::with_capacity(self.tracks.len());
+        let mut paths = HashMap::with_capacity(self.tracks.len());
         paths.extend(
             self.tracks
                 .iter()
@@ -678,8 +672,8 @@ impl TrackManager {
         target_width: u32,
         px_per_sec: f64,
     ) -> Option<(usize, usize)> {
-        let track = self.tracks.get(&id).unwrap();
-        let spec_grey = self.spec_greys.get(&(id, ch)).unwrap();
+        let track = self.tracks.get(&id)?;
+        let spec_grey = self.spec_greys.get(&(id, ch))?;
         let total_width = spec_grey.shape()[1] as u64;
         let wavlen = track.wavlen() as f64;
         let sr = track.sr as u64;
@@ -699,7 +693,7 @@ impl TrackManager {
         width: u32,
         px_per_sec: f64,
     ) -> Option<ArrayView1<f32>> {
-        let track = self.tracks.get(&id).unwrap();
+        let track = self.tracks.get(&id)?;
         let i = (sec * track.sr as f64).round() as isize;
         let length = ((track.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
         let (i, length) = display::calc_effective_w(i, length, track.wavlen())?;
@@ -722,8 +716,7 @@ impl TrackManager {
             .round() as u32)
             .min(width - pad_left);
 
-        let drawing_width = width - pad_left - pad_right;
-        (pad_left, drawing_width, pad_right)
+        (pad_left, width - pad_left - pad_right, pad_right)
     }
 }
 
@@ -760,7 +753,7 @@ mod tests {
         dbg!(tm.filenames.get(&6).unwrap());
         let width: u32 = 1500;
         let height: u32 = 500;
-        id_list.iter().zip(tags.iter()).for_each(|(&id, &sr)| {
+        id_list.iter().zip(&tags).for_each(|(&id, &sr)| {
             let imvec = tm.get_spec_image_of(id, 0, width, height);
             let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
             im.save(format!("samples/spec_{}.png", sr)).unwrap();

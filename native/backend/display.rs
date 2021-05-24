@@ -42,7 +42,7 @@ pub const MAX_SIZE: u32 = 8192;
 fn interpolate(rgba1: &[u8], rgba2: &[u8], ratio: f32) -> Vec<u8> {
     rgba1
         .iter()
-        .zip(rgba2.iter())
+        .zip(rgba2)
         .map(|(&a, &b)| (ratio * a as f32 + (1. - ratio) * b as f32).round() as u8)
         .collect()
 }
@@ -75,16 +75,17 @@ pub fn convert_spec_to_grey(
     let width = spec.shape()[0];
     let height = (spec.shape()[1] as f32 * up_ratio).round() as usize;
     let mut grey = Array2::uninit((height, width));
-    grey.indexed_iter_mut().for_each(|((i, j), x)| {
+    for ((i, j), x) in grey.indexed_iter_mut() {
         if height - 1 - i < spec.raw_dim()[1] {
             *x = MaybeUninit::new((spec[[j, height - 1 - i]] - min) / (max - min));
         } else {
             *x = MaybeUninit::new(0.);
         }
-    });
+    }
     unsafe { grey.assume_init() }
 }
 
+#[inline]
 pub fn calc_effective_w(i_w: isize, width: usize, total_width: usize) -> Option<(usize, usize)> {
     if i_w >= total_width as isize {
         None
@@ -225,7 +226,7 @@ pub fn draw_wav_to(
     let mut wav_avg = Vec::<f32>::with_capacity(width as usize);
     let mut n_conseq_long_h = 0usize;
     let mut max_n_conseq = 0usize;
-    for i_px in (0..width).into_iter() {
+    for i_px in 0..width {
         let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
         let i_end = (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav.len());
         let wav_slice = wav.slice(s![i_start..i_end]);
@@ -303,15 +304,15 @@ pub fn draw_blended_spec_wav(
 }
 
 pub fn blend(
-    spec_img: &Vec<u8>,
-    wav_img: &Vec<u8>,
+    spec_img: &[u8],
+    wav_img: &[u8],
     width: u32,
     height: u32,
     blend: f64,
     eff_l_w: (u32, u32),
 ) -> Vec<u8> {
     assert!(0. < blend && blend < 1.);
-    let mut result = spec_img.clone();
+    let mut result = spec_img.to_vec();
     let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
     // black
     if blend < 0.5 && eff_l_w.1 > 0 {
@@ -340,7 +341,7 @@ pub fn blend(
 
 #[cached(size = 3)]
 pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(f64, f64)> {
-    let coarse_band = |fine_band: f64| {
+    fn coarse_band(fine_band: f64) -> f64 {
         if fine_band <= 100. {
             100.
         } else if fine_band <= 200. {
@@ -350,7 +351,7 @@ pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(
         } else {
             (fine_band / 1000.).ceil() * 1000.
         }
-    };
+    }
 
     let mut result = Vec::with_capacity(max_ticks as usize);
     result.push((1., 0.));
@@ -404,6 +405,7 @@ pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(
     result
 }
 
+#[inline]
 pub fn get_colormap_rgba() -> Vec<u8> {
     COLORMAP
         .iter()
