@@ -48,7 +48,7 @@ function MainViewer({
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
   const [children, registerChild] = useRefs();
-  const requestRef = React.useRef();
+  const requestRef = useRef();
 
   const dragOver = (e) => {
     e.preventDefault();
@@ -149,11 +149,6 @@ function MainViewer({
     Promise.all(promises);
     requestRef.current = requestAnimationFrame(draw);
   };
-
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, []);
 
   const dropbox = <div className="dropbox"></div>;
 
@@ -285,6 +280,11 @@ function MainViewer({
     }
     prevTrackCountRef.current = trackIds.length;
   }, [trackIds]);
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, []);
 
   return (
     <div
