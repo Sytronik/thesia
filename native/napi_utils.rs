@@ -1,10 +1,8 @@
-use std::collections::HashSet;
 use std::convert::TryInto;
-use std::hash::Hash;
 
 use napi::{CallContext, Env, JsNumber, JsObject, JsString, Result as JsResult};
 
-use crate::backend::{DrawOption, DrawOptionForWav, IdChMap, IdChVec};
+use crate::backend::{DrawOption, DrawOptionForWav, IdChVec};
 
 pub trait TryIntoUsize: TryInto<u32> {
     fn try_into_usize(self) -> Result<usize, Self::Error>;
@@ -63,18 +61,6 @@ pub fn id_ch_tuples_from(ctx: &CallContext, i_arg: usize) -> JsResult<IdChVec> {
                     .unwrap())
             }
         };
-    }
-    Ok(vec)
-}
-
-pub fn vec_from<T: From<JsNumber>>(ctx: &CallContext, i_arg: usize) -> JsResult<Vec<T>> {
-    let arr = ctx.get::<JsObject>(i_arg)?;
-    let len = arr.get_array_length()?;
-    let mut vec = Vec::<T>::with_capacity(len as usize);
-    for i in (0..len).into_iter() {
-        if let Ok(x) = arr.get_element::<JsNumber>(i)?.try_into() {
-            vec.push(x);
-        }
     }
     Ok(vec)
 }
@@ -164,35 +150,4 @@ pub fn draw_opt_for_wav_from_js_obj(js_obj: JsObject) -> JsResult<DrawOptionForW
                 .try_into_f32()?,
         ),
     })
-}
-
-pub fn set_images_to(
-    env: &Env,
-    this: &mut JsObject,
-    images: IdChMap<Vec<u8>>,
-    index: u32,
-) -> JsResult<()> {
-    for ((id, ch), im) in images.into_iter() {
-        let name = format!("{}_{}", id, ch);
-        let buf = env.create_buffer_with_data(im)?.into_raw();
-        if !this.has_named_property(name.as_str())? {
-            let mut arr = env.create_array_with_length(2)?;
-            arr.set_element(0, env.get_null()?)?;
-            arr.set_element(1, env.get_null()?)?;
-            this.set_named_property(name.as_str(), arr)?;
-        }
-        this.get_named_property_unchecked::<JsObject>(name.as_str())?
-            .set_element(index, buf)?;
-    }
-    Ok(())
-}
-
-#[inline]
-pub fn extract_intersect<T: Clone + Eq + Hash>(
-    a: &mut HashSet<T>,
-    b: &mut HashSet<T>,
-) -> HashSet<T> {
-    let c: HashSet<T> = a.iter().filter_map(|v| b.take(v)).collect();
-    a.retain(|v| !c.contains(&v));
-    c
 }

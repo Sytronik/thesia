@@ -1,5 +1,5 @@
 import React, {useRef, useCallback, useEffect, useState} from "react";
-import {throttle, debounce} from "throttle-debounce";
+import {throttle} from "throttle-debounce";
 
 import "./MainViewer.scss";
 import {SplitView} from "./SplitView";
@@ -8,7 +8,8 @@ import Canvas from "./Canvas";
 import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
-const {getFileName, getMaxSec, getNumCh, getSampleFormat, getSec, getSr, getSpecWavImages} = native;
+const {getFileName, getMaxSec, getNumCh, getSampleFormat, getSec, getSr, setImgState, getImages} =
+  native;
 const CHANNEL = PROPERTY.CHANNEL;
 
 function useRefs() {
@@ -47,6 +48,7 @@ function MainViewer({
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
   const [children, registerChild] = useRefs();
+  const requestRef = useRef();
 
   const dragOver = (e) => {
     e.preventDefault();
@@ -101,7 +103,7 @@ function MainViewer({
         if (drawOptionRef.current.px_per_sec !== pxPerSec) {
           drawOptionRef.current.px_per_sec = pxPerSec;
           canvasIsFitRef.current = false;
-          throttledDraw([getIdChArr()]);
+          throttledSetImgState(getIdChArr(), width, height);
         }
       } else {
         setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
@@ -115,46 +117,38 @@ function MainViewer({
       );
       if (secRef.current !== tempSec) {
         secRef.current = tempSec;
-        throttledDraw([getIdChArr()]);
+        throttledSetImgState(getIdChArr(), width, height);
       }
     }
   };
 
-  const draw = useCallback(
-    async (idChArr) => {
-      if (idChArr.reduce((sum, x) => sum + x.length, 0) === 0) return;
-      const [images, promise] = getSpecWavImages(
-        idChArr[0],
+  const throttledSetImgState = useCallback(
+    throttle(1000 / 240, (idChArr, width, height) => {
+      if (idChArr.length === 0) return;
+      setImgState(
+        idChArr,
         secRef.current,
         width,
         {...drawOptionRef.current, height: height},
         {min_amp: -1, max_amp: 1},
+        0.3,
       );
-
-      for (const [idChStr, bufs] of Object.entries(images)) {
-        const ref = children.current[idChStr];
-        // let promises = [];
-        if (ref) {
-          // promises.push(
-          ref.draw(bufs);
-          // );
-        }
-        // Promise.all(promises);
-      }
-
-      // cached image
-      if (promise !== null) {
-        const arr = await promise;
-        debouncedDraw(arr);
-      }
-    },
-    [height, width],
+    }),
+    [],
   );
 
-  const throttledDraw = useCallback(throttle(1000 / 60, draw), [draw]);
-  const debouncedDraw = useCallback(debounce(1000 / 30, draw), [draw]);
-  // const throttledDraw = draw;
-  // const debouncedDraw = draw;
+  const draw = (_) => {
+    const images = getImages();
+    let promises = [];
+    for (const [idChStr, buf] of Object.entries(images)) {
+      const ref = children.current[idChStr];
+      if (ref) {
+        promises.push(ref.draw(buf));
+      }
+    }
+    Promise.all(promises);
+    requestRef.current = requestAnimationFrame(draw);
+  };
 
   const dropbox = <div className="dropbox"></div>;
 
@@ -246,7 +240,6 @@ function MainViewer({
     const secOutOfCanvas = maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec;
     if (canvasIsFitRef.current) {
       drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
-      throttledDraw([getIdChArr()]);
     } else {
       if (secOutOfCanvas <= 0) {
         canvasIsFitRef.current = true;
@@ -255,13 +248,13 @@ function MainViewer({
       if (secRef.current > secOutOfCanvas) {
         secRef.current = secOutOfCanvas;
       }
-      throttledDraw([getIdChArr()]);
     }
+    throttledSetImgState(getIdChArr(), width, height);
   }, [width]);
 
   useEffect(() => {
     if (!trackIds.length) return;
-    debouncedDraw([getIdChArr()]);
+    throttledSetImgState(getIdChArr(), width, height);
   }, [height]);
 
   useEffect(() => {
@@ -269,9 +262,7 @@ function MainViewer({
   }, [erroredList]);
 
   useEffect(() => {
-    if (refreshList) {
-      draw(refreshList);
-    }
+    throttledSetImgState(refreshList, width, height);
     dropReset();
   }, [refreshList]);
 
@@ -289,6 +280,11 @@ function MainViewer({
     }
     prevTrackCountRef.current = trackIds.length;
   }, [trackIds]);
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, []);
 
   return (
     <div

@@ -7,7 +7,10 @@ use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use rgb::FromSlice;
-use tiny_skia::{FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke, Transform};
+use tiny_skia::{
+    FillRule, IntRect, LineCap, Paint, PathBuilder, PixmapMut, PixmapPaint, PixmapRef, Rect,
+    Stroke, Transform,
+};
 
 use super::mel;
 use super::resample::FftResampler;
@@ -82,45 +85,19 @@ pub fn convert_spec_to_grey(
     unsafe { grey.assume_init() }
 }
 
-pub fn draw_blended_spec_wav(
-    spec_grey: ArrayView2<f32>,
-    wav: ArrayView1<f32>,
-    width: u32,
-    height: u32,
-    amp_range: (f32, f32),
-    fast_resize: bool,
-    blend: f64,
-) -> Vec<u8> {
-    // spec
-    let mut result = if blend > 0. {
-        colorize_grey_with_size(spec_grey, width, height, fast_resize, None)
-    } else {
-        vec![0u8; width as usize * height as usize * 4]
-    };
-
-    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
-
-    if blend < 1. {
-        // black
-        if blend < 0.5 {
-            let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
-            let mut paint = Paint::default();
-            paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
-            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+pub fn calc_effective_w(i_w: isize, width: usize, total_width: usize) -> Option<(usize, usize)> {
+    if i_w >= total_width as isize {
+        None
+    } else if i_w < 0 {
+        let i_right = width as isize + i_w;
+        if i_right <= 0 {
+            None
+        } else {
+            Some((0, (i_right as usize).min(total_width)))
         }
-
-        let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
-        // wave
-        draw_wav_to(
-            pixmap.data_mut(),
-            wav,
-            width,
-            height,
-            amp_range,
-            Some(alpha),
-        );
+    } else {
+        Some((i_w as usize, width.min(total_width - i_w as usize)))
     }
-    result
 }
 
 pub fn colorize_grey_with_size(
@@ -159,72 +136,6 @@ pub fn colorize_grey_with_size(
         })
         .collect()
     // println!("drawing spec: {:?}", start.elapsed());
-}
-
-#[cached(size = 3)]
-pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(f64, f64)> {
-    fn coarse_band(fine_band: f64) -> f64 {
-        if fine_band <= 100. {
-            100.
-        } else if fine_band <= 200. {
-            200.
-        } else if fine_band <= 500. {
-            500.
-        } else {
-            (fine_band / 1000.).ceil() * 1000.
-        }
-    }
-
-    let mut result = Vec::with_capacity(max_ticks as usize);
-    result.push((1., 0.));
-    let max_freq = sr as f64 / 2.;
-
-    if max_ticks >= 3 {
-        match freq_scale {
-            FreqScale::Mel if max_freq > 1000. => {
-                let max_mel = mel::from_hz(max_freq);
-                let mel_1k = mel::MIN_LOG_MEL as f64;
-                let fine_band_mel = max_mel / (max_ticks as f64 - 1.);
-                if max_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
-                    // divide [0, 1kHz] region
-                    let fine_band = mel::to_hz(fine_band_mel);
-                    let band = coarse_band(fine_band);
-                    let mut freq = band;
-                    let max_minus_band = 1000. - fine_band + 1.;
-                    while freq < max_minus_band {
-                        result.push((1. - mel::from_hz(freq) / max_mel, freq));
-                        freq += band;
-                    }
-                }
-                result.push((1. - mel_1k / max_mel, 1000.));
-                if max_ticks >= 4 {
-                    // divide [1kHz, max_freq] region
-                    let ratio_step =
-                        2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
-                    let mut freq = ratio_step as f64 * 1000.;
-                    let mut mel_f = mel::from_hz(freq);
-                    let max_mel_minus_band = max_mel - fine_band_mel + 0.01;
-                    while mel_f < max_mel_minus_band {
-                        result.push((1. - mel_f / max_mel, freq));
-                        freq *= ratio_step as f64;
-                        mel_f = mel::from_hz(freq);
-                    }
-                }
-            }
-            _ => {
-                let fine_band = max_freq / (max_ticks as f64 - 1.);
-                let band = coarse_band(fine_band);
-                let mut freq = band;
-                while freq < max_freq - fine_band + 1. {
-                    result.push((1. - freq / max_freq, freq));
-                    freq += band;
-                }
-            }
-        }
-    }
-
-    result.push((0., max_freq));
-    result
 }
 
 fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
@@ -341,6 +252,156 @@ pub fn draw_wav_to(
         draw_wav_directly(&wav_avg[..], &mut pixmap, &paint);
     }
     // println!("drawing wav: {:?}", start.elapsed());
+}
+
+pub fn draw_blended_spec_wav(
+    entire_spec_grey: ArrayView2<f32>,
+    wav_slice: ArrayView1<f32>,
+    width: u32,
+    height: u32,
+    grey_left_width: Option<(usize, usize)>,
+    amp_range: (f32, f32),
+    fast_resize: bool,
+    blend: f64,
+) -> Vec<u8> {
+    // spec
+    let mut result = if blend > 0. {
+        colorize_grey_with_size(
+            entire_spec_grey,
+            width,
+            height,
+            fast_resize,
+            grey_left_width,
+        )
+    } else {
+        vec![0u8; width as usize * height as usize * 4]
+    };
+
+    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
+
+    if blend < 1. {
+        // black
+        if blend < 0.5 {
+            let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
+            let mut paint = Paint::default();
+            paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
+            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+        }
+
+        let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
+        // wave
+        draw_wav_to(
+            pixmap.data_mut(),
+            wav_slice,
+            width,
+            height,
+            amp_range,
+            Some(alpha),
+        );
+    }
+    result
+}
+
+pub fn blend(
+    spec_img: &Vec<u8>,
+    wav_img: &Vec<u8>,
+    width: u32,
+    height: u32,
+    blend: f64,
+    eff_l_w: (u32, u32),
+) -> Vec<u8> {
+    assert!(0. < blend && blend < 1.);
+    let mut result = spec_img.clone();
+    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
+    // black
+    if blend < 0.5 && eff_l_w.1 > 0 {
+        let (left, width) = eff_l_w;
+        let rect = IntRect::from_xywh(left as i32, 0, width, height)
+            .unwrap()
+            .to_rect();
+        let mut paint = Paint::default();
+        paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
+        pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+    }
+    {
+        let mut paint = PixmapPaint::default();
+        paint.opacity = (2. - 2. * blend).min(1.) as f32;
+        pixmap.draw_pixmap(
+            0,
+            0,
+            PixmapRef::from_bytes(wav_img, width, height).unwrap(),
+            &paint,
+            Transform::identity(),
+            None,
+        );
+    }
+    result
+}
+
+#[cached(size = 3)]
+pub fn create_freq_axis(freq_scale: FreqScale, sr: u32, max_ticks: u32) -> Vec<(f64, f64)> {
+    let coarse_band = |fine_band: f64| {
+        if fine_band <= 100. {
+            100.
+        } else if fine_band <= 200. {
+            200.
+        } else if fine_band <= 500. {
+            500.
+        } else {
+            (fine_band / 1000.).ceil() * 1000.
+        }
+    };
+
+    let mut result = Vec::with_capacity(max_ticks as usize);
+    result.push((1., 0.));
+    let max_freq = sr as f64 / 2.;
+
+    if max_ticks >= 3 {
+        match freq_scale {
+            FreqScale::Mel if max_freq > 1000. => {
+                let max_mel = mel::from_hz(max_freq);
+                let mel_1k = mel::MIN_LOG_MEL as f64;
+                let fine_band_mel = max_mel / (max_ticks as f64 - 1.);
+                if max_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
+                    // divide [0, 1kHz] region
+                    let fine_band = mel::to_hz(fine_band_mel);
+                    let band = coarse_band(fine_band);
+                    let mut freq = band;
+                    let max_minus_band = 1000. - fine_band + 1.;
+                    while freq < max_minus_band {
+                        result.push((1. - mel::from_hz(freq) / max_mel, freq));
+                        freq += band;
+                    }
+                }
+                result.push((1. - mel_1k / max_mel, 1000.));
+                if max_ticks >= 4 {
+                    // divide [1kHz, max_freq] region
+                    let ratio_step =
+                        2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
+                    let mut freq = ratio_step as f64 * 1000.;
+                    let mut mel_f = mel::from_hz(freq);
+                    let max_mel_minus_band = max_mel - fine_band_mel + 0.01;
+                    while mel_f < max_mel_minus_band {
+                        result.push((1. - mel_f / max_mel, freq));
+                        freq *= ratio_step as f64;
+                        mel_f = mel::from_hz(freq);
+                    }
+                }
+            }
+            _ => {
+                let fine_band = max_freq / (max_ticks as f64 - 1.);
+                let band = coarse_band(fine_band);
+                let mut freq = band;
+                while freq < max_freq - fine_band + 1. {
+                    result.push((1. - freq / max_freq, freq));
+                    freq += band;
+                }
+            }
+        }
+    }
+
+    result.push((0., max_freq));
+    result
 }
 
 pub fn get_colormap_rgba() -> Vec<u8> {

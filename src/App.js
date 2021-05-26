@@ -22,13 +22,13 @@ function App() {
 
   const [trackIds, setTrackIds] = useState([]);
   const [erroredList, setErroredList] = useState([]);
-  const [refreshList, setRefreshList] = useState(null);
+  const [refreshList, setRefreshList] = useState([]);
 
   async function reloadTracks(selectedIds) {
     const reloadedIds = native.reloadTracks(selectedIds);
 
     setErroredList(selectedIds.filter((id) => !reloadedIds.includes(id)));
-    setRefreshList(await native.applyTrackListChanges());
+    setRefreshList(native.applyTrackListChanges());
   }
   async function addTracks(newPaths, unsupportedPaths) {
     try {
@@ -102,7 +102,7 @@ function App() {
       if (existingIds.length) {
         reloadTracks(existingIds);
       } else {
-        setRefreshList(await native.applyTrackListChanges());
+        setRefreshList(native.applyTrackListChanges());
       }
     } catch (err) {
       console.log(err);
@@ -119,10 +119,7 @@ function App() {
       setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
       setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
 
-      const promiseRefreshList = native.applyTrackListChanges();
-      if (promiseRefreshList) {
-        setRefreshList(await promiseRefreshList);
-      }
+      setRefreshList(native.applyTrackListChanges());
 
       waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
       if (waitingIdsRef.current.length > 1) {
