@@ -13,21 +13,21 @@ path = "native/lib.rs"
 image = "0.23.14"
 
 [dependencies]
-napi = "1.6.0"
+napi = "1.7.0"
 napi-derive = "1.1.0"
 
 cached = "0.23.0"
-cpal = "0.13.1"
+# cpal = "0.13.3"
 futures = "0.3.15"
 lazy_static = "1.4.0"
-ndarray = {version = "0.15.1", features = ["rayon", "approx"]}
+ndarray = {version = "0.15.2", features = ["rayon", "approx"]}
 ndarray-stats = "0.5.0"
 num-traits = "0.2.14"
-rayon = "1.5.0"
+rayon = "1.5.1"
 readonly = "0.2.0"
 realfft = "2.0.1"
 rgb = "0.8.27"
-rustfft = "6.0.0"
+rustfft = "6.0.1"
 tiny-skia = "0.5.1"
 tokio = {version = "1.6.0", features = ["rt-multi-thread", "sync"]}
 
