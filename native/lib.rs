@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use lazy_static::{initialize, lazy_static};
 use napi::{
@@ -7,6 +7,7 @@ use napi::{
     Result as JsResult,
 };
 use napi_derive::*;
+use parking_lot::RwLock;
 
 mod backend;
 mod img_mgr;
@@ -30,14 +31,11 @@ lazy_static! {
 
 #[js_function(2)]
 fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
-    let new_track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
-    let new_paths: Vec<String> = vec_str_from(&ctx, 1)?;
-    assert!(new_track_ids.len() > 0 && new_track_ids.len() == new_paths.len());
+    let id_list: Vec<usize> = vec_usize_from(&ctx, 0)?;
+    let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
+    assert!(id_list.len() > 0 && id_list.len() == path_list.len());
 
-    let added_ids = TM
-        .write()
-        .unwrap()
-        .add_tracks(&new_track_ids[..], new_paths);
+    let added_ids = TM.write().add_tracks(&id_list[..], path_list);
     convert_usize_arr_to_jsarr(ctx.env, &added_ids[..])
 }
 
@@ -46,7 +44,7 @@ fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     assert!(track_ids.len() > 0);
 
-    let no_err_ids = TM.write().unwrap().reload_tracks(&track_ids[..]);
+    let no_err_ids = TM.write().reload_tracks(&track_ids[..]);
     convert_usize_arr_to_jsarr(ctx.env, &no_err_ids[..])
 }
 
@@ -55,7 +53,7 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     assert!(track_ids.len() > 0);
 
-    let mut tm = TM.write().unwrap();
+    let mut tm = TM.write();
     img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids[..])));
     tm.remove_tracks(&track_ids[..]);
     ctx.env.get_undefined()
@@ -64,7 +62,7 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
 #[contextless_function]
 fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
     let id_ch_tuples = {
-        let mut tm = TM.write().unwrap();
+        let mut tm = TM.write();
         let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
         tm.id_ch_tuples_from(&updated_ids)
     };
@@ -113,7 +111,7 @@ fn get_images(env: Env) -> ContextlessResult<JsObject> {
 #[js_function(1)]
 fn find_id_by_path(ctx: CallContext) -> JsResult<JsNumber> {
     let path = ctx.get::<JsString>(0)?.into_utf8()?;
-    let tm = TM.read().unwrap();
+    let tm = TM.read();
     for (id, track) in &tm.tracks {
         if track.is_path_same(path.as_str()?) {
             return ctx.env.create_int64(*id as i64);
@@ -129,9 +127,8 @@ fn get_overview(ctx: CallContext) -> JsResult<JsBuffer> {
     let height: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
     assert!(width >= 1 && height >= 1);
 
-    let tm = TM.read().unwrap();
     ctx.env
-        .create_buffer_with_data(tm.get_overview_of(id, width, height))
+        .create_buffer_with_data(TM.read().get_overview_of(id, width, height))
         .map(|x| x.into_raw())
 }
 
@@ -141,8 +138,8 @@ fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
     let height: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
     assert!(height >= 1 && y < height);
 
-    let tm = TM.read().unwrap();
-    ctx.env.create_double(tm.calc_hz_of(y, height) as f64)
+    ctx.env
+        .create_double(TM.read().calc_hz_of(y, height) as f64)
 }
 
 #[js_function(1)]
@@ -150,58 +147,55 @@ fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
     let max_ticks: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
     assert!(max_ticks >= 2);
 
-    convert_vec_tup_f64_to_jsarr(ctx.env, TM.read().unwrap().get_freq_axis(max_ticks))
+    convert_vec_tup_f64_to_jsarr(ctx.env, TM.read().get_freq_axis(max_ticks))
 }
 
 #[contextless_function]
 fn get_max_db(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().unwrap().max_db as f64)
-        .map(Some)
+    env.create_double(TM.read().max_db as f64).map(Some)
 }
 
 #[contextless_function]
 fn get_min_db(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().unwrap().min_db as f64)
-        .map(Some)
+    env.create_double(TM.read().min_db as f64).map(Some)
 }
 
 #[contextless_function]
 fn get_max_sec(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().unwrap().max_sec as f64)
-        .map(Some)
+    env.create_double(TM.read().max_sec as f64).map(Some)
 }
 
 #[js_function(1)]
 fn get_n_ch(ctx: CallContext) -> JsResult<JsNumber> {
-    let tm = TM.read().unwrap();
+    let tm = TM.read();
     let track = get_track!(ctx, 0, tm);
     ctx.env.create_uint32(track.n_ch() as u32)
 }
 
 #[js_function(1)]
 fn get_sec(ctx: CallContext) -> JsResult<JsNumber> {
-    let tm = TM.read().unwrap();
+    let tm = TM.read();
     let track = get_track!(ctx, 0, tm);
     ctx.env.create_double(track.sec())
 }
 
 #[js_function(1)]
 fn get_sr(ctx: CallContext) -> JsResult<JsNumber> {
-    let tm = TM.read().unwrap();
+    let tm = TM.read();
     let track = get_track!(ctx, 0, tm);
     ctx.env.create_uint32(track.sr)
 }
 
 #[js_function(1)]
 fn get_sample_format(ctx: CallContext) -> JsResult<JsString> {
-    let tm = TM.read().unwrap();
+    let tm = TM.read();
     let track = get_track!(ctx, 0, tm);
     ctx.env.create_string(&track.sample_format_str)
 }
 
 #[js_function(1)]
 fn get_path(ctx: CallContext) -> JsResult<JsString> {
-    let tm = TM.read().unwrap();
+    let tm = TM.read();
     let track = get_track!(ctx, 0, tm);
     ctx.env.create_string_from_std(track.path_string())
 }
@@ -209,9 +203,8 @@ fn get_path(ctx: CallContext) -> JsResult<JsString> {
 #[js_function(1)]
 fn get_filename(ctx: CallContext) -> JsResult<JsString> {
     let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
-    let tm = TM.read().unwrap();
     ctx.env
-        .create_string_from_std(tm.filenames.get(&id).unwrap().clone())
+        .create_string_from_std(TM.read().filenames.get(&id).unwrap().clone())
 }
 
 #[contextless_function]

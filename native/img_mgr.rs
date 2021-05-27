@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures::task;
 use lazy_static::{initialize, lazy_static};
 use ndarray::{Array3, Axis, Slice};
+use parking_lot::{Mutex, MutexGuard, RwLock};
 use rayon::prelude::*;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -260,7 +261,7 @@ async fn draw_imgs(
     wav_caches: ArcImgCaches,
     img_tx: Sender<Images>,
 ) {
-    let params_backup = params.read().unwrap().clone();
+    let params_backup = params.read().clone();
     let DrawParams {
         sec,
         width,
@@ -269,7 +270,7 @@ async fn draw_imgs(
         blend,
     } = params_backup;
     let (total_widths, cat_by_spec, cat_by_wav, blended_imgs) = {
-        let tm = TM.read().unwrap();
+        let tm = TM.read();
         let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
         let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
         total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
@@ -277,8 +278,8 @@ async fn draw_imgs(
             ((id, ch), width)
         }));
 
-        let spec_caches_lock = spec_caches.lock().unwrap();
-        let wav_caches_lock = wav_caches.lock().unwrap();
+        let spec_caches_lock = spec_caches.lock();
+        let wav_caches_lock = wav_caches.lock();
         let (cat_by_spec, cat_by_wav, need_wav_parts_only) = categorize_id_ch(
             id_ch_tuples,
             &total_widths,
@@ -341,13 +342,13 @@ async fn draw_imgs(
         // println!("send cached images");
         img_tx.send(blended_imgs).await.unwrap();
     }
-    if *params.read().unwrap() != params_backup {
+    if *params.read() != params_backup {
         return;
     }
 
     // draw part
     let blended_imgs = {
-        let tm = TM.read().unwrap();
+        let tm = TM.read();
         if !cat_by_spec.need_parts.is_empty() {
             let fast_resize_vec = if option.height <= display::MAX_SIZE {
                 Some(
@@ -377,14 +378,14 @@ async fn draw_imgs(
         // println!("send part images");
         img_tx.send(blended_imgs).await.unwrap();
     }
-    if *params.read().unwrap() != params_backup {
+    if *params.read() != params_backup {
         return;
     }
 
     let blended_imgs = {
-        let tm = TM.read().unwrap();
-        let mut spec_caches_lock = spec_caches.lock().unwrap();
-        let mut wav_caches_lock = wav_caches.lock().unwrap();
+        let tm = TM.read();
+        let mut spec_caches_lock = spec_caches.lock();
+        let mut wav_caches_lock = wav_caches.lock();
         let (spec_imgs, eff_l_w_map) = if !cat_by_spec.need_new_caches.is_empty() {
             spec_caches_lock.extend(tm.get_entire_imgs(
                 &cat_by_spec.need_new_caches[..],
@@ -442,7 +443,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
         match msg {
             ImgMsg::Draw((id_ch_tuples, draw_params)) => {
                 {
-                    let mut prev_params_write = prev_params.write().unwrap();
+                    let mut prev_params_write = prev_params.write();
                     if let Some(prev_task) = task_handle.take() {
                         prev_task.abort();
                     }
@@ -453,10 +454,10 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
                     //     while let Poll::Ready(Some(_)) = img_rx.poll_recv(&mut cx) {}
                     // }
                     if draw_params.option != prev_params_write.option {
-                        spec_caches.lock().unwrap().clear();
-                        wav_caches.lock().unwrap().clear();
+                        spec_caches.lock().clear();
+                        wav_caches.lock().clear();
                     } else if draw_params.opt_for_wav != prev_params_write.opt_for_wav {
-                        wav_caches.lock().unwrap().clear();
+                        wav_caches.lock().clear();
                     }
                     *prev_params_write = draw_params;
                 }
@@ -472,8 +473,8 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
                 if let Some(prev_task) = task_handle.take() {
                     prev_task.await.ok();
                 }
-                let mut spec_caches = spec_caches.lock().unwrap();
-                let mut wav_caches = wav_caches.lock().unwrap();
+                let mut spec_caches = spec_caches.lock();
+                let mut wav_caches = wav_caches.lock();
                 for tup in &id_ch_tuples {
                     spec_caches.remove(tup);
                     wav_caches.remove(tup);
