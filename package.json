@@ -99,7 +99,6 @@
     "cpx": "^1.5.0",
     "electron": "^9.4.0",
     "electron-builder": "^22.4.1",
-    "electron-rebuild": "^1.10.1",
     "eslint-config-airbnb": "^18.2.1",
     "eslint-config-prettier": "^7.2.0",
     "eslint-plugin-prettier": "^3.3.1",
