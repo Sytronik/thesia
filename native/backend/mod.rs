@@ -208,10 +208,10 @@ impl TrackManager {
         }
     }
 
-    pub fn add_tracks(&mut self, id_list: &[usize], path_list: Vec<String>) -> Vec<usize> {
+    pub fn add_tracks(&mut self, id_list: Vec<usize>, path_list: Vec<String>) -> Vec<usize> {
         let mut new_sr_set = HashSet::<(u32, usize, usize)>::new();
         let mut added_ids = Vec::new();
-        for (&id, path) in id_list.iter().zip(path_list) {
+        for (id, path) in id_list.into_iter().zip(path_list) {
             if let Ok(track) = AudioTrack::new(path, &self.setting) {
                 let sec = track.sec();
                 if sec > self.max_sec {
@@ -737,9 +737,9 @@ mod tests {
             .collect();
         path_list.push(String::from("samples/stereo/sample_48k.wav"));
         let mut tm = TrackManager::new();
-        let added_ids = tm.add_tracks(&id_list[0..3], path_list[0..3].to_owned());
+        let added_ids = tm.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
         assert_eq!(&added_ids[..], &id_list[0..3]);
-        let added_ids = tm.add_tracks(&id_list[3..], path_list[3..].to_owned());
+        let added_ids = tm.add_tracks(id_list[3..].to_owned(), path_list[3..].to_owned());
         assert_eq!(&added_ids[..], &id_list[3..]);
         assert_eq!(tm.tracks.len(), id_list.len());
 

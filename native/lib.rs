@@ -35,7 +35,7 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
     assert!(id_list.len() > 0 && id_list.len() == path_list.len());
 
-    let added_ids = TM.write().add_tracks(&id_list[..], path_list);
+    let added_ids = TM.write().add_tracks(id_list, path_list);
     convert_usize_arr_to_jsarr(ctx.env, &added_ids[..])
 }
 
