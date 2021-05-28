@@ -426,7 +426,7 @@ impl TrackManager {
             .par_chunks_exact_mut(ch_h as usize * width as usize * 4)
             .enumerate()
             .for_each(|(ch, x)| {
-                display::draw_wav_to(&mut x[..], track.get_wav(ch), width, ch_h, (-1., 1.), None)
+                display::draw_wav_to(x, track.get_wav(ch), width, ch_h, (-1., 1.), None)
             });
         result
     }
@@ -540,10 +540,9 @@ impl TrackManager {
 
             let mut real_fft_planner = RealFftPlanner::<f32>::new();
             for &(_, _, n_fft) in &new_params_set {
-                if !self.fft_modules.contains_key(&n_fft) {
-                    self.fft_modules
-                        .insert(n_fft, real_fft_planner.plan_fft_forward(n_fft));
-                }
+                self.fft_modules
+                    .entry(n_fft)
+                    .or_insert_with(|| real_fft_planner.plan_fft_forward(n_fft));
             }
 
             if let FreqScale::Mel = self.setting.freq_scale {

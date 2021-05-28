@@ -153,9 +153,11 @@ fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
         pb.finish().unwrap()
     };
 
-    let mut stroke = Stroke::default();
-    stroke.width = WAV_STROKE_WIDTH;
-    stroke.line_cap = LineCap::Round;
+    let stroke = Stroke {
+        width: WAV_STROKE_WIDTH,
+        line_cap: LineCap::Round,
+        ..Default::default()
+    };
     pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
 }
 
@@ -325,8 +327,10 @@ pub fn blend(
         pixmap.fill_rect(rect, &paint, Transform::identity(), None);
     }
     {
-        let mut paint = PixmapPaint::default();
-        paint.opacity = (2. - 2. * blend).min(1.) as f32;
+        let paint = PixmapPaint {
+            opacity: (2. - 2. * blend).min(1.) as f32,
+            ..Default::default()
+        };
         pixmap.draw_pixmap(
             0,
             0,

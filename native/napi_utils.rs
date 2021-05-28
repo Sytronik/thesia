@@ -48,7 +48,7 @@ pub fn id_ch_tuples_from(ctx: &CallContext, i_arg: usize) -> JsResult<IdChVec> {
     for i in 0..len {
         let js_str = arr.get_element::<JsString>(i)?.into_utf8()?;
         let s = js_str.as_str()?;
-        let mut iter = s.split("_").map(|x| x.parse::<usize>());
+        let mut iter = s.split('_').map(|x| x.parse::<usize>());
         match (iter.next(), iter.next()) {
             (Some(Ok(id)), Some(Ok(ch))) => {
                 vec.push((id, ch));
@@ -88,7 +88,7 @@ pub fn vec_str_from(ctx: &CallContext, i_arg: usize) -> JsResult<Vec<String>> {
     Ok(vec)
 }
 
-pub fn convert_id_ch_arr_to_jsarr<'a>(env: &Env, arr: &[(usize, usize)]) -> JsResult<JsObject> {
+pub fn convert_id_ch_arr_to_jsarr(env: &Env, arr: &[(usize, usize)]) -> JsResult<JsObject> {
     let mut obj = env.create_array_with_length(arr.len())?;
     for (i, &(id, ch)) in arr.iter().enumerate() {
         obj.set_element(
@@ -99,7 +99,7 @@ pub fn convert_id_ch_arr_to_jsarr<'a>(env: &Env, arr: &[(usize, usize)]) -> JsRe
     Ok(obj)
 }
 
-pub fn convert_usize_arr_to_jsarr<'a>(env: &Env, arr: &[usize]) -> JsResult<JsObject> {
+pub fn convert_usize_arr_to_jsarr(env: &Env, arr: &[usize]) -> JsResult<JsObject> {
     let mut obj = env.create_array_with_length(arr.len())?;
     for (i, &x) in arr.iter().enumerate() {
         obj.set_element(i as u32, env.create_double(x as f64)?)?;
@@ -107,7 +107,7 @@ pub fn convert_usize_arr_to_jsarr<'a>(env: &Env, arr: &[usize]) -> JsResult<JsOb
     Ok(obj)
 }
 
-pub fn convert_vec_tup_f64_to_jsarr<'a>(env: &Env, vec: Vec<(f64, f64)>) -> JsResult<JsObject> {
+pub fn convert_vec_tup_f64_to_jsarr(env: &Env, vec: Vec<(f64, f64)>) -> JsResult<JsObject> {
     let mut obj = env.create_array_with_length(vec.len())?;
     for (i, x) in vec.into_iter().enumerate() {
         let mut tup_arr = env.create_array_with_length(2)?;

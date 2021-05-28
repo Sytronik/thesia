@@ -33,7 +33,7 @@ lazy_static! {
 fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let id_list: Vec<usize> = vec_usize_from(&ctx, 0)?;
     let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
-    assert!(id_list.len() > 0 && id_list.len() == path_list.len());
+    assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
     let added_ids = TM.write().add_tracks(id_list, path_list);
     convert_usize_arr_to_jsarr(ctx.env, &added_ids[..])
@@ -42,7 +42,7 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
 #[js_function(1)]
 fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
-    assert!(track_ids.len() > 0);
+    assert!(!track_ids.is_empty());
 
     let no_err_ids = TM.write().reload_tracks(&track_ids[..]);
     convert_usize_arr_to_jsarr(ctx.env, &no_err_ids[..])
@@ -51,7 +51,7 @@ fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
 #[js_function(1)]
 fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
-    assert!(track_ids.len() > 0);
+    assert!(!track_ids.is_empty());
 
     let mut tm = TM.write();
     img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids[..])));
@@ -68,7 +68,7 @@ fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
     };
 
     img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone()));
-    convert_id_ch_arr_to_jsarr(&env, &id_ch_tuples[..]).map(|x| Some(x))
+    convert_id_ch_arr_to_jsarr(&env, &id_ch_tuples[..]).map(Some)
 }
 
 #[js_function(6)]
@@ -81,7 +81,7 @@ fn set_img_state(ctx: CallContext) -> JsResult<JsUndefined> {
     let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
     let blend: f64 = ctx.get::<JsNumber>(5)?.try_into()?;
 
-    assert!(id_ch_tuples.len() > 0);
+    assert!(!id_ch_tuples.is_empty());
     assert!(width >= 1);
     assert!(option.px_per_sec.is_finite());
     assert!(option.px_per_sec >= 0.);

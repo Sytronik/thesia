@@ -39,7 +39,7 @@ where
                 assert!(v >= A::zero());
                 v.abs()
             }
-            DeciBelRef::Max => self.view().max_skipnan().clone(),
+            DeciBelRef::Max => *self.view().max_skipnan(),
         };
         let log_amin = amin.log10();
         let log_ref = if ref_value > amin {

@@ -54,15 +54,14 @@ where
     let a = T::from(0.42).unwrap();
     let b = T::from(0.5).unwrap();
     let c = T::from(0.08).unwrap();
-    Array::from_iter(
-        (0..size2)
-            .into_iter()
-            .map(|x| {
-                let x_float = T::from_usize(x).unwrap();
-                a - b * (pi2 * x_float / np_f).cos() + c * (pi4 * x_float / np_f).cos()
-            })
-            .skip(if symmetric { 1 } else { 0 }),
-    )
+    (0..size2)
+        .into_iter()
+        .map(|x| {
+            let x_float = T::from_usize(x).unwrap();
+            a - b * (pi2 * x_float / np_f).cos() + c * (pi4 * x_float / np_f).cos()
+        })
+        .skip(if symmetric { 1 } else { 0 })
+        .collect()
 }
 
 fn cosine_window<T>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T>
@@ -78,7 +77,7 @@ where
         let d_ = d * (T::from_u8(6).unwrap() * x).cos();
         (a - b_) + (c_ - d_)
     };
-    Array::from_iter((0..size2).map(cos_fn).take(size))
+    (0..size2).map(cos_fn).take(size).collect()
 }
 
 #[cfg(test)]

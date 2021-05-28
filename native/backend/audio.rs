@@ -12,7 +12,7 @@ pub fn open_audio_file(path: &str) -> io::Result<(Array2<f32>, u32, String)> {
     };
     let sr = source.sample_rate();
     let channels = source.channels() as usize;
-    let sample_format_str = source.sample_format_str().clone();
+    let sample_format_str = source.sample_format_str();
     let mut vec: Vec<f32> = source.collect();
     if vec.len() < channels {
         (vec.len()..channels).into_iter().for_each(|_| vec.push(0.));

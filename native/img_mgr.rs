@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use approx::abs_diff_eq;
 use futures::task;
 use lazy_static::{initialize, lazy_static};
 use ndarray::{Array3, Axis, Slice};
@@ -221,8 +222,8 @@ fn categorize_id_ch(
         }
     }
     assert!(
-        cat_by_spec.need_parts.len() == 0
-            || cat_by_wav.need_parts.len() == 0
+        cat_by_spec.need_parts.is_empty()
+            || cat_by_wav.need_parts.is_empty()
             || cat_by_spec.need_parts.len() == cat_by_wav.need_parts.len()
     );
     (cat_by_spec, cat_by_wav, need_wav_parts_only)
@@ -237,10 +238,10 @@ fn blend_imgs(
     height: u32,
     blend: f64,
 ) -> Images {
-    if blend == 1. {
+    if abs_diff_eq!(blend, 1.) {
         return spec_imgs;
     }
-    if blend == 0. {
+    if abs_diff_eq!(blend, 0.) {
         return wav_imgs;
     }
     spec_imgs
