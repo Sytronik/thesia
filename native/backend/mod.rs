@@ -394,8 +394,8 @@ impl TrackManager {
                 height,
                 Some((part_i_w, part_width)),
                 opt_for_wav.amp_range,
-                fast_resize_vec.as_ref().map_or(false, |v| v[i]),
                 blend,
+                fast_resize_vec.as_ref().map_or(false, |v| v[i]),
             );
             let mut arr =
                 Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();

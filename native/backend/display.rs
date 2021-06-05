@@ -264,8 +264,8 @@ pub fn draw_blended_spec_wav(
     height: u32,
     grey_left_width: Option<(usize, usize)>,
     amp_range: (f32, f32),
-    fast_resize: bool,
     blend: f64,
+    fast_resize: bool,
 ) -> Vec<u8> {
     // spec
     let mut result = if blend > 0. {
@@ -311,20 +311,21 @@ pub fn blend(
     width: u32,
     height: u32,
     blend: f64,
-    eff_l_w: (u32, u32),
+    eff_l_w: Option<(u32, u32)>,
 ) -> Vec<u8> {
     assert!(0. < blend && blend < 1.);
     let mut result = spec_img.to_vec();
     let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
     // black
-    if blend < 0.5 && eff_l_w.1 > 0 {
-        let (left, width) = eff_l_w;
-        let rect = IntRect::from_xywh(left as i32, 0, width, height)
-            .unwrap()
-            .to_rect();
-        let mut paint = Paint::default();
-        paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
-        pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+    if let Some((left, width)) = eff_l_w {
+        if blend < 0.5 && width > 0 {
+            let rect = IntRect::from_xywh(left as i32, 0, width, height)
+                .unwrap()
+                .to_rect();
+            let mut paint = Paint::default();
+            paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
+            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+        }
     }
     {
         let paint = PixmapPaint {

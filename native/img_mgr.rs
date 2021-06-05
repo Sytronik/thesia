@@ -248,7 +248,7 @@ fn blend_imgs(
         .par_iter()
         .filter_map(|(k, spec_img)| {
             let wav_img = wav_imgs.get(k)?;
-            let eff_l_w = eff_l_w_map.get(k).cloned().unwrap_or((0, 0));
+            let eff_l_w = eff_l_w_map.get(k).cloned();
             let img = display::blend(spec_img, wav_img, width, height, blend, eff_l_w);
             Some((*k, img))
         })
