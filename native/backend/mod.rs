@@ -551,6 +551,8 @@ impl TrackManager {
                         .par_iter()
                         .map(|&(sr, _, n_fft)| (sr, mel::calc_mel_fb_default(sr, n_fft))),
                 );
+            } else {
+                self.mel_fbs.clear();
             }
         }
     }
