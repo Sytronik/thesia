@@ -431,25 +431,6 @@ impl TrackManager {
         result
     }
 
-    pub fn get_spec_image_of(&self, id: usize, ch: usize, width: u32, height: u32) -> Vec<u8> {
-        let grey = self.spec_greys.get(&(id, ch)).unwrap().view();
-        display::colorize_grey_with_size(grey, width, height, false, None)
-    }
-
-    pub fn get_wav_image_of(
-        &self,
-        id: usize,
-        ch: usize,
-        width: u32,
-        height: u32,
-        amp_range: (f32, f32),
-    ) -> Vec<u8> {
-        let mut result = vec![0u8; width as usize * height as usize * 4];
-        let wav = self.tracks.get(&id).unwrap().get_wav(ch);
-        display::draw_wav_to(&mut result[..], wav, width, height, amp_range, None);
-        result
-    }
-
     #[inline]
     pub fn id_ch_tuples(&self) -> IdChVec {
         self.specs.keys().cloned().collect()
@@ -777,16 +758,27 @@ mod tests {
         dbg!(tm.tracks.get(&0).unwrap());
         dbg!(tm.filenames.get(&5).unwrap());
         dbg!(tm.filenames.get(&6).unwrap());
-        let width: u32 = 1500;
-        let height: u32 = 500;
-        id_list.iter().zip(&tags).for_each(|(&id, &sr)| {
-            let imvec = tm.get_spec_image_of(id, 0, width, height);
-            let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-            im.save(format!("samples/spec_{}.png", sr)).unwrap();
-            let imvec = tm.get_wav_image_of(id, 0, width, height, (-1., 1.));
-            let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-            im.save(format!("samples/wav_{}.png", sr)).unwrap();
-        });
+        let option = DrawOption {
+            px_per_sec: 200.,
+            height: 500,
+        };
+        let opt_for_wav = DrawOptionForWav {
+            amp_range: (-1., 1.),
+        };
+        let spec_imgs = tm.get_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Spec);
+        let mut wav_imgs =
+            tm.get_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Wav(opt_for_wav));
+        for ((id, ch), spec) in spec_imgs {
+            let sr_str = tags[id];
+            let width = spec.shape()[1] as u32;
+            let img = RgbaImage::from_vec(width, option.height, spec.into_raw_vec()).unwrap();
+            img.save(format!("samples/spec_{}_{}.png", sr_str, ch))
+                .unwrap();
+            let wav_img = wav_imgs.remove(&(id, ch)).unwrap().into_raw_vec();
+            let img = RgbaImage::from_vec(width, option.height, wav_img).unwrap();
+            img.save(format!("samples/wav_{}_{}.png", sr_str, ch))
+                .unwrap();
+        }
 
         let imvec = tm
             .get_part_imgs(
@@ -795,17 +787,16 @@ mod tests {
                 1000,
                 DrawOption {
                     px_per_sec: 16000.,
-                    height,
+                    height: option.height,
                 },
-                DrawOptionForWav {
-                    amp_range: (-1., 1.),
-                },
+                opt_for_wav,
                 0.,
                 Some(vec![false]),
             )
             .remove(&(0, 0))
             .unwrap();
-        let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
+        let im = RgbaImage::from_vec(imvec.len() as u32 / option.height / 4, option.height, imvec)
+            .unwrap();
         im.save("samples/wav_part.png").unwrap();
 
         tm.remove_tracks(&[0]);
