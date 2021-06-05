@@ -487,6 +487,7 @@ impl TrackManager {
             .map_or(false, |track| ch < track.n_ch())
     }
 
+    #[inline]
     pub fn get_setting(&self) -> &SpecSetting {
         &self.setting
     }
@@ -506,6 +507,7 @@ impl TrackManager {
         self.update_greys(true);
     }
 
+    #[inline]
     pub fn get_db_range(&self) -> f32 {
         self.db_range
     }
