@@ -18,6 +18,7 @@ mod mel;
 mod resample;
 mod sinc;
 mod stft;
+#[macro_use]
 pub mod utils;
 mod windows;
 
@@ -171,8 +172,8 @@ impl fmt::Debug for AudioTrack {
 
 #[readonly::make]
 pub struct TrackManager {
-    pub tracks: HashMap<usize, AudioTrack>,
-    pub filenames: HashMap<usize, String>,
+    pub tracks: Vec<Option<AudioTrack>>,
+    pub filenames: Vec<Option<String>>,
     pub max_db: f32,
     pub min_db: f32,
     pub max_sec: f64,
@@ -191,8 +192,8 @@ pub struct TrackManager {
 impl TrackManager {
     pub fn new() -> Self {
         TrackManager {
-            tracks: HashMap::new(),
-            filenames: HashMap::new(),
+            tracks: Vec::new(),
+            filenames: Vec::new(),
             max_db: -f32::INFINITY,
             min_db: f32::INFINITY,
             max_sec: 0.,
@@ -227,7 +228,11 @@ impl TrackManager {
                 if self.windows.get(&track.sr).is_none() {
                     new_params_set.insert((track.sr, track.win_length, track.n_fft));
                 }
-                self.tracks.insert(id, track);
+                if id >= self.tracks.len() {
+                    self.tracks
+                        .extend((self.tracks.len()..(id + 1)).map(|_| None));
+                }
+                self.tracks[id].replace(track);
                 added_ids.push(id);
             }
         }
@@ -244,7 +249,7 @@ impl TrackManager {
         let mut reloaded_ids = Vec::new();
         let mut no_err_ids = Vec::new();
         for &id in id_list {
-            let track = self.tracks.get_mut(&id).unwrap();
+            let track = self.tracks[id].as_mut().unwrap();
             match track.reload(&self.setting) {
                 Ok(true) => {
                     let sec = track.sec();
@@ -276,12 +281,12 @@ impl TrackManager {
         let mut removed_nfft_set = HashSet::<usize>::new();
         let mut need_update_max_sec = false;
         for &id in id_list {
-            if let Some((_, removed)) = self.tracks.remove_entry(&id) {
+            if let Some(removed) = self.tracks[id].take() {
                 for ch in 0..removed.n_ch() {
                     self.specs.remove(&(id, ch));
                     self.spec_greys.remove(&(id, ch));
                 }
-                if self.tracks.par_iter().all(|(_, tr)| tr.sr != removed.sr) {
+                if iter_filtered!(self.tracks).all(|tr| tr.sr != removed.sr) {
                     removed_sr_set.insert(removed.sr);
                     removed_nfft_set.insert(removed.n_fft);
                 }
@@ -294,12 +299,10 @@ impl TrackManager {
         }
 
         if need_update_max_sec {
-            let (id, max_sec) = self
-                .tracks
-                .par_iter()
-                .map(|(&id, track)| (id, track.sec()))
-                .reduce(
-                    || (0, 0.),
+            let (id, max_sec) = indexed_iter_filtered!(self.tracks)
+                .map(|(id, track)| (id, track.sec()))
+                .fold(
+                    (0, 0.),
                     |(id_max, max), (id, sec)| {
                         if sec > max {
                             (id, sec)
@@ -329,7 +332,7 @@ impl TrackManager {
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
-            let track = self.tracks.get(&id).unwrap();
+            let track = self.tracks[id].as_ref().unwrap();
             let width = track.calc_width(px_per_sec);
             let arr = match kind {
                 ImageKind::Spec => {
@@ -417,7 +420,7 @@ impl TrackManager {
     }
 
     pub fn get_overview_of(&self, id: usize, width: u32, height: u32) -> Vec<u8> {
-        let track = self.tracks.get(&id).unwrap();
+        let track = self.tracks[id].as_ref().unwrap();
         let ch_h = height / track.n_ch() as u32;
         let i_start = (height % track.n_ch() as u32 / 2 * width * 4) as usize;
         let i_end = i_start + (track.n_ch() as u32 * ch_h * width * 4) as usize;
@@ -442,7 +445,7 @@ impl TrackManager {
         id_list
             .iter()
             .flat_map(|&id| {
-                let n_ch = self.tracks.get(&id).unwrap().n_ch();
+                let n_ch = self.tracks[id].as_ref().unwrap().n_ch();
                 iter::repeat(id).zip(0..n_ch)
             })
             .collect()
@@ -464,8 +467,8 @@ impl TrackManager {
 
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
-        self.tracks
-            .get(&id)
+        self.tracks[id]
+            .as_ref()
             .map_or(false, |track| ch < track.n_ch())
     }
 
@@ -477,7 +480,7 @@ impl TrackManager {
     pub fn set_setting(&mut self, setting: SpecSetting) {
         let mut params_set = HashSet::new();
         let mut removed_nfft_set: HashSet<_> = self.fft_modules.keys().cloned().collect();
-        for track in self.tracks.values_mut() {
+        for track in iter_mut_filtered!(self.tracks) {
             track.set_framing_params(&setting);
             params_set.insert((track.sr, track.win_length, track.n_fft));
             removed_nfft_set.remove(&track.n_fft);
@@ -542,7 +545,7 @@ impl TrackManager {
     }
 
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
-        let track = self.tracks.get(&id).unwrap();
+        let track = self.tracks[id].as_ref().unwrap();
         let window = self
             .windows
             .get(&track.sr)
@@ -616,18 +619,18 @@ impl TrackManager {
             has_changed_all
         };
 
-        let max_sr = self
-            .tracks
-            .par_iter()
-            .map(|(_, track)| track.sr)
-            .reduce(|| 0u32, |max, x| max.max(x));
+        let max_sr = iter_filtered!(self.tracks)
+            .map(|track| track.sr)
+            .fold(0u32, |max, x| max.max(x));
         if self.max_sr != max_sr {
             self.max_sr = max_sr;
             has_changed_all = true;
         }
         let ids_need_update: HashSet<usize> = if has_changed_all {
             self.no_grey_ids.clear();
-            self.tracks.keys().cloned().collect()
+            indexed_iter_filtered!(self.tracks)
+                .map(|(id, _)| id)
+                .collect()
         } else {
             self.no_grey_ids.drain(..).collect()
         };
@@ -637,7 +640,7 @@ impl TrackManager {
             new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                 if ids_need_update.contains(&id) {
                     let up_ratio = calc_up_ratio(
-                        self.tracks.get(&id).unwrap().sr,
+                        self.tracks[id].as_ref().unwrap().sr,
                         self.max_sr,
                         self.setting.freq_scale,
                     );
@@ -665,11 +668,12 @@ impl TrackManager {
     fn update_filenames(&mut self) {
         let mut paths = HashMap::with_capacity(self.tracks.len());
         paths.extend(
-            self.tracks
-                .iter()
-                .map(|(&id, track)| (id, track.path.clone())),
+            indexed_iter_filtered!(self.tracks).map(|(id, track)| (id, track.path.clone())),
         );
-        self.filenames = unique_filenames(paths);
+        let mut filenames = unique_filenames(paths);
+        self.filenames = (0..self.tracks.len())
+            .map(|i| filenames.remove(&i))
+            .collect();
     }
 
     fn calc_part_grey_info(
@@ -680,7 +684,7 @@ impl TrackManager {
         target_width: u32,
         px_per_sec: f64,
     ) -> Option<(usize, usize)> {
-        let track = self.tracks.get(&id)?;
+        let track = self.tracks[id].as_ref()?;
         let spec_grey = self.spec_greys.get(&(id, ch))?;
         let total_width = spec_grey.shape()[1] as u64;
         let wavlen = track.wavlen() as f64;
@@ -701,7 +705,7 @@ impl TrackManager {
         width: u32,
         px_per_sec: f64,
     ) -> Option<ArrayView1<f32>> {
-        let track = self.tracks.get(&id)?;
+        let track = self.tracks[id].as_ref()?;
         let i = (sec * track.sr as f64).round() as isize;
         let length = ((track.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
         let (i, length) = display::calc_effective_w(i, length, track.wavlen())?;
@@ -715,7 +719,7 @@ impl TrackManager {
         width: u32,
         px_per_sec: f64,
     ) -> (u32, u32, u32) {
-        let track = self.tracks.get(&id).unwrap();
+        let track = self.tracks[id].as_ref().unwrap();
 
         let total_width = (px_per_sec * track.wavlen() as f64 / track.sr as f64).max(1.);
         let pad_left = ((-sec * px_per_sec).max(0.).round() as u32).min(width);
@@ -756,9 +760,9 @@ mod tests {
         updated_ids.sort();
         assert_eq!(updated_ids, id_list);
 
-        dbg!(tm.tracks.get(&0).unwrap());
-        dbg!(tm.filenames.get(&5).unwrap());
-        dbg!(tm.filenames.get(&6).unwrap());
+        dbg!(tm.tracks[0].as_ref().unwrap());
+        dbg!(tm.filenames[5].as_ref().unwrap());
+        dbg!(tm.filenames[6].as_ref().unwrap());
         let option = DrawOption {
             px_per_sec: 200.,
             height: 500,
