@@ -9,11 +9,8 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 path = "native/lib.rs"
 
-[dev-dependencies]
-image = "0.23.14"
-
 [dependencies]
-napi = "1.7.0"
+napi = "1.7.5"
 napi-derive = "1.1.0"
 
 cached = "0.23.0"
@@ -45,14 +42,17 @@ rev = "860ff756349d6580f95324374f0ffce4d1675607"
 git = "https://github.com/Sytronik/rodio.git"
 rev = "788509f4d4ad1f5c9e8862a1471994342bd8d286"
 
+[dev-dependencies]
+image = "0.23.14"
+
+[build-dependencies]
+napi-build = "1.1.0"
+
 [target.'cfg(all(unix, not(target_env = "musl"), not(target_arch = "aarch64")))'.dependencies]
 jemallocator = {version = "0.3.2", features = ["disable_initial_exec_tls"]}
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 mimalloc = {version = "0.1.25"}
-
-[build-dependencies]
-napi-build = "1.0.2"
 
 [profile.release]
 codegen-units = 1
