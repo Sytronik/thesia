@@ -7,6 +7,7 @@ const REF_DEFAULT: f32 = 1.0;
 const AMIN_AMP_DEFAULT: f32 = 1e-18;
 const AMIN_POWER_DEFAULT: f32 = 1e-36;
 
+#[allow(dead_code)]
 pub enum DeciBelRef<A: Float> {
     Value(A),
     Max,

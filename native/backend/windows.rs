@@ -64,6 +64,7 @@ where
         .collect()
 }
 
+#[allow(clippy::many_single_char_names)]
 fn cosine_window<T>(a: T, b: T, c: T, d: T, size: usize, symmetric: bool) -> Array1<T>
 where
     T: Float + FloatConst + FromPrimitive,

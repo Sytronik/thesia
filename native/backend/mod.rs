@@ -431,6 +431,7 @@ impl TrackManager {
         result
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn id_ch_tuples(&self) -> IdChVec {
         self.specs.keys().cloned().collect()
