@@ -36,7 +36,7 @@ fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
     let added_ids = TM.write().add_tracks(id_list, path_list);
-    convert_usize_arr_to_jsarr(ctx.env, &added_ids[..])
+    convert_usize_arr_to_jsarr(ctx.env, &added_ids)
 }
 
 #[js_function(1)]
@@ -44,8 +44,8 @@ fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
     let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
     assert!(!track_ids.is_empty());
 
-    let no_err_ids = TM.write().reload_tracks(&track_ids[..]);
-    convert_usize_arr_to_jsarr(ctx.env, &no_err_ids[..])
+    let no_err_ids = TM.write().reload_tracks(&track_ids);
+    convert_usize_arr_to_jsarr(ctx.env, &no_err_ids)
 }
 
 #[js_function(1)]
@@ -54,8 +54,8 @@ fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
     assert!(!track_ids.is_empty());
 
     let mut tm = TM.write();
-    img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids[..])));
-    tm.remove_tracks(&track_ids[..]);
+    img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids)));
+    tm.remove_tracks(&track_ids);
     ctx.env.get_undefined()
 }
 
@@ -68,7 +68,7 @@ fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
     };
 
     img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone()));
-    convert_id_ch_arr_to_jsarr(&env, &id_ch_tuples[..]).map(Some)
+    convert_id_ch_arr_to_jsarr(&env, &id_ch_tuples).map(Some)
 }
 
 #[js_function(6)]

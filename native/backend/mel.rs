@@ -57,11 +57,8 @@ where
     let fmax = if let Some(f) = fmax { f } else { f_nyquist };
     let n_freq = n_fft / 2 + 1;
 
-    let min_mel = from_hz(fmin);
-    let max_mel = from_hz(fmax);
-
     let linear_freqs = Array::linspace(A::zero(), f_nyquist, n_freq);
-    let mut mel_freqs = Array::linspace(min_mel, max_mel, n_mel + 2);
+    let mut mel_freqs = Array::linspace(from_hz(fmin), from_hz(fmax), n_mel + 2);
     mel_freqs.par_mapv_inplace(to_hz);
 
     let mut weights = Array2::<A>::zeros((n_freq, n_mel));

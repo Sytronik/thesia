@@ -125,7 +125,7 @@ pub fn colorize_grey_with_size(
         .resize_stride(
             &grey.as_slice().unwrap()[trim_left..].as_gray(),
             grey.shape()[1],
-            &mut resized[..].as_gray_mut(),
+            &mut resized.as_gray_mut(),
         )
         .unwrap();
     resized
@@ -209,10 +209,8 @@ pub fn draw_wav_to(
         return;
     }
 
-    let amp_to_height_px = |x: f32| {
-        ((amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0))
-            .max(0.)
-            .min(height as f32)
+    let amp_to_height_px = move |x: f32| {
+        ((amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0)).clamp(0., height as f32)
     };
     let samples_per_px = wav.len() as f32 / width as f32;
 
@@ -280,7 +278,7 @@ pub fn draw_blended_spec_wav(
         vec![0u8; width as usize * height as usize * 4]
     };
 
-    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
+    let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
 
     if blend < 1. {
         // black
@@ -315,7 +313,7 @@ pub fn blend(
 ) -> Vec<u8> {
     assert!(0. < blend && blend < 1.);
     let mut result = spec_img.to_vec();
-    let mut pixmap = PixmapMut::from_bytes(&mut result[..], width, height).unwrap();
+    let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
     // black
     if let Some((left, width)) = eff_l_w {
         if blend < 0.5 && width > 0 {

@@ -239,13 +239,13 @@ impl TrackManager {
 
         self.update_filenames();
         self.update_srmaps(Some(new_params_set), None, None);
-        self.update_specs(self.id_ch_tuples_from(&added_ids[..]));
+        self.update_specs(self.id_ch_tuples_from(&added_ids));
         self.no_grey_ids.extend(added_ids.iter().cloned());
         added_ids
     }
 
     pub fn reload_tracks(&mut self, id_list: &[usize]) -> Vec<usize> {
-        let mut new_sr_set = HashSet::<FramingParams>::new();
+        let mut new_params_set = HashSet::<FramingParams>::new();
         let mut reloaded_ids = Vec::new();
         let mut no_err_ids = Vec::new();
         for &id in id_list {
@@ -258,7 +258,7 @@ impl TrackManager {
                         self.id_max_sec = id;
                     }
                     if self.windows.get(&track.sr).is_none() {
-                        new_sr_set.insert((track.sr, track.win_length, track.n_fft));
+                        new_params_set.insert((track.sr, track.win_length, track.n_fft));
                     }
                     reloaded_ids.push(id);
                     no_err_ids.push(id);
@@ -270,8 +270,8 @@ impl TrackManager {
             }
         }
 
-        self.update_srmaps(Some(new_sr_set), None, None);
-        self.update_specs(self.id_ch_tuples_from(&reloaded_ids[..]));
+        self.update_srmaps(Some(new_params_set), None, None);
+        self.update_specs(self.id_ch_tuples_from(&reloaded_ids));
         self.no_grey_ids.extend(reloaded_ids.iter().cloned());
         no_err_ids
     }
@@ -286,7 +286,9 @@ impl TrackManager {
                     self.specs.remove(&(id, ch));
                     self.spec_greys.remove(&(id, ch));
                 }
-                if iter_filtered!(self.tracks).all(|tr| tr.sr != removed.sr) {
+                if !removed_sr_set.contains(&removed.sr)
+                    && iter_filtered!(self.tracks).all(|tr| tr.sr != removed.sr)
+                {
                     removed_sr_set.insert(removed.sr);
                     removed_nfft_set.insert(removed.n_fft);
                 }
@@ -750,9 +752,9 @@ mod tests {
         path_list.push(String::from("samples/stereo/sample_48k.wav"));
         let mut tm = TrackManager::new();
         let added_ids = tm.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
-        assert_eq!(&added_ids[..], &id_list[0..3]);
+        assert_eq!(&added_ids, &id_list[0..3]);
         let added_ids = tm.add_tracks(id_list[3..].to_owned(), path_list[3..].to_owned());
-        assert_eq!(&added_ids[..], &id_list[3..]);
+        assert_eq!(&added_ids, &id_list[3..]);
         assert_eq!(tm.tracks.len(), id_list.len());
 
         assert_eq!(tm.spec_greys.len(), 0);

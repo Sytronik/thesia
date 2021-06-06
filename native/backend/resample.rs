@@ -1,8 +1,6 @@
 // from rubato crate
-use std::{
-    ops::{AddAssign, Div, DivAssign, MulAssign},
-    sync::Arc,
-};
+use std::ops::{AddAssign, Div, DivAssign, MulAssign};
+use std::sync::Arc;
 
 use ndarray::{prelude::*, ScalarOperand};
 use ndarray_stats::QuantileExt;
@@ -18,10 +16,10 @@ use super::windows::WindowType;
 pub struct FftResampler<T> {
     input_size: usize,
     output_size: usize,
-    filter_f: Array1<Complex<T>>,
     latency: usize,
     fft: Arc<dyn RealToComplex<T>>,
     ifft: Arc<dyn ComplexToReal<T>>,
+    filter_f: Array1<Complex<T>>,
     scratch_fw: Vec<Complex<T>>,
     scratch_inv: Vec<Complex<T>>,
     input_buf: Array1<T>,
@@ -53,23 +51,20 @@ where
 
         let sinc = calc_windowed_sincs::<T>(input_size, 1, cutoff, WindowType::Blackman)
             .index_axis_move(Axis(0), 0);
+        let latency =
+            ((sinc.argmax().unwrap() * output_size) as f32 / input_size as f32).round() as usize;
+
+        let mut planner = RealFftPlanner::<T>::new();
+        let fft = planner.plan_fft_forward(2 * input_size);
+        let ifft = planner.plan_fft_inverse(2 * output_size);
+
         let mut filter_t = pad(
             (&sinc / T::from(2 * input_size).unwrap()).view(),
             (0, input_size),
             Axis(0),
             PadMode::Constant(T::zero()),
         );
-        let latency =
-            ((sinc.argmax().unwrap() * output_size) as f32 / input_size as f32).round() as usize;
         let mut filter_f = Array1::zeros(input_size + 1);
-
-        let input_f = Array1::zeros(input_size + 1);
-        let input_buf = Array1::zeros(2 * input_size);
-        let output_f = Array1::zeros(output_size + 1);
-        let output_buf = Array1::zeros(2 * output_size);
-        let mut planner = RealFftPlanner::<T>::new();
-        let fft = planner.plan_fft_forward(2 * input_size);
-        let ifft = planner.plan_fft_inverse(2 * output_size);
         fft.process(
             filter_t.as_slice_mut().unwrap(),
             filter_f.as_slice_mut().unwrap(),
@@ -78,14 +73,18 @@ where
 
         let scratch_fw = fft.make_scratch_vec();
         let scratch_inv = ifft.make_scratch_vec();
+        let input_buf = Array1::zeros(2 * input_size);
+        let input_f = Array1::zeros(input_size + 1);
+        let output_f = Array1::zeros(output_size + 1);
+        let output_buf = Array1::zeros(2 * output_size);
 
         FftResampler {
             input_size,
             output_size,
-            filter_f,
             latency,
             fft,
             ifft,
+            filter_f,
             scratch_fw,
             scratch_inv,
             input_buf,

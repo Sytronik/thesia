@@ -41,7 +41,7 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
                         value.insert(id, parent);
                     }
                     None => {
-                        let mut hm = HashMap::<usize, PathBuf>::new();
+                        let mut hm = HashMap::<usize, PathBuf>::with_capacity(1);
                         hm.insert(id, parent);
                         groups.insert(name, hm);
                     }
@@ -70,21 +70,6 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
 #[inline]
 pub fn calc_proper_n_fft(win_length: usize) -> usize {
     2usize.pow((win_length as f32).log2().ceil() as u32)
-}
-
-pub trait Impulse {
-    fn impulse(size: usize, location: usize) -> Self;
-}
-
-impl<A> Impulse for Array1<A>
-where
-    A: Clone + Zero + One,
-{
-    fn impulse(size: usize, location: usize) -> Self {
-        let mut new = Array1::<A>::zeros((size,));
-        new[location] = A::one();
-        new
-    }
 }
 
 pub enum PadMode<T> {

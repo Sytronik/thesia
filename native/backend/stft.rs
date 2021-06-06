@@ -32,9 +32,6 @@ pub fn perform_stft<A>(
 where
     A: FftNum + Float + FloatConst + DivAssign + ScalarOperand,
 {
-    let n_pad_left = (n_fft - win_length) / 2;
-    let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
-
     let window = if let Some(w) = window {
         assert_eq!(w.len(), win_length);
         w
@@ -42,8 +39,11 @@ where
         CowArray::from(calc_normalized_win(WindowType::Hann, win_length, n_fft))
     };
 
-    let to_frames_wrapper =
-        move |x| to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right));
+    let to_frames_wrapper = move |x| {
+        let n_pad_left = (n_fft - win_length) / 2;
+        let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
+        to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right))
+    };
     let front_wav = pad(
         input.slice(s![..(win_length - 1)]),
         (win_length / 2, 0),
@@ -133,8 +133,23 @@ fn to_windowed_frames<A: Float>(
 mod tests {
     use ndarray::{arr2, Array1};
     use rustfft::num_complex::Complex;
+    use rustfft::num_traits::{One, Zero};
 
-    use super::super::utils::Impulse;
+    trait Impulse {
+        fn impulse(size: usize, location: usize) -> Self;
+    }
+
+    impl<A> Impulse for Array1<A>
+    where
+        A: Clone + Zero + One,
+    {
+        fn impulse(size: usize, location: usize) -> Self {
+            let mut new = Array1::<A>::zeros((size,));
+            new[location] = A::one();
+            new
+        }
+    }
+
     use super::*;
     #[test]
     fn stft_works() {

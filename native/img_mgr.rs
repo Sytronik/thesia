@@ -297,7 +297,7 @@ async fn draw_imgs(
         let (spec_imgs, eff_l_w_map) = if !cat_by_spec.use_caches.is_empty() {
             crop_caches(
                 &spec_caches_lock,
-                &cat_by_spec.use_caches[..],
+                &cat_by_spec.use_caches,
                 sec,
                 width,
                 &option,
@@ -308,7 +308,7 @@ async fn draw_imgs(
         let mut wav_imgs = if !cat_by_wav.use_caches.is_empty() {
             crop_caches(
                 &wav_caches_lock,
-                &cat_by_wav.use_caches[..],
+                &cat_by_wav.use_caches,
                 sec,
                 width,
                 &option,
@@ -319,7 +319,7 @@ async fn draw_imgs(
         };
         if !need_wav_parts_only.is_empty() {
             wav_imgs.extend(tm.get_part_imgs(
-                &need_wav_parts_only[..],
+                &need_wav_parts_only,
                 sec,
                 width,
                 option,
@@ -366,7 +366,7 @@ async fn draw_imgs(
                 None
             };
             tm.get_part_imgs(
-                &cat_by_spec.need_parts[..],
+                &cat_by_spec.need_parts,
                 sec,
                 width,
                 option,
@@ -392,13 +392,13 @@ async fn draw_imgs(
         let mut wav_caches_lock = wav_caches.lock();
         let (spec_imgs, eff_l_w_map) = if !cat_by_spec.need_new_caches.is_empty() {
             spec_caches_lock.extend(tm.get_entire_imgs(
-                &cat_by_spec.need_new_caches[..],
+                &cat_by_spec.need_new_caches,
                 option,
                 ImageKind::Spec,
             ));
             crop_caches(
                 &spec_caches_lock,
-                &cat_by_spec.need_new_caches[..],
+                &cat_by_spec.need_new_caches,
                 sec,
                 width,
                 &option,
@@ -408,13 +408,13 @@ async fn draw_imgs(
         };
         let wav_imgs = if !cat_by_wav.need_new_caches.is_empty() {
             wav_caches_lock.extend(tm.get_entire_imgs(
-                &cat_by_wav.need_new_caches[..],
+                &cat_by_wav.need_new_caches,
                 option,
                 ImageKind::Wav(opt_for_wav),
             ));
             crop_caches(
                 &wav_caches_lock,
-                &cat_by_wav.need_new_caches[..],
+                &cat_by_wav.need_new_caches,
                 sec,
                 width,
                 &option,
