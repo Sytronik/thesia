@@ -221,9 +221,9 @@ pub fn draw_wav_to(
         draw_wav_directly(upsampled.as_slice().unwrap(), &mut pixmap, &paint);
         return;
     }
-    let mut top_envlop = Vec::<f32>::with_capacity(width as usize);
-    let mut btm_envlop = Vec::<f32>::with_capacity(width as usize);
-    let mut wav_avg = Vec::<f32>::with_capacity(width as usize);
+    let mut wav_slices = Vec::with_capacity(width as usize);
+    let mut top_envlop = Vec::with_capacity(width as usize);
+    let mut btm_envlop = Vec::with_capacity(width as usize);
     let mut n_conseq_long_h = 0usize;
     let mut max_n_conseq = 0usize;
     for i_px in 0..width {
@@ -232,7 +232,6 @@ pub fn draw_wav_to(
         let wav_slice = wav.slice(s![i_start..i_end]);
         let mut top = amp_to_height_px(*wav_slice.max_skipnan());
         let mut bottom = amp_to_height_px(*wav_slice.min_skipnan());
-        let avg = amp_to_height_px(wav_slice.mean().unwrap());
         let diff = THR_LONG_HEIGHT + top - bottom;
         if diff < 0. {
             n_conseq_long_h += 1;
@@ -242,15 +241,19 @@ pub fn draw_wav_to(
             top -= diff / 2.;
             bottom += diff / 2.;
         }
+        wav_slices.push(wav_slice);
         top_envlop.push(top);
         btm_envlop.push(bottom);
-        wav_avg.push(avg);
     }
     max_n_conseq = max_n_conseq.max(n_conseq_long_h);
     if max_n_conseq > THR_N_CONSEQ_LONG_H {
-        draw_wav_topbottom(&top_envlop[..], &btm_envlop[..], &mut pixmap, &paint);
+        draw_wav_topbottom(&top_envlop, &btm_envlop, &mut pixmap, &paint);
     } else {
-        draw_wav_directly(&wav_avg[..], &mut pixmap, &paint);
+        let wav_avg: Vec<f32> = wav_slices
+            .into_iter()
+            .map(|wav_slice| amp_to_height_px(wav_slice.mean().unwrap()))
+            .collect();
+        draw_wav_directly(&wav_avg, &mut pixmap, &paint);
     }
     // println!("drawing wav: {:?}", start.elapsed());
 }
