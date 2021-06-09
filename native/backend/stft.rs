@@ -32,18 +32,50 @@ pub fn perform_stft<A>(
 where
     A: FftNum + Float + FloatConst + DivAssign + ScalarOperand,
 {
-    let window = if let Some(w) = window {
-        assert_eq!(w.len(), win_length);
-        w
-    } else {
-        CowArray::from(calc_normalized_win(WindowType::Hann, win_length, n_fft))
-    };
+    let window = window.map_or_else(
+        || CowArray::from(calc_normalized_win(WindowType::Hann, win_length, n_fft)),
+        |w| {
+            assert_eq!(w.len(), win_length);
+            w
+        },
+    );
 
     let to_frames_wrapper = move |x| {
         let n_pad_left = (n_fft - win_length) / 2;
-        let n_pad_right = (((n_fft - win_length) as f32) / 2.).ceil() as usize;
+        let n_pad_right = n_fft - win_length - n_pad_left;
         to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right))
     };
+
+    let fft_module =
+        fft_module.unwrap_or_else(|| RealFftPlanner::<A>::new().plan_fft_forward(n_fft));
+    let do_fft = move |(x, y): (&mut Array1<A>, &mut [Complex<A>])| {
+        let x = x.as_slice_mut().unwrap();
+        fft_module.process(x, y).unwrap();
+    };
+
+    if input.len() < win_length {
+        let padded = pad(
+            input,
+            (win_length / 2, win_length / 2),
+            Axis(0),
+            PadMode::Reflect,
+        );
+        let mut frames = to_frames_wrapper(padded.view());
+
+        let n_frames = frames.len();
+        let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
+        let out_frames: Vec<&mut [Complex<A>]> = output
+            .axis_iter_mut(Axis(0))
+            .map(|x| x.into_slice().unwrap())
+            .collect();
+
+        if parallel {
+            frames.par_iter_mut().zip(out_frames).for_each(do_fft);
+        } else {
+            frames.iter_mut().zip(out_frames).for_each(do_fft);
+        }
+        return output;
+    }
     let front_wav = pad(
         input.slice(s![..(win_length - 1)]),
         (win_length / 2, 0),
@@ -53,7 +85,7 @@ where
     let mut front_frames = to_frames_wrapper(front_wav.view());
 
     let mut first_i = front_frames.len() * hop_length - win_length / 2;
-    let mut frames: Vec<Array1<A>> = to_frames_wrapper(input.slice(s![first_i..]));
+    let mut frames = to_frames_wrapper(input.slice(s![first_i..]));
 
     first_i += frames.len() * hop_length;
     let i_back_wav_start = first_i.min(input.len() - win_length / 2 - 1);
@@ -74,26 +106,18 @@ where
         .map(|x| x.into_slice().unwrap())
         .collect();
 
-    let fft_module =
-        fft_module.unwrap_or_else(|| RealFftPlanner::<A>::new().plan_fft_forward(n_fft));
     if parallel {
         let in_frames = front_frames
             .par_iter_mut()
             .chain(frames.par_iter_mut())
             .chain(back_frames.par_iter_mut());
-        in_frames.zip(out_frames).for_each(|(x, y)| {
-            let x = x.as_slice_mut().unwrap();
-            fft_module.process(x, y).unwrap();
-        });
+        in_frames.zip(out_frames).for_each(do_fft);
     } else {
         let in_frames = front_frames
             .iter_mut()
             .chain(frames.iter_mut())
             .chain(back_frames.iter_mut());
-        in_frames.zip(out_frames).for_each(|(x, y)| {
-            let x = x.as_slice_mut().unwrap();
-            fft_module.process(x, y).unwrap();
-        });
+        in_frames.zip(out_frames).for_each(do_fft);
     }
 
     output
@@ -174,5 +198,12 @@ mod tests {
                 ]
             ])
         );
+    }
+
+    #[test]
+    fn stft_short_wav() {
+        let impulse = Array1::<f32>::impulse(2, 1);
+        let spec = perform_stft(impulse.view(), 8, 6, 8, None, None, false);
+        dbg!(spec.shape());
     }
 }
