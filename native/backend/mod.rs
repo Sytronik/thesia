@@ -24,7 +24,7 @@ mod windows;
 
 use decibel::DeciBelInplace;
 use stft::{calc_up_ratio, perform_stft, FreqScale};
-use utils::{calc_proper_n_fft, unique_filenames};
+use utils::{calc_proper_n_fft, unique_filenames, Pad, PadMode};
 use windows::{calc_normalized_win, WindowType};
 
 pub type IdChVec = Vec<(usize, usize)>;
@@ -406,11 +406,10 @@ impl TrackManager {
                 Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
 
             if width != drawing_width {
-                arr = utils::pad(
-                    arr.view(),
+                arr = arr.pad(
                     (pad_left as usize, pad_right as usize),
                     Axis(1),
-                    utils::PadMode::Constant(0),
+                    PadMode::Constant(0),
                 );
             }
             ((id, ch), arr.into_raw_vec())

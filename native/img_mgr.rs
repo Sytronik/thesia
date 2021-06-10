@@ -15,7 +15,8 @@ use tokio::{
 
 use crate::backend::{
     display::{self, calc_effective_w},
-    utils, DrawOption, DrawOptionForWav, IdChArr, IdChMap, IdChVec, ImageKind,
+    utils::{Pad, PadMode},
+    DrawOption, DrawOptionForWav, IdChArr, IdChMap, IdChVec, ImageKind,
 };
 use crate::TM;
 
@@ -140,12 +141,7 @@ fn crop_caches(
             if pad_left + pad_right == 0 {
                 Some((*tup, (img_slice.to_owned().into_raw_vec(), (0, width))))
             } else {
-                let arr = utils::pad(
-                    img_slice,
-                    (pad_left, pad_right),
-                    Axis(1),
-                    utils::PadMode::Constant(0),
-                );
+                let arr = img_slice.pad((pad_left, pad_right), Axis(1), PadMode::Constant(0));
                 Some((
                     *tup,
                     (arr.into_raw_vec(), (pad_left as u32, width_eff as u32)),

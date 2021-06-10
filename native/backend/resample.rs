@@ -7,7 +7,7 @@ use ndarray_stats::QuantileExt;
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};
 use rustfft::num_traits::{Float, FloatConst, FromPrimitive, NumAssign};
 
-use crate::backend::utils::{pad, PadMode};
+use crate::backend::utils::{Pad, PadMode};
 
 use super::sinc::calc_windowed_sincs;
 use super::windows::WindowType;
@@ -58,12 +58,10 @@ where
         let fft = planner.plan_fft_forward(2 * input_size);
         let ifft = planner.plan_fft_inverse(2 * output_size);
 
-        let mut filter_t = pad(
-            (&sinc / T::from(2 * input_size).unwrap()).view(),
-            (0, input_size),
-            Axis(0),
-            PadMode::Constant(T::zero()),
-        );
+        let mut filter_t = {
+            let x = &sinc / T::from(2 * input_size).unwrap();
+            x.pad((0, input_size), Axis(0), PadMode::Constant(T::zero()))
+        };
         let mut filter_f = Array1::zeros(input_size + 1);
         fft.process(
             filter_t.as_slice_mut().unwrap(),

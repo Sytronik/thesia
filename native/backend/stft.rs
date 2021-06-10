@@ -10,7 +10,7 @@ use rustfft::{
 };
 
 use super::mel;
-use super::utils::{pad, PadMode};
+use super::utils::{Pad, PadMode};
 use super::windows::{calc_normalized_win, WindowType};
 use realfft::{RealFftPlanner, RealToComplex};
 
@@ -54,12 +54,7 @@ where
     };
 
     if input.len() < win_length {
-        let padded = pad(
-            input,
-            (win_length / 2, win_length / 2),
-            Axis(0),
-            PadMode::Reflect,
-        );
+        let padded = input.pad((win_length / 2, win_length / 2), Axis(0), PadMode::Reflect);
         let mut frames = to_frames_wrapper(padded.view());
 
         let n_frames = frames.len();
@@ -76,12 +71,10 @@ where
         }
         return output;
     }
-    let front_wav = pad(
-        input.slice(s![..(win_length - 1)]),
-        (win_length / 2, 0),
-        Axis(0),
-        PadMode::Reflect,
-    );
+    let front_wav =
+        input
+            .slice(s![..(win_length - 1)])
+            .pad((win_length / 2, 0), Axis(0), PadMode::Reflect);
     let mut front_frames = to_frames_wrapper(front_wav.view());
 
     let mut first_i = front_frames.len() * hop_length - win_length / 2;
@@ -90,12 +83,10 @@ where
     first_i += frames.len() * hop_length;
     let i_back_wav_start = first_i.min(input.len() - win_length / 2 - 1);
 
-    let mut back_wav = pad(
-        input.slice(s![i_back_wav_start..]),
-        (0, win_length / 2),
-        Axis(0),
-        PadMode::Reflect,
-    );
+    let mut back_wav =
+        input
+            .slice(s![i_back_wav_start..])
+            .pad((0, win_length / 2), Axis(0), PadMode::Reflect);
     back_wav.slice_collapse(s![(first_i - i_back_wav_start).max(0)..]);
     let mut back_frames = to_frames_wrapper(back_wav.view());
 
@@ -143,8 +134,7 @@ fn to_windowed_frames<A: Float>(
         .into_iter()
         .step_by(hop_length)
         .map(|x| {
-            pad(
-                (&x * &window).view(),
+            (&x * &window).pad(
                 (n_pad_left, n_pad_right),
                 Axis(0),
                 PadMode::Constant(A::zero()),
