@@ -57,32 +57,20 @@ where
         });
     }
 
-    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A)
-    where
-        A: Float,
-        D: Dimension,
-    {
+    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = A::from(10.).unwrap();
         self.log_for_db(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
-    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A)
-    where
-        A: Float,
-        D: Dimension,
-    {
+    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = A::from(20.).unwrap();
         self.log_for_db(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
     #[inline]
-    fn amp_to_db_default(&mut self)
-    where
-        A: Float,
-        D: Dimension,
-    {
+    fn amp_to_db_default(&mut self) {
         self.amp_to_db(
             DeciBelRef::Value(A::from(REF_DEFAULT).unwrap()),
             A::from(AMIN_AMP_DEFAULT).unwrap(),
@@ -90,11 +78,7 @@ where
     }
 
     #[inline]
-    fn power_to_db_default(&mut self)
-    where
-        A: Float,
-        D: Dimension,
-    {
+    fn power_to_db_default(&mut self) {
         self.power_to_db(
             DeciBelRef::Value(A::from(REF_DEFAULT).unwrap()),
             A::from(AMIN_POWER_DEFAULT).unwrap(),
