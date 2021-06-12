@@ -24,6 +24,8 @@ type Images = IdChMap<Vec<u8>>;
 type ArcImgCaches = Arc<Mutex<IdChMap<Array3<u8>>>>;
 type GuardImgCaches<'a> = MutexGuard<'a, IdChMap<Array3<u8>>>;
 
+const MAX_IMG_CACHE_WIDTH: u32 = 2 * display::LARGE_WIDTH_SPLIT_HOP as u32;
+
 lazy_static! {
     static ref RUNTIME: Runtime = Builder::new_multi_thread()
         .worker_threads(2)
@@ -160,33 +162,25 @@ fn categorize_id_ch(
     total_widths: &IdChMap<u32>,
     spec_caches: &GuardImgCaches,
     wav_caches: &GuardImgCaches,
-    option: &DrawOption,
     blend: f64,
 ) -> (CategorizedIdChVec, CategorizedIdChVec, IdChVec) {
     let categorize = |images: &GuardImgCaches| {
-        if option.height <= display::MAX_SIZE {
-            let mut result = CategorizedIdChVec::default();
-            for &tup in &id_ch_tuples {
-                let not_long_w = *total_widths.get(&tup).unwrap() <= display::MAX_SIZE;
-                match (images.contains_key(&tup), not_long_w) {
-                    (true, _) => result.use_caches.push(tup),
-                    (false, true) => {
-                        result.need_parts.push(tup);
-                        result.need_new_caches.push(tup);
-                    }
-                    (false, false) => {
-                        result.need_parts.push(tup);
-                    }
+        let mut result = CategorizedIdChVec::default();
+        for &tup in &id_ch_tuples {
+            let not_long_w = *total_widths.get(&tup).unwrap() <= MAX_IMG_CACHE_WIDTH;
+            // let not_long_w = true;
+            match (images.contains_key(&tup), not_long_w) {
+                (true, _) => result.use_caches.push(tup),
+                (false, true) => {
+                    result.need_parts.push(tup);
+                    result.need_new_caches.push(tup);
+                }
+                (false, false) => {
+                    result.need_parts.push(tup);
                 }
             }
-            result
-        } else {
-            CategorizedIdChVec {
-                use_caches: Vec::new(),
-                need_parts: id_ch_tuples.to_owned(),
-                need_new_caches: Vec::new(),
-            }
         }
+        result
     };
     let cat_by_spec = if blend > 0. {
         categorize(spec_caches)
@@ -285,7 +279,6 @@ async fn draw_imgs(
             &total_widths,
             &spec_caches_lock,
             &wav_caches_lock,
-            &option,
             blend,
         );
 
@@ -350,17 +343,14 @@ async fn draw_imgs(
     let blended_imgs = {
         let tm = TM.read();
         if !cat_by_spec.need_parts.is_empty() {
-            let fast_resize_vec = if option.height <= display::MAX_SIZE {
-                Some(
-                    cat_by_spec
-                        .need_parts
-                        .iter()
-                        .map(|tup| *total_widths.get(tup).unwrap() <= display::MAX_SIZE)
-                        .collect(),
-                )
-            } else {
-                None
-            };
+            let fast_resize_vec = Some(
+                cat_by_spec
+                    .need_parts
+                    .iter()
+                    .map(|tup| *total_widths.get(tup).unwrap() <= MAX_IMG_CACHE_WIDTH)
+                    .collect(),
+            );
+            // let fast_resize_vec = Some(vec![true; cat_by_spec.need_parts.len()]);
             tm.get_part_imgs(
                 &cat_by_spec.need_parts,
                 sec,

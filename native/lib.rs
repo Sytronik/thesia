@@ -85,7 +85,7 @@ fn set_img_state(ctx: CallContext) -> JsResult<JsUndefined> {
     assert!(width >= 1);
     assert!(option.px_per_sec.is_finite());
     assert!(option.px_per_sec >= 0.);
-    assert!(option.height >= 1);
+    assert!(1 <= option.height && option.height < display::MAX_SIZE);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
     img_mgr::send(ImgMsg::Draw((
