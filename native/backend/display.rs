@@ -148,7 +148,7 @@ fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
             pb.line_to(x as f32, y);
         }
         if wav_avg.len() == 1 {
-            pb.line_to(0., wav_avg[0]);
+            pb.line_to(0.999, wav_avg[0]);
         }
         pb.finish().unwrap()
     };
@@ -209,15 +209,20 @@ pub fn draw_wav_to(
         return;
     }
 
-    let amp_to_height_px = move |x: f32| {
-        ((amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0)).clamp(0., height as f32)
+    let amp_to_px = |x: f32, clamp: bool| {
+        let x = (amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0);
+        if clamp {
+            x.clamp(0., height as f32)
+        } else {
+            x
+        }
     };
     let samples_per_px = wav.len() as f32 / width as f32;
 
     // need upsampling
     if samples_per_px < 2. {
         let mut resampler = create_resampler(wav.len(), width as usize);
-        let upsampled = resampler.resample(wav).mapv(amp_to_height_px);
+        let upsampled = resampler.resample(wav).mapv(|x| amp_to_px(x, false));
         draw_wav_directly(upsampled.as_slice().unwrap(), &mut pixmap, &paint);
         return;
     }
@@ -230,8 +235,8 @@ pub fn draw_wav_to(
         let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
         let i_end = (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav.len());
         let wav_slice = wav.slice(s![i_start..i_end]);
-        let mut top = amp_to_height_px(*wav_slice.max_skipnan());
-        let mut bottom = amp_to_height_px(*wav_slice.min_skipnan());
+        let mut top = amp_to_px(*wav_slice.max_skipnan(), true);
+        let mut bottom = amp_to_px(*wav_slice.min_skipnan(), true);
         let diff = THR_LONG_HEIGHT + top - bottom;
         if diff < 0. {
             n_conseq_long_h += 1;
@@ -251,7 +256,7 @@ pub fn draw_wav_to(
     } else {
         let wav_avg: Vec<f32> = wav_slices
             .into_iter()
-            .map(|wav_slice| amp_to_height_px(wav_slice.mean().unwrap()))
+            .map(|wav_slice| amp_to_px(wav_slice.mean().unwrap(), false))
             .collect();
         draw_wav_directly(&wav_avg, &mut pixmap, &paint);
     }
