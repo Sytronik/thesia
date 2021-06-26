@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use crate::backend::{
-    display::{self, calc_effective_w},
+    display::{self, calc_effective_slice},
     utils::{Pad, PadMode},
     DrawOption, DrawOptionForWav, IdChArr, IdChMap, IdChVec, ImageKind,
 };
@@ -129,7 +129,8 @@ fn crop_caches(
             let image = images.get(&tup)?;
             let total_width = image.len() / 4 / option.height as usize;
             let i_w = (sec * option.px_per_sec) as isize;
-            let (i_w_eff, width_eff) = match calc_effective_w(i_w, width as usize, total_width) {
+            let (i_w_eff, width_eff) = match calc_effective_slice(i_w, width as usize, total_width)
+            {
                 Some((i, w)) => (i as isize, w as isize),
                 None => {
                     let zeros = vec![0u8; width as usize * option.height as usize * 4];

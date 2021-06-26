@@ -27,6 +27,8 @@ use stft::{calc_up_ratio, perform_stft, FreqScale};
 use utils::{calc_proper_n_fft, unique_filenames, Pad, PadMode};
 use windows::{calc_normalized_win, WindowType};
 
+use self::display::ArrWithSliceInfo;
+
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
@@ -339,14 +341,19 @@ impl TrackManager {
             let arr = match kind {
                 ImageKind::Spec => {
                     let grey = self.spec_greys.get(&(id, ch)).unwrap().view();
-                    let vec = display::colorize_grey_with_size(grey, width, height, false, None);
+                    let vec = display::colorize_grey_with_size(
+                        ArrWithSliceInfo::entire(&grey),
+                        width,
+                        height,
+                        false,
+                    );
                     Array3::from_shape_vec((height as usize, width as usize, 4), vec).unwrap()
                 }
                 ImageKind::Wav(option_for_wav) => {
                     let mut arr = Array3::zeros((height as usize, width as usize, 4));
                     display::draw_wav_to(
                         arr.as_slice_mut().unwrap(),
-                        track.get_wav(ch),
+                        ArrWithSliceInfo::entire(&track.get_wav(ch)),
                         width,
                         height,
                         option_for_wav.amp_range,
@@ -378,26 +385,22 @@ impl TrackManager {
             let (pad_left, drawing_width, pad_right) =
                 self.decompose_width_of(id, sec, width, px_per_sec);
 
-            let create_empty_img_entry =
-                || ((id, ch), vec![0u8; width as usize * height as usize * 4]);
             if drawing_width == 0 {
-                return create_empty_img_entry();
+                return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
             }
-            let (part_i_w, part_width) =
-                match self.calc_part_grey_info(id, ch, sec, width, px_per_sec) {
-                    Some(x) => x,
-                    None => return create_empty_img_entry(),
-                };
-            let wav_slice = match self.slice_wav_of(id, ch, sec, width, px_per_sec) {
-                Some(x) => x,
-                None => return create_empty_img_entry(),
-            };
+            let spec_grey = ArrWithSliceInfo::from_ref(
+                &self.spec_greys.get(&(id, ch)).unwrap(),
+                self.calc_part_grey_info(id, ch, sec, width, px_per_sec),
+            );
+            let wav = ArrWithSliceInfo::from(
+                self.tracks[id].as_ref().unwrap().get_wav(ch),
+                self.calc_part_wav_info(id, sec, width, px_per_sec),
+            );
             let vec = display::draw_blended_spec_wav(
-                self.spec_greys.get(&(id, ch)).unwrap().view(),
-                wav_slice,
+                spec_grey,
+                wav,
                 drawing_width,
                 height,
-                Some((part_i_w, part_width)),
                 opt_for_wav.amp_range,
                 blend,
                 fast_resize_vec.as_ref().map_or(false, |v| v[i]),
@@ -430,7 +433,14 @@ impl TrackManager {
             .par_chunks_exact_mut(ch_h as usize * width as usize * 4)
             .enumerate()
             .for_each(|(ch, x)| {
-                display::draw_wav_to(x, track.get_wav(ch), width, ch_h, (-1., 1.), None)
+                display::draw_wav_to(
+                    x,
+                    ArrWithSliceInfo::entire(&track.get_wav(ch)),
+                    width,
+                    ch_h,
+                    (-1., 1.),
+                    None,
+                )
             });
         result
     }
@@ -684,9 +694,9 @@ impl TrackManager {
         sec: f64,
         target_width: u32,
         px_per_sec: f64,
-    ) -> Option<(usize, usize)> {
-        let track = self.tracks[id].as_ref()?;
-        let spec_grey = self.spec_greys.get(&(id, ch))?;
+    ) -> (isize, usize) {
+        let track = self.tracks[id].as_ref().unwrap();
+        let spec_grey = self.spec_greys.get(&(id, ch)).unwrap();
         let total_width = spec_grey.shape()[1] as u64;
         let wavlen = track.wavlen() as f64;
         let sr = track.sr as u64;
@@ -695,22 +705,20 @@ impl TrackManager {
             (((total_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec).round()
                 as usize)
                 .max(1);
-        display::calc_effective_w(i_w, width, total_width as usize)
+        (i_w, width)
     }
 
-    fn slice_wav_of(
+    fn calc_part_wav_info(
         &self,
         id: usize,
-        ch: usize,
         sec: f64,
         width: u32,
         px_per_sec: f64,
-    ) -> Option<ArrayView1<f32>> {
-        let track = self.tracks[id].as_ref()?;
+    ) -> (isize, usize) {
+        let track = self.tracks[id].as_ref().unwrap();
         let i = (sec * track.sr as f64).round() as isize;
         let length = ((track.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
-        let (i, length) = display::calc_effective_w(i, length, track.wavlen())?;
-        Some(track.wavs.slice(s![ch, i..i + length]))
+        (i, length)
     }
 
     fn decompose_width_of(
