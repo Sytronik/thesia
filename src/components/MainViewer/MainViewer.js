@@ -4,7 +4,7 @@ import {throttle} from "throttle-debounce";
 import "./MainViewer.scss";
 import {SplitView} from "./SplitView";
 import TrackSummary from "./TrackSummary";
-import Canvas from "./Canvas";
+import ImgCanvas from "./ImgCanvas";
 import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
@@ -47,7 +47,7 @@ function MainViewer({
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
-  const [children, registerChild] = useRefs();
+  const [imgCanvasesRef, registerImgCanvas] = useRefs();
   const requestRef = useRef();
 
   const dragOver = (e) => {
@@ -137,17 +137,17 @@ function MainViewer({
     [],
   );
 
-  const draw = (_) => {
+  const drawCanvas = (_) => {
     const images = getImages();
     let promises = [];
     for (const [idChStr, buf] of Object.entries(images)) {
-      const ref = children.current[idChStr];
+      const ref = imgCanvasesRef.current[idChStr];
       if (ref) {
         promises.push(ref.draw(buf));
       }
     }
     Promise.all(promises);
-    requestRef.current = requestAnimationFrame(draw);
+    requestRef.current = requestAnimationFrame(drawCanvas);
   };
 
   const dropbox = <div className="dropbox"></div>;
@@ -207,9 +207,9 @@ function MainViewer({
     );
     const canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
-        <Canvas
+        <ImgCanvas
           key={`${id}_${ch}`}
-          ref={registerChild(`${id}_${ch}`)}
+          ref={registerImgCanvas(`${id}_${ch}`)}
           width={width}
           height={height}
         />
@@ -223,7 +223,7 @@ function MainViewer({
     );
   });
 
-  const getIdChArr = () => Object.keys(children.current);
+  const getIdChArr = () => Object.keys(imgCanvasesRef.current);
 
   useEffect(() => {
     const viewer = document.querySelector(".js-MainViewer");
@@ -282,7 +282,7 @@ function MainViewer({
   }, [trackIds]);
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(draw);
+    requestRef.current = requestAnimationFrame(drawCanvas);
     return () => cancelAnimationFrame(requestRef.current);
   }, []);
 
@@ -295,7 +295,6 @@ function MainViewer({
       onDragLeave={dragLeave}
     >
       {dropboxIsVisible && dropbox}
-      {/* <TimeRuler /> */}
       <SplitView
         left={[...leftElements, emptyTrack]}
         right={rightElements}

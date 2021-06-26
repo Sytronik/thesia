@@ -1,6 +1,6 @@
 import React, {forwardRef, useRef, useImperativeHandle} from "react";
 
-const Canvas = forwardRef(({width, height}, ref) => {
+const ImgCanvas = forwardRef(({width, height}, ref) => {
   const canvasElem = useRef(null);
 
   useImperativeHandle(ref, () => ({
@@ -22,4 +22,4 @@ const Canvas = forwardRef(({width, height}, ref) => {
   );
 });
 
-export default Canvas;
+export default ImgCanvas;
