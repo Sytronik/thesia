@@ -40,6 +40,7 @@ pub const WAVECOLOR: [u8; 3] = [200, 21, 103];
 pub const MAX_SIZE: u32 = 8192; // tiny-skia max size
 pub const LARGE_WIDTH_SPLIT_HOP: usize = 7680;
 pub const LARGE_WIDTH_OVERLAP_HALF: usize = (MAX_SIZE as usize - LARGE_WIDTH_SPLIT_HOP) / 2;
+pub const RESAMPLE_TAIL: usize = 500;
 
 pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
     arr: ArrayView<'a, A, D>,
@@ -86,6 +87,14 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
                 Some((self.index + self.length) as isize),
                 1,
             ),
+        )
+    }
+
+    pub fn get_sliced_with_tail(&self, tail: usize) -> ArrayView<A, D> {
+        let end = (self.index + self.length + tail).min(self.arr.shape()[self.arr.ndim() - 1]);
+        self.arr.slice_axis(
+            Axis(self.arr.ndim() - 1),
+            Slice::new(self.index as isize, Some(end as isize), 1),
         )
     }
 }
@@ -257,15 +266,17 @@ pub fn draw_wav_to(
             x
         }
     };
-    let wav = wav.get_sliced();
-    let samples_per_px = wav.len() as f32 / width as f32;
+    let samples_per_px = wav.length as f32 / width as f32;
     let over_zoomed = amp_range.1 - amp_range.0 < 1e-16;
     let need_upsampling = !over_zoomed && samples_per_px < 2.;
     let wav: CowArray<f32, Ix1> = if need_upsampling {
-        let mut resampler = create_resampler(wav.len(), width as usize);
-        resampler.resample(wav).mapv(|x| amp_to_px(x, false)).into()
+        let wav_tail = wav.get_sliced_with_tail(RESAMPLE_TAIL);
+        let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
+        let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
+        let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x, false));
+        upsampled.slice_move(s![..width as usize]).into()
     } else {
-        wav.into()
+        wav.get_sliced().into()
     };
 
     let alpha = alpha.unwrap_or(u8::MAX);
