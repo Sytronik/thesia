@@ -1,0 +1,21 @@
+@import "../../assets/index.scss";
+
+.LeftPane-time {
+  @include body-label;
+
+  position: relative;
+  height: $spacer-3;
+  margin-bottom: $track-margin;
+
+  p {
+    position: absolute;
+    right: $spacer;
+    bottom: 2px;
+  }
+}
+
+.time-ruler {
+  height: $spacer-3;
+  margin-bottom: $track-margin;
+  border-bottom: $border;
+}

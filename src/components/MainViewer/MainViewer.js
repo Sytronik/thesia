@@ -3,6 +3,7 @@ import {throttle} from "throttle-debounce";
 
 import "./MainViewer.scss";
 import {SplitView} from "./SplitView";
+import AxisCanvas from "./AxisCanvas";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
 import {PROPERTY} from "../Property";
@@ -10,7 +11,14 @@ import {PROPERTY} from "../Property";
 const {native} = window.preload;
 const {getFileName, getMaxSec, getNumCh, getSampleFormat, getSec, getSr, setImgState, getImages} =
   native;
+
 const CHANNEL = PROPERTY.CHANNEL;
+const TIME_CANVAS_HEIGHT = PROPERTY.TIME_CANVAS_HEIGHT;
+const TIME_MARKER_POS = PROPERTY.TIME_MARKER_POS;
+const TIME_DIVISION_SCALE = PROPERTY.TIME_DIVISION_SCALE;
+const TIME_BOUNDARIES = Object.keys(TIME_DIVISION_SCALE)
+  .map((boundary) => Number(boundary))
+  .sort((a, b) => b - a);
 
 function useRefs() {
   const refs = useRef({});
@@ -47,6 +55,7 @@ function MainViewer({
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
+  const timeCanvasElem = useRef();
   const [imgCanvasesRef, registerImgCanvas] = useRefs();
   const requestRef = useRef();
 
@@ -122,6 +131,28 @@ function MainViewer({
     }
   };
 
+  const getLinearAxis = (BOUNDARIES) => {
+    let minorUnit = 0;
+    let minorTickNum = 0;
+    for (const PX_BOUNDARY of BOUNDARIES) {
+      if (drawOptionRef.current.px_per_sec > PX_BOUNDARY) {
+        [minorUnit, minorTickNum] = TIME_DIVISION_SCALE[PX_BOUNDARY];
+        break;
+      }
+    }
+
+    const endCount = (secRef.current + width / drawOptionRef.current.px_per_sec) / minorUnit;
+    const markers = [];
+    for (let count = Math.ceil(secRef.current / minorUnit); count < endCount; count++) {
+      const sec = count * minorUnit;
+      markers.push([
+        (sec - secRef.current) * drawOptionRef.current.px_per_sec,
+        count % minorTickNum ? 0 : `${sec}`,
+      ]); // sec hh:mm:ss.000 형식 맞추기, 부동 소숫점 주의
+    }
+    return markers;
+  };
+
   const throttledSetImgState = useCallback(
     throttle(1000 / 240, (idChArr, width, height) => {
       if (idChArr.length === 0) return;
@@ -137,21 +168,30 @@ function MainViewer({
     [],
   );
 
-  const drawCanvas = (_) => {
+  const drawCanvas = async (_) => {
     const images = getImages();
     let promises = [];
     for (const [idChStr, buf] of Object.entries(images)) {
-      const ref = imgCanvasesRef.current[idChStr];
-      if (ref) {
-        promises.push(ref.draw(buf));
+      const imgCanvasRef = imgCanvasesRef.current[idChStr];
+      if (imgCanvasRef) {
+        promises.push(imgCanvasRef.draw(buf));
       }
     }
-    Promise.all(promises);
+    if (timeCanvasElem.current) {
+      const timeMarkers = getLinearAxis(TIME_BOUNDARIES);
+      timeCanvasElem.current.draw(timeMarkers);
+    }
+    await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
   };
 
   const dropbox = <div className="dropbox"></div>;
 
+  const timeUnit = (
+    <div key="time" className="LeftPane-time">
+      <p>unit</p>
+    </div>
+  ); // [TEMP]
   const leftElements = trackIds.map((id) => {
     const channels = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
@@ -186,6 +226,16 @@ function MainViewer({
         <span className="btn-plus"></span>
       </button>
     </div>
+  );
+
+  const timeRuler = (
+    <AxisCanvas
+      key="timeruler"
+      ref={timeCanvasElem}
+      width={width}
+      height={TIME_CANVAS_HEIGHT}
+      markerPos={TIME_MARKER_POS}
+    />
   );
 
   const rightElements = trackIds.map((id) => {
@@ -296,8 +346,8 @@ function MainViewer({
     >
       {dropboxIsVisible && dropbox}
       <SplitView
-        left={[...leftElements, emptyTrack]}
-        right={rightElements}
+        left={[timeUnit, ...leftElements, emptyTrack]}
+        right={[timeRuler, rightElements]}
         setCanvasWidth={setWidth}
       />
     </div>
