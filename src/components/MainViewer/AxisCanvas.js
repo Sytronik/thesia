@@ -4,7 +4,7 @@ import {PROPERTY} from "../Property";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = PROPERTY.AXIS_STYLE;
 
-const AxisCanvas = forwardRef(({width, height, markerPos}, ref) => {
+const AxisCanvas = forwardRef(({width, height, markerPos, direction}, ref) => {
   const timeRulerCanvasElem = useRef();
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
@@ -20,15 +20,24 @@ const AxisCanvas = forwardRef(({width, height, markerPos}, ref) => {
       ctx.textBaseline = "hanging";
 
       for (const [pxPosition, label] of markers) {
-        // 가로 세로에 따라서 swap
+        let xPxPosition = [];
+        let yPxPosition = [];
+        if (direction == "H") {
+          xPxPosition = [pxPosition, pxPosition, pxPosition, pxPosition];
+          yPxPosition = [LABEL_POS, MAJOR_TICK_POS, MINOR_TICK_POS, height];
+        } else {
+          xPxPosition = [LABEL_POS, MAJOR_TICK_POS, MINOR_TICK_POS, 0];
+          yPxPosition = [pxPosition, pxPosition, pxPosition, pxPosition];
+        }
+
         ctx.beginPath();
         if (label) {
-          ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
-          ctx.moveTo(pxPosition, MAJOR_TICK_POS);
+          ctx.fillText(label, xPxPosition[0] + LABEL_LEFT_MARGIN, yPxPosition[0]);
+          ctx.moveTo(xPxPosition[1], yPxPosition[1]);
         } else {
-          ctx.moveTo(pxPosition, MINOR_TICK_POS);
+          ctx.moveTo(xPxPosition[2], yPxPosition[2]);
         }
-        ctx.lineTo(pxPosition, height);
+        ctx.lineTo(xPxPosition[3], yPxPosition[3]);
         ctx.closePath();
         ctx.stroke();
       }

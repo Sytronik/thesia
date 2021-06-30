@@ -235,6 +235,7 @@ function MainViewer({
       width={width}
       height={TIME_CANVAS_HEIGHT}
       markerPos={TIME_MARKER_POS}
+      direction="H"
     />
   );
 
