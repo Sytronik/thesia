@@ -27,7 +27,7 @@ use stft::{calc_up_ratio, perform_stft, FreqScale};
 use utils::{calc_proper_n_fft, unique_filenames, Pad, PadMode};
 use windows::{calc_normalized_win, WindowType};
 
-use self::display::ArrWithSliceInfo;
+use display::{ArrWithSliceInfo, PlotAxis};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
@@ -472,8 +472,19 @@ impl TrackManager {
         }
     }
 
-    pub fn get_freq_axis(&self, max_ticks: u32) -> Vec<(f64, f64)> {
-        display::create_freq_axis(self.setting.freq_scale, self.max_sr, max_ticks)
+    pub fn get_freq_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
+        let height_f64 = height as f64;
+        display::create_freq_axis(self.setting.freq_scale, self.max_sr, n_ticks, n_labels)
+            .into_iter()
+            .map(|(relative_y, s)| {
+                let y = ((relative_y * height_f64).round() as u32).clamp(0, height);
+                (y, s)
+            })
+            .collect()
+    }
+
+    pub fn get_dB_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
+        display::create_dB_axis(height, n_ticks, n_labels, (self.min_db, self.max_db))
     }
 
     #[inline]

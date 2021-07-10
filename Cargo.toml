@@ -28,6 +28,7 @@ rgb = "0.8.27"
 rustfft = "6.0.1"
 tiny-skia = "0.5.1"
 tokio = {version = "1.6.1", features = ["rt-multi-thread", "sync"]}
+hhmmss = "0.1.0"
 
 [dependencies.approx]
 features = ["num-complex"]

@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use napi::{CallContext, Env, JsNumber, JsObject, JsString, Result as JsResult};
 
-use crate::backend::{DrawOption, DrawOptionForWav, IdChVec};
+use crate::backend::{display::PlotAxis, DrawOption, DrawOptionForWav, IdChVec};
 
 pub trait TryIntoUsize: TryInto<u32> {
     fn try_into_usize(self) -> Result<usize, Self::Error>;
@@ -106,15 +106,23 @@ pub fn convert_usize_arr_to_jsarr(env: &Env, arr: &[usize]) -> JsResult<JsObject
     Ok(obj)
 }
 
-pub fn convert_vec_tup_f64_to_jsarr(env: &Env, vec: Vec<(f64, f64)>) -> JsResult<JsObject> {
-    let mut obj = env.create_array_with_length(vec.len())?;
-    for (i, x) in vec.into_iter().enumerate() {
+pub fn convert_axis_to_jsarr(env: &Env, plot_axis: PlotAxis) -> JsResult<JsObject> {
+    let mut obj = env.create_array_with_length(plot_axis.len())?;
+    for (i, (y, s)) in plot_axis.into_iter().enumerate() {
         let mut tup_arr = env.create_array_with_length(2)?;
-        tup_arr.set_element(0, env.create_double(x.0)?)?;
-        tup_arr.set_element(1, env.create_double(x.1)?)?;
+        tup_arr.set_element(0, env.create_uint32(y)?)?;
+        tup_arr.set_element(1, env.create_string_from_std(s)?)?;
         obj.set_element(i as u32, tup_arr)?;
     }
     Ok(obj)
+}
+
+#[inline]
+pub fn assert_axis_params(height: u32, n_ticks: u32, n_labels: u32) {
+    assert!(height >= 1);
+    assert!(n_ticks >= 2);
+    assert!(n_labels >= 2);
+    assert!(n_ticks >= n_labels);
 }
 
 #[inline]

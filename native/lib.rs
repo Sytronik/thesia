@@ -142,12 +142,56 @@ fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
         .create_double(TM.read().calc_hz_of(y, height) as f64)
 }
 
-#[js_function(1)]
-fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
-    let max_ticks: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    assert!(max_ticks >= 2);
+#[js_function(5)]
+fn get_time_axis(ctx: CallContext) -> JsResult<JsObject> {
+    let width: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
+    let start_sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let px_per_sec: f64 = ctx.get::<JsNumber>(2)?.try_into()?;
+    let tick_unit: f64 = ctx.get::<JsNumber>(3)?.try_into()?;
+    let label_interval: u32 = ctx.get::<JsNumber>(4)?.try_into()?;
+    assert!(width >= 1);
+    assert!(px_per_sec.is_finite());
+    assert!(px_per_sec >= 0.);
+    assert!(label_interval > 0);
+    convert_axis_to_jsarr(
+        ctx.env,
+        display::create_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval),
+    )
+}
 
-    convert_vec_tup_f64_to_jsarr(ctx.env, TM.read().get_freq_axis(max_ticks))
+#[js_function(3)]
+fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
+    let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
+    let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    assert_axis_params(height, n_ticks, n_labels);
+
+    convert_axis_to_jsarr(ctx.env, TM.read().get_freq_axis(height, n_ticks, n_labels))
+}
+
+#[js_function(4)]
+fn get_amp_axis(ctx: CallContext) -> JsResult<JsObject> {
+    let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
+    let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
+    assert_axis_params(height, n_ticks, n_labels);
+    assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
+
+    convert_axis_to_jsarr(
+        ctx.env,
+        display::create_amp_axis(height, n_ticks, n_labels, opt_for_wav.amp_range),
+    )
+}
+
+#[js_function(3)]
+fn get_dB_axis(ctx: CallContext) -> JsResult<JsObject> {
+    let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
+    let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    assert_axis_params(height, n_ticks, n_labels);
+
+    convert_axis_to_jsarr(ctx.env, TM.read().get_dB_axis(height, n_ticks, n_labels))
 }
 
 #[contextless_function]
@@ -227,7 +271,10 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("findIDbyPath", find_id_by_path)?;
     exports.create_named_method("getOverview", get_overview)?;
     exports.create_named_method("getHzAt", get_hz_at)?;
+    exports.create_named_method("getTimeAxis", get_time_axis)?;
     exports.create_named_method("getFreqAxis", get_freq_axis)?;
+    exports.create_named_method("getAmpAxis", get_amp_axis)?;
+    exports.create_named_method("getdBAxis", get_dB_axis)?;
     exports.create_named_method("getMaxdB", get_max_db)?;
     exports.create_named_method("getMindB", get_min_db)?;
     exports.create_named_method("getMaxSec", get_max_sec)?;
