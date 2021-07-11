@@ -22,7 +22,7 @@ export const PROPERTY = {
     LABEL_LEFT_MARGIN: 4,
   },
 
-  TIME_DIVISION_SCALE: {
+  TIME_TICK_SIZE: {
     // px per sec : [minor unit, number of subticks]
     0.00091: [3600, 5],
     0.00241: [3600, 2],

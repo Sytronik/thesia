@@ -9,14 +9,23 @@ import ImgCanvas from "./ImgCanvas";
 import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
-const {getFileName, getMaxSec, getNumCh, getSampleFormat, getSec, getSr, setImgState, getImages} =
-  native;
+const {
+  getFileName,
+  getMaxSec,
+  getNumCh,
+  getSampleFormat,
+  getSec,
+  getSr,
+  setImgState,
+  getImages,
+  getTimeAxis,
+} = native;
 
 const CHANNEL = PROPERTY.CHANNEL;
 const TIME_CANVAS_HEIGHT = PROPERTY.TIME_CANVAS_HEIGHT;
 const TIME_MARKER_POS = PROPERTY.TIME_MARKER_POS;
-const TIME_DIVISION_SCALE = PROPERTY.TIME_DIVISION_SCALE;
-const TIME_BOUNDARIES = Object.keys(TIME_DIVISION_SCALE)
+const TIME_TICK_SIZE = PROPERTY.TIME_TICK_SIZE;
+const TIME_BOUNDARIES = Object.keys(TIME_TICK_SIZE)
   .map((boundary) => Number(boundary))
   .sort((a, b) => b - a);
 
@@ -55,6 +64,7 @@ function MainViewer({
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
+  const timeMarkersRef = useRef();
   const timeCanvasElem = useRef();
   const [imgCanvasesRef, registerImgCanvas] = useRefs();
   const requestRef = useRef();
@@ -113,6 +123,7 @@ function MainViewer({
           drawOptionRef.current.px_per_sec = pxPerSec;
           canvasIsFitRef.current = false;
           throttledSetImgState(getIdChArr(), width, height);
+          throttledSetTimeMarkers(width);
         }
       } else {
         setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
@@ -127,31 +138,38 @@ function MainViewer({
       if (secRef.current !== tempSec) {
         secRef.current = tempSec;
         throttledSetImgState(getIdChArr(), width, height);
+        throttledSetTimeMarkers(width);
       }
     }
   };
 
-  const getLinearAxis = (BOUNDARIES) => {
-    let minorUnit = 0;
-    let minorTickNum = 0;
-    for (const PX_BOUNDARY of BOUNDARIES) {
-      if (drawOptionRef.current.px_per_sec > PX_BOUNDARY) {
-        [minorUnit, minorTickNum] = TIME_DIVISION_SCALE[PX_BOUNDARY];
+  const getTickScale = (table, boundaries, target) => {
+    for (const boundary of boundaries) {
+      if (target > boundary) {
+        target = boundary;
         break;
       }
     }
-
-    const endCount = (secRef.current + width / drawOptionRef.current.px_per_sec) / minorUnit;
-    const markers = [];
-    for (let count = Math.ceil(secRef.current / minorUnit); count < endCount; count++) {
-      const sec = count * minorUnit;
-      markers.push([
-        (sec - secRef.current) * drawOptionRef.current.px_per_sec,
-        count % minorTickNum ? 0 : `${sec}`,
-      ]); // sec hh:mm:ss.000 형식 맞추기, 부동 소숫점 주의
-    }
-    return markers;
+    return table[target];
   };
+  const throttledSetTimeMarkers = throttle(1000 / 240, (width) => {
+    if (!trackIds.length) {
+      timeMarkersRef.current = null;
+      return;
+    }
+    const [minorUnit, minorTickNum] = getTickScale(
+      TIME_TICK_SIZE,
+      TIME_BOUNDARIES,
+      drawOptionRef.current.px_per_sec,
+    );
+    timeMarkersRef.current = getTimeAxis(
+      width,
+      secRef.current,
+      drawOptionRef.current.px_per_sec,
+      minorUnit,
+      minorTickNum,
+    );
+  });
 
   const throttledSetImgState = useCallback(
     throttle(1000 / 240, (idChArr, width, height) => {
@@ -178,8 +196,7 @@ function MainViewer({
       }
     }
     if (timeCanvasElem.current) {
-      const timeMarkers = getLinearAxis(TIME_BOUNDARIES);
-      timeCanvasElem.current.draw(timeMarkers);
+      timeCanvasElem.current.draw(timeMarkersRef.current);
     }
     await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -301,6 +318,7 @@ function MainViewer({
       }
     }
     throttledSetImgState(getIdChArr(), width, height);
+    throttledSetTimeMarkers(width);
   }, [width]);
 
   useEffect(() => {
@@ -314,6 +332,7 @@ function MainViewer({
 
   useEffect(() => {
     throttledSetImgState(refreshList, width, height);
+    throttledSetTimeMarkers(width);
     dropReset();
   }, [refreshList]);
 

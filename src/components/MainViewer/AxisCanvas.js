@@ -12,6 +12,7 @@ const AxisCanvas = forwardRef(({width, height, markerPos, direction}, ref) => {
     draw: (markers) => {
       const ctx = timeRulerCanvasElem.current.getContext("2d");
       ctx.clearRect(0, 0, width, height); // [TEMP]
+      if (!markers) return;
 
       ctx.fillStyle = LABEL_COLOR;
       ctx.strokeStyle = TICK_COLOR;
