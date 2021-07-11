@@ -58,7 +58,7 @@ function MainViewer({
   const prevTrackCountRef = useRef(0);
   const [dropboxIsVisible, setDropboxIsVisible] = useState(false);
 
-  const secRef = useRef(0);
+  const startSecRef = useRef(0);
   const maxTrackSecRef = useRef(0);
   const canvasIsFitRef = useRef(false);
   const [width, setWidth] = useState(600);
@@ -115,7 +115,7 @@ function MainViewer({
         const pxPerSec = Math.min(
           Math.max(
             drawOptionRef.current.px_per_sec * (1 + delta / 1000),
-            width / (maxTrackSecRef.current - secRef.current),
+            width / (maxTrackSecRef.current - startSecRef.current),
           ),
           384000,
         );
@@ -132,11 +132,11 @@ function MainViewer({
       e.preventDefault();
       e.stopPropagation();
       const tempSec = Math.min(
-        Math.max(secRef.current + delta / drawOptionRef.current.px_per_sec, 0),
+        Math.max(startSecRef.current + delta / drawOptionRef.current.px_per_sec, 0),
         maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec,
       );
-      if (secRef.current !== tempSec) {
-        secRef.current = tempSec;
+      if (startSecRef.current !== tempSec) {
+        startSecRef.current = tempSec;
         throttledSetImgState(getIdChArr(), width, height);
         throttledSetTimeMarkers(width);
       }
@@ -164,7 +164,7 @@ function MainViewer({
     );
     timeMarkersRef.current = getTimeAxis(
       width,
-      secRef.current,
+      startSecRef.current,
       drawOptionRef.current.px_per_sec,
       minorUnit,
       minorTickNum,
@@ -176,7 +176,7 @@ function MainViewer({
       if (idChArr.length === 0) return;
       setImgState(
         idChArr,
-        secRef.current,
+        startSecRef.current,
         width,
         {...drawOptionRef.current, height: height},
         {min_amp: -1, max_amp: 1},
@@ -313,8 +313,8 @@ function MainViewer({
         canvasIsFitRef.current = true;
         return;
       }
-      if (secRef.current > secOutOfCanvas) {
-        secRef.current = secOutOfCanvas;
+      if (startSecRef.current > secOutOfCanvas) {
+        startSecRef.current = secOutOfCanvas;
       }
     }
     throttledSetImgState(getIdChArr(), width, height);
@@ -341,7 +341,7 @@ function MainViewer({
       maxTrackSecRef.current = getMaxSec();
       if (!prevTrackCountRef.current) {
         drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
-        secRef.current = 0;
+        startSecRef.current = 0;
         canvasIsFitRef.current = true;
       }
     } else {
