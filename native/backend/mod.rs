@@ -371,7 +371,7 @@ impl TrackManager {
     pub fn get_part_imgs(
         &self,
         id_ch_tuples: &IdChArr,
-        sec: f64,
+        start_sec: f64,
         width: u32,
         option: DrawOption,
         opt_for_wav: DrawOptionForWav,
@@ -383,18 +383,18 @@ impl TrackManager {
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
             let (pad_left, drawing_width, pad_right) =
-                self.decompose_width_of(id, sec, width, px_per_sec);
+                self.decompose_width_of(id, start_sec, width, px_per_sec);
 
             if drawing_width == 0 {
                 return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
             }
             let spec_grey = ArrWithSliceInfo::from_ref(
                 &self.spec_greys.get(&(id, ch)).unwrap(),
-                self.calc_part_grey_info(id, ch, sec, width, px_per_sec),
+                self.calc_part_grey_info(id, ch, start_sec, width, px_per_sec),
             );
             let wav = ArrWithSliceInfo::from(
                 self.tracks[id].as_ref().unwrap().get_wav(ch),
-                self.calc_part_wav_info(id, sec, width, px_per_sec),
+                self.calc_part_wav_info(id, start_sec, width, px_per_sec),
             );
             let vec = display::draw_blended_spec_wav(
                 spec_grey,
@@ -702,7 +702,7 @@ impl TrackManager {
         &self,
         id: usize,
         ch: usize,
-        sec: f64,
+        start_sec: f64,
         target_width: u32,
         px_per_sec: f64,
     ) -> (isize, usize) {
@@ -711,7 +711,7 @@ impl TrackManager {
         let total_width = spec_grey.shape()[1] as u64;
         let wavlen = track.wavlen() as f64;
         let sr = track.sr as u64;
-        let i_w = ((total_width * sr) as f64 * sec / wavlen).round() as isize;
+        let i_w = ((total_width * sr) as f64 * start_sec / wavlen).round() as isize;
         let width =
             (((total_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec).round()
                 as usize)
@@ -722,12 +722,12 @@ impl TrackManager {
     fn calc_part_wav_info(
         &self,
         id: usize,
-        sec: f64,
+        start_sec: f64,
         width: u32,
         px_per_sec: f64,
     ) -> (isize, usize) {
         let track = self.tracks[id].as_ref().unwrap();
-        let i = (sec * track.sr as f64).round() as isize;
+        let i = (start_sec * track.sr as f64).round() as isize;
         let length = ((track.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
         (i, length)
     }
@@ -735,15 +735,15 @@ impl TrackManager {
     fn decompose_width_of(
         &self,
         id: usize,
-        sec: f64,
+        start_sec: f64,
         width: u32,
         px_per_sec: f64,
     ) -> (u32, u32, u32) {
         let track = self.tracks[id].as_ref().unwrap();
 
         let total_width = (px_per_sec * track.wavlen() as f64 / track.sr as f64).max(1.);
-        let pad_left = ((-sec * px_per_sec).max(0.).round() as u32).min(width);
-        let pad_right = ((sec * px_per_sec + width as f64 - total_width)
+        let pad_left = ((-start_sec * px_per_sec).max(0.).round() as u32).min(width);
+        let pad_right = ((start_sec * px_per_sec + width as f64 - total_width)
             .max(0.)
             .round() as u32)
             .min(width - pad_left);

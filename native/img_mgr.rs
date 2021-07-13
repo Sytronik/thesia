@@ -39,7 +39,7 @@ static mut IMG_RX: Option<Receiver<Images>> = None;
 
 #[derive(Clone, PartialEq)]
 pub struct DrawParams {
-    sec: f64,
+    start_sec: f64,
     width: u32,
     option: DrawOption,
     opt_for_wav: DrawOptionForWav,
@@ -48,14 +48,14 @@ pub struct DrawParams {
 
 impl DrawParams {
     pub fn new(
-        sec: f64,
+        start_sec: f64,
         width: u32,
         option: DrawOption,
         opt_for_wav: DrawOptionForWav,
         blend: f64,
     ) -> Self {
         DrawParams {
-            sec,
+            start_sec,
             width,
             option,
             opt_for_wav,
@@ -67,7 +67,7 @@ impl DrawParams {
 impl Default for DrawParams {
     fn default() -> Self {
         DrawParams {
-            sec: 0.,
+            start_sec: 0.,
             width: 1,
             option: DrawOption {
                 px_per_sec: 0.,
@@ -116,7 +116,7 @@ pub fn recv() -> Option<Images> {
 fn crop_caches(
     images: &GuardImgCaches,
     id_ch_tuples: &IdChArr,
-    sec: f64,
+    start_sec: f64,
     width: u32,
     option: &DrawOption,
 ) -> (Images, IdChMap<(u32, u32)>) {
@@ -128,7 +128,7 @@ fn crop_caches(
         .filter_map(|tup| {
             let image = images.get(&tup)?;
             let total_width = image.len() / 4 / option.height as usize;
-            let i_w = (sec * option.px_per_sec) as isize;
+            let i_w = (start_sec * option.px_per_sec) as isize;
             let (i_w_eff, width_eff) = match calc_effective_slice(i_w, width as usize, total_width)
             {
                 Some((i, w)) => (i as isize, w as isize),
@@ -255,7 +255,7 @@ async fn draw_imgs(
 ) {
     let params_backup = params.read().clone();
     let DrawParams {
-        sec,
+        start_sec,
         width,
         option,
         opt_for_wav,
@@ -288,7 +288,7 @@ async fn draw_imgs(
             crop_caches(
                 &spec_caches_lock,
                 &cat_by_spec.use_caches,
-                sec,
+                start_sec,
                 width,
                 &option,
             )
@@ -299,7 +299,7 @@ async fn draw_imgs(
             crop_caches(
                 &wav_caches_lock,
                 &cat_by_wav.use_caches,
-                sec,
+                start_sec,
                 width,
                 &option,
             )
@@ -310,7 +310,7 @@ async fn draw_imgs(
         if !need_wav_parts_only.is_empty() {
             wav_imgs.extend(tm.get_part_imgs(
                 &need_wav_parts_only,
-                sec,
+                start_sec,
                 width,
                 option,
                 opt_for_wav,
@@ -354,7 +354,7 @@ async fn draw_imgs(
             // let fast_resize_vec = Some(vec![true; cat_by_spec.need_parts.len()]);
             tm.get_part_imgs(
                 &cat_by_spec.need_parts,
-                sec,
+                start_sec,
                 width,
                 option,
                 opt_for_wav,
@@ -386,7 +386,7 @@ async fn draw_imgs(
             crop_caches(
                 &spec_caches_lock,
                 &cat_by_spec.need_new_caches,
-                sec,
+                start_sec,
                 width,
                 &option,
             )
@@ -402,7 +402,7 @@ async fn draw_imgs(
             crop_caches(
                 &wav_caches_lock,
                 &cat_by_wav.need_new_caches,
-                sec,
+                start_sec,
                 width,
                 &option,
             )

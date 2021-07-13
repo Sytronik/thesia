@@ -75,7 +75,7 @@ fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
 fn set_img_state(ctx: CallContext) -> JsResult<JsUndefined> {
     // let start = Instant::now();
     let id_ch_tuples = id_ch_tuples_from(&ctx, 0)?;
-    let sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let start_sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
     let width: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
     let option = draw_option_from_js_obj(ctx.get::<JsObject>(3)?)?;
     let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
@@ -90,7 +90,7 @@ fn set_img_state(ctx: CallContext) -> JsResult<JsUndefined> {
 
     img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
-        DrawParams::new(sec, width, option, opt_for_wav, blend),
+        DrawParams::new(start_sec, width, option, opt_for_wav, blend),
     )));
     ctx.env.get_undefined()
 }
