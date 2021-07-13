@@ -17,5 +17,9 @@
 .time-ruler {
   height: $spacer-3;
   margin-bottom: $track-margin;
-  border-bottom: $border;
+}
+
+.amp-axis,
+.freq-axis {
+  float: right;
 }

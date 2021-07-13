@@ -102,8 +102,8 @@ $channel-width: 32px;
   @include plus-btn($button-white, $spacer-2, 1px);
 }
 
-// cavases
-.canvases {
+// track
+.track {
   position: relative;
 }
 
@@ -138,4 +138,8 @@ $channel-width: 32px;
 canvas {
   display: block;
   margin-bottom: $track-margin;
+}
+
+.img {
+  margin-right: #{$spacer-4 * 2}; // TEMP
 }

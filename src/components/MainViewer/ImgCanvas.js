@@ -17,7 +17,7 @@ const ImgCanvas = forwardRef(({width, height}, ref) => {
 
   return (
     <>
-      <canvas ref={canvasElem} height={height} width={width} />
+      <canvas className="img" ref={canvasElem} height={height} width={width - 48} /> {/* TEMP */}
     </>
   );
 });

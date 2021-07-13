@@ -4,13 +4,13 @@ import {PROPERTY} from "../Property";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = PROPERTY.AXIS_STYLE;
 
-const AxisCanvas = forwardRef(({width, height, markerPos, direction}, ref) => {
-  const timeRulerCanvasElem = useRef();
+const AxisCanvas = forwardRef(({width, height, markerPos, direction, className}, ref) => {
+  const axisCanvasElem = useRef();
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
   useImperativeHandle(ref, () => ({
     draw: (markers) => {
-      const ctx = timeRulerCanvasElem.current.getContext("2d");
+      const ctx = axisCanvasElem.current.getContext("2d");
       ctx.clearRect(0, 0, width, height); // [TEMP]
       if (!markers) return;
 
@@ -47,7 +47,7 @@ const AxisCanvas = forwardRef(({width, height, markerPos, direction}, ref) => {
 
   return (
     <>
-      <canvas className="time-ruler" ref={timeRulerCanvasElem} height={height} width={width} />
+      <canvas className={className} ref={axisCanvasElem} height={height} width={width} />
     </>
   );
 });

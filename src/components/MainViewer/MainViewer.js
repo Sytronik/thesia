@@ -19,13 +19,29 @@ const {
   setImgState,
   getImages,
   getTimeAxis,
+  getAmpAxis,
+  getFreqAxis,
 } = native;
 
-const CHANNEL = PROPERTY.CHANNEL;
-const TIME_CANVAS_HEIGHT = PROPERTY.TIME_CANVAS_HEIGHT;
-const TIME_MARKER_POS = PROPERTY.TIME_MARKER_POS;
-const TIME_TICK_SIZE = PROPERTY.TIME_TICK_SIZE;
+const {
+  CHANNEL,
+  TIME_CANVAS_HEIGHT,
+  TIME_MARKER_POS,
+  TIME_TICK_SIZE,
+  AMP_CANVAS_WIDTH,
+  AMP_MARKER_POS,
+  AMP_TICK_NUM,
+  FREQ_CANVAS_WIDTH,
+  FREQ_MARKER_POS,
+  FREQ_TICK_NUM,
+} = PROPERTY;
 const TIME_BOUNDARIES = Object.keys(TIME_TICK_SIZE)
+  .map((boundary) => Number(boundary))
+  .sort((a, b) => b - a);
+const AMP_BOUNDARIES = Object.keys(AMP_TICK_NUM)
+  .map((boundary) => Number(boundary))
+  .sort((a, b) => b - a);
+const FREQ_BOUNDARIES = Object.keys(FREQ_TICK_NUM)
   .map((boundary) => Number(boundary))
   .sort((a, b) => b - a);
 
@@ -64,8 +80,13 @@ function MainViewer({
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
+  const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
   const timeMarkersRef = useRef();
   const timeCanvasElem = useRef();
+  const ampMarkersRef = useRef();
+  const [ampCanvasesRef, registerAmpCanvas] = useRefs();
+  const freqMarkersRef = useRef();
+  const [freqCanvasesRef, registerFreqCanvas] = useRefs();
   const [imgCanvasesRef, registerImgCanvas] = useRefs();
   const requestRef = useRef();
 
@@ -170,29 +191,49 @@ function MainViewer({
       minorTickNum,
     );
   });
+  const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height) => {
+    if (!trackIds.length) return;
+    const [ampTickNum, ampLableNum] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
+    ampMarkersRef.current = getAmpAxis(
+      height,
+      ampTickNum,
+      ampLableNum,
+      drawOptionForWavRef.current,
+    );
+    const [freqTickNum, freqLabelNum] = getTickScale(FREQ_TICK_NUM, FREQ_BOUNDARIES, height);
+    freqMarkersRef.current = getFreqAxis(height, freqTickNum, freqLabelNum);
+  });
 
   const throttledSetImgState = useCallback(
     throttle(1000 / 240, (idChArr, width, height) => {
-      if (idChArr.length === 0) return;
+      if (!idChArr.length) return;
       setImgState(
         idChArr,
         startSecRef.current,
         width,
         {...drawOptionRef.current, height: height},
-        {min_amp: -1, max_amp: 1},
+        drawOptionForWavRef.current,
         0.3,
       );
     }),
     [],
   );
 
-  const drawCanvas = async (_) => {
+  const drawCanvas = async () => {
     const images = getImages();
     let promises = [];
     for (const [idChStr, buf] of Object.entries(images)) {
+      const ampCanvasRef = ampCanvasesRef.current[idChStr];
+      const freqCanvasRef = freqCanvasesRef.current[idChStr];
       const imgCanvasRef = imgCanvasesRef.current[idChStr];
       if (imgCanvasRef) {
         promises.push(imgCanvasRef.draw(buf));
+      }
+      if (ampCanvasRef) {
+        ampCanvasRef.draw(ampMarkersRef.current);
+      }
+      if (freqCanvasRef) {
+        freqCanvasRef.draw(freqMarkersRef.current);
       }
     }
     if (timeCanvasElem.current) {
@@ -247,12 +288,13 @@ function MainViewer({
 
   const timeRuler = (
     <AxisCanvas
-      key="timeruler"
+      key="time"
       ref={timeCanvasElem}
       width={width}
       height={TIME_CANVAS_HEIGHT}
       markerPos={TIME_MARKER_POS}
       direction="H"
+      className="time-ruler"
     />
   );
 
@@ -275,16 +317,36 @@ function MainViewer({
     );
     const canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
-        <ImgCanvas
-          key={`${id}_${ch}`}
-          ref={registerImgCanvas(`${id}_${ch}`)}
-          width={width}
-          height={height}
-        />
+        <div key={`${id}_${ch}`} className="canvases">
+          <AxisCanvas
+            key={`freq_${id}_${ch}`}
+            ref={registerFreqCanvas(`${id}_${ch}`)}
+            width={FREQ_CANVAS_WIDTH}
+            height={height}
+            markerPos={FREQ_MARKER_POS}
+            direction="V"
+            className="freq-axis"
+          />
+          <AxisCanvas
+            key={`amp_${id}_${ch}`}
+            ref={registerAmpCanvas(`${id}_${ch}`)}
+            width={AMP_CANVAS_WIDTH}
+            height={height}
+            markerPos={AMP_MARKER_POS}
+            direction="V"
+            className="amp-axis"
+          />
+          <ImgCanvas
+            key={`img_${id}_${ch}`}
+            ref={registerImgCanvas(`${id}_${ch}`)}
+            width={width}
+            height={height}
+          />
+        </div>
       );
     });
     return (
-      <div key={`${id}`} className="canvases js-canvases">
+      <div key={`${id}`} className="track js-track">
         {erroredList.includes(id) ? errorBox : null}
         {canvases}
       </div>
@@ -324,6 +386,7 @@ function MainViewer({
   useEffect(() => {
     if (!trackIds.length) return;
     throttledSetImgState(getIdChArr(), width, height);
+    throttledSetAmpFreqMarkers(height);
   }, [height]);
 
   useEffect(() => {
@@ -333,6 +396,7 @@ function MainViewer({
   useEffect(() => {
     throttledSetImgState(refreshList, width, height);
     throttledSetTimeMarkers(width);
+    throttledSetAmpFreqMarkers(height);
     dropReset();
   }, [refreshList]);
 
