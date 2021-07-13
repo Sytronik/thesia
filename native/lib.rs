@@ -174,7 +174,7 @@ fn get_amp_axis(ctx: CallContext) -> JsResult<JsObject> {
     let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
     let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
     let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
-    let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
+    let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(3)?)?;
     assert_axis_params(height, n_ticks, n_labels);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
