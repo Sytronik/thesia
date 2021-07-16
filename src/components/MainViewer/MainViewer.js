@@ -246,14 +246,14 @@ function MainViewer({
   const dropbox = <div className="dropbox"></div>;
 
   const timeUnit = (
-    <div key="time" className="LeftPane-time">
+    <div key="time" className="time-unit">
       <p>unit</p>
     </div>
   ); // [TEMP]
-  const leftElements = trackIds.map((id) => {
+  const tracksLeft = trackIds.map((id) => {
     const channels = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
-        <div key={ch} className="ch">
+        <div key={`${id}_${ch}`} className="ch">
           <span>{CHANNEL[getNumCh(id)][ch]}</span>
         </div>
       );
@@ -268,7 +268,7 @@ function MainViewer({
     return (
       <div
         key={`${id}`}
-        className="LeftPane-track js-LeftPane-track"
+        className="track-left js-track-left"
         id={id}
         onClick={selectTrack}
         onContextMenu={showContextMenu}
@@ -278,8 +278,8 @@ function MainViewer({
       </div>
     );
   });
-  const emptyTrack = (
-    <div key="empty" className="LeftPane-empty">
+  const tracksEmpty = (
+    <div key="empty" className="track-empty">
       <button onClick={showOpenDialog}>
         <span className="btn-plus"></span>
       </button>
@@ -297,8 +297,7 @@ function MainViewer({
       className="time-ruler"
     />
   );
-
-  const rightElements = trackIds.map((id) => {
+  const tracksRight = trackIds.map((id) => {
     const errorBox = (
       <div className="error-box">
         <p>The file is corrupted and cannot be opened</p>
@@ -315,9 +314,9 @@ function MainViewer({
         </div>
       </div>
     );
-    const canvases = [...Array(getNumCh(id)).keys()].map((ch) => {
+    const channelsCanvases = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (
-        <div key={`${id}_${ch}`} className="canvases">
+        <div key={`${id}_${ch}`} className="ch-canvases">
           <AxisCanvas
             key={`freq_${id}_${ch}`}
             ref={registerFreqCanvas(`${id}_${ch}`)}
@@ -346,9 +345,9 @@ function MainViewer({
       );
     });
     return (
-      <div key={`${id}`} className="track js-track">
+      <div key={`${id}`} className="track-right js-track-right">
         {erroredList.includes(id) ? errorBox : null}
-        {canvases}
+        {channelsCanvases}
       </div>
     );
   });
@@ -430,8 +429,8 @@ function MainViewer({
     >
       {dropboxIsVisible && dropbox}
       <SplitView
-        left={[timeUnit, ...leftElements, emptyTrack]}
-        right={[timeRuler, rightElements]}
+        left={[timeUnit, ...tracksLeft, tracksEmpty]}
+        right={[timeRuler, tracksRight]}
         setCanvasWidth={setWidth}
       />
     </div>

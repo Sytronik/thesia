@@ -1,4 +1,5 @@
 import React, {forwardRef, useRef, useImperativeHandle} from "react";
+import "./ImgCanvas.scss";
 
 const ImgCanvas = forwardRef(({width, height}, ref) => {
   const canvasElem = useRef(null);
@@ -17,7 +18,8 @@ const ImgCanvas = forwardRef(({width, height}, ref) => {
 
   return (
     <>
-      <canvas className="img" ref={canvasElem} height={height} width={width - 48} /> {/* TEMP */}
+      <canvas className="ImgCanvas" ref={canvasElem} height={height} width={width - 48} />{" "}
+      {/* TEMP */}
     </>
   );
 });

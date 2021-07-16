@@ -47,7 +47,12 @@ const AxisCanvas = forwardRef(({width, height, markerPos, direction, className},
 
   return (
     <>
-      <canvas className={className} ref={axisCanvasElem} height={height} width={width} />
+      <canvas
+        className={`AxisCanvas ${className}`}
+        ref={axisCanvasElem}
+        height={height}
+        width={width}
+      />
     </>
   );
 });

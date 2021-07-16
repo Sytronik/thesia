@@ -15,7 +15,7 @@ function TrackSummary({data, height}) {
   }, [height]);
 
   return (
-    <div className="track-summary" ref={trackSummaryElem}>
+    <div className="TrackSummary track-summary" ref={trackSummaryElem}>
       <span className="path-name">
         {pathPieces.length ? <span className="path">{pathPieces.join("/")}</span> : null}
         <span className={pathPieces.length ? "name w-path" : "name"}>{name}</span>

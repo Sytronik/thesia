@@ -1,5 +1,17 @@
 @import "../../assets/index.scss";
 
+// track summary
+.TrackSummary {
+  height: 100%;
+  padding: $spacer-3;
+  margin-right: $channel-width;
+
+  > span:not(:first-child) {
+    display: inline-block;
+    width: 100%;
+  }
+}
+
 .path-name {
   display: flex;
   position: relative;

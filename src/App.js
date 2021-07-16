@@ -171,7 +171,7 @@ function App() {
   }
 
   const assignSelectedClass = (selectedIds) => {
-    const targets = document.querySelectorAll(".js-LeftPane-track");
+    const targets = document.querySelectorAll(".js-track-left");
     targets.forEach((target) => {
       if (selectedIds.includes(Number(target.getAttribute("id")))) {
         target.classList.add("selected");

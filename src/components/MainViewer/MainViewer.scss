@@ -17,15 +17,22 @@
   border-radius: $spacer-1;
 }
 
-// SplitView
-.LeftPane {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+// Left Track Elements
+.time-unit {
+  @include body-label;
+
+  position: relative;
+  height: $spacer-3;
+  margin-bottom: $track-margin;
+
+  p {
+    position: absolute;
+    right: $spacer;
+    bottom: 2px;
+  }
 }
 
-// track elements
-.LeftPane-track {
+.track-left {
   flex: 0 0 auto;
   position: relative;
   margin-bottom: $track-margin;
@@ -41,8 +48,6 @@
 }
 
 // channels
-$channel-width: 32px;
-
 .channels {
   display: flex;
   flex-direction: column;
@@ -70,20 +75,8 @@ $channel-width: 32px;
   }
 }
 
-// track summary
-.track-summary {
-  height: 100%;
-  padding: $spacer-3;
-  margin-right: $channel-width;
-
-  > span:not(:first-child) {
-    display: inline-block;
-    width: 100%;
-  }
-}
-
 // empty
-.LeftPane-empty {
+.track-empty {
   position: relative;
   flex: 1 1 auto;
   min-height: $emptytrack-height;
@@ -102,8 +95,9 @@ $channel-width: 32px;
   @include plus-btn($button-white, $spacer-2, 1px);
 }
 
-// track
-.track {
+// Right Track Elements
+
+.track-right {
   position: relative;
 }
 
@@ -134,12 +128,7 @@ $channel-width: 32px;
   }
 }
 
-// canvas
 canvas {
   display: block;
   margin-bottom: $track-margin;
-}
-
-.img {
-  margin-right: #{$spacer-4 * 2}; // TEMP
 }
