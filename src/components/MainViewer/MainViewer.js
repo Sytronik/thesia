@@ -6,6 +6,7 @@ import {SplitView} from "./SplitView";
 import AxisCanvas from "./AxisCanvas";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
+import ColorBar from "./ColorBar";
 import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
@@ -421,7 +422,7 @@ function MainViewer({
 
   return (
     <div
-      className="MainViewer js-MainViewer"
+      className="MainViewer js-MainViewer row-flex"
       onDrop={addDroppedFile}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
@@ -433,6 +434,7 @@ function MainViewer({
         right={[timeRuler, tracksRight]}
         setCanvasWidth={setWidth}
       />
+      <ColorBar />
     </div>
   );
 }

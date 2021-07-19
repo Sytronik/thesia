@@ -4,7 +4,7 @@
 .Control,
 .Overview,
 .SlideBar,
-.MainViewer,
+.SplitView,
 .ColorBar {
   border: $border;
 }
@@ -17,26 +17,25 @@
   height: 100%;
   color: $text-white;
 
+  // [TEMP] class 등으로 대체
   > div {
     display: flex;
     justify-content: space-between;
   }
-
-  > div > div {
-    margin: $component-gap / 2;
-  }
 }
 
 .row {
-  &-control {
+  &-fixed {
     flex: 0 0 auto;
-    height: $control-height;
+
+    &.control {
+      height: $control-height;
+    }
+    &.overview {
+      height: $overview-height;
+    }
   }
-  &-overview {
-    flex: 0 0 auto;
-    height: $overview-height;
-  }
-  &-mainviewer {
+  &-flex {
     flex: 1 1 auto;
     width: 100%;
   }
@@ -44,23 +43,28 @@
 
 .Control {
   flex: 1 1 auto;
+  margin: $component-gap / 2;
 }
 
 .Overview {
   flex: 1 1 auto;
+  margin: $component-gap / 2;
 }
 
 .SlideBar {
   flex: 0 0 auto;
   width: $slidebar-width;
+  margin: $component-gap / 2;
 }
 
-.MainViewer {
+.SplitView {
   flex: 1 1 auto;
   width: calc(100% - #{$colorbar-width + $component-gap * 2});
+  margin: $component-gap / 2;
 }
 
 .ColorBar {
   flex: 0 0 auto;
   width: $colorbar-width;
+  margin: $component-gap / 2;
 }

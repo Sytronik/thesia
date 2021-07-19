@@ -4,7 +4,6 @@ import Control from "./components/Control/Control";
 import Overview from "./components/Overview/Overview";
 import SlideBar from "./components/SlideBar/SlideBar";
 import MainViewer from "./components/MainViewer/MainViewer";
-import ColorBar from "./components/ColorBar/ColorBar";
 import {PROPERTY} from "./components/Property";
 
 import path from "path";
@@ -240,28 +239,25 @@ function App() {
 
   return (
     <div className="App">
-      <div className="row-control">
+      <div className="row-fixed control">
         <Control />
       </div>
-      <div className="row-overview">
+      <div className="row-fixed overview">
         <Overview />
         <SlideBar />
       </div>
-      <div className="row-mainviewer">
-        <MainViewer
-          erroredList={erroredList}
-          refreshList={refreshList}
-          trackIds={trackIds}
-          addDroppedFile={addDroppedFile}
-          ignoreError={ignoreError}
-          reloadTracks={reloadTracks}
-          removeTracks={removeTracks}
-          showOpenDialog={showOpenDialog}
-          selectTrack={selectTrack}
-          showContextMenu={showContextMenu}
-        />
-        <ColorBar />
-      </div>
+      <MainViewer
+        erroredList={erroredList}
+        refreshList={refreshList}
+        trackIds={trackIds}
+        addDroppedFile={addDroppedFile}
+        ignoreError={ignoreError}
+        reloadTracks={reloadTracks}
+        removeTracks={removeTracks}
+        showOpenDialog={showOpenDialog}
+        selectTrack={selectTrack}
+        showContextMenu={showContextMenu}
+      />
     </div>
   );
 }
