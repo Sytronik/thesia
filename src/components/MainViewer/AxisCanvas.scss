@@ -2,10 +2,13 @@
 
 .time-ruler {
   height: $spacer-3;
-  margin-bottom: $track-margin;
 }
 
 .amp-axis,
 .freq-axis {
   float: right;
+}
+
+.color-bar {
+  padding-top: $time-ruler-height + $track-margin; // TEMP
 }

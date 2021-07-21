@@ -1,4 +1,4 @@
-import React, {useRef, useCallback, useEffect, useState} from "react";
+import React, {useRef, useCallback, useEffect, useLayoutEffect, useState} from "react";
 import {throttle} from "throttle-debounce";
 
 import "./MainViewer.scss";
@@ -6,7 +6,6 @@ import {SplitView} from "./SplitView";
 import AxisCanvas from "./AxisCanvas";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
-import ColorBar from "./ColorBar";
 import {PROPERTY} from "../Property";
 
 const {native} = window.preload;
@@ -22,6 +21,7 @@ const {
   getTimeAxis,
   getAmpAxis,
   getFreqAxis,
+  getdBAxis,
 } = native;
 
 const {
@@ -35,6 +35,9 @@ const {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
   FREQ_TICK_NUM,
+  DB_CANVAS_WIDTH,
+  DB_MARKER_POS,
+  DB_TICK_NUM,
 } = PROPERTY;
 const TIME_BOUNDARIES = Object.keys(TIME_TICK_SIZE)
   .map((boundary) => Number(boundary))
@@ -43,6 +46,9 @@ const AMP_BOUNDARIES = Object.keys(AMP_TICK_NUM)
   .map((boundary) => Number(boundary))
   .sort((a, b) => b - a);
 const FREQ_BOUNDARIES = Object.keys(FREQ_TICK_NUM)
+  .map((boundary) => Number(boundary))
+  .sort((a, b) => b - a);
+const DB_BOUNDARIES = Object.keys(DB_TICK_NUM)
   .map((boundary) => Number(boundary))
   .sort((a, b) => b - a);
 
@@ -88,8 +94,19 @@ function MainViewer({
   const [ampCanvasesRef, registerAmpCanvas] = useRefs();
   const freqMarkersRef = useRef();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs();
+  const dbMarkersRef = useRef();
+  const dbCanvasElem = useRef();
   const [imgCanvasesRef, registerImgCanvas] = useRefs();
   const requestRef = useRef();
+  const [colorBarHeight, setColorBarHeight] = useState();
+  const colorBarElem = useRef();
+  const [resizeObserver, _] = useState(
+    new ResizeObserver((entries) => {
+      const target = entries[0].target;
+      console.log(`entries height: ${target.clientHeight}`);
+      setColorBarHeight(target.clientHeight - (16 + 2 + 24));
+    }),
+  );
 
   const dragOver = (e) => {
     e.preventDefault();
@@ -204,6 +221,11 @@ function MainViewer({
     const [freqTickNum, freqLabelNum] = getTickScale(FREQ_TICK_NUM, FREQ_BOUNDARIES, height);
     freqMarkersRef.current = getFreqAxis(height, freqTickNum, freqLabelNum);
   });
+  const throttledSetDbMarkers = throttle(1000 / 240, (height) => {
+    if (!trackIds.length) return;
+    const [dbTickNum, dbLabelNum] = getTickScale(DB_TICK_NUM, DB_BOUNDARIES, height);
+    dbMarkersRef.current = getdBAxis(height, dbTickNum, dbLabelNum);
+  });
 
   const throttledSetImgState = useCallback(
     throttle(1000 / 240, (idChArr, width, height) => {
@@ -239,6 +261,9 @@ function MainViewer({
     }
     if (timeCanvasElem.current) {
       timeCanvasElem.current.draw(timeMarkersRef.current);
+    }
+    if (dbCanvasElem.current) {
+      dbCanvasElem.current.draw(dbMarkersRef.current);
     }
     await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -390,6 +415,11 @@ function MainViewer({
   }, [height]);
 
   useEffect(() => {
+    if (!trackIds.length) return;
+    throttledSetDbMarkers(colorBarHeight);
+  }, [colorBarHeight]);
+
+  useEffect(() => {
     dropReset();
   }, [erroredList]);
 
@@ -397,6 +427,7 @@ function MainViewer({
     throttledSetImgState(refreshList, width, height);
     throttledSetTimeMarkers(width);
     throttledSetAmpFreqMarkers(height);
+    throttledSetDbMarkers(colorBarHeight);
     dropReset();
   }, [refreshList]);
 
@@ -420,6 +451,16 @@ function MainViewer({
     return () => cancelAnimationFrame(requestRef.current);
   }, []);
 
+  useLayoutEffect(() => {
+    if (colorBarElem.current) {
+      resizeObserver.observe(colorBarElem.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [colorBarElem, resizeObserver]);
+
   return (
     <div
       className="MainViewer js-MainViewer row-flex"
@@ -434,7 +475,16 @@ function MainViewer({
         right={[timeRuler, tracksRight]}
         setCanvasWidth={setWidth}
       />
-      <ColorBar />
+      <div className="color-bar" ref={colorBarElem}>
+        <AxisCanvas
+          ref={dbCanvasElem}
+          width={DB_CANVAS_WIDTH}
+          height={colorBarHeight}
+          markerPos={DB_MARKER_POS}
+          direction="V"
+          className="db-axis"
+        />
+      </div>
     </div>
   );
 }

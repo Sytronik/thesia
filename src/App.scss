@@ -5,7 +5,7 @@
 .Overview,
 .SlideBar,
 .SplitView,
-.ColorBar {
+.color-bar {
   border: $border;
 }
 
@@ -63,7 +63,7 @@
   margin: $component-gap / 2;
 }
 
-.ColorBar {
+.color-bar {
   flex: 0 0 auto;
   width: $colorbar-width;
   margin: $component-gap / 2;

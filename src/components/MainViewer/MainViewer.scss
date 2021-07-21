@@ -22,7 +22,7 @@
   @include body-label;
 
   position: relative;
-  height: $spacer-3;
+  height: $time-ruler-height;
   margin-bottom: $track-margin;
 
   p {
@@ -128,7 +128,9 @@
   }
 }
 
-canvas {
-  display: block;
-  margin-bottom: $track-margin;
+.ch-canvases {
+  canvas {
+    display: block;
+    margin-bottom: $track-margin;
+  }
 }

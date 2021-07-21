@@ -123,11 +123,15 @@ export const PROPERTY = {
     765: [26, 24],
   },
 
-  DB_CANVAS_WIDTH: 23,
+  DB_CANVAS_WIDTH: 47, // 48px - 1px(border)
   DB_MARKER_POS: {
     MAJOR_TICK_POS: 4,
     MINOR_TICK_POS: 3,
     LABEL_POS: 4,
     LABEL_LEFT_MARGIN: 3,
+  },
+  DB_TICK_NUM: {
+    80: [13, 13],
+    350: [25, 25],
   },
 };
