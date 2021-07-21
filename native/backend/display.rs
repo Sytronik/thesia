@@ -8,6 +8,7 @@ use hhmmss::Hhmmss;
 use ndarray::Slice;
 use ndarray::{prelude::*, Data};
 use ndarray_stats::QuantileExt;
+use num_traits::Zero;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use rgb::FromSlice;
 use tiny_skia::{
@@ -45,6 +46,8 @@ pub const MAX_SIZE: u32 = 8192; // tiny-skia max size
 pub const LARGE_WIDTH_SPLIT_HOP: usize = 7680;
 pub const LARGE_WIDTH_OVERLAP_HALF: usize = (MAX_SIZE as usize - LARGE_WIDTH_SPLIT_HOP) / 2;
 pub const RESAMPLE_TAIL: usize = 500;
+
+const POSSIBLE_TEN_UNITS: [u32; 3] = [10, 20, 50];
 
 pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
     arr: ArrayView<'a, A, D>,
@@ -583,11 +586,64 @@ pub fn create_amp_axis(
 }
 
 pub fn create_dB_axis(height: u32, n_ticks: u32, n_labels: u32, db_range: (f32, f32)) -> PlotAxis {
-    // TODO
-    vec![
-        (0, format!("{:.1}", db_range.1)),
-        (height, format!("{:.1}", db_range.0)),
-    ]
+    // TODO: n_labels
+    assert!(db_range.1 > db_range.0);
+    assert!(n_ticks >= 2);
+    if n_ticks == 2 {
+        return vec![
+            (0, format_ticklabel(db_range.1, None)),
+            (height, format_ticklabel(db_range.0, None)),
+        ];
+    }
+    let raw_unit = (db_range.1 - db_range.0) / (n_ticks - 1) as f32;
+    let unit_exponent = raw_unit.log10().floor() as i32;
+    let (unit, min_i, max_i) = POSSIBLE_TEN_UNITS
+        .iter()
+        .find_map(|&x| {
+            let unit = x as f32 * 10f32.powi(unit_exponent - 1);
+            let min_i = (db_range.0 / unit).ceil() as i32;
+            let max_i = (db_range.1 / unit).floor() as i32;
+            if max_i + 1 - min_i <= n_ticks as i32 {
+                Some((unit, min_i, max_i))
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    (min_i..=max_i)
+        .rev()
+        .map(|i| {
+            let value = i as f32 * unit;
+            let y_ratio = (db_range.1 - value) / (db_range.1 - db_range.0);
+            let y = (height as f32 * y_ratio).round() as u32;
+            (y, format_ticklabel(value, Some(unit_exponent)))
+        })
+        .collect()
+}
+
+fn format_ticklabel(value: f32, unit_exponent: Option<i32>) -> String {
+    if value.is_zero() {
+        return String::from("0");
+    }
+    let exponent = value.abs().log10().floor() as i32;
+    match unit_exponent {
+        Some(unit_exponent) => {
+            let rounded = (value * 10f32.powi(-unit_exponent)).round() * 10f32.powi(unit_exponent);
+            let n_effs = (exponent - unit_exponent).max(0) as usize;
+            if exponent <= -3 || exponent > 3 && unit_exponent > 0 {
+                format!("{:.*e}", n_effs, rounded)
+            } else {
+                format!("{:.*}", (-unit_exponent).max(0) as usize, rounded)
+            }
+        }
+        None => {
+            if exponent <= -3 || exponent > 3 {
+                format!("{:e}", value)
+            } else {
+                format!("{}", value)
+            }
+        }
+    }
 }
 
 #[inline]
@@ -751,6 +807,30 @@ mod tests {
                 (1. - mel::from_hz(16000.) / mel::from_hz(48000.), "16k"),
                 (0., "48k"),
             ],
+        );
+    }
+
+    #[test]
+    fn dB_axis_works() {
+        let assert_axis_eq = |a: &[(u32, String)], b: &[(u32, &str)]| {
+            a.into_iter()
+                .zip(b.into_iter())
+                .for_each(|((y0, s0), (y1, s1))| {
+                    assert_eq!(y0, y1);
+                    assert_eq!(s0, s1);
+                });
+        };
+        assert_axis_eq(
+            &create_dB_axis(100, 2, 2, (-100., 0.)),
+            &vec![(0, "0"), (100, "-100")],
+        );
+        assert_axis_eq(
+            &create_dB_axis(12, 3, 3, (-12., 0.)),
+            &vec![(0, "0"), (5, "-5"), (10, "-10")],
+        );
+        assert_axis_eq(
+            &create_dB_axis(90, 3, 3, (-2., -1.1)),
+            &vec![(40, "-1.5"), (90, "-2.0")],
         );
     }
 }
