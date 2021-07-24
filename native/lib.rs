@@ -185,13 +185,13 @@ fn get_amp_axis(ctx: CallContext) -> JsResult<JsObject> {
 }
 
 #[js_function(3)]
-fn get_dB_axis(ctx: CallContext) -> JsResult<JsObject> {
+fn get_db_axis(ctx: CallContext) -> JsResult<JsObject> {
     let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
     let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
     let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
     assert_axis_params(height, n_ticks, n_labels);
 
-    convert_axis_to_jsarr(ctx.env, TM.read().get_dB_axis(height, n_ticks, n_labels))
+    convert_axis_to_jsarr(ctx.env, TM.read().get_db_axis(height, n_ticks, n_labels))
 }
 
 #[contextless_function]
@@ -274,7 +274,7 @@ fn init(mut exports: JsObject) -> JsResult<()> {
     exports.create_named_method("getTimeAxis", get_time_axis)?;
     exports.create_named_method("getFreqAxis", get_freq_axis)?;
     exports.create_named_method("getAmpAxis", get_amp_axis)?;
-    exports.create_named_method("getdBAxis", get_dB_axis)?;
+    exports.create_named_method("getdBAxis", get_db_axis)?;
     exports.create_named_method("getMaxdB", get_max_db)?;
     exports.create_named_method("getMindB", get_min_db)?;
     exports.create_named_method("getMaxSec", get_max_sec)?;

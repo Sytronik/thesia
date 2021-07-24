@@ -482,8 +482,8 @@ impl TrackManager {
             .collect()
     }
 
-    pub fn get_dB_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
-        display::create_dB_axis(height, n_ticks, n_labels, (self.min_db, self.max_db))
+    pub fn get_db_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
+        display::create_db_axis(height, n_ticks, n_labels, (self.min_db, self.max_db))
     }
 
     #[inline]

@@ -606,7 +606,7 @@ pub fn create_amp_axis(
     positive_half_axis.chain(negative_half_axis).collect()
 }
 
-pub fn create_dB_axis(height: u32, n_ticks: u32, n_labels: u32, db_range: (f32, f32)) -> PlotAxis {
+pub fn create_db_axis(height: u32, n_ticks: u32, n_labels: u32, db_range: (f32, f32)) -> PlotAxis {
     // TODO: n_labels
     assert!(db_range.1 > db_range.0);
     assert!(n_ticks >= 2);
@@ -841,7 +841,7 @@ mod tests {
     }
 
     #[test]
-    fn dB_axis_works() {
+    fn db_axis_works() {
         let assert_axis_eq = |a: &[(u32, String)], b: &[(u32, &str)]| {
             a.into_iter()
                 .zip(b.into_iter())
@@ -851,15 +851,15 @@ mod tests {
                 });
         };
         assert_axis_eq(
-            &create_dB_axis(100, 2, 2, (-100., 0.)),
+            &create_db_axis(100, 2, 2, (-100., 0.)),
             &vec![(0, "0"), (100, "-100")],
         );
         assert_axis_eq(
-            &create_dB_axis(12, 3, 3, (-12., 0.)),
+            &create_db_axis(12, 3, 3, (-12., 0.)),
             &vec![(0, "0"), (5, "-5"), (10, "-10")],
         );
         assert_axis_eq(
-            &create_dB_axis(90, 3, 3, (-2., -1.1)),
+            &create_db_axis(90, 3, 3, (-2., -1.1)),
             &vec![(40, "-1.5"), (90, "-2.0")],
         );
     }
