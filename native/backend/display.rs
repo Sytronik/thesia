@@ -3,6 +3,7 @@ use std::mem::MaybeUninit;
 use std::time::Duration;
 // use std::time::Instant;
 
+use approx::abs_diff_ne;
 use cached::proc_macro::cached;
 use hhmmss::Hhmmss;
 use ndarray::Slice;
@@ -22,7 +23,7 @@ use super::stft::FreqScale;
 
 pub type ResizeType = resize::Type;
 pub type PlotAxis = Vec<(u32, String)>;
-pub type RelativeAxis = Vec<(f64, String)>;
+pub type RelativeAxis = Vec<(f32, String)>;
 
 const BLACK: [u8; 3] = [0; 3];
 const WHITE: [u8; 3] = [255; 3];
@@ -47,7 +48,7 @@ pub const LARGE_WIDTH_SPLIT_HOP: usize = 7680;
 pub const LARGE_WIDTH_OVERLAP_HALF: usize = (MAX_SIZE as usize - LARGE_WIDTH_SPLIT_HOP) / 2;
 pub const RESAMPLE_TAIL: usize = 500;
 
-const POSSIBLE_TEN_UNITS: [u32; 3] = [10, 20, 50];
+const POSSIBLE_TEN_UNITS: [u32; 4] = [10, 20, 50, 100];
 
 pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
     arr: ArrayView<'a, A, D>,
@@ -507,7 +508,7 @@ pub fn create_freq_axis(
     n_labels: u32,
 ) -> RelativeAxis {
     // TODO: n_labels
-    fn coarse_band(fine_band: f64) -> f64 {
+    fn coarse_band(fine_band: f32) -> f32 {
         if fine_band <= 100. {
             100.
         } else if fine_band <= 200. {
@@ -521,14 +522,14 @@ pub fn create_freq_axis(
 
     let mut result = Vec::with_capacity(n_ticks as usize);
     result.push((1., freq_to_str(0.)));
-    let max_freq = sr as f64 / 2.;
+    let max_freq = sr as f32 / 2.;
 
     if n_ticks >= 3 {
         match freq_scale {
             FreqScale::Mel if max_freq > 1000. => {
                 let max_mel = mel::from_hz(max_freq);
-                let mel_1k = mel::MIN_LOG_MEL as f64;
-                let fine_band_mel = max_mel / (n_ticks as f64 - 1.);
+                let mel_1k = mel::MIN_LOG_MEL as f32;
+                let fine_band_mel = max_mel / (n_ticks as f32 - 1.);
                 if n_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
                     // divide [0, 1kHz] region
                     let fine_band = mel::to_hz(fine_band_mel);
@@ -545,18 +546,18 @@ pub fn create_freq_axis(
                     // divide [1kHz, max_freq] region
                     let ratio_step =
                         2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
-                    let mut freq = ratio_step as f64 * 1000.;
+                    let mut freq = ratio_step as f32 * 1000.;
                     let mut mel_f = mel::from_hz(freq);
                     let max_mel_minus_band = max_mel - fine_band_mel + 0.01;
                     while mel_f < max_mel_minus_band {
                         result.push((1. - mel_f / max_mel, freq_to_str(freq)));
-                        freq *= ratio_step as f64;
+                        freq *= ratio_step as f32;
                         mel_f = mel::from_hz(freq);
                     }
                 }
             }
             _ => {
-                let fine_band = max_freq / (n_ticks as f64 - 1.);
+                let fine_band = max_freq / (n_ticks as f32 - 1.);
                 let band = coarse_band(fine_band);
                 let mut freq = band;
                 while freq < max_freq - fine_band + 1. {
@@ -577,73 +578,42 @@ pub fn create_amp_axis(
     n_labels: u32,
     amp_range: (f32, f32),
 ) -> PlotAxis {
-    // TODO
-    vec![
-        (0, format!("{:.1}", amp_range.1)),
-        (height / 2, String::from("0")),
-        (height, format!("{:.1}", amp_range.0)),
-    ]
+    // TODO: n_labels
+    assert!(amp_range.1 > amp_range.0);
+    assert!(n_ticks >= 3);
+    if abs_diff_ne!(amp_range.0, -amp_range.1) {
+        unimplemented!()
+    }
+    if n_ticks % 2 != 1 {
+        unimplemented!()
+    }
+    let n_ticks_half = (n_ticks - 1) / 2;
+    let half_axis = create_linear_axis(0., amp_range.1, n_ticks_half + 1);
+    let positive_half_axis = half_axis.iter().map(|(y_ratio, s)| {
+        let y = (height as f32 * y_ratio / 2.).round() as u32;
+        (y.max(0), s.clone())
+    });
+    let negative_half_axis =
+        half_axis
+            .iter()
+            .take(n_ticks_half as usize)
+            .rev()
+            .map(|(y_ratio, s)| {
+                let y = (height as f32 * (1. - y_ratio / 2.)).round() as u32;
+                (y.min(height), format!("-{}", s))
+            });
+
+    positive_half_axis.chain(negative_half_axis).collect()
 }
 
 pub fn create_dB_axis(height: u32, n_ticks: u32, n_labels: u32, db_range: (f32, f32)) -> PlotAxis {
     // TODO: n_labels
     assert!(db_range.1 > db_range.0);
     assert!(n_ticks >= 2);
-    if n_ticks == 2 {
-        return vec![
-            (0, format_ticklabel(db_range.1, None)),
-            (height, format_ticklabel(db_range.0, None)),
-        ];
-    }
-    let raw_unit = (db_range.1 - db_range.0) / (n_ticks - 1) as f32;
-    let unit_exponent = raw_unit.log10().floor() as i32;
-    let (unit, min_i, max_i) = POSSIBLE_TEN_UNITS
-        .iter()
-        .find_map(|&x| {
-            let unit = x as f32 * 10f32.powi(unit_exponent - 1);
-            let min_i = (db_range.0 / unit).ceil() as i32;
-            let max_i = (db_range.1 / unit).floor() as i32;
-            if max_i + 1 - min_i <= n_ticks as i32 {
-                Some((unit, min_i, max_i))
-            } else {
-                None
-            }
-        })
-        .unwrap();
-    (min_i..=max_i)
-        .rev()
-        .map(|i| {
-            let value = i as f32 * unit;
-            let y_ratio = (db_range.1 - value) / (db_range.1 - db_range.0);
-            let y = (height as f32 * y_ratio).round() as u32;
-            (y, format_ticklabel(value, Some(unit_exponent)))
-        })
+    create_linear_axis(db_range.0, db_range.1, n_ticks)
+        .into_iter()
+        .map(|(y_ratio, s)| ((height as f32 * y_ratio).round() as u32, s))
         .collect()
-}
-
-fn format_ticklabel(value: f32, unit_exponent: Option<i32>) -> String {
-    if value.is_zero() {
-        return String::from("0");
-    }
-    let exponent = value.abs().log10().floor() as i32;
-    match unit_exponent {
-        Some(unit_exponent) => {
-            let rounded = (value * 10f32.powi(-unit_exponent)).round() * 10f32.powi(unit_exponent);
-            let n_effs = (exponent - unit_exponent).max(0) as usize;
-            if exponent <= -3 || exponent > 3 && unit_exponent > 0 {
-                format!("{:.*e}", n_effs, rounded)
-            } else {
-                format!("{:.*}", (-unit_exponent).max(0) as usize, rounded)
-            }
-        }
-        None => {
-            if exponent <= -3 || exponent > 3 {
-                format!("{:e}", value)
-            } else {
-                format!("{}", value)
-            }
-        }
-    }
 }
 
 #[inline]
@@ -682,7 +652,42 @@ fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> 
     FftResampler::new(input_size, output_size)
 }
 
-fn freq_to_str(freq: f64) -> String {
+fn create_linear_axis(min: f32, max: f32, n_ticks: u32) -> RelativeAxis {
+    if n_ticks == 2 {
+        return vec![
+            (0., format_ticklabel(max, None)),
+            (1., format_ticklabel(min, None)),
+        ];
+    }
+    let raw_unit = (max - min) / (n_ticks - 1) as f32;
+    let mut unit_exponent = raw_unit.log10().floor() as i32;
+    let (ten_unit, unit, min_i, max_i) = POSSIBLE_TEN_UNITS
+        .iter()
+        .find_map(|&x| {
+            let unit = x as f32 * 10f32.powi(unit_exponent - 1);
+            let min_i = (min / unit).ceil() as i32;
+            let max_i = (max / unit).floor() as i32;
+            if max_i + 1 - min_i <= n_ticks as i32 {
+                Some((x, unit, min_i, max_i))
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    if ten_unit == 100 {
+        unit_exponent += 1;
+    }
+    (min_i..=max_i)
+        .rev()
+        .map(|i| {
+            let value = i as f32 * unit;
+            let y_ratio = (max - value) / (max - min);
+            (y_ratio, format_ticklabel(value, Some(unit_exponent)))
+        })
+        .collect()
+}
+
+fn freq_to_str(freq: f32) -> String {
     let freq = freq.round().max(0.);
     let freq_int = freq as usize;
     if freq_int >= 1000 {
@@ -697,6 +702,31 @@ fn freq_to_str(freq: f64) -> String {
         }
     } else {
         format!("{}", freq_int)
+    }
+}
+
+fn format_ticklabel(value: f32, unit_exponent: Option<i32>) -> String {
+    if value.is_zero() {
+        return String::from("0");
+    }
+    let exponent = value.abs().log10().floor() as i32;
+    match unit_exponent {
+        Some(unit_exponent) => {
+            let rounded = (value * 10f32.powi(-unit_exponent)).round() * 10f32.powi(unit_exponent);
+            let n_effs = (exponent - unit_exponent).max(0) as usize;
+            if exponent <= -3 || exponent > 3 && unit_exponent > 0 {
+                format!("{:.*e}", n_effs, rounded)
+            } else {
+                format!("{:.*}", (-unit_exponent).max(0) as usize, rounded)
+            }
+        }
+        None => {
+            if exponent <= -3 || exponent > 3 {
+                format!("{:e}", value)
+            } else {
+                format!("{}", value)
+            }
+        }
     }
 }
 
@@ -726,7 +756,7 @@ mod tests {
 
     #[test]
     fn freq_axis_works() {
-        let assert_axis_eq = |a: &[(f64, String)], b: &[(f64, &str)]| {
+        let assert_axis_eq = |a: &[(f32, String)], b: &[(f32, &str)]| {
             a.into_iter()
                 .zip(b.into_iter())
                 .for_each(|((y0, s0), (y1, s1))| {
@@ -774,7 +804,7 @@ mod tests {
             &create_freq_axis(FreqScale::Mel, 24000, 3, 3),
             &vec![
                 (1., "0"),
-                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(12000.), "1k"),
+                (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
                 (0., "12k"),
             ],
         );
@@ -783,7 +813,7 @@ mod tests {
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(1500.), "500"),
-                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(1500.), "1k"),
+                (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(1500.), "1k"),
                 (0., "1.5k"),
             ],
         );
@@ -792,7 +822,7 @@ mod tests {
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(12000.), "500"),
-                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(12000.), "1k"),
+                (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
                 (1. - mel::from_hz(2000.) / mel::from_hz(12000.), "2k"),
                 (1. - mel::from_hz(4000.) / mel::from_hz(12000.), "4k"),
                 (0., "12k"),
@@ -802,7 +832,7 @@ mod tests {
             &create_freq_axis(FreqScale::Mel, 96000, 6, 6),
             &vec![
                 (1., "0"),
-                (1. - mel::MIN_LOG_MEL as f64 / mel::from_hz(48000.), "1k"),
+                (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(48000.), "1k"),
                 (1. - mel::from_hz(4000.) / mel::from_hz(48000.), "4k"),
                 (1. - mel::from_hz(16000.) / mel::from_hz(48000.), "16k"),
                 (0., "48k"),

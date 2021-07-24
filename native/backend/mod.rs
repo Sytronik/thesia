@@ -473,11 +473,10 @@ impl TrackManager {
     }
 
     pub fn get_freq_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
-        let height_f64 = height as f64;
         display::create_freq_axis(self.setting.freq_scale, self.max_sr, n_ticks, n_labels)
             .into_iter()
             .map(|(relative_y, s)| {
-                let y = ((relative_y * height_f64).round() as u32).clamp(0, height);
+                let y = ((relative_y * (height as f32)).round() as u32).clamp(0, height);
                 (y, s)
             })
             .collect()
