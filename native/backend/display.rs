@@ -22,7 +22,7 @@ use super::resample::FftResampler;
 use super::stft::FreqScale;
 
 pub type ResizeType = resize::Type;
-pub type PlotAxis = Vec<(u32, String)>;
+pub type PlotAxis = Vec<(i32, String)>;
 pub type RelativeAxis = Vec<(f32, String)>;
 
 const BLACK: [u8; 3] = [0; 3];
@@ -479,11 +479,17 @@ pub fn create_time_axis(
     label_interval: u32,
 ) -> PlotAxis {
     let first_unit = (start_sec / tick_unit).ceil() as u32;
+    // The label just before start_sec (at negative coordinate) should be drawn.
+    let first_unit = if first_unit > label_interval {
+        first_unit - label_interval
+    } else {
+        0
+    };
     let last_unit = ((start_sec + width as f64 / px_per_sec) / tick_unit).ceil() as u32;
     (first_unit..last_unit)
         .map(|unit| {
             let sec = unit as f64 * tick_unit;
-            let x = (((sec - start_sec) * px_per_sec).round().max(0.) as u32).min(width);
+            let x = (((sec - start_sec) * px_per_sec).round() as i32).min(width as i32);
             let s = if unit % label_interval == 0 {
                 let millis = (sec * 1000.).round() as u64;
                 let dur = Duration::from_millis(millis);
@@ -590,8 +596,8 @@ pub fn create_amp_axis(
     let n_ticks_half = (max_num_ticks - 1) / 2;
     let half_axis = create_linear_axis(0., amp_range.1, n_ticks_half + 1);
     let positive_half_axis = half_axis.iter().map(|(y_ratio, s)| {
-        let y = (height as f32 * y_ratio / 2.).round() as u32;
-        (y.max(0), s.clone())
+        let y = (height as f32 * y_ratio / 2.).round() as i32;
+        (y, s.clone())
     });
     let negative_half_axis =
         half_axis
@@ -599,8 +605,8 @@ pub fn create_amp_axis(
             .take(n_ticks_half as usize)
             .rev()
             .map(|(y_ratio, s)| {
-                let y = (height as f32 * (1. - y_ratio / 2.)).round() as u32;
-                (y.min(height), format!("-{}", s))
+                let y = (height as f32 * (1. - y_ratio / 2.)).round() as i32;
+                (y, format!("-{}", s))
             });
 
     positive_half_axis.chain(negative_half_axis).collect()
@@ -617,10 +623,7 @@ pub fn create_db_axis(
     assert!(max_num_ticks >= 2);
     create_linear_axis(db_range.0, db_range.1, max_num_ticks)
         .into_iter()
-        .map(|(y_ratio, s)| {
-            let y = (height as f32 * y_ratio).round() as u32;
-            (y.clamp(0, height), s)
-        })
+        .map(|(y_ratio, s)| ((height as f32 * y_ratio).round() as i32, s))
         .collect()
 }
 
@@ -850,7 +853,7 @@ mod tests {
 
     #[test]
     fn db_axis_works() {
-        let assert_axis_eq = |a: &[(u32, String)], b: &[(u32, &str)]| {
+        let assert_axis_eq = |a: &[(i32, String)], b: &[(i32, &str)]| {
             a.into_iter()
                 .zip(b.into_iter())
                 .for_each(|((y0, s0), (y1, s1))| {
@@ -860,15 +863,15 @@ mod tests {
         };
         assert_axis_eq(
             &create_db_axis(100, 2, 2, (-100., 0.)),
-            &vec![(0, "0"), (100, "-100")],
+            &vec![(0i32, "0"), (100, "-100")],
         );
         assert_axis_eq(
             &create_db_axis(12, 3, 3, (-12., 0.)),
-            &vec![(0, "0"), (5, "-5"), (10, "-10")],
+            &vec![(0i32, "0"), (5, "-5"), (10, "-10")],
         );
         assert_axis_eq(
             &create_db_axis(90, 3, 3, (-2., -1.1)),
-            &vec![(40, "-1.5"), (90, "-2.0")],
+            &vec![(40i32, "-1.5"), (90, "-2.0")],
         );
     }
 }

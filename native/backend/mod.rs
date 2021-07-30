@@ -481,8 +481,8 @@ impl TrackManager {
         )
         .into_iter()
         .map(|(relative_y, s)| {
-            let y = (relative_y * (height as f32)).round() as u32;
-            (y.clamp(0, height), s)
+            let y = (relative_y * (height as f32)).round() as i32;
+            (y, s)
         })
         .collect()
     }

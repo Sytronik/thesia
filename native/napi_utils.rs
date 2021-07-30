@@ -110,7 +110,7 @@ pub fn convert_axis_to_jsarr(env: &Env, plot_axis: PlotAxis) -> JsResult<JsObjec
     let mut obj = env.create_array_with_length(plot_axis.len())?;
     for (i, (y, s)) in plot_axis.into_iter().enumerate() {
         let mut tup_arr = env.create_array_with_length(2)?;
-        tup_arr.set_element(0, env.create_uint32(y)?)?;
+        tup_arr.set_element(0, env.create_int32(y)?)?;
         tup_arr.set_element(1, env.create_string_from_std(s)?)?;
         obj.set_element(i as u32, tup_arr)?;
     }
