@@ -1,11 +1,10 @@
 use std::iter;
 use std::mem::MaybeUninit;
-use std::time::Duration;
 // use std::time::Instant;
 
 use approx::abs_diff_ne;
 use cached::proc_macro::cached;
-use hhmmss::Hhmmss;
+use chrono::naive::NaiveTime;
 use ndarray::Slice;
 use ndarray::{prelude::*, Data};
 use ndarray_stats::QuantileExt;
@@ -477,6 +476,7 @@ pub fn create_time_axis(
     px_per_sec: f64,
     tick_unit: f64,
     label_interval: u32,
+    max_sec: f64,
 ) -> PlotAxis {
     let first_unit = (start_sec / tick_unit).ceil() as u32;
     // The label just before start_sec (at negative coordinate) should be drawn.
@@ -486,23 +486,64 @@ pub fn create_time_axis(
         0
     };
     let last_unit = ((start_sec + width as f64 / px_per_sec) / tick_unit).ceil() as u32;
+    let label_unit = tick_unit * label_interval as f64;
+    let (hms_format, hms_display) = if max_sec > 3599. {
+        ("%H:%M:%S", "hh:mm:ss")
+    } else if max_sec > 59. {
+        ("%M:%S", "mm:ss")
+    } else {
+        ("%S", "ss")
+    };
+    let (milli_format, n_mod, milli_display);
+    if label_unit > 0.999 {
+        milli_format = "";
+        milli_display = "";
+        n_mod = 1;
+    } else {
+        milli_format = "%.3f";
+        if label_unit > 0.099 {
+            n_mod = 100;
+            milli_display = ".x";
+        } else if label_unit > 0.009 {
+            n_mod = 10;
+            milli_display = ".xx";
+        } else {
+            n_mod = 1;
+            milli_display = ".xxx";
+        };
+    }
+
+    let time_format = format!("{}{}", hms_format, milli_format);
+    let elem_format_display = (i32::MIN, format!("{}{}", hms_display, milli_display));
     (first_unit..last_unit)
         .map(|unit| {
             let sec = unit as f64 * tick_unit;
             let x = (((sec - start_sec) * px_per_sec).round() as i32).min(width as i32);
             let s = if unit % label_interval == 0 {
-                let millis = (sec * 1000.).round() as u64;
-                let dur = Duration::from_millis(millis);
-                if millis % 1000 == 0 {
-                    dur.hhmmss()
+                let sec_u32 = sec.floor() as u32;
+                let nano = if milli_format.is_empty() {
+                    0
                 } else {
-                    dur.hhmmssxxx()
+                    let milli = ((sec - sec_u32 as f64) * 1000.).round() as u32 / n_mod * n_mod;
+                    milli * 1000_000
+                };
+                let mut result = NaiveTime::from_num_seconds_from_midnight(sec_u32, nano)
+                    .format(&time_format)
+                    .to_string();
+                if time_format.starts_with("%S") && sec_u32 < 10 {
+                    result = result.replacen("0", "", 1);
+                }
+                if milli_format.is_empty() {
+                    result
+                } else {
+                    result.trim_end_matches("0").trim_end_matches(".").into()
                 }
             } else {
                 String::new()
             };
             (x, s)
         })
+        .chain(iter::once(elem_format_display))
         .collect()
 }
 

@@ -472,6 +472,24 @@ impl TrackManager {
         }
     }
 
+    pub fn get_time_axis(
+        &self,
+        width: u32,
+        start_sec: f64,
+        px_per_sec: f64,
+        tick_unit: f64,
+        label_interval: u32,
+    ) -> PlotAxis {
+        display::create_time_axis(
+            width,
+            start_sec,
+            px_per_sec,
+            tick_unit,
+            label_interval,
+            self.max_sec,
+        )
+    }
+
     pub fn get_freq_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
         display::create_freq_axis(
             self.setting.freq_scale,

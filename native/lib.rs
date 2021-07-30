@@ -155,7 +155,8 @@ fn get_time_axis(ctx: CallContext) -> JsResult<JsObject> {
     assert!(label_interval > 0);
     convert_axis_to_jsarr(
         ctx.env,
-        display::create_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval),
+        TM.read()
+            .get_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval),
     )
 }
 
