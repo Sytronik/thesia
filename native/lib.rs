@@ -162,36 +162,43 @@ fn get_time_axis(ctx: CallContext) -> JsResult<JsObject> {
 #[js_function(3)]
 fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
     let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
-    assert_axis_params(height, n_ticks, n_labels);
+    let max_num_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let max_num_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    assert_axis_params(height, max_num_ticks, max_num_labels);
 
-    convert_axis_to_jsarr(ctx.env, TM.read().get_freq_axis(height, n_ticks, n_labels))
+    convert_axis_to_jsarr(
+        ctx.env,
+        TM.read()
+            .get_freq_axis(height, max_num_ticks, max_num_labels),
+    )
 }
 
 #[js_function(4)]
 fn get_amp_axis(ctx: CallContext) -> JsResult<JsObject> {
     let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    let max_num_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let max_num_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
     let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(3)?)?;
-    assert_axis_params(height, n_ticks, n_labels);
+    assert_axis_params(height, max_num_ticks, max_num_labels);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
     convert_axis_to_jsarr(
         ctx.env,
-        display::create_amp_axis(height, n_ticks, n_labels, opt_for_wav.amp_range),
+        display::create_amp_axis(height, max_num_ticks, max_num_labels, opt_for_wav.amp_range),
     )
 }
 
 #[js_function(3)]
 fn get_db_axis(ctx: CallContext) -> JsResult<JsObject> {
     let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let n_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let n_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
-    assert_axis_params(height, n_ticks, n_labels);
+    let max_num_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+    let max_num_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+    assert_axis_params(height, max_num_ticks, max_num_labels);
 
-    convert_axis_to_jsarr(ctx.env, TM.read().get_db_axis(height, n_ticks, n_labels))
+    convert_axis_to_jsarr(
+        ctx.env,
+        TM.read().get_db_axis(height, max_num_ticks, max_num_labels),
+    )
 }
 
 #[contextless_function]

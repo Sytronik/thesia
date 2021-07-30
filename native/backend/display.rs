@@ -504,10 +504,10 @@ pub fn create_time_axis(
 pub fn create_freq_axis(
     freq_scale: FreqScale,
     sr: u32,
-    n_ticks: u32,
-    n_labels: u32,
+    max_num_ticks: u32,
+    max_num_labels: u32,
 ) -> RelativeAxis {
-    // TODO: n_labels
+    // TODO: max_num_labels
     fn coarse_band(fine_band: f32) -> f32 {
         if fine_band <= 100. {
             100.
@@ -520,17 +520,17 @@ pub fn create_freq_axis(
         }
     }
 
-    let mut result = Vec::with_capacity(n_ticks as usize);
+    let mut result = Vec::with_capacity(max_num_ticks as usize);
     result.push((1., freq_to_str(0.)));
     let max_freq = sr as f32 / 2.;
 
-    if n_ticks >= 3 {
+    if max_num_ticks >= 3 {
         match freq_scale {
             FreqScale::Mel if max_freq > 1000. => {
                 let max_mel = mel::from_hz(max_freq);
                 let mel_1k = mel::MIN_LOG_MEL as f32;
-                let fine_band_mel = max_mel / (n_ticks as f32 - 1.);
-                if n_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
+                let fine_band_mel = max_mel / (max_num_ticks as f32 - 1.);
+                if max_num_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
                     // divide [0, 1kHz] region
                     let fine_band = mel::to_hz(fine_band_mel);
                     let band = coarse_band(fine_band);
@@ -542,7 +542,7 @@ pub fn create_freq_axis(
                     }
                 }
                 result.push((1. - mel_1k / max_mel, freq_to_str(1000.)));
-                if n_ticks >= 4 {
+                if max_num_ticks >= 4 {
                     // divide [1kHz, max_freq] region
                     let ratio_step =
                         2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
@@ -557,7 +557,7 @@ pub fn create_freq_axis(
                 }
             }
             _ => {
-                let fine_band = max_freq / (n_ticks as f32 - 1.);
+                let fine_band = max_freq / (max_num_ticks as f32 - 1.);
                 let band = coarse_band(fine_band);
                 let mut freq = band;
                 while freq < max_freq - fine_band + 1. {
@@ -574,20 +574,20 @@ pub fn create_freq_axis(
 
 pub fn create_amp_axis(
     height: u32,
-    n_ticks: u32,
-    n_labels: u32,
+    max_num_ticks: u32,
+    max_num_labels: u32,
     amp_range: (f32, f32),
 ) -> PlotAxis {
-    // TODO: n_labels
+    // TODO: max_num_labels
     assert!(amp_range.1 > amp_range.0);
-    assert!(n_ticks >= 3);
+    assert!(max_num_ticks >= 3);
     if abs_diff_ne!(amp_range.0, -amp_range.1) {
         unimplemented!()
     }
-    if n_ticks % 2 != 1 {
+    if max_num_ticks % 2 != 1 {
         unimplemented!()
     }
-    let n_ticks_half = (n_ticks - 1) / 2;
+    let n_ticks_half = (max_num_ticks - 1) / 2;
     let half_axis = create_linear_axis(0., amp_range.1, n_ticks_half + 1);
     let positive_half_axis = half_axis.iter().map(|(y_ratio, s)| {
         let y = (height as f32 * y_ratio / 2.).round() as u32;
@@ -606,13 +606,21 @@ pub fn create_amp_axis(
     positive_half_axis.chain(negative_half_axis).collect()
 }
 
-pub fn create_db_axis(height: u32, n_ticks: u32, n_labels: u32, db_range: (f32, f32)) -> PlotAxis {
-    // TODO: n_labels
+pub fn create_db_axis(
+    height: u32,
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    db_range: (f32, f32),
+) -> PlotAxis {
+    // TODO: max_num_labels
     assert!(db_range.1 > db_range.0);
-    assert!(n_ticks >= 2);
-    create_linear_axis(db_range.0, db_range.1, n_ticks)
+    assert!(max_num_ticks >= 2);
+    create_linear_axis(db_range.0, db_range.1, max_num_ticks)
         .into_iter()
-        .map(|(y_ratio, s)| ((height as f32 * y_ratio).round() as u32, s))
+        .map(|(y_ratio, s)| {
+            let y = (height as f32 * y_ratio).round() as u32;
+            (y.clamp(0, height), s)
+        })
         .collect()
 }
 
@@ -652,14 +660,14 @@ fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> 
     FftResampler::new(input_size, output_size)
 }
 
-fn create_linear_axis(min: f32, max: f32, n_ticks: u32) -> RelativeAxis {
-    if n_ticks == 2 {
+fn create_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> RelativeAxis {
+    if max_num_ticks == 2 {
         return vec![
             (0., format_ticklabel(max, None)),
             (1., format_ticklabel(min, None)),
         ];
     }
-    let raw_unit = (max - min) / (n_ticks - 1) as f32;
+    let raw_unit = (max - min) / (max_num_ticks - 1) as f32;
     let mut unit_exponent = raw_unit.log10().floor() as i32;
     let (ten_unit, unit, min_i, max_i) = POSSIBLE_TEN_UNITS
         .iter()
@@ -667,7 +675,7 @@ fn create_linear_axis(min: f32, max: f32, n_ticks: u32) -> RelativeAxis {
             let unit = x as f32 * 10f32.powi(unit_exponent - 1);
             let min_i = (min / unit).ceil() as i32;
             let max_i = (max / unit).floor() as i32;
-            if max_i + 1 - min_i <= n_ticks as i32 {
+            if max_i + 1 - min_i <= max_num_ticks as i32 {
                 Some((x, unit, min_i, max_i))
             } else {
                 None

@@ -118,11 +118,11 @@ pub fn convert_axis_to_jsarr(env: &Env, plot_axis: PlotAxis) -> JsResult<JsObjec
 }
 
 #[inline]
-pub fn assert_axis_params(height: u32, n_ticks: u32, n_labels: u32) {
+pub fn assert_axis_params(height: u32, max_num_ticks: u32, max_num_labels: u32) {
     assert!(height >= 1);
-    assert!(n_ticks >= 2);
-    assert!(n_labels >= 2);
-    assert!(n_ticks >= n_labels);
+    assert!(max_num_ticks >= 2);
+    assert!(max_num_labels >= 2);
+    assert!(max_num_ticks >= max_num_labels);
 }
 
 #[inline]

@@ -472,18 +472,28 @@ impl TrackManager {
         }
     }
 
-    pub fn get_freq_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
-        display::create_freq_axis(self.setting.freq_scale, self.max_sr, n_ticks, n_labels)
-            .into_iter()
-            .map(|(relative_y, s)| {
-                let y = ((relative_y * (height as f32)).round() as u32).clamp(0, height);
-                (y, s)
-            })
-            .collect()
+    pub fn get_freq_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
+        display::create_freq_axis(
+            self.setting.freq_scale,
+            self.max_sr,
+            max_num_ticks,
+            max_num_labels,
+        )
+        .into_iter()
+        .map(|(relative_y, s)| {
+            let y = (relative_y * (height as f32)).round() as u32;
+            (y.clamp(0, height), s)
+        })
+        .collect()
     }
 
-    pub fn get_db_axis(&self, height: u32, n_ticks: u32, n_labels: u32) -> PlotAxis {
-        display::create_db_axis(height, n_ticks, n_labels, (self.min_db, self.max_db))
+    pub fn get_db_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
+        display::create_db_axis(
+            height,
+            max_num_ticks,
+            max_num_labels,
+            (self.min_db, self.max_db),
+        )
     }
 
     #[inline]
