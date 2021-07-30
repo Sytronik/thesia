@@ -13,12 +13,13 @@ path = "native/lib.rs"
 napi = "1.7.5"
 napi-derive = "1.1.0"
 
-cached = "0.23.0"
 # cpal = "0.13.3"
+approx = "0.5.0"
+cached = "0.24.0"
 chrono = "0.4.19"
-futures = "0.3.15"
+futures = "0.3.16"
 lazy_static = "1.4.0"
-ndarray = {version = "0.15.2", features = ["rayon", "approx"]}
+ndarray = {version = "0.15.3", features = ["rayon", "approx"]}
 ndarray-stats = "0.5.0"
 num-traits = "0.2.14"
 parking_lot = "0.11.1"
@@ -28,12 +29,7 @@ realfft = "2.0.1"
 rgb = "0.8.27"
 rustfft = "6.0.1"
 tiny-skia = "0.5.1"
-tokio = {version = "1.6.1", features = ["rt-multi-thread", "sync"]}
-
-[dependencies.approx]
-features = ["num-complex"]
-git = "https://github.com/brendanzab/approx.git"
-rev = "195a9584bd7cb095cb09d0b37df22553cb08cc0a"
+tokio = {version = "1.9.0", features = ["rt-multi-thread", "sync"]}
 
 [dependencies.resize]
 git = "https://github.com/Sytronik/resize.git"
@@ -41,7 +37,7 @@ rev = "860ff756349d6580f95324374f0ffce4d1675607"
 
 [dependencies.rodio]
 git = "https://github.com/Sytronik/rodio.git"
-rev = "788509f4d4ad1f5c9e8862a1471994342bd8d286"
+rev = "e7353f7218803d94b473ea09e6d8355e8defc102"
 
 [dev-dependencies]
 image = "0.23.14"
@@ -53,7 +49,7 @@ napi-build = "1.1.0"
 jemallocator = {version = "0.3.2", features = ["disable_initial_exec_tls"]}
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
-mimalloc = {version = "0.1.25"}
+mimalloc = {version = "0.1.26"}
 
 [profile.release]
 codegen-units = 1
