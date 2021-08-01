@@ -625,7 +625,6 @@ pub fn create_amp_axis(
     max_num_labels: u32,
     amp_range: (f32, f32),
 ) -> PlotAxis {
-    // TODO: max_num_labels
     assert!(amp_range.1 > amp_range.0);
     assert!(max_num_ticks >= 3);
     if abs_diff_ne!(amp_range.0, -amp_range.1) {
@@ -635,20 +634,24 @@ pub fn create_amp_axis(
         unimplemented!()
     }
     let n_ticks_half = (max_num_ticks - 1) / 2;
-    let half_axis = create_linear_axis(0., amp_range.1, n_ticks_half + 1);
-    let positive_half_axis = half_axis.iter().map(|(y_ratio, s)| {
+    let half_axis = create_linear_axis(0., amp_range.1, n_ticks_half + 1); // amp_range.1 ~ 0
+    let half_len = half_axis.len();
+    let half_axis: Vec<_> =
+        omit_labels_from_linear_axis(half_axis.into_iter().rev(), half_len, max_num_labels)
+            .collect(); // 0 ~ amp_range.1
+    let positive_half_axis = half_axis.iter().rev().map(|(y_ratio, s)| {
         let y = (height as f32 * y_ratio / 2.).round() as i32;
         (y, s.clone())
-    });
-    let negative_half_axis =
-        half_axis
-            .iter()
-            .take(n_ticks_half as usize)
-            .rev()
-            .map(|(y_ratio, s)| {
-                let y = (height as f32 * (1. - y_ratio / 2.)).round() as i32;
-                (y, format!("-{}", s))
-            });
+    }); // 0 ~ amp_range.1
+    let negative_half_axis = half_axis.iter().skip(1).map(|(y_ratio, s)| {
+        let y = (height as f32 * (1. - y_ratio / 2.)).round() as i32;
+        let s = if s.is_empty() {
+            String::new()
+        } else {
+            format!("-{}", s)
+        };
+        (y, s)
+    }); // 0 ~ amp_range.0
 
     positive_half_axis.chain(negative_half_axis).collect()
 }
@@ -659,13 +662,17 @@ pub fn create_db_axis(
     max_num_labels: u32,
     db_range: (f32, f32),
 ) -> PlotAxis {
-    // TODO: max_num_labels
     assert!(db_range.1 > db_range.0);
     assert!(max_num_ticks >= 2);
-    create_linear_axis(db_range.0, db_range.1, max_num_ticks)
-        .into_iter()
-        .map(|(y_ratio, s)| ((height as f32 * y_ratio).round() as i32, s))
-        .collect()
+    let axis = create_linear_axis(db_range.0, db_range.1, max_num_ticks);
+    let len = axis.len();
+    omit_labels_from_linear_axis(
+        axis.into_iter()
+            .map(|(y_ratio, s)| ((height as f32 * y_ratio).round() as i32, s)),
+        len,
+        max_num_labels,
+    )
+    .collect()
 }
 
 #[inline]
@@ -737,6 +744,21 @@ fn create_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> RelativeAxis {
             (y_ratio, format_ticklabel(value, Some(unit_exponent)))
         })
         .collect()
+}
+
+fn omit_labels_from_linear_axis<Y>(
+    iter: impl DoubleEndedIterator<Item = (Y, String)> + ExactSizeIterator,
+    len: usize,
+    max_num_labels: u32,
+) -> impl DoubleEndedIterator<Item = (Y, String)> + ExactSizeIterator {
+    let n_mod = (len as f32 / max_num_labels as f32).ceil() as usize;
+    iter.enumerate().map(move |(i, (y, s))| -> (Y, String) {
+        if i % n_mod == 0 && (len - 1 - i) >= n_mod || i == len - 1 {
+            (y, s)
+        } else {
+            (y, String::new())
+        }
+    })
 }
 
 fn freq_to_str(freq: f32) -> String {
