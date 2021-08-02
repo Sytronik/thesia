@@ -90,6 +90,7 @@ function MainViewer({
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
   const timeMarkersRef = useRef();
   const timeCanvasElem = useRef();
+  const [timeUnitLabel, setTimeUnitLabel] = useState("");
   const ampMarkersRef = useRef();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs();
   const freqMarkersRef = useRef();
@@ -103,7 +104,6 @@ function MainViewer({
   const [resizeObserver, _] = useState(
     new ResizeObserver((entries) => {
       const target = entries[0].target;
-      console.log(`entries height: ${target.clientHeight}`);
       setColorBarHeight(target.clientHeight - (16 + 2 + 24));
     }),
   );
@@ -201,30 +201,32 @@ function MainViewer({
       TIME_BOUNDARIES,
       drawOptionRef.current.px_per_sec,
     );
-    timeMarkersRef.current = getTimeAxis(
+    let timeMarkers = getTimeAxis(
       width,
       startSecRef.current,
       drawOptionRef.current.px_per_sec,
       minorUnit,
       minorTickNum,
     );
+    setTimeUnitLabel(timeMarkers.pop()[1]);
+    timeMarkersRef.current = timeMarkers;
   });
   const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height) => {
     if (!trackIds.length) return;
-    const [ampTickNum, ampLableNum] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
+    const [maxAmpNumTicks, maxAmpNumLabels] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
     ampMarkersRef.current = getAmpAxis(
       height,
-      ampTickNum,
-      ampLableNum,
+      maxAmpNumTicks,
+      maxAmpNumLabels,
       drawOptionForWavRef.current,
     );
-    const [freqTickNum, freqLabelNum] = getTickScale(FREQ_TICK_NUM, FREQ_BOUNDARIES, height);
-    freqMarkersRef.current = getFreqAxis(height, freqTickNum, freqLabelNum);
+    const [maxFreqNumTicks, maxFreqNumLabels] = getTickScale(FREQ_TICK_NUM, FREQ_BOUNDARIES, height);
+    freqMarkersRef.current = getFreqAxis(height, maxFreqNumTicks, maxFreqNumLabels);
   });
   const throttledSetDbMarkers = throttle(1000 / 240, (height) => {
     if (!trackIds.length) return;
-    const [dbTickNum, dbLabelNum] = getTickScale(DB_TICK_NUM, DB_BOUNDARIES, height);
-    dbMarkersRef.current = getdBAxis(height, dbTickNum, dbLabelNum);
+    const [maxDeciBelNumTicks, maxDeciBelNumLabels] = getTickScale(DB_TICK_NUM, DB_BOUNDARIES, height);
+    dbMarkersRef.current = getdBAxis(height, maxDeciBelNumTicks, maxDeciBelNumLabels);
   });
 
   const throttledSetImgState = useCallback(
@@ -272,10 +274,10 @@ function MainViewer({
   const dropbox = <div className="dropbox"></div>;
 
   const timeUnit = (
-    <div key="time" className="time-unit">
-      <p>unit</p>
+    <div key="time_unit_label" className="time-unit">
+      <p>{timeUnitLabel}</p>
     </div>
-  ); // [TEMP]
+  );
   const tracksLeft = trackIds.map((id) => {
     const channels = [...Array(getNumCh(id)).keys()].map((ch) => {
       return (

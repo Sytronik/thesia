@@ -65,7 +65,7 @@ export const PROPERTY = {
     LABEL_LEFT_MARGIN: 3,
   },
   AMP_TICK_NUM: {
-    // height: [tick number, label number]
+    // height: [max_number_of_ticks, max_number_of_labels]
     // TEMP
     80: [5, 5],
     230: [13, 13],
@@ -106,7 +106,7 @@ export const PROPERTY = {
     LABEL_LEFT_MARGIN: 3,
   },
   FREQ_TICK_NUM: {
-    // height: [tick number, label number]
+    // height: [max_number_of_ticks, max_number_of_labels]
     // TEMP
     80: [4, 2],
     230: [9, 7],
