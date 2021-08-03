@@ -2,15 +2,17 @@
 
 .SplitView {
   display: flex;
+  overflow-y: scroll;
   flex-direction: row;
   align-items: flex-start;
 }
 
 .LeftPane {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  height: 100%;
 
   > div {
     background-color: $bg-primary;
@@ -30,6 +32,7 @@
 }
 
 .RightPane {
+  position: relative;
   overflow: hidden;
   flex: 1 1 auto;
 }

@@ -301,8 +301,8 @@ function MainViewer({
         onClick={selectTrack}
         onContextMenu={showContextMenu}
       >
-        <div className="channels">{channels}</div>
         <TrackSummary data={trackSummary} height={(height + 2) * getNumCh(id) - 2} />
+        <div className="channels">{channels}</div>
       </div>
     );
   });

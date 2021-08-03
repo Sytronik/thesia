@@ -17,7 +17,8 @@
   border-radius: $spacer-1;
 }
 
-// Left Track Elements
+/* Left Track Elements */
+
 .time-unit {
   @include body-label;
 
@@ -33,6 +34,7 @@
 }
 
 .track-left {
+  display: flex;
   flex: 0 0 auto;
   position: relative;
   margin-bottom: $track-margin;
@@ -51,9 +53,8 @@
 .channels {
   display: flex;
   flex-direction: column;
-  float: right;
+  flex: 0 0 auto;
   width: $channel-width;
-  height: 100%;
 }
 
 .ch {
@@ -95,7 +96,7 @@
   @include plus-btn($button-white, $spacer-2, 1px);
 }
 
-// Right Track Elements
+/* Right Track Elements */
 
 .track-right {
   position: relative;

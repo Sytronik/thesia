@@ -2,9 +2,8 @@
 
 // track summary
 .TrackSummary {
-  height: 100%;
+  flex: 1 1;
   padding: $spacer-3;
-  margin-right: $channel-width;
 
   > span:not(:first-child) {
     display: inline-block;
