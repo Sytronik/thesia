@@ -676,11 +676,8 @@ pub fn create_db_axis(
 }
 
 #[inline]
-pub fn get_colormap_rgba() -> Vec<u8> {
-    COLORMAP
-        .iter()
-        .flat_map(|x| x.iter().cloned().chain(iter::once(u8::MAX)))
-        .collect()
+pub fn get_colormap_rgb() -> Vec<u8> {
+    COLORMAP.iter().flat_map(|x| x.iter().cloned()).collect()
 }
 
 #[cached(size = 64)]

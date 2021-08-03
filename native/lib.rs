@@ -261,7 +261,7 @@ fn get_filename(ctx: CallContext) -> JsResult<JsString> {
 
 #[contextless_function]
 fn get_colormap(env: Env) -> ContextlessResult<JsBuffer> {
-    env.create_buffer_with_data(display::get_colormap_rgba())
+    env.create_buffer_with_data(display::get_colormap_rgb())
         .map(|x| Some(x.into_raw()))
 }
 
