@@ -15,6 +15,7 @@ mod audio;
 mod decibel;
 pub mod display;
 mod mel;
+pub mod plot_axis;
 mod resample;
 mod sinc;
 mod stft;
@@ -27,7 +28,8 @@ use stft::{calc_up_ratio, perform_stft, FreqScale};
 use utils::{calc_proper_n_fft, unique_filenames};
 use windows::{calc_normalized_win, WindowType};
 
-pub use display::{PlotAxis, TrackDrawer};
+pub use display::TrackDrawer;
+pub use plot_axis::PlotAxisCreator;
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
@@ -103,11 +105,6 @@ impl AudioTrack {
     #[inline]
     pub fn n_ch(&self) -> usize {
         self.wavs.shape()[0]
-    }
-
-    #[inline]
-    pub fn wavlen(&self) -> usize {
-        self.wavs.shape()[1]
     }
 
     #[inline]
@@ -378,48 +375,6 @@ impl TrackManager {
             FreqScale::Linear => half_sr * relative_freq,
             FreqScale::Mel => mel::to_hz(mel::from_hz(half_sr) * relative_freq),
         }
-    }
-
-    pub fn get_time_axis(
-        &self,
-        width: u32,
-        start_sec: f64,
-        px_per_sec: f64,
-        tick_unit: f64,
-        label_interval: u32,
-    ) -> PlotAxis {
-        display::create_time_axis(
-            width,
-            start_sec,
-            px_per_sec,
-            tick_unit,
-            label_interval,
-            self.max_sec,
-        )
-    }
-
-    pub fn get_freq_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        display::create_freq_axis(
-            self.setting.freq_scale,
-            self.max_sr,
-            max_num_ticks,
-            max_num_labels,
-        )
-        .into_iter()
-        .map(|(relative_y, s)| {
-            let y = (relative_y * (height as f32)).round() as i32;
-            (y, s)
-        })
-        .collect()
-    }
-
-    pub fn get_db_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        display::create_db_axis(
-            height,
-            max_num_ticks,
-            max_num_labels,
-            (self.min_db, self.max_db),
-        )
     }
 
     #[inline]

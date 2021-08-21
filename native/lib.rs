@@ -156,7 +156,7 @@ fn get_time_axis(ctx: CallContext) -> JsResult<JsObject> {
     convert_axis_to_jsarr(
         ctx.env,
         TM.read()
-            .get_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval),
+            .create_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval),
     )
 }
 
@@ -170,7 +170,7 @@ fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
     convert_axis_to_jsarr(
         ctx.env,
         TM.read()
-            .get_freq_axis(height, max_num_ticks, max_num_labels),
+            .create_freq_axis(height, max_num_ticks, max_num_labels),
     )
 }
 
@@ -185,7 +185,7 @@ fn get_amp_axis(ctx: CallContext) -> JsResult<JsObject> {
 
     convert_axis_to_jsarr(
         ctx.env,
-        display::create_amp_axis(height, max_num_ticks, max_num_labels, opt_for_wav.amp_range),
+        TrackManager::create_amp_axis(height, max_num_ticks, max_num_labels, opt_for_wav.amp_range),
     )
 }
 
@@ -198,7 +198,8 @@ fn get_db_axis(ctx: CallContext) -> JsResult<JsObject> {
 
     convert_axis_to_jsarr(
         ctx.env,
-        TM.read().get_db_axis(height, max_num_ticks, max_num_labels),
+        TM.read()
+            .create_db_axis(height, max_num_ticks, max_num_labels),
     )
 }
 
