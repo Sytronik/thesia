@@ -128,7 +128,7 @@ fn get_overview(ctx: CallContext) -> JsResult<JsBuffer> {
     assert!(width >= 1 && height >= 1);
 
     ctx.env
-        .create_buffer_with_data(TM.read().get_overview_of(id, width, height))
+        .create_buffer_with_data(TM.read().draw_overview(id, width, height))
         .map(|x| x.into_raw())
 }
 

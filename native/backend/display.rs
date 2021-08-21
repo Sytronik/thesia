@@ -9,6 +9,7 @@ use ndarray::Slice;
 use ndarray::{prelude::*, Data};
 use ndarray_stats::QuantileExt;
 use num_traits::Zero;
+use rayon::prelude::*;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use rgb::FromSlice;
 use tiny_skia::{
@@ -19,6 +20,8 @@ use tiny_skia::{
 use super::mel;
 use super::resample::FftResampler;
 use super::stft::FreqScale;
+use super::utils::{Pad, PadMode};
+use super::{IdChArr, IdChMap, TrackManager};
 
 pub type ResizeType = resize::Type;
 pub type PlotAxis = Vec<(i32, String)>;
@@ -48,6 +51,22 @@ pub const LARGE_WIDTH_OVERLAP_HALF: usize = (MAX_SIZE as usize - LARGE_WIDTH_SPL
 pub const RESAMPLE_TAIL: usize = 500;
 
 const POSSIBLE_TEN_UNITS: [u32; 4] = [10, 20, 50, 100];
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct DrawOption {
+    pub px_per_sec: f64,
+    pub height: u32,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct DrawOptionForWav {
+    pub amp_range: (f32, f32),
+}
+
+pub enum ImageKind {
+    Spec,
+    Wav(DrawOptionForWav),
+}
 
 pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
     arr: ArrayView<'a, A, D>,
@@ -106,30 +125,154 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
     }
 }
 
-#[inline]
-fn interpolate(rgba1: &[u8], rgba2: &[u8], ratio: f32) -> Vec<u8> {
-    rgba1
-        .iter()
-        .zip(rgba2)
-        .map(|(&a, &b)| (ratio * a as f32 + (1. - ratio) * b as f32).round() as u8)
-        .collect()
+pub trait TrackDrawer {
+    fn draw_entire_imgs(
+        &self,
+        id_ch_tuples: &IdChArr,
+        option: DrawOption,
+        kind: ImageKind,
+    ) -> IdChMap<Array3<u8>>;
+
+    fn draw_part_imgs(
+        &self,
+        id_ch_tuples: &IdChArr,
+        start_sec: f64,
+        width: u32,
+        option: DrawOption,
+        opt_for_wav: DrawOptionForWav,
+        blend: f64,
+        fast_resize_vec: Option<Vec<bool>>,
+    ) -> IdChMap<Vec<u8>>;
+
+    fn draw_overview(&self, id: usize, width: u32, height: u32) -> Vec<u8>;
 }
 
-fn convert_grey_to_rgb(x: f32) -> Vec<u8> {
-    if x < 0. {
-        return BLACK.to_vec();
+impl TrackDrawer for TrackManager {
+    fn draw_entire_imgs(
+        &self,
+        id_ch_tuples: &IdChArr,
+        option: DrawOption,
+        kind: ImageKind,
+    ) -> IdChMap<Array3<u8>> {
+        // let start = Instant::now();
+        let DrawOption { px_per_sec, height } = option;
+        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
+        result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
+            let track = self.tracks[id].as_ref().unwrap();
+            let width = track.calc_width(px_per_sec);
+            let arr = match kind {
+                ImageKind::Spec => {
+                    let grey = self.spec_greys.get(&(id, ch)).unwrap().view();
+                    let vec = colorize_grey_with_size(
+                        ArrWithSliceInfo::entire(&grey),
+                        width,
+                        height,
+                        false,
+                    );
+                    Array3::from_shape_vec((height as usize, width as usize, 4), vec).unwrap()
+                }
+                ImageKind::Wav(option_for_wav) => {
+                    let mut arr = Array3::zeros((height as usize, width as usize, 4));
+                    draw_wav_to(
+                        arr.as_slice_mut().unwrap(),
+                        ArrWithSliceInfo::entire(&track.get_wav(ch)),
+                        width,
+                        height,
+                        option_for_wav.amp_range,
+                        None,
+                    );
+                    arr
+                }
+            };
+            ((id, ch), arr)
+        }));
+        // println!("draw entire: {:?}", start.elapsed());
+        result
     }
-    if x >= 1. {
-        return WHITE.to_vec();
+
+    fn draw_part_imgs(
+        &self,
+        id_ch_tuples: &IdChArr,
+        start_sec: f64,
+        width: u32,
+        option: DrawOption,
+        opt_for_wav: DrawOptionForWav,
+        blend: f64,
+        fast_resize_vec: Option<Vec<bool>>,
+    ) -> IdChMap<Vec<u8>> {
+        // let start = Instant::now();
+        let DrawOption { px_per_sec, height } = option;
+        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
+        let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
+            let track = self.tracks[id].as_ref().unwrap();
+            let spec_grey = self.spec_greys.get(&(id, ch)).unwrap();
+            let (pad_left, drawing_width, pad_right) =
+                track.decompose_width_of(start_sec, width, px_per_sec);
+
+            if drawing_width == 0 {
+                return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
+            }
+            let spec_grey_part = ArrWithSliceInfo::from_ref(
+                &spec_grey,
+                track.calc_part_grey_info(
+                    spec_grey.shape()[1] as u64,
+                    start_sec,
+                    width,
+                    px_per_sec,
+                ),
+            );
+            let wav_part = ArrWithSliceInfo::from(
+                track.get_wav(ch),
+                track.calc_part_wav_info(start_sec, width, px_per_sec),
+            );
+            let vec = draw_blended_spec_wav(
+                spec_grey_part,
+                wav_part,
+                drawing_width,
+                height,
+                opt_for_wav.amp_range,
+                blend,
+                fast_resize_vec.as_ref().map_or(false, |v| v[i]),
+            );
+            let mut arr =
+                Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
+
+            if width != drawing_width {
+                arr = arr.pad(
+                    (pad_left as usize, pad_right as usize),
+                    Axis(1),
+                    PadMode::Constant(0),
+                );
+            }
+            ((id, ch), arr.into_raw_vec())
+        });
+        result.par_extend(par_iter);
+
+        // println!("draw: {:?}", start.elapsed());
+        result
     }
-    let position = x * COLORMAP.len() as f32;
-    let index = position.floor() as usize;
-    let rgba1 = if index >= COLORMAP.len() - 1 {
-        &WHITE
-    } else {
-        &COLORMAP[index + 1]
-    };
-    interpolate(rgba1, &COLORMAP[index], position - index as f32)
+
+    fn draw_overview(&self, id: usize, width: u32, height: u32) -> Vec<u8> {
+        let track = self.tracks[id].as_ref().unwrap();
+        let ch_h = height / track.n_ch() as u32;
+        let i_start = (height % track.n_ch() as u32 / 2 * width * 4) as usize;
+        let i_end = i_start + (track.n_ch() as u32 * ch_h * width * 4) as usize;
+        let mut result = vec![0u8; width as usize * height as usize * 4];
+        result[i_start..i_end]
+            .par_chunks_exact_mut(ch_h as usize * width as usize * 4)
+            .enumerate()
+            .for_each(|(ch, x)| {
+                draw_wav_to(
+                    x,
+                    ArrWithSliceInfo::entire(&track.get_wav(ch)),
+                    width,
+                    ch_h,
+                    (-1., 1.),
+                    None,
+                )
+            });
+        result
+    }
 }
 
 pub fn convert_spec_to_grey(
@@ -173,265 +316,7 @@ pub fn calc_effective_slice(
     }
 }
 
-pub fn colorize_grey_with_size(
-    grey: ArrWithSliceInfo<f32, Ix2>,
-    width: u32,
-    height: u32,
-    fast_resize: bool,
-) -> Vec<u8> {
-    // let start = Instant::now();
-    let ArrWithSliceInfo {
-        arr: grey,
-        index: trim_left,
-        length: trim_width,
-    } = grey;
-    let mut resizer = create_resizer(
-        trim_width,
-        grey.shape()[0],
-        width as usize,
-        height as usize,
-        fast_resize,
-    );
-    let mut resized = vec![0f32; width as usize * height as usize];
-    resizer
-        .resize_stride(
-            &grey.as_slice().unwrap()[trim_left..].as_gray(),
-            grey.shape()[1],
-            &mut resized.as_gray_mut(),
-        )
-        .unwrap();
-    resized
-        .into_iter()
-        .flat_map(|x| {
-            convert_grey_to_rgb(x)
-                .into_iter()
-                .chain(iter::once(u8::MAX))
-        })
-        .collect()
-    // println!("drawing spec: {:?}", start.elapsed());
-}
-
-fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
-    // println!("avg rendering. short height ratio: {}", n_short_height as f32 / width as f32);
-    let path = {
-        let mut pb = PathBuilder::new();
-        pb.move_to(0., wav_avg[0]);
-        for (x, &y) in wav_avg.iter().enumerate().skip(1) {
-            pb.line_to(x as f32, y);
-        }
-        if wav_avg.len() == 1 {
-            pb.line_to(0.999, wav_avg[0]);
-        }
-        pb.finish().unwrap()
-    };
-
-    let stroke = Stroke {
-        width: WAV_STROKE_WIDTH,
-        line_cap: LineCap::Round,
-        ..Default::default()
-    };
-    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
-}
-
-fn draw_wav_topbottom(
-    top_envlop: &[f32],
-    btm_envlop: &[f32],
-    pixmap: &mut PixmapMut,
-    paint: &Paint,
-) {
-    // println!("top-bottom rendering. short height ratio: {}", n_short_height as f32 / width as f32);
-    let path = {
-        let mut pb = PathBuilder::new();
-        pb.move_to(0., top_envlop[0]);
-        for (x, &y) in top_envlop.iter().enumerate().skip(1) {
-            pb.line_to(x as f32, y);
-        }
-        for (x, &y) in btm_envlop.iter().enumerate().rev() {
-            pb.line_to(x as f32, y);
-        }
-        pb.close();
-        pb.finish().unwrap()
-    };
-
-    pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
-}
-
-pub fn draw_wav_to(
-    output: &mut [u8],
-    wav: ArrWithSliceInfo<f32, Ix1>,
-    width: u32,
-    height: u32,
-    amp_range: (f32, f32),
-    alpha: Option<u8>,
-) {
-    // let start = Instant::now();
-    let amp_to_px = |x: f32, clamp: bool| {
-        let x = (amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0);
-        if clamp {
-            x.clamp(0., height as f32)
-        } else {
-            x
-        }
-    };
-    let samples_per_px = wav.length as f32 / width as f32;
-    let over_zoomed = amp_range.1 - amp_range.0 < 1e-16;
-    let need_upsampling = !over_zoomed && samples_per_px < 2.;
-    let wav: CowArray<f32, Ix1> = if need_upsampling {
-        let wav_tail = wav.get_sliced_with_tail(RESAMPLE_TAIL);
-        let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
-        let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
-        let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x, false));
-        upsampled.slice_move(s![..width as usize]).into()
-    } else {
-        wav.get_sliced().into()
-    };
-
-    let alpha = alpha.unwrap_or(u8::MAX);
-    let mut paint = Paint::default();
-    let [r, g, b] = WAVECOLOR;
-    paint.set_color_rgba8(r, g, b, alpha);
-    paint.anti_alias = true;
-
-    let num_split = if width < MAX_SIZE {
-        1
-    } else {
-        ((width - MAX_SIZE) as f32 / LARGE_WIDTH_SPLIT_HOP as f32).ceil() as usize + 1
-    };
-
-    let mut out_arr =
-        ArrayViewMut3::from_shape((height as usize, width as usize, 4), output).unwrap();
-    for i in 0..num_split {
-        let width_part = if i < num_split - 1 {
-            MAX_SIZE
-        } else {
-            width - (i * LARGE_WIDTH_SPLIT_HOP) as u32
-        };
-        let i_wav =
-            ((wav.len() * i * LARGE_WIDTH_SPLIT_HOP) as f32 / width as f32).round() as usize;
-        let wavlen_part = (wav.len() as f32 * width_part as f32 / width as f32).round() as usize;
-        let wav_part = wav.slice(s![i_wav..(i_wav + wavlen_part).min(wav.len())]);
-
-        let mut owned_part = if num_split > 1 {
-            Some(vec![0u8; (height * width_part * 4) as usize])
-        } else {
-            None
-        };
-        let out_part = owned_part
-            .as_mut()
-            .map_or_else(|| out_arr.as_slice_mut().unwrap(), |x| &mut x[..]);
-        let mut pixmap = PixmapMut::from_bytes(out_part, width_part, height).unwrap();
-
-        if over_zoomed {
-            let rect = Rect::from_xywh(0., 0., width_part as f32, height as f32).unwrap();
-            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
-        } else if need_upsampling {
-            draw_wav_directly(wav_part.as_slice().unwrap(), &mut pixmap, &paint);
-        } else {
-            let mut wav_slices = Vec::with_capacity(width_part as usize);
-            let mut top_envlop = Vec::with_capacity(width_part as usize);
-            let mut btm_envlop = Vec::with_capacity(width_part as usize);
-            let mut n_conseq_long_h = 0usize;
-            let mut max_n_conseq = 0usize;
-            for i_px in 0..width_part {
-                let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
-                let i_end =
-                    (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav_part.len());
-                let wav_slice = wav_part.slice(s![i_start..i_end]);
-                let mut top = amp_to_px(*wav_slice.max_skipnan(), true);
-                let mut bottom = amp_to_px(*wav_slice.min_skipnan(), true);
-                let diff = THR_LONG_HEIGHT + top - bottom;
-                if diff < 0. {
-                    n_conseq_long_h += 1;
-                } else {
-                    max_n_conseq = max_n_conseq.max(n_conseq_long_h);
-                    n_conseq_long_h = 0;
-                    top -= diff / 2.;
-                    bottom += diff / 2.;
-                }
-                wav_slices.push(wav_slice);
-                top_envlop.push(top);
-                btm_envlop.push(bottom);
-            }
-            max_n_conseq = max_n_conseq.max(n_conseq_long_h);
-            if max_n_conseq > THR_N_CONSEQ_LONG_H {
-                draw_wav_topbottom(&top_envlop, &btm_envlop, &mut pixmap, &paint);
-            } else {
-                let wav_avg: Vec<f32> = wav_slices
-                    .into_iter()
-                    .map(|wav_slice| amp_to_px(wav_slice.mean().unwrap(), false))
-                    .collect();
-                draw_wav_directly(&wav_avg, &mut pixmap, &paint);
-            }
-        }
-        if let Some(part) = owned_part {
-            let part =
-                Array::from_shape_vec((height as usize, part.len() / height as usize / 4, 4), part)
-                    .unwrap();
-            let out_left = if i == 0 {
-                0
-            } else {
-                i * LARGE_WIDTH_SPLIT_HOP + LARGE_WIDTH_OVERLAP_HALF
-            };
-            let out_right = if i < num_split - 1 {
-                (i + 1) * LARGE_WIDTH_SPLIT_HOP + LARGE_WIDTH_OVERLAP_HALF
-            } else {
-                i * LARGE_WIDTH_SPLIT_HOP + width_part as usize
-            };
-            let part_left = if i == 0 { 0 } else { LARGE_WIDTH_OVERLAP_HALF };
-            let part_right = part_left + out_right - out_left;
-            out_arr
-                .slice_mut(s![.., out_left..out_right, ..])
-                .assign(&part.slice(s![.., part_left..part_right, ..]));
-        }
-    }
-    // println!("drawing wav: {:?}", start.elapsed());
-}
-
-pub fn draw_blended_spec_wav(
-    spec_grey: ArrWithSliceInfo<f32, Ix2>,
-    wav: ArrWithSliceInfo<f32, Ix1>,
-    width: u32,
-    height: u32,
-    amp_range: (f32, f32),
-    blend: f64,
-    fast_resize: bool,
-) -> Vec<u8> {
-    // spec
-    if spec_grey.length == 0 || wav.length == 0 {
-        return vec![0u8; height as usize * width as usize * 4];
-    }
-    let mut result = if blend > 0. {
-        colorize_grey_with_size(spec_grey, width, height, fast_resize)
-    } else {
-        vec![0u8; height as usize * width as usize * 4]
-    };
-
-    let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
-
-    if blend < 1. {
-        // black
-        if blend < 0.5 {
-            let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
-            let mut paint = Paint::default();
-            paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
-            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
-        }
-
-        let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
-        // wave
-        draw_wav_to(
-            pixmap.data_mut(),
-            wav,
-            width,
-            height,
-            amp_range,
-            Some(alpha),
-        );
-    }
-    result
-}
-
-pub fn blend(
+pub fn blend_img(
     spec_img: &[u8],
     wav_img: &[u8],
     width: u32,
@@ -678,6 +563,290 @@ pub fn create_db_axis(
 #[inline]
 pub fn get_colormap_rgb() -> Vec<u8> {
     COLORMAP.iter().flat_map(|x| x.iter().cloned()).collect()
+}
+
+#[inline]
+fn interpolate(rgba1: &[u8], rgba2: &[u8], ratio: f32) -> Vec<u8> {
+    rgba1
+        .iter()
+        .zip(rgba2)
+        .map(|(&a, &b)| (ratio * a as f32 + (1. - ratio) * b as f32).round() as u8)
+        .collect()
+}
+
+fn convert_grey_to_rgb(x: f32) -> Vec<u8> {
+    if x < 0. {
+        return BLACK.to_vec();
+    }
+    if x >= 1. {
+        return WHITE.to_vec();
+    }
+    let position = x * COLORMAP.len() as f32;
+    let index = position.floor() as usize;
+    let rgba1 = if index >= COLORMAP.len() - 1 {
+        &WHITE
+    } else {
+        &COLORMAP[index + 1]
+    };
+    interpolate(rgba1, &COLORMAP[index], position - index as f32)
+}
+
+fn colorize_grey_with_size(
+    grey: ArrWithSliceInfo<f32, Ix2>,
+    width: u32,
+    height: u32,
+    fast_resize: bool,
+) -> Vec<u8> {
+    // let start = Instant::now();
+    let ArrWithSliceInfo {
+        arr: grey,
+        index: trim_left,
+        length: trim_width,
+    } = grey;
+    let mut resizer = create_resizer(
+        trim_width,
+        grey.shape()[0],
+        width as usize,
+        height as usize,
+        fast_resize,
+    );
+    let mut resized = vec![0f32; width as usize * height as usize];
+    resizer
+        .resize_stride(
+            &grey.as_slice().unwrap()[trim_left..].as_gray(),
+            grey.shape()[1],
+            &mut resized.as_gray_mut(),
+        )
+        .unwrap();
+    resized
+        .into_iter()
+        .flat_map(|x| {
+            convert_grey_to_rgb(x)
+                .into_iter()
+                .chain(iter::once(u8::MAX))
+        })
+        .collect()
+    // println!("drawing spec: {:?}", start.elapsed());
+}
+
+fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
+    // println!("avg rendering. short height ratio: {}", n_short_height as f32 / width as f32);
+    let path = {
+        let mut pb = PathBuilder::new();
+        pb.move_to(0., wav_avg[0]);
+        for (x, &y) in wav_avg.iter().enumerate().skip(1) {
+            pb.line_to(x as f32, y);
+        }
+        if wav_avg.len() == 1 {
+            pb.line_to(0.999, wav_avg[0]);
+        }
+        pb.finish().unwrap()
+    };
+
+    let stroke = Stroke {
+        width: WAV_STROKE_WIDTH,
+        line_cap: LineCap::Round,
+        ..Default::default()
+    };
+    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
+}
+
+fn draw_wav_topbottom(
+    top_envlop: &[f32],
+    btm_envlop: &[f32],
+    pixmap: &mut PixmapMut,
+    paint: &Paint,
+) {
+    // println!("top-bottom rendering. short height ratio: {}", n_short_height as f32 / width as f32);
+    let path = {
+        let mut pb = PathBuilder::new();
+        pb.move_to(0., top_envlop[0]);
+        for (x, &y) in top_envlop.iter().enumerate().skip(1) {
+            pb.line_to(x as f32, y);
+        }
+        for (x, &y) in btm_envlop.iter().enumerate().rev() {
+            pb.line_to(x as f32, y);
+        }
+        pb.close();
+        pb.finish().unwrap()
+    };
+
+    pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
+}
+
+fn draw_wav_to(
+    output: &mut [u8],
+    wav: ArrWithSliceInfo<f32, Ix1>,
+    width: u32,
+    height: u32,
+    amp_range: (f32, f32),
+    alpha: Option<u8>,
+) {
+    // let start = Instant::now();
+    let amp_to_px = |x: f32, clamp: bool| {
+        let x = (amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0);
+        if clamp {
+            x.clamp(0., height as f32)
+        } else {
+            x
+        }
+    };
+    let samples_per_px = wav.length as f32 / width as f32;
+    let over_zoomed = amp_range.1 - amp_range.0 < 1e-16;
+    let need_upsampling = !over_zoomed && samples_per_px < 2.;
+    let wav: CowArray<f32, Ix1> = if need_upsampling {
+        let wav_tail = wav.get_sliced_with_tail(RESAMPLE_TAIL);
+        let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
+        let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
+        let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x, false));
+        upsampled.slice_move(s![..width as usize]).into()
+    } else {
+        wav.get_sliced().into()
+    };
+
+    let alpha = alpha.unwrap_or(u8::MAX);
+    let mut paint = Paint::default();
+    let [r, g, b] = WAVECOLOR;
+    paint.set_color_rgba8(r, g, b, alpha);
+    paint.anti_alias = true;
+
+    let num_split = if width < MAX_SIZE {
+        1
+    } else {
+        ((width - MAX_SIZE) as f32 / LARGE_WIDTH_SPLIT_HOP as f32).ceil() as usize + 1
+    };
+
+    let mut out_arr =
+        ArrayViewMut3::from_shape((height as usize, width as usize, 4), output).unwrap();
+    for i in 0..num_split {
+        let width_part = if i < num_split - 1 {
+            MAX_SIZE
+        } else {
+            width - (i * LARGE_WIDTH_SPLIT_HOP) as u32
+        };
+        let i_wav =
+            ((wav.len() * i * LARGE_WIDTH_SPLIT_HOP) as f32 / width as f32).round() as usize;
+        let wavlen_part = (wav.len() as f32 * width_part as f32 / width as f32).round() as usize;
+        let wav_part = wav.slice(s![i_wav..(i_wav + wavlen_part).min(wav.len())]);
+
+        let mut owned_part = if num_split > 1 {
+            Some(vec![0u8; (height * width_part * 4) as usize])
+        } else {
+            None
+        };
+        let out_part = owned_part
+            .as_mut()
+            .map_or_else(|| out_arr.as_slice_mut().unwrap(), |x| &mut x[..]);
+        let mut pixmap = PixmapMut::from_bytes(out_part, width_part, height).unwrap();
+
+        if over_zoomed {
+            let rect = Rect::from_xywh(0., 0., width_part as f32, height as f32).unwrap();
+            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+        } else if need_upsampling {
+            draw_wav_directly(wav_part.as_slice().unwrap(), &mut pixmap, &paint);
+        } else {
+            let mut wav_slices = Vec::with_capacity(width_part as usize);
+            let mut top_envlop = Vec::with_capacity(width_part as usize);
+            let mut btm_envlop = Vec::with_capacity(width_part as usize);
+            let mut n_conseq_long_h = 0usize;
+            let mut max_n_conseq = 0usize;
+            for i_px in 0..width_part {
+                let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
+                let i_end =
+                    (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav_part.len());
+                let wav_slice = wav_part.slice(s![i_start..i_end]);
+                let mut top = amp_to_px(*wav_slice.max_skipnan(), true);
+                let mut bottom = amp_to_px(*wav_slice.min_skipnan(), true);
+                let diff = THR_LONG_HEIGHT + top - bottom;
+                if diff < 0. {
+                    n_conseq_long_h += 1;
+                } else {
+                    max_n_conseq = max_n_conseq.max(n_conseq_long_h);
+                    n_conseq_long_h = 0;
+                    top -= diff / 2.;
+                    bottom += diff / 2.;
+                }
+                wav_slices.push(wav_slice);
+                top_envlop.push(top);
+                btm_envlop.push(bottom);
+            }
+            max_n_conseq = max_n_conseq.max(n_conseq_long_h);
+            if max_n_conseq > THR_N_CONSEQ_LONG_H {
+                draw_wav_topbottom(&top_envlop, &btm_envlop, &mut pixmap, &paint);
+            } else {
+                let wav_avg: Vec<f32> = wav_slices
+                    .into_iter()
+                    .map(|wav_slice| amp_to_px(wav_slice.mean().unwrap(), false))
+                    .collect();
+                draw_wav_directly(&wav_avg, &mut pixmap, &paint);
+            }
+        }
+        if let Some(part) = owned_part {
+            let part =
+                Array::from_shape_vec((height as usize, part.len() / height as usize / 4, 4), part)
+                    .unwrap();
+            let out_left = if i == 0 {
+                0
+            } else {
+                i * LARGE_WIDTH_SPLIT_HOP + LARGE_WIDTH_OVERLAP_HALF
+            };
+            let out_right = if i < num_split - 1 {
+                (i + 1) * LARGE_WIDTH_SPLIT_HOP + LARGE_WIDTH_OVERLAP_HALF
+            } else {
+                i * LARGE_WIDTH_SPLIT_HOP + width_part as usize
+            };
+            let part_left = if i == 0 { 0 } else { LARGE_WIDTH_OVERLAP_HALF };
+            let part_right = part_left + out_right - out_left;
+            out_arr
+                .slice_mut(s![.., out_left..out_right, ..])
+                .assign(&part.slice(s![.., part_left..part_right, ..]));
+        }
+    }
+    // println!("drawing wav: {:?}", start.elapsed());
+}
+
+fn draw_blended_spec_wav(
+    spec_grey: ArrWithSliceInfo<f32, Ix2>,
+    wav: ArrWithSliceInfo<f32, Ix1>,
+    width: u32,
+    height: u32,
+    amp_range: (f32, f32),
+    blend: f64,
+    fast_resize: bool,
+) -> Vec<u8> {
+    // spec
+    if spec_grey.length == 0 || wav.length == 0 {
+        return vec![0u8; height as usize * width as usize * 4];
+    }
+    let mut result = if blend > 0. {
+        colorize_grey_with_size(spec_grey, width, height, fast_resize)
+    } else {
+        vec![0u8; height as usize * width as usize * 4]
+    };
+
+    let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
+
+    if blend < 1. {
+        // black
+        if blend < 0.5 {
+            let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
+            let mut paint = Paint::default();
+            paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
+            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+        }
+
+        let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
+        // wave
+        draw_wav_to(
+            pixmap.data_mut(),
+            wav,
+            width,
+            height,
+            amp_range,
+            Some(alpha),
+        );
+    }
+    result
 }
 
 #[cached(size = 64)]

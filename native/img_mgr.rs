@@ -13,18 +13,16 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::backend::{
-    display::{self, calc_effective_slice},
-    utils::{Pad, PadMode},
-    DrawOption, DrawOptionForWav, IdChArr, IdChMap, IdChVec, ImageKind,
-};
+use crate::backend::display::*;
+use crate::backend::{IdChArr, IdChMap, IdChVec};
+use crate::utils::{Pad, PadMode};
 use crate::TM;
 
 type Images = IdChMap<Vec<u8>>;
 type ArcImgCaches = Arc<Mutex<IdChMap<Array3<u8>>>>;
 type GuardImgCaches<'a> = MutexGuard<'a, IdChMap<Array3<u8>>>;
 
-const MAX_IMG_CACHE_WIDTH: u32 = 2 * display::LARGE_WIDTH_SPLIT_HOP as u32;
+const MAX_IMG_CACHE_WIDTH: u32 = 2 * LARGE_WIDTH_SPLIT_HOP as u32;
 
 lazy_static! {
     static ref RUNTIME: Runtime = Builder::new_multi_thread()
@@ -240,7 +238,7 @@ fn blend_imgs(
         .filter_map(|(k, spec_img)| {
             let wav_img = wav_imgs.get(k)?;
             let eff_l_w = eff_l_w_map.get(k).cloned();
-            let img = display::blend(spec_img, wav_img, width, height, blend, eff_l_w);
+            let img = blend_img(spec_img, wav_img, width, height, blend, eff_l_w);
             Some((*k, img))
         })
         .collect()
@@ -308,7 +306,7 @@ async fn draw_imgs(
             IdChMap::new()
         };
         if !need_wav_parts_only.is_empty() {
-            wav_imgs.extend(tm.get_part_imgs(
+            wav_imgs.extend(tm.draw_part_imgs(
                 &need_wav_parts_only,
                 start_sec,
                 width,
@@ -352,7 +350,7 @@ async fn draw_imgs(
                     .collect(),
             );
             // let fast_resize_vec = Some(vec![true; cat_by_spec.need_parts.len()]);
-            tm.get_part_imgs(
+            tm.draw_part_imgs(
                 &cat_by_spec.need_parts,
                 start_sec,
                 width,
@@ -378,7 +376,7 @@ async fn draw_imgs(
         let mut spec_caches_lock = spec_caches.lock();
         let mut wav_caches_lock = wav_caches.lock();
         let (spec_imgs, eff_l_w_map) = if !cat_by_spec.need_new_caches.is_empty() {
-            spec_caches_lock.extend(tm.get_entire_imgs(
+            spec_caches_lock.extend(tm.draw_entire_imgs(
                 &cat_by_spec.need_new_caches,
                 option,
                 ImageKind::Spec,
@@ -394,7 +392,7 @@ async fn draw_imgs(
             (Images::new(), IdChMap::new())
         };
         let wav_imgs = if !cat_by_wav.need_new_caches.is_empty() {
-            wav_caches_lock.extend(tm.get_entire_imgs(
+            wav_caches_lock.extend(tm.draw_entire_imgs(
                 &cat_by_wav.need_new_caches,
                 option,
                 ImageKind::Wav(opt_for_wav),
