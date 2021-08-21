@@ -14,9 +14,7 @@ use tokio::{
 };
 
 use crate::backend::display::*;
-use crate::backend::{IdChArr, IdChMap, IdChVec};
-use crate::utils::{Pad, PadMode};
-use crate::TM;
+use crate::{IdChArr, IdChMap, IdChVec, Pad, PadMode, TM};
 
 type Images = IdChMap<Vec<u8>>;
 type ArcImgCaches = Arc<Mutex<IdChMap<Array3<u8>>>>;

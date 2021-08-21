@@ -2,9 +2,7 @@ use std::convert::TryInto;
 
 use napi::{CallContext, Env, JsNumber, JsObject, JsString, Result as JsResult};
 
-use crate::backend::display::{DrawOption, DrawOptionForWav};
-use crate::backend::plot_axis::PlotAxis;
-use crate::backend::IdChVec;
+use crate::{DrawOption, DrawOptionForWav, IdChVec, PlotAxis};
 
 pub trait TryIntoUsize: TryInto<u32> {
     fn try_into_usize(self) -> Result<usize, Self::Error>;

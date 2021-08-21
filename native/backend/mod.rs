@@ -28,8 +28,9 @@ use stft::{calc_up_ratio, perform_stft, FreqScale};
 use utils::{calc_proper_n_fft, unique_filenames};
 use windows::{calc_normalized_win, WindowType};
 
-pub use display::TrackDrawer;
-pub use plot_axis::PlotAxisCreator;
+pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
+pub use plot_axis::{PlotAxis, PlotAxisCreator};
+pub use utils::{Pad, PadMode};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
