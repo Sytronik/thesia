@@ -50,7 +50,7 @@ function useRefs() {
 }
 
 function MainViewer({
-  native,
+  backend,
   erroredList,
   refreshList,
   trackIds,
@@ -75,7 +75,7 @@ function MainViewer({
     getAmpAxis,
     getFreqAxis,
     getdBAxis,
-  } = native;
+  } = backend;
 
   const dragCounterRef = useRef(0);
   const prevTrackCountRef = useRef(0);

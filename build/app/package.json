@@ -16,6 +16,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "native": "file:../nativenode"
+    "backend": "file:../../target_node"
   }
 }

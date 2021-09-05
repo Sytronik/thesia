@@ -10,7 +10,7 @@ import styles from "./components/MainViewer/MainViewer.scss";
 
 // const {dirname, remote} = window.preload;
 // const {dialog, Menu, MenuItem} = remote;
-const native = require("native");
+const backend = require("backend");
 
 const {SUPPORTED_TYPES} = PROPERTY;
 const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);
@@ -25,10 +25,10 @@ function App() {
   const [refreshList, setRefreshList] = useState([]);
 
   async function reloadTracks(selectedIds) {
-    const reloadedIds = native.reloadTracks(selectedIds);
+    const reloadedIds = backend.reloadTracks(selectedIds);
 
     setErroredList(selectedIds.filter((id) => !reloadedIds.includes(id)));
-    setRefreshList(native.applyTrackListChanges());
+    setRefreshList(backend.applyTrackListChanges());
   }
   async function addTracks(newPaths, unsupportedPaths) {
     try {
@@ -38,7 +38,7 @@ function App() {
       let invalidPaths = [];
 
       newPaths.forEach((path, i, newPaths) => {
-        const id = native.findIDbyPath(path);
+        const id = backend.findIDbyPath(path);
         if (id !== -1) {
           newPaths.splice(i, 1);
           existingIds.push(id);
@@ -55,7 +55,7 @@ function App() {
         }
 
         nextSelectedIndexRef.current = trackIds.length;
-        const addedIds = native.addTracks(newIds, newPaths);
+        const addedIds = backend.addTracks(newIds, newPaths);
         setTrackIds((trackIds) => trackIds.concat(addedIds));
 
         if (newIds.length !== addedIds.length) {
@@ -90,7 +90,7 @@ function App() {
                 `
                 : ""
             }\
-            
+
             Please ensure that the file properties are correct and that it is a supported file type.
             Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
             cancelId: 0,
@@ -103,7 +103,7 @@ function App() {
       if (existingIds.length) {
         reloadTracks(existingIds);
       } else {
-        setRefreshList(native.applyTrackListChanges());
+        setRefreshList(backend.applyTrackListChanges());
       }
     } catch (err) {
       console.log(err);
@@ -116,11 +116,11 @@ function App() {
   async function removeTracks(selectedIds) {
     try {
       nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-      native.removeTracks(selectedIds);
+      backend.removeTracks(selectedIds);
       setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
       setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
 
-      setRefreshList(native.applyTrackListChanges());
+      setRefreshList(backend.applyTrackListChanges());
 
       waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
       if (waitingIdsRef.current.length > 1) {
@@ -251,7 +251,7 @@ function App() {
         <SlideBar />
       </div>
       <MainViewer
-        native={native}
+        backend={backend}
         erroredList={erroredList}
         refreshList={refreshList}
         trackIds={trackIds}
