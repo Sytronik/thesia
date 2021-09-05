@@ -27,3 +27,11 @@ npm-debug.log.*
 *.css.d.ts
 *.sass.d.ts
 *.scss.d.ts
+
+# Rust backend
+target
+Cargo.lock
+**/index*.node
+
+# Samples
+**/*.wav

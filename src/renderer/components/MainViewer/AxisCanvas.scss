@@ -1,0 +1,10 @@
+@import '../../style/index.scss';
+
+.timeRuler {
+  height: $spacer-3;
+}
+
+.ampAxis,
+.freqAxis {
+  float: right;
+}

@@ -15,5 +15,7 @@
     "postinstall": "yarn electron-rebuild && yarn link-modules"
   },
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {
+    "native": "file:../nativenode"
+  }
 }

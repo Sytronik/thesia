@@ -1,0 +1,56 @@
+// Layout variables
+
+// margin and padding utility spacers based on 8px.
+$spacer: 8px !default;
+
+// spacing scale
+$spacer-0: 0 !default; // 0
+$spacer-1: round($spacer / 2) !default; // 4px
+$spacer-2: $spacer !default; // 8px
+$spacer-3: $spacer * 2 !default; // 16px
+$spacer-4: $spacer * 3 !default; // 24px
+$spacer-5: $spacer * 4 !default; // 32px
+$spacer-6: $spacer * 5 !default; // 40px
+
+// Em spacer variables
+$em-spacer-1: 0.0625em !default; // 1/16
+$em-spacer-2: 0.125em !default; // 1/8
+$em-spacer-3: 0.25em !default; // 1/4
+$em-spacer-4: 0.375em !default; // 3/8
+$em-spacer-5: 0.5em !default; // 1/2
+$em-spacer-6: 0.75em !default; // 3/4
+
+// Fixed-width container variables
+$container-width: 960px !default;
+$grid-gutter: 16px !default;
+
+// Breakpoint widths
+$width-xs: 0 !default;
+// Small screen / phone
+$width-sm: 576px !default;
+// Medium screen / tablet
+$width-md: 768px !default;
+// Large screen / desktop (960 + 16 * 2)
+$width-lg: 992px !default;
+// Extra large screen / wide desktop
+$width-xl: 1200px !default;
+
+$breakpoints: (
+  sm: $width-sm,
+  md: $width-md,
+  lg: $width-lg,
+  xl: $width-xl,
+) !default;
+
+// Responsive container widths
+$container-sm: 540px !default;
+$container-md: 720px !default;
+$container-lg: 960px !default;
+$container-xl: 1140px !default;
+
+$container-max-widths: (
+  sm: 540px,
+  md: 720px,
+  lg: 960px,
+  xl: 1140px,
+) !default;
