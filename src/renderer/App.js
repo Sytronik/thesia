@@ -9,8 +9,6 @@ import "./App.global.scss";
 import styles from "./components/MainViewer/MainViewer.scss";
 import {ipcRenderer} from "electron";
 
-// const {dirname, remote} = window.preload;
-// const {dialog, Menu, MenuItem} = remote;
 const backend = require("backend");
 
 const {SUPPORTED_TYPES} = PROPERTY;

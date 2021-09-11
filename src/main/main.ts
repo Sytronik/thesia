@@ -27,12 +27,6 @@ export default class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
-ipcMain.on("ipc-example", async (event, arg) => {
-  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-  console.log(msgTemplate(arg));
-  event.reply("ipc-example", msgTemplate("pong"));
-});
-
 ipcMain.on("show-open-dialog", async (event, supportedTypes) => {
   const result = await dialog.showOpenDialog({
     title: "Select the File to be uploaded",
