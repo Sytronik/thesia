@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useRef, useState, useCallback} from "react";
 import path from "path";
 import Control from "./components/Control/Control";
 import Overview from "./components/Overview/Overview";
@@ -7,6 +7,7 @@ import MainViewer from "./components/MainViewer/MainViewer";
 import PROPERTY from "./components/Property";
 import "./App.global.scss";
 import styles from "./components/MainViewer/MainViewer.scss";
+import {ipcRenderer} from "electron";
 
 // const {dirname, remote} = window.preload;
 // const {dialog, Menu, MenuItem} = remote;
@@ -30,86 +31,91 @@ function App() {
     setErroredList(selectedIds.filter((id) => !reloadedIds.includes(id)));
     setRefreshList(backend.applyTrackListChanges());
   }
-  async function addTracks(newPaths, unsupportedPaths) {
-    try {
-      const newIds = [];
-      const existingIds = [];
-      let invalidIds = [];
-      let invalidPaths = [];
 
-      newPaths.forEach((path, i, newPaths) => {
-        const id = backend.findIDbyPath(path);
-        if (id !== -1) {
-          newPaths.splice(i, 1);
-          existingIds.push(id);
-        }
-      });
+  const addTracks = useCallback(
+    (newPaths, unsupportedPaths) => {
+      try {
+        const newIds = [];
+        const existingIds = [];
+        let invalidIds = [];
+        let invalidPaths = [];
 
-      if (newPaths.length) {
-        for (let i = 0; i < newPaths.length; i += 1) {
-          if (waitingIdsRef.current.length) {
-            newIds.push(waitingIdsRef.current.shift());
-          } else {
-            newIds.push(trackIds.length + i);
+        newPaths.forEach((path, i, newPaths) => {
+          const id = backend.findIDbyPath(path);
+          if (id !== -1) {
+            newPaths.splice(i, 1);
+            existingIds.push(id);
           }
-        }
+        });
 
-        nextSelectedIndexRef.current = trackIds.length;
-        const addedIds = backend.addTracks(newIds, newPaths);
-        setTrackIds((trackIds) => trackIds.concat(addedIds));
-
-        if (newIds.length !== addedIds.length) {
-          invalidIds = newIds.filter((id) => !addedIds.includes(id));
-          invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
-
-          waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
-          if (waitingIdsRef.current.length > 1) {
-            waitingIdsRef.current.sort((a, b) => a - b);
+        if (newPaths.length) {
+          for (let i = 0; i < newPaths.length; i += 1) {
+            if (waitingIdsRef.current.length) {
+              newIds.push(waitingIdsRef.current.shift());
+            } else {
+              newIds.push(trackIds.length + i);
+            }
           }
+
+          nextSelectedIndexRef.current = trackIds.length;
+          const addedIds = backend.addTracks(newIds, newPaths);
+          setTrackIds((trackIds) => trackIds.concat(addedIds));
+
+          if (newIds.length !== addedIds.length) {
+            invalidIds = newIds.filter((id) => !addedIds.includes(id));
+            invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
+
+            waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
+            if (waitingIdsRef.current.length > 1) {
+              waitingIdsRef.current.sort((a, b) => a - b);
+            }
+          }
+          /*
+          if (unsupportedPaths.length || invalidPaths.length) {
+            dialog.showMessageBox({
+              type: "error",
+              buttons: [],
+              defaultId: 0,
+              icon: "",
+              title: "File Open Error",
+              message: "The following files could not be opened",
+              detail: `${
+                unsupportedPaths.length
+                  ? `-- Not Supported Type --
+                  ${unsupportedPaths.join("\n")}
+                  `
+                  : ""
+              }\
+              ${
+                invalidPaths.length
+                  ? `-- Not Valid Format --
+                  ${invalidPaths.join("\n")}
+                  `
+                  : ""
+              }\
+
+              Please ensure that the file properties are correct and that it is a supported file type.
+              Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
+              cancelId: 0,
+              noLink: false,
+              normalizeAccessKeys: false,
+            });
+          } */
         }
-        /*
-        if (unsupportedPaths.length || invalidPaths.length) {
-          dialog.showMessageBox({
-            type: "error",
-            buttons: [],
-            defaultId: 0,
-            icon: "",
-            title: "File Open Error",
-            message: "The following files could not be opened",
-            detail: `${
-              unsupportedPaths.length
-                ? `-- Not Supported Type --
-                ${unsupportedPaths.join("\n")}
-                `
-                : ""
-            }\
-            ${
-              invalidPaths.length
-                ? `-- Not Valid Format --
-                ${invalidPaths.join("\n")}
-                `
-                : ""
-            }\
 
-            Please ensure that the file properties are correct and that it is a supported file type.
-            Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
-            cancelId: 0,
-            noLink: false,
-            normalizeAccessKeys: false,
-          });
-        } */
+        if (existingIds.length) {
+          reloadTracks(existingIds);
+        } else {
+          setRefreshList(backend.applyTrackListChanges());
+        }
+      } catch (err) {
+        console.log(err);
+        alert("File upload error");
       }
+    },
+    [trackIds],
+  );
 
-      if (existingIds.length) {
-        reloadTracks(existingIds);
-      } else {
-        setRefreshList(backend.applyTrackListChanges());
-      }
-    } catch (err) {
-      console.log(err);
-      alert("File upload error");
-    }
-  }
   const ignoreError = (erroredId) => {
     setErroredList(erroredList.filter((id) => ![erroredId].includes(id)));
   };
@@ -132,29 +138,10 @@ function App() {
     }
   }
 
-  /*
-  async function showOpenDialog() {
-    const file = await dialog.showOpenDialog({
-      title: "Select the File to be uploaded",
-      defaultPath: path.join(__dirname, "/samples/"),
-      filters: [
-        {
-          name: "Audio Files",
-          extensions: SUPPORTED_TYPES,
-        },
-      ],
-      properties: ["openFile", "multiSelections"],
-    });
+  function showOpenDialog() {
+    ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
+  }
 
-    if (!file.canceled) {
-      const newPaths = file.filePaths;
-      const unsupportedPaths = [];
-
-      addTracks(newPaths, unsupportedPaths);
-    } else {
-      console.log("file canceled: ", file.canceled);
-    }
-  } */
   function addDroppedFile(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -221,6 +208,23 @@ function App() {
   }; */
 
   useEffect(() => {
+    ipcRenderer.on("open-dialog-closed", (event, file) => {
+      if (!file.canceled) {
+        const newPaths = file.filePaths;
+        const unsupportedPaths = [];
+
+        addTracks(newPaths, unsupportedPaths);
+      } else {
+        console.log("file canceled: ", file.canceled);
+      }
+    });
+
+    return () => {
+      ipcRenderer.removeAllListeners("open-dialog-closed");
+    };
+  }, [addTracks]);
+
+  useEffect(() => {
     document.addEventListener("keydown", deleteSelectedTracks);
 
     return () => {
@@ -259,7 +263,7 @@ function App() {
         ignoreError={ignoreError}
         reloadTracks={reloadTracks}
         removeTracks={removeTracks}
-        /* showOpenDialog={showOpenDialog} */
+        showOpenDialog={showOpenDialog}
         selectTrack={selectTrack}
         /* showContextMenu={showContextMenu} */
       />

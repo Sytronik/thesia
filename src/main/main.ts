@@ -11,7 +11,7 @@
 import "core-js/stable";
 import "regenerator-runtime/runtime";
 import path from "path";
-import {app, BrowserWindow, shell, ipcMain} from "electron";
+import {app, BrowserWindow, shell, ipcMain, dialog} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
 import MenuBuilder from "./menu";
@@ -31,6 +31,21 @@ ipcMain.on("ipc-example", async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply("ipc-example", msgTemplate("pong"));
+});
+
+ipcMain.on("show-open-dialog", async (event, supportedTypes) => {
+  const result = await dialog.showOpenDialog({
+    title: "Select the File to be uploaded",
+    defaultPath: path.join(__dirname, "../../samples/"),
+    filters: [
+      {
+        name: "Audio Files",
+        extensions: supportedTypes,
+      },
+    ],
+    properties: ["openFile", "multiSelections"],
+  });
+  event.reply("open-dialog-closed", result);
 });
 
 if (process.env.NODE_ENV === "production") {

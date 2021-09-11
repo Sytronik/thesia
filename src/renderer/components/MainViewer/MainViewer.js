@@ -58,7 +58,7 @@ function MainViewer({
   ignoreError,
   reloadTracks,
   removeTracks,
-  /* showOpenDialog, */
+  showOpenDialog,
   selectTrack,
   /* showContextMenu, */
 }) {
@@ -322,7 +322,7 @@ function MainViewer({
   });
   const tracksEmpty = (
     <div key="empty" className={styles.trackEmpty}>
-      <button type="button" /* onClick={showOpenDialog} */>
+      <button type="button" onClick={showOpenDialog}>
         <span className={styles.btnPlus} />
       </button>
     </div>
