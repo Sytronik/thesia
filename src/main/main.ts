@@ -48,6 +48,39 @@ ipcMain.on("show-open-dialog", async (event, supportedTypes) => {
   event.reply("open-dialog-closed", result);
 });
 
+ipcMain.on(
+  "show-file-open-err-msg",
+  async (event, unsupportedPaths, invalidPaths, supportedTypes) => {
+    await dialog.showMessageBox({
+      type: "error",
+      buttons: [],
+      defaultId: 0,
+      title: "File Open Error",
+      message: "The following files could not be opened",
+      detail: `${
+        unsupportedPaths.length
+          ? `-- Not Supported Type --
+        ${unsupportedPaths.join("\n")}
+        `
+          : ""
+      }\
+    ${
+      invalidPaths.length
+        ? `-- Not Valid Format --
+        ${invalidPaths.join("\n")}
+        `
+        : ""
+    }\
+
+    Please ensure that the file properties are correct and that it is a supported file type.
+    Only files with the following extensions are allowed: ${supportedTypes.join(", ")}`,
+      cancelId: 0,
+      noLink: false,
+      normalizeAccessKeys: false,
+    });
+  },
+);
+
 if (process.env.NODE_ENV === "production") {
   const sourceMapSupport = require("source-map-support");
   sourceMapSupport.install();

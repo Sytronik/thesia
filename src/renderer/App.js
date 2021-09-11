@@ -70,37 +70,14 @@ function App() {
               waitingIdsRef.current.sort((a, b) => a - b);
             }
           }
-          /*
           if (unsupportedPaths.length || invalidPaths.length) {
-            dialog.showMessageBox({
-              type: "error",
-              buttons: [],
-              defaultId: 0,
-              icon: "",
-              title: "File Open Error",
-              message: "The following files could not be opened",
-              detail: `${
-                unsupportedPaths.length
-                  ? `-- Not Supported Type --
-                  ${unsupportedPaths.join("\n")}
-                  `
-                  : ""
-              }\
-              ${
-                invalidPaths.length
-                  ? `-- Not Valid Format --
-                  ${invalidPaths.join("\n")}
-                  `
-                  : ""
-              }\
-
-              Please ensure that the file properties are correct and that it is a supported file type.
-              Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
-              cancelId: 0,
-              noLink: false,
-              normalizeAccessKeys: false,
-            });
-          } */
+            ipcRenderer.send(
+              "show-file-open-err-msg",
+              unsupportedPaths,
+              invalidPaths,
+              SUPPORTED_TYPES,
+            );
+          }
         }
 
         if (existingIds.length) {
