@@ -2,10 +2,10 @@
  * Base webpack config used across other specific configs
  */
 
-import path from 'path';
-import webpack from 'webpack';
-import webpackPaths from './webpack.paths.js';
-import { dependencies as externals } from '../../build/app/package.json';
+import path from "path";
+import webpack from "webpack";
+import webpackPaths from "./webpack.paths.js";
+import {dependencies as externals} from "../../build/app/package.json";
 
 export default {
   externals: [...Object.keys(externals || {})],
@@ -16,7 +16,7 @@ export default {
         test: /\.[jt]sx?$/,
         exclude: /node_modules/,
         use: {
-          loader: 'babel-loader',
+          loader: "babel-loader",
           options: {
             cacheDirectory: true,
           },
@@ -29,7 +29,7 @@ export default {
     path: webpackPaths.srcPath,
     // https://github.com/webpack/webpack/issues/1114
     library: {
-      type: 'commonjs2',
+      type: "commonjs2",
     },
   },
 
@@ -37,13 +37,13 @@ export default {
    * Determine the array of extensions that should be used to resolve modules.
    */
   resolve: {
-    extensions: ['.js', '.jsx', '.json', '.ts', '.tsx'],
-    modules: [webpackPaths.srcPath, 'node_modules'],
+    extensions: [".js", ".jsx", ".json", ".ts", ".tsx"],
+    modules: [webpackPaths.srcPath, "node_modules"],
   },
 
   plugins: [
     new webpack.EnvironmentPlugin({
-      NODE_ENV: 'production',
+      NODE_ENV: "production",
     }),
   ],
 };

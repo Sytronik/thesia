@@ -2,33 +2,33 @@
  * Builds the DLL for development electron renderer process
  */
 
-import webpack from 'webpack';
-import path from 'path';
-import { merge } from 'webpack-merge';
-import baseConfig from './webpack.config.base';
-import webpackPaths from './webpack.paths.js';
-import { dependencies } from '../../package.json';
-import checkNodeEnv from '../scripts/check-node-env';
+import webpack from "webpack";
+import path from "path";
+import {merge} from "webpack-merge";
+import baseConfig from "./webpack.config.base";
+import webpackPaths from "./webpack.paths.js";
+import {dependencies} from "../../package.json";
+import checkNodeEnv from "../scripts/check-node-env";
 
-checkNodeEnv('development');
+checkNodeEnv("development");
 
 const dist = webpackPaths.dllPath;
 
 export default merge(baseConfig, {
   context: webpackPaths.rootPath,
 
-  devtool: 'eval',
+  devtool: "eval",
 
-  mode: 'development',
+  mode: "development",
 
-  target: 'electron-renderer',
+  target: "electron-renderer",
 
-  externals: ['fsevents', 'crypto-browserify'],
+  externals: ["fsevents", "crypto-browserify"],
 
   /**
    * Use `module` from `webpack.config.renderer.dev.js`
    */
-  module: require('./webpack.config.renderer.dev.babel').default.module,
+  module: require("./webpack.config.renderer.dev.babel").default.module,
 
   entry: {
     renderer: Object.keys(dependencies || {}),
@@ -36,19 +36,19 @@ export default merge(baseConfig, {
 
   output: {
     path: dist,
-    filename: '[name].dev.dll.js',
+    filename: "[name].dev.dll.js",
     library: {
-      name: 'renderer',
-      type: 'var',
+      name: "renderer",
+      type: "var",
     },
   },
 
-  stats: 'errors-only',
+  stats: "errors-only",
 
   plugins: [
     new webpack.DllPlugin({
-      path: path.join(dist, '[name].json'),
-      name: '[name]',
+      path: path.join(dist, "[name].json"),
+      name: "[name]",
     }),
 
     /**
@@ -61,7 +61,7 @@ export default merge(baseConfig, {
      * development checks
      */
     new webpack.EnvironmentPlugin({
-      NODE_ENV: 'development',
+      NODE_ENV: "development",
     }),
 
     new webpack.LoaderOptionsPlugin({

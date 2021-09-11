@@ -1,6 +1,6 @@
-const rimraf = require('rimraf');
-const webpackPaths = require('../configs/webpack.paths.js');
-const process = require('process');
+const rimraf = require("rimraf");
+const webpackPaths = require("../configs/webpack.paths.js");
+const process = require("process");
 
 const args = process.argv.slice(2);
 const commandMap = {
