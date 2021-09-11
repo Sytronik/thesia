@@ -11,7 +11,7 @@
 import "core-js/stable";
 import "regenerator-runtime/runtime";
 import path from "path";
-import {app, BrowserWindow, shell, ipcMain, dialog} from "electron";
+import {app, BrowserWindow, shell, ipcMain, dialog, Menu} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
 import MenuBuilder from "./menu";
@@ -80,6 +80,19 @@ ipcMain.on(
     });
   },
 );
+
+ipcMain.on("show-track-context-menu", (event, trackId) => {
+  const template = [
+    {
+      label: "Delete Track",
+      click: () => {
+        event.sender.send("delete-track", trackId);
+      },
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  menu.popup({window: BrowserWindow.fromWebContents(event.sender)});
+});
 
 if (process.env.NODE_ENV === "production") {
   const sourceMapSupport = require("source-map-support");

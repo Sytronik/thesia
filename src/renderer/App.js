@@ -96,24 +96,27 @@ function App() {
   const ignoreError = (erroredId) => {
     setErroredList(erroredList.filter((id) => ![erroredId].includes(id)));
   };
-  async function removeTracks(selectedIds) {
-    try {
-      nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-      backend.removeTracks(selectedIds);
-      setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
-      setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
+  const removeTracks = useCallback(
+    (selectedIds) => {
+      try {
+        nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
+        backend.removeTracks(selectedIds);
+        setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
+        setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
 
-      setRefreshList(backend.applyTrackListChanges());
+        setRefreshList(backend.applyTrackListChanges());
 
-      waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
-      if (waitingIdsRef.current.length > 1) {
-        waitingIdsRef.current.sort((a, b) => a - b);
+        waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
+        if (waitingIdsRef.current.length > 1) {
+          waitingIdsRef.current.sort((a, b) => a - b);
+        }
+      } catch (err) {
+        console.log(err);
+        alert("Could not remove track");
       }
-    } catch (err) {
-      console.log(err);
-      alert("Could not remove track");
-    }
-  }
+    },
+    [trackIds, erroredList],
+  );
 
   function showOpenDialog() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
@@ -166,23 +169,12 @@ function App() {
       }
     }
   };
-  /*
-  const showContextMenu = (e) => {
+
+  const showTrackContextMenu = (e) => {
     e.preventDefault();
-
     const targetTrackId = Number(e.currentTarget.getAttribute("id"));
-    const menu = new Menu();
-    menu.append(
-      new MenuItem({
-        label: "Delete Track",
-        click() {
-          removeTracks([targetTrackId]);
-        },
-      }),
-    );
-
-    menu.popup(remote.getCurrentWindow());
-  }; */
+    ipcRenderer.send("show-track-context-menu", targetTrackId);
+  };
 
   useEffect(() => {
     ipcRenderer.on("open-dialog-closed", (event, file) => {
@@ -200,6 +192,15 @@ function App() {
       ipcRenderer.removeAllListeners("open-dialog-closed");
     };
   }, [addTracks]);
+
+  useEffect(() => {
+    ipcRenderer.on("delete-track", (e, targetTrackId) => {
+      removeTracks([targetTrackId]);
+    });
+    return () => {
+      ipcRenderer.removeAllListeners("delete-track");
+    };
+  }, [removeTracks]);
 
   useEffect(() => {
     document.addEventListener("keydown", deleteSelectedTracks);
@@ -242,7 +243,7 @@ function App() {
         removeTracks={removeTracks}
         showOpenDialog={showOpenDialog}
         selectTrack={selectTrack}
-        /* showContextMenu={showContextMenu} */
+        showTrackContextMenu={showTrackContextMenu}
       />
     </div>
   );

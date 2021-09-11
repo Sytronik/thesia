@@ -60,7 +60,7 @@ function MainViewer({
   removeTracks,
   showOpenDialog,
   selectTrack,
-  /* showContextMenu, */
+  showTrackContextMenu,
 }) {
   const {
     getFileName,
@@ -309,7 +309,7 @@ function MainViewer({
         className={`${styles.trackLeft} js-track-left`}
         id={id}
         onClick={selectTrack}
-        /* onContextMenu={showContextMenu} */
+        onContextMenu={showTrackContextMenu}
       >
         <TrackSummary
           className={styles.TrackSummary}
