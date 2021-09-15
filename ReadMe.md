@@ -14,8 +14,14 @@ yarn start
 
 ## Plan
 
-- [ ] zoom in / out
-- [ ] floating tools: dB colorbar, waveform amplitude zoom in/out slider
+- [ ] dB colorbar
+- [ ] Hi-DPI display support
+- [ ] time / frequency info on mouse hover
+- [ ] waveform amplitude zoom in/out slider
 - [ ] selecting spectrogram mode / waveform mode
+- [ ] configurable STFT parameters (preset?)
 - [ ] Audio Player
+- [ ] peak / RMS / LUFS / LKFS level calculator
+- [ ] volume normalization
+- [ ] pitch / formant tracker
 - [ ] Adaptive STFT (sth like iZotope RX Editor)
