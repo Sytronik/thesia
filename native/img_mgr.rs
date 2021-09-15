@@ -20,7 +20,7 @@ type Images = IdChMap<Vec<u8>>;
 type ArcImgCaches = Arc<Mutex<IdChMap<Array3<u8>>>>;
 type GuardImgCaches<'a> = MutexGuard<'a, IdChMap<Array3<u8>>>;
 
-const MAX_IMG_CACHE_WIDTH: u32 = 2 * LARGE_WIDTH_SPLIT_HOP as u32;
+const MAX_IMG_CACHE_WIDTH: u32 = 16384;
 
 lazy_static! {
     static ref RUNTIME: Runtime = Builder::new_multi_thread()
