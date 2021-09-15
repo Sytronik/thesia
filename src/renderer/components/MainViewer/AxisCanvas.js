@@ -1,4 +1,4 @@
-import React, {forwardRef, useRef, useImperativeHandle} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useEffect} from "react";
 import PROPERTY from "../Property";
 import styles from "./AxisCanvas.scss";
 
@@ -6,11 +6,22 @@ const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = PROPERTY.AXIS_STYLE;
 
 const AxisCanvas = forwardRef(({width, height, markerPos, direction, className}, ref) => {
   const axisCanvasElem = useRef();
+  const axisCanvasCtxRef = useRef();
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
+
+  useEffect(() => {
+    const ratio = window.devicePixelRatio || 1;
+
+    axisCanvasElem.current.width = width * ratio;
+    axisCanvasElem.current.height = height * ratio;
+
+    axisCanvasCtxRef.current = axisCanvasElem.current.getContext("2d");
+    axisCanvasCtxRef.current.scale(ratio, ratio);
+  }, [width, height]);
 
   useImperativeHandle(ref, () => ({
     draw: (markers) => {
-      const ctx = axisCanvasElem.current.getContext("2d");
+      const ctx = axisCanvasCtxRef.current;
       ctx.clearRect(0, 0, width, height); // [TEMP]
       if (!markers) return;
 
@@ -51,8 +62,7 @@ const AxisCanvas = forwardRef(({width, height, markerPos, direction, className},
       <canvas
         className={`AxisCanvas ${styles[className]}`}
         ref={axisCanvasElem}
-        height={height}
-        width={width}
+        style={{width, height}}
       />
     </>
   );
