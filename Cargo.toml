@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 path = "native/lib.rs"
 
 [dependencies]
-napi = "1.7.5"
+napi = "1.7.7"
 napi-derive = "1.1.0"
 
 # cpal = "0.13.3"
