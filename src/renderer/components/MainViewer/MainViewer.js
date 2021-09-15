@@ -183,13 +183,8 @@ function MainViewer({
   };
 
   const getTickScale = (table, boundaries, value) => {
-    let target = value;
-    for (const boundary of boundaries) {
-      if (value > boundary) {
-        target = boundary;
-        break;
-      }
-    }
+    const target = boundaries.find((boundary) => value > boundary);
+    if (target === undefined) return table[value];
     return table[target];
   };
   const throttledSetTimeMarkers = throttle(1000 / 240, (width) => {
