@@ -102,7 +102,7 @@ pub fn recv() -> Option<Images> {
 
     let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
     let mut opt_images: Option<Images> = None;
-    while let Poll::Ready(Some(x)) = img_rx.poll_recv(&mut cx) {
+    if let Poll::Ready(Some(x)) = img_rx.poll_recv(&mut cx) {
         opt_images = Some(x);
     }
 
