@@ -5,7 +5,7 @@ use cached::proc_macro::cached;
 use chrono::naive::NaiveTime;
 use num_traits::Zero;
 
-use super::stft::FreqScale;
+use super::spectrogram::FreqScale;
 use super::{mel, TrackManager};
 
 pub type PlotAxis = Vec<(i32, String)>;

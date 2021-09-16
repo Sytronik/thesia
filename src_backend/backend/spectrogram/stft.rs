@@ -9,16 +9,9 @@ use rustfft::{
     FftNum,
 };
 
-use super::mel;
-use super::utils::{Pad, PadMode};
-use super::windows::{calc_normalized_win, WindowType};
+use super::super::utils::{Pad, PadMode};
+use super::super::windows::{calc_normalized_win, WindowType};
 use realfft::{RealFftPlanner, RealToComplex};
-
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
-pub enum FreqScale {
-    Linear,
-    Mel,
-}
 
 pub fn perform_stft<A>(
     input: ArrayView1<A>,
@@ -112,14 +105,6 @@ where
     }
 
     output
-}
-
-#[inline]
-pub fn calc_up_ratio(sr: u32, max_sr: u32, freq_scale: FreqScale) -> f32 {
-    match freq_scale {
-        FreqScale::Linear => max_sr as f32 / sr as f32,
-        FreqScale::Mel => mel::from_hz(max_sr as f32 / 2.) / mel::from_hz(sr as f32 / 2.),
-    }
 }
 
 #[inline]
