@@ -7,7 +7,7 @@ version = "0.1.0"
 
 [lib]
 crate-type = ["cdylib"]
-path = "native/lib.rs"
+path = "src_backend/lib.rs"
 
 [dependencies]
 napi = "1.7.7"
