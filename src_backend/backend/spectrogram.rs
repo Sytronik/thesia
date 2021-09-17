@@ -28,7 +28,7 @@ pub fn calc_up_ratio(sr: u32, max_sr: u32, freq_scale: FreqScale) -> f32 {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FramingParams {
+pub struct SrWinNfft {
     pub sr: u32,
     pub win_length: usize,
     pub n_fft: usize,
@@ -49,7 +49,7 @@ impl AnalysisParamManager {
         }
     }
 
-    pub fn prepare(&mut self, params: &HashSet<FramingParams>, freq_scale: FreqScale) {
+    pub fn prepare(&mut self, params: &HashSet<SrWinNfft>, freq_scale: FreqScale) {
         let mut real_fft_planner = RealFftPlanner::<f32>::new();
         let entries: Vec<_> = params
             .par_iter()
@@ -88,7 +88,7 @@ impl AnalysisParamManager {
         }
     }
 
-    pub fn retain(&mut self, params: &HashSet<FramingParams>, freq_scale: FreqScale) {
+    pub fn retain(&mut self, params: &HashSet<SrWinNfft>, freq_scale: FreqScale) {
         self.windows.retain(|&(win_length, n_fft), _| {
             params
                 .iter()

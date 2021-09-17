@@ -5,29 +5,6 @@ use std::path::{self, PathBuf};
 use ndarray::OwnedRepr;
 use ndarray::{prelude::*, Data, RemoveAxis, Slice, Zip};
 
-#[macro_export(local_inner_macros)]
-macro_rules! iter_filtered {
-    ($vec: expr) => {
-        $vec.iter().filter_map(|x| x.as_ref())
-    };
-}
-
-#[macro_export(local_inner_macros)]
-macro_rules! iter_mut_filtered {
-    ($vec: expr) => {
-        $vec.iter_mut().filter_map(|x| x.as_mut())
-    };
-}
-
-#[macro_export(local_inner_macros)]
-macro_rules! indexed_iter_filtered {
-    ($vec: expr) => {
-        $vec.iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-    };
-}
-
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
     let mut result = HashMap::<usize, String>::new();

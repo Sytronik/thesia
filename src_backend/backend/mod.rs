@@ -1,8 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::io;
 use std::iter;
-use std::path::PathBuf;
 
 use approx::abs_diff_ne;
 use ndarray::prelude::*;
@@ -16,15 +13,15 @@ pub mod plot_axis;
 mod resample;
 mod sinc;
 mod spectrogram;
+mod track;
 #[macro_use]
 pub mod utils;
 mod windows;
 
 use decibel::DeciBelInplace;
-use spectrogram::{
-    calc_up_ratio, mel, perform_stft, AnalysisParamManager, FramingParams, FreqScale,
-};
-use utils::{calc_proper_n_fft, unique_filenames};
+use spectrogram::{calc_up_ratio, mel, perform_stft, AnalysisParamManager, FreqScale, SrWinNfft};
+use track::TrackList;
+use utils::calc_proper_n_fft;
 
 pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
@@ -33,6 +30,7 @@ pub use utils::{Pad, PadMode};
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
+type FramingParams = (usize, usize, usize);
 
 #[derive(Debug)]
 pub struct SpecSetting {
@@ -42,172 +40,62 @@ pub struct SpecSetting {
     pub freq_scale: FreqScale,
 }
 
-#[readonly::make]
-pub struct AudioTrack {
-    pub sr: u32,
-    pub sample_format_str: String,
-    path: PathBuf,
-    wavs: Array2<f32>,
-    win_length: usize,
-    hop_length: usize,
-    n_fft: usize,
-}
+impl SpecSetting {
+    #[inline]
+    pub fn calc_win_length(&self, sr: u32) -> usize {
+        self.calc_hop_length(sr) * self.t_overlap
+    }
 
-impl AudioTrack {
-    pub fn new(path: String, setting: &SpecSetting) -> io::Result<Self> {
-        let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
-        let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(sr, setting);
-        Ok(AudioTrack {
+    #[inline]
+    pub fn calc_hop_length(&self, sr: u32) -> usize {
+        (self.calc_win_length_float(sr) / self.t_overlap as f32).round() as usize
+    }
+
+    #[inline]
+    pub fn calc_n_fft(&self, sr: u32) -> usize {
+        calc_proper_n_fft(self.calc_win_length(sr)) * self.f_overlap
+    }
+
+    #[inline]
+    pub fn calc_framing_params(&self, sr: u32) -> FramingParams {
+        let hop_length = self.calc_hop_length(sr);
+        let win_length = self.calc_win_length_from_hop_length(hop_length);
+        let n_fft = self.calc_n_fft_from_win_length(win_length);
+        (hop_length, win_length, n_fft)
+    }
+
+    #[inline]
+    pub fn calc_sr_win_nfft(&self, sr: u32) -> SrWinNfft {
+        let win_length = self.calc_win_length(sr);
+        let n_fft = self.calc_n_fft_from_win_length(win_length);
+        SrWinNfft {
             sr,
-            sample_format_str,
-            path: PathBuf::from(path).canonicalize()?,
-            wavs,
             win_length,
-            hop_length,
             n_fft,
-        })
-    }
-
-    pub fn reload(&mut self, setting: &SpecSetting) -> io::Result<bool> {
-        let (wavs, sr, sample_format_str) =
-            audio::open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if sr == self.sr && sample_format_str == self.sample_format_str && wavs == self.wavs {
-            return Ok(false);
-        }
-        self.sr = sr;
-        self.sample_format_str = sample_format_str;
-        self.wavs = wavs;
-        self.set_framing_params(setting);
-        Ok(true)
-    }
-
-    #[inline]
-    pub fn get_framing_params(&self) -> FramingParams {
-        FramingParams {
-            sr: self.sr,
-            win_length: self.win_length,
-            n_fft: self.n_fft,
         }
     }
 
-    pub fn set_framing_params(&mut self, setting: &SpecSetting) {
-        let (win_length, hop_length, n_fft) = AudioTrack::calc_framing_params(self.sr, setting);
-        self.win_length = win_length;
-        self.hop_length = hop_length;
-        self.n_fft = n_fft;
+    #[inline]
+    fn calc_win_length_from_hop_length(&self, hop_length: usize) -> usize {
+        hop_length * self.t_overlap
     }
 
     #[inline]
-    pub fn get_wav(&self, ch: usize) -> ArrayView1<f32> {
-        self.wavs.index_axis(Axis(0), ch)
+    fn calc_win_length_float(&self, sr: u32) -> f32 {
+        self.win_ms * sr as f32 / 1000.
     }
 
     #[inline]
-    pub fn path_string(&self) -> String {
-        self.path.as_os_str().to_string_lossy().into_owned()
-    }
-
-    #[inline]
-    pub fn n_ch(&self) -> usize {
-        self.wavs.shape()[0]
-    }
-
-    #[inline]
-    pub fn sec(&self) -> f64 {
-        self.wavs.shape()[1] as f64 / self.sr as f64
-    }
-
-    #[inline]
-    pub fn calc_width(&self, px_per_sec: f64) -> u32 {
-        ((px_per_sec * self.wavs.shape()[1] as f64 / self.sr as f64).round() as u32).max(1)
-    }
-
-    #[inline]
-    pub fn is_path_same(&self, path: &str) -> bool {
-        PathBuf::from(path)
-            .canonicalize()
-            .map_or(false, |x| x == self.path)
-    }
-
-    pub fn calc_part_grey_info(
-        &self,
-        grey_width: u64,
-        start_sec: f64,
-        target_width: u32,
-        px_per_sec: f64,
-    ) -> (isize, usize) {
-        let wavlen = self.wavs.shape()[1] as f64;
-        let sr = self.sr as u64;
-        let i_w = ((grey_width * sr) as f64 * start_sec / wavlen).round() as isize;
-        let width = (((grey_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec).round()
-            as usize)
-            .max(1);
-        (i_w, width)
-    }
-
-    pub fn calc_part_wav_info(
-        &self,
-        start_sec: f64,
-        width: u32,
-        px_per_sec: f64,
-    ) -> (isize, usize) {
-        let i = (start_sec * self.sr as f64).round() as isize;
-        let length = ((self.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
-        (i, length)
-    }
-
-    pub fn decompose_width_of(
-        &self,
-        start_sec: f64,
-        width: u32,
-        px_per_sec: f64,
-    ) -> (u32, u32, u32) {
-        let total_width = (px_per_sec * self.wavs.shape()[1] as f64 / self.sr as f64).max(1.);
-        let pad_left = ((-start_sec * px_per_sec).max(0.).round() as u32).min(width);
-        let pad_right = ((start_sec * px_per_sec + width as f64 - total_width)
-            .max(0.)
-            .round() as u32)
-            .min(width - pad_left);
-
-        (pad_left, width - pad_left - pad_right, pad_right)
-    }
-
-    fn calc_framing_params(sr: u32, setting: &SpecSetting) -> (usize, usize, usize) {
-        let win_length = setting.win_ms * sr as f32 / 1000.;
-        let hop_length = (win_length / setting.t_overlap as f32).round() as usize;
-        let win_length = hop_length * setting.t_overlap;
-        let n_fft = calc_proper_n_fft(win_length) * setting.f_overlap;
-        (win_length, hop_length, n_fft)
-    }
-}
-
-impl fmt::Debug for AudioTrack {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "AudioTrack {{\n\
-                path: {},\n sr: {} Hz, n_ch: {}, length: {}, sec: {}\n\
-                win_length: {}, hop_length: {}, n_fft: {}\n\
-            }}",
-            self.path.to_str().unwrap_or("err on path-to-str"),
-            self.sr,
-            self.n_ch(),
-            self.wavs.shape()[1],
-            self.sec(),
-            self.win_length,
-            self.hop_length,
-            self.n_fft,
-        )
+    fn calc_n_fft_from_win_length(&self, win_length: usize) -> usize {
+        calc_proper_n_fft(win_length) * self.f_overlap
     }
 }
 
 #[readonly::make]
 pub struct TrackManager {
-    pub tracks: Vec<Option<AudioTrack>>,
-    pub filenames: Vec<Option<String>>,
+    pub tracklist: TrackList,
     pub max_db: f32,
     pub min_db: f32,
-    pub max_sec: f64,
     pub max_sr: u32,
     pub spec_greys: IdChMap<Array2<f32>>,
     setting: SpecSetting,
@@ -215,19 +103,16 @@ pub struct TrackManager {
     analysis_mgr: AnalysisParamManager,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
-    id_max_sec: usize,
 }
 
 impl TrackManager {
     pub fn new() -> Self {
         TrackManager {
-            tracks: Vec::new(),
-            filenames: Vec::new(),
             max_db: -f32::INFINITY,
             min_db: f32::INFINITY,
-            max_sec: 0.,
             max_sr: 0,
             spec_greys: HashMap::new(),
+            tracklist: TrackList::new(),
             setting: SpecSetting {
                 win_ms: 40.,
                 t_overlap: 4,
@@ -238,106 +123,45 @@ impl TrackManager {
             analysis_mgr: AnalysisParamManager::new(),
             specs: HashMap::new(),
             no_grey_ids: Vec::new(),
-            id_max_sec: 0,
         }
     }
 
     pub fn add_tracks(&mut self, id_list: Vec<usize>, path_list: Vec<String>) -> Vec<usize> {
-        let mut new_framing_params = HashSet::<FramingParams>::new();
-        let mut added_ids = Vec::new();
-        for (id, path) in id_list.into_iter().zip(path_list) {
-            if let Ok(track) = AudioTrack::new(path, &self.setting) {
-                let sec = track.sec();
-                if sec > self.max_sec {
-                    self.max_sec = sec;
-                    self.id_max_sec = id;
-                }
-                new_framing_params.insert(track.get_framing_params());
-                if id >= self.tracks.len() {
-                    self.tracks
-                        .extend((self.tracks.len()..(id + 1)).map(|_| None));
-                }
-                self.tracks[id].replace(track);
-                added_ids.push(id);
-            }
-        }
+        let added_ids = self.tracklist.add_tracks(id_list, path_list);
+        let sr_win_nfft_set = self
+            .tracklist
+            .construct_sr_win_nfft_set(&added_ids, &self.setting);
 
-        self.update_filenames();
-        self.update_specs(
-            self.id_ch_tuples_from(&added_ids),
-            Some(&new_framing_params),
-        );
+        self.update_specs(self.id_ch_tuples_from(&added_ids), Some(&sr_win_nfft_set));
         self.no_grey_ids.extend(added_ids.iter().cloned());
         added_ids
     }
 
     pub fn reload_tracks(&mut self, id_list: &[usize]) -> Vec<usize> {
-        let mut new_framing_params = HashSet::<FramingParams>::new();
-        let mut reloaded_ids = Vec::new();
-        let mut no_err_ids = Vec::new();
-        for &id in id_list {
-            let track = self.tracks[id].as_mut().unwrap();
-            match track.reload(&self.setting) {
-                Ok(true) => {
-                    let sec = track.sec();
-                    if sec > self.max_sec {
-                        self.max_sec = sec;
-                        self.id_max_sec = id;
-                    }
-                    new_framing_params.insert(track.get_framing_params());
-                    reloaded_ids.push(id);
-                    no_err_ids.push(id);
-                }
-                Ok(false) => {
-                    no_err_ids.push(id);
-                }
-                Err(_) => {}
-            }
-        }
+        let (reloaded_ids, no_err_ids) = self.tracklist.reload_tracks(id_list);
+        let sr_win_nfft_set = self
+            .tracklist
+            .construct_sr_win_nfft_set(&reloaded_ids, &self.setting);
 
         self.update_specs(
             self.id_ch_tuples_from(&reloaded_ids),
-            Some(&new_framing_params),
+            Some(&sr_win_nfft_set),
         );
         self.no_grey_ids.extend(reloaded_ids.iter().cloned());
         no_err_ids
     }
 
     pub fn remove_tracks(&mut self, id_list: &[usize]) {
-        let mut need_update_max_sec = false;
-        for &id in id_list {
-            if let Some(removed) = self.tracks[id].take() {
-                for ch in 0..removed.n_ch() {
-                    self.specs.remove(&(id, ch));
-                    self.spec_greys.remove(&(id, ch));
-                }
-                if id == self.id_max_sec {
-                    need_update_max_sec = true;
-                }
-            } else {
-                println!("Track_id {} does not exist! Ignore it ...", id);
-            }
+        let removed_id_ch_tuples = self.tracklist.remove_tracks(id_list);
+        for tup in removed_id_ch_tuples {
+            self.specs.remove(&tup);
+            self.spec_greys.remove(&tup);
         }
 
-        if need_update_max_sec {
-            let (id, max_sec) = indexed_iter_filtered!(self.tracks)
-                .map(|(id, track)| (id, track.sec()))
-                .fold(
-                    (0, 0.),
-                    |(id_max, max), (id, sec)| {
-                        if sec > max {
-                            (id, sec)
-                        } else {
-                            (id_max, max)
-                        }
-                    },
-                );
-            self.id_max_sec = id;
-            self.max_sec = max_sec;
-        }
-        self.analysis_mgr
-            .retain(&self.get_framing_params_set(), self.setting.freq_scale);
-        self.update_filenames();
+        self.analysis_mgr.retain(
+            &self.tracklist.construct_all_sr_win_nfft_set(&self.setting),
+            self.setting.freq_scale,
+        );
     }
 
     pub fn apply_track_list_changes(&mut self) -> HashSet<usize> {
@@ -347,7 +171,7 @@ impl TrackManager {
     #[allow(dead_code)]
     #[inline]
     pub fn id_ch_tuples(&self) -> IdChVec {
-        self.specs.keys().cloned().collect()
+        self.id_ch_tuples_from(&self.tracklist.all_ids())
     }
 
     #[inline]
@@ -355,7 +179,7 @@ impl TrackManager {
         id_list
             .iter()
             .flat_map(|&id| {
-                let n_ch = self.tracks[id].as_ref().unwrap().n_ch();
+                let n_ch = self.tracklist[id].n_ch();
                 iter::repeat(id).zip(0..n_ch)
             })
             .collect()
@@ -373,9 +197,7 @@ impl TrackManager {
 
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
-        self.tracks[id]
-            .as_ref()
-            .map_or(false, |track| ch < track.n_ch())
+        self.specs.contains_key(&(id, ch))
     }
 
     #[inline]
@@ -384,16 +206,14 @@ impl TrackManager {
     }
 
     pub fn set_setting(&mut self, setting: SpecSetting) {
-        let mut framing_params = HashSet::new();
-        for track in iter_mut_filtered!(self.tracks) {
-            track.set_framing_params(&setting);
-            framing_params.insert(track.get_framing_params());
-        }
+        let sr_win_nfft_set = self
+            .tracklist
+            .construct_sr_win_nfft_set(&self.tracklist.all_ids(), &setting);
 
         self.setting = setting;
         self.analysis_mgr
-            .retain(&framing_params, self.setting.freq_scale);
-        self.update_specs(self.id_ch_tuples(), Some(&framing_params));
+            .retain(&sr_win_nfft_set, self.setting.freq_scale);
+        self.update_specs(self.id_ch_tuples(), Some(&sr_win_nfft_set));
         self.update_greys(true);
     }
 
@@ -408,14 +228,15 @@ impl TrackManager {
     }
 
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
-        let track = self.tracks[id].as_ref().unwrap();
-        let window = self.analysis_mgr.get_window(track.win_length, track.n_fft);
-        let fft_module = self.analysis_mgr.get_fft_module(track.n_fft);
+        let track = &self.tracklist[id];
+        let (hop_length, win_length, n_fft) = self.setting.calc_framing_params(track.sr);
+        let window = self.analysis_mgr.get_window(win_length, n_fft);
+        let fft_module = self.analysis_mgr.get_fft_module(n_fft);
         let stft = perform_stft(
             track.get_wav(ch),
-            track.win_length,
-            track.hop_length,
-            track.n_fft,
+            win_length,
+            hop_length,
+            n_fft,
             Some(window),
             Some(fft_module),
             parallel,
@@ -427,24 +248,20 @@ impl TrackManager {
                 linspec
             }
             FreqScale::Mel => {
-                let mut melspec = linspec.dot(&self.analysis_mgr.get_mel_fb(track.sr, track.n_fft));
+                let mut melspec = linspec.dot(&self.analysis_mgr.get_mel_fb(track.sr, n_fft));
                 melspec.amp_to_db_default();
                 melspec
             }
         }
     }
 
-    fn update_specs(
-        &mut self,
-        id_ch_tuples: IdChVec,
-        framing_params: Option<&HashSet<FramingParams>>,
-    ) {
+    fn update_specs(&mut self, id_ch_tuples: IdChVec, framing_params: Option<&HashSet<SrWinNfft>>) {
         match framing_params {
             Some(p) => {
                 self.analysis_mgr.prepare(p, self.setting.freq_scale);
             }
             None => {
-                let p = self.get_framing_params_set();
+                let p = self.tracklist.construct_all_sr_win_nfft_set(&self.setting);
                 self.analysis_mgr.prepare(&p, self.setting.freq_scale);
             }
         }
@@ -492,18 +309,14 @@ impl TrackManager {
             has_changed_all
         };
 
-        let max_sr = iter_filtered!(self.tracks)
-            .map(|track| track.sr)
-            .fold(0u32, |max, x| max.max(x));
+        let max_sr = self.tracklist.max_sr();
         if self.max_sr != max_sr {
             self.max_sr = max_sr;
             has_changed_all = true;
         }
         let ids_need_update: HashSet<usize> = if has_changed_all {
             self.no_grey_ids.clear();
-            indexed_iter_filtered!(self.tracks)
-                .map(|(id, _)| id)
-                .collect()
+            self.tracklist.all_id_set()
         } else {
             self.no_grey_ids.drain(..).collect()
         };
@@ -512,11 +325,8 @@ impl TrackManager {
             let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
             new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                 if ids_need_update.contains(&id) {
-                    let up_ratio = calc_up_ratio(
-                        self.tracks[id].as_ref().unwrap().sr,
-                        self.max_sr,
-                        self.setting.freq_scale,
-                    );
+                    let up_ratio =
+                        calc_up_ratio(self.tracklist[id].sr, self.max_sr, self.setting.freq_scale);
                     let grey = display::convert_spec_to_grey(
                         spec.view(),
                         up_ratio,
@@ -536,25 +346,6 @@ impl TrackManager {
             }
         }
         ids_need_update
-    }
-
-    fn update_filenames(&mut self) {
-        let mut paths = HashMap::with_capacity(self.tracks.len());
-        paths.extend(
-            indexed_iter_filtered!(self.tracks).map(|(id, track)| (id, track.path.clone())),
-        );
-        let mut filenames = unique_filenames(paths);
-        self.filenames = (0..self.tracks.len())
-            .map(|i| filenames.remove(&i))
-            .collect();
-    }
-
-    fn get_framing_params_set(&self) -> HashSet<FramingParams> {
-        self.tracks
-            .iter()
-            .filter_map(|x| x.as_ref())
-            .map(|x| x.get_framing_params())
-            .collect()
     }
 }
 
@@ -580,16 +371,16 @@ mod tests {
         assert_eq!(&added_ids, &id_list[0..3]);
         let added_ids = tm.add_tracks(id_list[3..].to_owned(), path_list[3..].to_owned());
         assert_eq!(&added_ids, &id_list[3..]);
-        assert_eq!(tm.tracks.len(), id_list.len());
+        assert_eq!(tm.tracklist.all_ids().len(), id_list.len());
 
         assert_eq!(tm.spec_greys.len(), 0);
         let mut updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
         updated_ids.sort();
         assert_eq!(updated_ids, id_list);
 
-        dbg!(tm.tracks[0].as_ref().unwrap());
-        dbg!(tm.filenames[5].as_ref().unwrap());
-        dbg!(tm.filenames[6].as_ref().unwrap());
+        dbg!(&tm.tracklist[0]);
+        dbg!(tm.tracklist.get_filename(5));
+        dbg!(tm.tracklist.get_filename(6));
         let option = DrawOption {
             px_per_sec: 200.,
             height: 500,

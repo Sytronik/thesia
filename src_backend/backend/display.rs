@@ -146,7 +146,7 @@ impl TrackDrawer for TrackManager {
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
-            let track = self.tracks[id].as_ref().unwrap();
+            let track = &self.tracklist[id];
             let width = track.calc_width(px_per_sec);
             let arr = match kind {
                 ImageKind::Spec => {
@@ -192,7 +192,7 @@ impl TrackDrawer for TrackManager {
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
-            let track = self.tracks[id].as_ref().unwrap();
+            let track = &self.tracklist[id];
             let spec_grey = self.spec_greys.get(&(id, ch)).unwrap();
             let (pad_left, drawing_width, pad_right) =
                 track.decompose_width_of(start_sec, width, px_per_sec);
@@ -241,7 +241,7 @@ impl TrackDrawer for TrackManager {
     }
 
     fn draw_overview(&self, id: usize, width: u32, height: u32) -> Vec<u8> {
-        let track = self.tracks[id].as_ref().unwrap();
+        let track = &self.tracklist[id];
         let ch_h = height / track.n_ch() as u32;
         let i_start = (height % track.n_ch() as u32 / 2 * width * 4) as usize;
         let i_end = i_start + (track.n_ch() as u32 * ch_h * width * 4) as usize;

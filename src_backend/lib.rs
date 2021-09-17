@@ -111,13 +111,13 @@ fn get_images(env: Env) -> ContextlessResult<JsObject> {
 #[js_function(1)]
 fn find_id_by_path(ctx: CallContext) -> JsResult<JsNumber> {
     let path = ctx.get::<JsString>(0)?.into_utf8()?;
-    let tm = TM.read();
-    for (id, track) in indexed_iter_filtered!(tm.tracks) {
-        if track.is_path_same(path.as_str()?) {
-            return ctx.env.create_int64(id as i64);
-        }
-    }
-    ctx.env.create_int64(-1)
+    TM.read()
+        .tracklist
+        .find_id_by_path(path.as_str()?)
+        .map_or_else(
+            || ctx.env.create_int64(-1),
+            |id| ctx.env.create_int64(id as i64),
+        )
 }
 
 #[js_function(3)]
@@ -215,7 +215,8 @@ fn get_min_db(env: Env) -> ContextlessResult<JsNumber> {
 
 #[contextless_function]
 fn get_max_sec(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().max_sec as f64).map(Some)
+    env.create_double(TM.read().tracklist.max_sec as f64)
+        .map(Some)
 }
 
 #[js_function(1)]
@@ -257,7 +258,7 @@ fn get_path(ctx: CallContext) -> JsResult<JsString> {
 fn get_filename(ctx: CallContext) -> JsResult<JsString> {
     let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
     ctx.env
-        .create_string_from_std(TM.read().filenames[id].to_owned().unwrap())
+        .create_string_from_std(TM.read().tracklist.get_filename(id).to_owned())
 }
 
 #[contextless_function]

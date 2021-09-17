@@ -262,10 +262,7 @@ async fn draw_imgs(
         let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
         let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
         total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-            let width = tm.tracks[id]
-                .as_ref()
-                .unwrap()
-                .calc_width(option.px_per_sec);
+            let width = tm.tracklist[id].calc_width(option.px_per_sec);
             ((id, ch), width)
         }));
 

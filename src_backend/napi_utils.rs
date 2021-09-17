@@ -27,9 +27,7 @@ impl TryIntoF32 for JsNumber {
 #[macro_export(local_inner_macros)]
 macro_rules! get_track {
     ($ctx: expr, $i_id_arg: expr, $tm_read: expr) => {
-        $tm_read.tracks[$ctx.get::<JsNumber>(0)?.try_into_usize()?]
-            .as_ref()
-            .unwrap()
+        &$tm_read.tracklist[$ctx.get::<JsNumber>(0)?.try_into_usize()?]
     };
 }
 

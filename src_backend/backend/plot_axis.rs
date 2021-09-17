@@ -52,7 +52,7 @@ impl PlotAxisCreator for TrackManager {
             px_per_sec,
             tick_unit,
             label_interval,
-            self.max_sec,
+            self.tracklist.max_sec,
         )
     }
 
