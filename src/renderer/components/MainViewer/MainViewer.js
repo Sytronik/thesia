@@ -132,7 +132,8 @@ function MainViewer({
     }
     return false;
   };
-  const dropReset = () => {
+  const addDroppedFileThenResetDropbox = (e) => {
+    addDroppedFile(e);
     dragCounterRef.current = 0;
     setDropboxIsVisible(false);
   };
@@ -431,15 +432,10 @@ function MainViewer({
   }, [colorBarHeight]);
 
   useEffect(() => {
-    dropReset();
-  }, [erroredList]);
-
-  useEffect(() => {
     throttledSetImgState(refreshList, width, height);
     throttledSetTimeMarkers(width);
     throttledSetAmpFreqMarkers(height);
     throttledSetDbMarkers(colorBarHeight);
-    dropReset();
   }, [refreshList]);
 
   useEffect(() => {
@@ -475,7 +471,7 @@ function MainViewer({
   return (
     <div
       className={`${styles.MainViewer} js-MainViewer row-flex`}
-      onDrop={addDroppedFile}
+      onDrop={addDroppedFileThenResetDropbox}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
       onDragLeave={dragLeave}
