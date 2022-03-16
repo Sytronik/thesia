@@ -4,8 +4,7 @@ type IdChArr = IdChannel[];
 
 // written in snake case for compatibility with native api
 type DrawOptionForWav = {
-  min_amp: number;
-  max_amp: number;
+  amp_range: [number, number];
 };
 
 type MarkerDrawOption = {

@@ -3,12 +3,14 @@ use std::mem::MaybeUninit;
 // use std::time::Instant;
 
 use cached::proc_macro::cached;
+use napi_derive::napi;
 use ndarray::Slice;
 use ndarray::{prelude::*, Data};
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use rgb::FromSlice;
+use serde::{Deserialize, Serialize};
 use tiny_skia::{
     FillRule, IntRect, LineCap, Paint, PathBuilder, PixmapMut, PixmapPaint, PixmapRef, Rect,
     Stroke, Transform,
@@ -40,13 +42,14 @@ pub const COLORMAP: [[u8; 3]; 10] = [
 pub const WAVECOLOR: [u8; 3] = [200, 21, 103];
 pub const RESAMPLE_TAIL: usize = 500;
 
+#[napi(object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct DrawOption {
     pub px_per_sec: f64,
     pub height: u32,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 pub struct DrawOptionForWav {
     pub amp_range: (f32, f32),
 }

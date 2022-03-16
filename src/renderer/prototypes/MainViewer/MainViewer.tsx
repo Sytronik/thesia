@@ -69,7 +69,7 @@ function MainViewer(props: MainViewerProps) {
   const [height, setHeight] = useState(250);
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const pxPerSecRef = useRef<number>(100);
-  const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
+  const drawOptionForWavRef = useRef<DrawOptionForWav>({amp_range: [-1, 1]});
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
