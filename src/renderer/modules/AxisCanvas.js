@@ -1,5 +1,5 @@
 import React, {forwardRef, useRef, useImperativeHandle, useEffect} from "react";
-import PROPERTY from "../Property";
+import PROPERTY from "../prototypes/Property";
 import styles from "./AxisCanvas.scss";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = PROPERTY.AXIS_STYLE;

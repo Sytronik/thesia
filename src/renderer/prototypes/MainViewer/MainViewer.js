@@ -1,9 +1,8 @@
 import React, {useRef, useCallback, useEffect, useLayoutEffect, useState} from "react";
 import {throttle} from "throttle-debounce";
-
+import AxisCanvas from "renderer/modules/AxisCanvas";
+import SplitView from "renderer/modules/SplitView";
 import styles from "./MainViewer.scss";
-import SplitView from "./SplitView";
-import AxisCanvas from "./AxisCanvas";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
 import PROPERTY from "../Property";

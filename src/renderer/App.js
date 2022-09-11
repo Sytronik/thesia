@@ -1,12 +1,12 @@
 import React, {useEffect, useRef, useState, useCallback} from "react";
 import {ipcRenderer} from "electron";
-import Control from "./components/Control/Control";
-import Overview from "./components/Overview/Overview";
-import SlideBar from "./components/SlideBar/SlideBar";
-import MainViewer from "./components/MainViewer/MainViewer";
-import PROPERTY from "./components/Property";
+import Control from "./prototypes/Control/Control";
+import Overview from "./prototypes/Overview/Overview";
+import SlideBar from "./prototypes/SlideBar/SlideBar";
+import MainViewer from "./prototypes/MainViewer/MainViewer";
+import PROPERTY from "./prototypes/Property";
 import "./App.global.scss";
-import styles from "./components/MainViewer/MainViewer.scss";
+import styles from "./prototypes/MainViewer/MainViewer.scss";
 
 const backend = require("backend");
 
