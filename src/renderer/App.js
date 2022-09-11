@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState, useCallback} from "react";
-import path from "path";
+import {ipcRenderer} from "electron";
 import Control from "./components/Control/Control";
 import Overview from "./components/Overview/Overview";
 import SlideBar from "./components/SlideBar/SlideBar";
@@ -7,7 +7,6 @@ import MainViewer from "./components/MainViewer/MainViewer";
 import PROPERTY from "./components/Property";
 import "./App.global.scss";
 import styles from "./components/MainViewer/MainViewer.scss";
-import {ipcRenderer} from "electron";
 
 const backend = require("backend");
 
@@ -231,7 +230,6 @@ function App() {
         <SlideBar />
       </div>
       <MainViewer
-        backend={backend}
         erroredList={erroredList}
         refreshList={refreshList}
         trackIds={trackIds}

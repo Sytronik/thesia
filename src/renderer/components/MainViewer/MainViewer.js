@@ -8,6 +8,8 @@ import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
 import PROPERTY from "../Property";
 
+const backend = require("backend");
+
 const {
   CHANNEL,
   TIME_CANVAS_HEIGHT,
@@ -50,7 +52,6 @@ function useRefs() {
 }
 
 function MainViewer({
-  backend,
   erroredList,
   refreshList,
   trackIds,
