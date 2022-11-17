@@ -19,7 +19,7 @@ import {
   DB_CANVAS_WIDTH,
   DB_MARKER_POS,
   DB_TICK_NUM,
-} from "../Property";
+} from "../constants";
 
 const backend = require("backend");
 
