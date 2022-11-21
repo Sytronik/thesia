@@ -1,9 +1,6 @@
 const backend = require("backend");
 
 type IdChArr = string[];
-// each element is id-channel array that needs to refresh
-// spec & wav, spec, wav in order
-type NeedsRefreshList = [IdChArr, IdChArr, IdChArr];
 
 /* handle tracks */
 export function addTracks(newTrackIds: number[], newPaths: string[]): number[] {
@@ -20,7 +17,7 @@ export function removeTracks(trackIds: number[]): void {
   return backend.removeTracks(trackIds);
 }
 
-export function applyTrackListChanges(): Promise<NeedsRefreshList> | null {
+export function applyTrackListChanges(): Promise<IdChArr> | null {
   return backend.applyTrackListChanges();
 }
 
