@@ -1,7 +1,5 @@
 const backend = require("backend");
 
-type IdChArr = string[];
-
 /* handle tracks */
 export function addTracks(newTrackIds: number[], newPaths: string[]): number[] {
   // return successfully opened track ids
@@ -52,20 +50,6 @@ export function getFileName(trackId: number): string {
 }
 
 /* draw tracks */
-type TickPxPosition = number;
-type TickLable = string;
-type Markers = [TickPxPosition, TickLable][];
-
-type DrawOption = {
-  px_per_sec: number;
-  height: number;
-};
-type DrawOptionForWav = {
-  min_amp: number;
-  max_amp: number;
-};
-type SpecWavImage = [IdChArr, ArrayBuffer];
-
 /* time axis */
 export function getLongestTrackLength(): number {
   // return track length of longest track in sec
