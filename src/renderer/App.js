@@ -7,110 +7,16 @@ import MainViewer from "./prototypes/MainViewer/MainViewer";
 import {SUPPORTED_TYPES, SUPPORTED_MIME} from "./prototypes/constants";
 import "./App.global.scss";
 import styles from "./prototypes/MainViewer/MainViewer.scss";
+import useTracks from "./hooks/useTracks";
 
 const backend = require("backend");
 
 function App() {
-  const waitingIdsRef = useRef([]);
   const selectedIdsRef = useRef([]);
   const nextSelectedIndexRef = useRef(null);
 
-  const [trackIds, setTrackIds] = useState([]);
-  const [erroredList, setErroredList] = useState([]);
-  const [refreshList, setRefreshList] = useState([]);
-
-  async function reloadTracks(selectedIds) {
-    const reloadedIds = backend.reloadTracks(selectedIds);
-
-    setErroredList(selectedIds.filter((id) => !reloadedIds.includes(id)));
-    setRefreshList(backend.applyTrackListChanges());
-  }
-
-  const addTracks = useCallback(
-    (newPaths, unsupportedPaths) => {
-      try {
-        const newIds = [];
-        const existingIds = [];
-        let invalidIds = [];
-        let invalidPaths = [];
-
-        newPaths.forEach((path, i, newPaths) => {
-          const id = backend.findIDbyPath(path);
-          if (id !== -1) {
-            newPaths.splice(i, 1);
-            existingIds.push(id);
-          }
-        });
-
-        if (newPaths.length) {
-          for (let i = 0; i < newPaths.length; i += 1) {
-            if (waitingIdsRef.current.length) {
-              newIds.push(waitingIdsRef.current.shift());
-            } else {
-              newIds.push(trackIds.length + i);
-            }
-          }
-
-          nextSelectedIndexRef.current = trackIds.length;
-          const addedIds = backend.addTracks(newIds, newPaths);
-          setTrackIds((trackIds) => trackIds.concat(addedIds));
-
-          if (newIds.length !== addedIds.length) {
-            invalidIds = newIds.filter((id) => !addedIds.includes(id));
-            invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
-
-            waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
-            if (waitingIdsRef.current.length > 1) {
-              waitingIdsRef.current.sort((a, b) => a - b);
-            }
-          }
-          if (unsupportedPaths.length || invalidPaths.length) {
-            ipcRenderer.send(
-              "show-file-open-err-msg",
-              unsupportedPaths,
-              invalidPaths,
-              SUPPORTED_TYPES,
-            );
-          }
-        }
-
-        if (existingIds.length) {
-          reloadTracks(existingIds);
-        } else {
-          setRefreshList(backend.applyTrackListChanges());
-        }
-      } catch (err) {
-        console.log(err);
-        alert("File upload error");
-      }
-    },
-    [trackIds],
-  );
-
-  const ignoreError = (erroredId) => {
-    setErroredList(erroredList.filter((id) => ![erroredId].includes(id)));
-  };
-  const removeTracks = useCallback(
-    (selectedIds) => {
-      try {
-        nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-        backend.removeTracks(selectedIds);
-        setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
-        setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
-
-        setRefreshList(backend.applyTrackListChanges());
-
-        waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
-        if (waitingIdsRef.current.length > 1) {
-          waitingIdsRef.current.sort((a, b) => a - b);
-        }
-      } catch (err) {
-        console.log(err);
-        alert("Could not remove track");
-      }
-    },
-    [trackIds, erroredList],
-  );
+  const {trackIds, erroredList, refreshList, reloadTracks, addTracks, removeTracks, ignoreError} =
+    useTracks();
 
   function showOpenDialog() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
