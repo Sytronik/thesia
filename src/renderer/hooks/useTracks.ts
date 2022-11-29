@@ -1,6 +1,7 @@
 import {useRef, useState, useCallback} from "react";
 import {ipcRenderer} from "electron";
 import {SUPPORTED_TYPES} from "renderer/prototypes/constants";
+import {difference} from "renderer/utils/arrayUtils";
 import NativeAPI from "../api";
 
 export default function useTracks() {
@@ -13,7 +14,7 @@ export default function useTracks() {
   const reloadTracks = useCallback(async (selectedIds: number[]) => {
     try {
       const reloadedIds = NativeAPI.reloadTracks(selectedIds);
-      const erroredIds = selectedIds.filter((id) => !reloadedIds.includes(id));
+      const erroredIds = difference(selectedIds, reloadedIds);
       const needRefreshIds = await NativeAPI.applyTrackListChanges();
 
       if (erroredIds && erroredIds.length) {
