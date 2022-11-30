@@ -36,7 +36,13 @@ function App() {
         unsupportedPaths.push(file.path);
       }
     });
-    addTracks(newPaths, unsupportedPaths);
+
+    const {existingIds, invalidPaths} = addTracks(newPaths);
+    if (unsupportedPaths.length || invalidPaths.length) {
+      ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths, SUPPORTED_TYPES);
+    }
+
+    reloadTracks(existingIds);
   }
 
   const assignSelectedClass = (selectedIds) => {
@@ -82,7 +88,17 @@ function App() {
         const newPaths = file.filePaths;
         const unsupportedPaths = [];
 
-        addTracks(newPaths, unsupportedPaths);
+        const {existingIds, invalidPaths} = addTracks(newPaths);
+        if (unsupportedPaths.length || invalidPaths.length) {
+          ipcRenderer.send(
+            "show-file-open-err-msg",
+            unsupportedPaths,
+            invalidPaths,
+            SUPPORTED_TYPES,
+          );
+        }
+
+        reloadTracks(existingIds);
       } else {
         console.log("file canceled: ", file.canceled);
       }

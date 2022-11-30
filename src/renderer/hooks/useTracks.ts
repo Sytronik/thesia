@@ -1,8 +1,11 @@
 import {useRef, useState, useCallback} from "react";
-import {ipcRenderer} from "electron";
-import {SUPPORTED_TYPES} from "renderer/prototypes/constants";
 import {difference} from "renderer/utils/arrayUtils";
 import NativeAPI from "../api";
+
+type AddTracksResultType = {
+  existingIds: number[];
+  invalidPaths: string[];
+};
 
 export default function useTracks() {
   const [trackIds, setTrackIds] = useState<number[]>([]);
@@ -29,63 +32,44 @@ export default function useTracks() {
   }, []);
 
   const addTracks = useCallback(
-    (newPaths: string[], unsupportedPaths: string[]) => {
+    (paths: string[]): AddTracksResultType => {
       try {
-        const newIds: number[] = [];
-        const existingIds: number[] = [];
-        let invalidIds: number[] = [];
-        let invalidPaths: string[] = [];
+        const newPaths = paths.filter((path) => NativeAPI.findIdByPath(path) === -1);
+        const existingPaths = difference(paths, newPaths);
+        const existingIds = existingPaths.map((path) => NativeAPI.findIdByPath(path));
 
-        newPaths.forEach((path, i, newPaths) => {
-          const id = NativeAPI.findIdByPath(path);
-          if (id !== -1) {
-            newPaths.splice(i, 1);
-            existingIds.push(id);
-          }
-        });
-
-        if (newPaths.length) {
-          for (let i = 0; i < newPaths.length; i += 1) {
-            if (waitingIdsRef.current.length) {
-              newIds.push(waitingIdsRef.current.shift() as number);
-            } else {
-              newIds.push(trackIds.length + i);
-            }
-          }
-
-          // nextSelectedIndexRef.current = trackIds.length;
-          const addedIds = NativeAPI.addTracks(newIds, newPaths);
-          setTrackIds((trackIds) => trackIds.concat(addedIds));
-
-          if (newIds.length !== addedIds.length) {
-            invalidIds = newIds.filter((id) => !addedIds.includes(id));
-            invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
-
-            waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
-            if (waitingIdsRef.current.length > 1) {
-              waitingIdsRef.current.sort((a, b) => a - b);
-            }
-          }
-          if (unsupportedPaths.length || invalidPaths.length) {
-            ipcRenderer.send(
-              "show-file-open-err-msg",
-              unsupportedPaths,
-              invalidPaths,
-              SUPPORTED_TYPES,
-            );
-          }
+        if (!newPaths.length) {
+          return {existingIds, invalidPaths: []};
         }
 
-        /*
-        if (existingIds.length) {
-          reloadTracks(existingIds);
-        } else {
-          setRefreshList(NativeAPI.applyTrackListChanges());
+        const createNeededIdCount = Math.max(newPaths.length - waitingIdsRef.current.length, 0);
+        const createdIds = [...Array(createNeededIdCount).keys()].map((i) => i + trackIds.length);
+        const newIds = [...waitingIdsRef.current, ...createdIds];
+
+        // nextSelectedIndexRef.current = trackIds.length;
+        const addedIds = NativeAPI.addTracks(newIds, newPaths);
+        setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
+
+        waitingIdsRef.current = waitingIdsRef.current.slice(newPaths.length);
+
+        if (newIds.length === addedIds.length) {
+          return {existingIds, invalidPaths: []};
         }
-        */
+
+        const invalidIds = difference(newIds, addedIds);
+        const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
+
+        waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
+        if (waitingIdsRef.current.length > 1) {
+          waitingIdsRef.current.sort((a, b) => a - b);
+        }
+
+        return {existingIds, invalidPaths};
       } catch (err) {
-        console.log(err);
-        alert("File upload error");
+        console.log("Track adds error", err);
+        alert("Track adds error");
+
+        return {existingIds: [], invalidPaths: []};
       }
     },
     [trackIds],
