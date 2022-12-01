@@ -81,26 +81,29 @@ export default function useTracks() {
         return {existingIds: [], invalidPaths: []};
       }
     },
-    [trackIds],
+    [trackIds, addToWaitingIds],
   );
 
   const ignoreError = useCallback((erroredId: number) => {
     setErroredList((prevErroredList) => difference(prevErroredList, [erroredId]));
   }, []);
 
-  const removeTracks = useCallback((selectedIds: number[]) => {
-    try {
-      // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-      NativeAPI.removeTracks(selectedIds);
-      setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
-      setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
+  const removeTracks = useCallback(
+    (selectedIds: number[]) => {
+      try {
+        // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
+        NativeAPI.removeTracks(selectedIds);
+        setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
+        setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
 
-      addToWaitingIds(selectedIds);
-    } catch (err) {
-      console.log("Could not remove track", err);
-      alert("Could not remove track");
-    }
-  }, []);
+        addToWaitingIds(selectedIds);
+      } catch (err) {
+        console.log("Could not remove track", err);
+        alert("Could not remove track");
+      }
+    },
+    [addToWaitingIds],
+  );
 
   return {
     trackIds,
