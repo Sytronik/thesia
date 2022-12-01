@@ -145,6 +145,13 @@ function MainViewer({
     },
     [reloadTracks, refreshTracks],
   );
+  const removeAndRefreshTracks = useCallback(
+    (ids: number[]) => {
+      removeTracks(ids);
+      refreshTracks();
+    },
+    [removeTracks, refreshTracks],
+  );
 
   const handleWheel = (e) => {
     let yIsLarger;
@@ -354,7 +361,7 @@ function MainViewer({
           <button type="button" onClick={() => ignoreError(id)}>
             Ignore
           </button>
-          <button type="button" onClick={() => removeTracks([id])}>
+          <button type="button" onClick={() => removeAndRefreshTracks([id])}>
             Close
           </button>
         </div>

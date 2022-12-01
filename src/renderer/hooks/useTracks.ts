@@ -96,8 +96,6 @@ export default function useTracks() {
       setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
       setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
 
-      // setRefreshList(NativeAPI.applyTrackListChanges());
-
       waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
       if (waitingIdsRef.current.length > 1) {
         waitingIdsRef.current.sort((a, b) => a - b);

@@ -83,6 +83,7 @@ function App() {
     if (e.key === "Delete" || e.key === "Backspace") {
       if (selectedIdsRef.current.length) {
         removeTracks(selectedIdsRef.current);
+        refreshTracks();
       }
     }
   };
@@ -127,11 +128,12 @@ function App() {
   useEffect(() => {
     ipcRenderer.on("delete-track", (e, targetTrackId) => {
       removeTracks([targetTrackId]);
+      refreshTracks();
     });
     return () => {
       ipcRenderer.removeAllListeners("delete-track");
     };
-  }, [removeTracks]);
+  }, [removeTracks, refreshTracks]);
 
   useEffect(() => {
     document.addEventListener("keydown", deleteSelectedTracks);
