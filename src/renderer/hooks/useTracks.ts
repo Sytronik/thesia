@@ -83,7 +83,7 @@ export default function useTracks() {
   );
 
   const ignoreError = (erroredId: number) => {
-    setErroredList(erroredList.filter((id) => ![erroredId].includes(id)));
+    setErroredList(difference(erroredList, [erroredId]));
   };
 
   const removeTracks = useCallback(
