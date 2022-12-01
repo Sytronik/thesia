@@ -89,27 +89,24 @@ export default function useTracks() {
     [erroredList],
   );
 
-  const removeTracks = useCallback(
-    (selectedIds) => {
-      try {
-        // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-        NativeAPI.removeTracks(selectedIds);
-        setTrackIds((trackIds) => trackIds.filter((id) => !selectedIds.includes(id)));
-        setErroredList(erroredList.filter((id) => !selectedIds.includes(id)));
+  const removeTracks = useCallback((selectedIds: number[]) => {
+    try {
+      // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
+      NativeAPI.removeTracks(selectedIds);
+      setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
+      setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
 
-        // setRefreshList(NativeAPI.applyTrackListChanges());
+      // setRefreshList(NativeAPI.applyTrackListChanges());
 
-        waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
-        if (waitingIdsRef.current.length > 1) {
-          waitingIdsRef.current.sort((a, b) => a - b);
-        }
-      } catch (err) {
-        console.log(err);
-        alert("Could not remove track");
+      waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
+      if (waitingIdsRef.current.length > 1) {
+        waitingIdsRef.current.sort((a, b) => a - b);
       }
-    },
-    [trackIds, erroredList],
-  );
+    } catch (err) {
+      console.log("Could not remove track", err);
+      alert("Could not remove track");
+    }
+  }, []);
 
   return {
     trackIds,
