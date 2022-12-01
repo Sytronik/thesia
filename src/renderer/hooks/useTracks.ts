@@ -84,12 +84,9 @@ export default function useTracks() {
     [trackIds],
   );
 
-  const ignoreError = useCallback(
-    (erroredId: number) => {
-      setErroredList(difference(erroredList, [erroredId]));
-    },
-    [erroredList],
-  );
+  const ignoreError = useCallback((erroredId: number) => {
+    setErroredList((prevErroredList) => difference(prevErroredList, [erroredId]));
+  }, []);
 
   const removeTracks = useCallback((selectedIds: number[]) => {
     try {
