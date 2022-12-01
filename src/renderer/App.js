@@ -15,8 +15,16 @@ function App() {
   const selectedIdsRef = useRef([]);
   const nextSelectedIndexRef = useRef(null);
 
-  const {trackIds, erroredList, refreshList, reloadTracks, addTracks, removeTracks, ignoreError} =
-    useTracks();
+  const {
+    trackIds,
+    erroredList,
+    refreshList,
+    reloadTracks,
+    refreshTracks,
+    addTracks,
+    removeTracks,
+    ignoreError,
+  } = useTracks();
 
   function showOpenDialog() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
@@ -42,7 +50,10 @@ function App() {
       ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths, SUPPORTED_TYPES);
     }
 
-    reloadTracks(existingIds);
+    if (existingIds.length) {
+      reloadTracks(existingIds);
+    }
+    refreshTracks();
   }
 
   const assignSelectedClass = (selectedIds) => {
@@ -89,6 +100,7 @@ function App() {
         const unsupportedPaths = [];
 
         const {existingIds, invalidPaths} = addTracks(newPaths);
+
         if (unsupportedPaths.length || invalidPaths.length) {
           ipcRenderer.send(
             "show-file-open-err-msg",
@@ -98,7 +110,10 @@ function App() {
           );
         }
 
-        reloadTracks(existingIds);
+        if (existingIds.length) {
+          reloadTracks(existingIds);
+        }
+        refreshTracks();
       } else {
         console.log("file canceled: ", file.canceled);
       }
@@ -154,6 +169,7 @@ function App() {
         trackIds={trackIds}
         addDroppedFile={addDroppedFile}
         ignoreError={ignoreError}
+        refreshTracks={refreshTracks}
         reloadTracks={reloadTracks}
         removeTracks={removeTracks}
         showOpenDialog={showOpenDialog}

@@ -18,16 +18,23 @@ export default function useTracks() {
     try {
       const reloadedIds = NativeAPI.reloadTracks(selectedIds);
       const erroredIds = difference(selectedIds, reloadedIds);
-      const needRefreshIds = await NativeAPI.applyTrackListChanges();
 
       if (erroredIds && erroredIds.length) {
         setErroredList(erroredIds);
       }
+    } catch (err) {
+      console.log("Track reloads error", err);
+    }
+  }, []);
+
+  const refreshTracks = useCallback(async () => {
+    try {
+      const needRefreshIds = await NativeAPI.applyTrackListChanges();
       if (needRefreshIds) {
         setRefreshList(needRefreshIds);
       }
     } catch (err) {
-      console.log("Track reloads error", err);
+      console.log("Track refresh error", err);
     }
   }, []);
 
@@ -106,6 +113,7 @@ export default function useTracks() {
     erroredList,
     refreshList,
     reloadTracks,
+    refreshTracks,
     addTracks,
     removeTracks,
     ignoreError,
