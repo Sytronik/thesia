@@ -4,7 +4,7 @@ import Control from "./prototypes/Control/Control";
 import Overview from "./prototypes/Overview/Overview";
 import SlideBar from "./prototypes/SlideBar/SlideBar";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
-import PROPERTY from "./prototypes/Property";
+import PROPERTY from "./prototypes/constants";
 import "./App.global.scss";
 import styles from "./prototypes/MainViewer/MainViewer.scss";
 

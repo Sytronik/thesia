@@ -5,7 +5,7 @@ import SplitView from "renderer/modules/SplitView";
 import styles from "./MainViewer.scss";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
-import PROPERTY from "../Property";
+import PROPERTY from "../constants";
 
 const backend = require("backend");
 
