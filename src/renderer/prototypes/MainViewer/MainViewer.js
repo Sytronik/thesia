@@ -5,11 +5,7 @@ import SplitView from "renderer/modules/SplitView";
 import styles from "./MainViewer.scss";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
-import PROPERTY from "../constants";
-
-const backend = require("backend");
-
-const {
+import {
   CHANNEL,
   TIME_CANVAS_HEIGHT,
   TIME_MARKER_POS,
@@ -23,7 +19,10 @@ const {
   DB_CANVAS_WIDTH,
   DB_MARKER_POS,
   DB_TICK_NUM,
-} = PROPERTY;
+} from "../constants";
+
+const backend = require("backend");
+
 const TIME_BOUNDARIES = Object.keys(TIME_TICK_SIZE)
   .map((boundary) => Number(boundary))
   .sort((a, b) => b - a);
