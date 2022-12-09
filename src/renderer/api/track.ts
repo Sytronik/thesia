@@ -21,11 +21,11 @@ export function applyTrackListChanges(): Promise<IdChArr> | null {
 
 export function findIdByPath(path: string): number {
   // return -1 if path is new
-  return backend.findIdByPath(path);
+  return backend.findIDbyPath(path);
 }
 
 /* get each track file's information */
-export function getChannelCounts(trackId: number): number {
+export function getChannelCounts(trackId: number): 1 | 2 {
   return backend.getNumCh(trackId);
 }
 
@@ -89,7 +89,7 @@ export function getAmpAxisMarkers(
 }
 
 /* images */
-export function getImages(): SpecWavImage[] {
+export function getImages(): SpecWavImages {
   return backend.getImages();
 }
 
@@ -126,5 +126,5 @@ export function getDbAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
 ): Markers {
-  return backend.getDbAxis(height, maxNumTicks, maxNumLabels);
+  return backend.getdBAxis(height, maxNumTicks, maxNumLabels);
 }
