@@ -5,6 +5,7 @@ import SplitView from "renderer/modules/SplitView";
 import styles from "./MainViewer.scss";
 import TrackSummary from "./TrackSummary";
 import ImgCanvas from "./ImgCanvas";
+import NativeAPI from "../../api";
 import {
   CHANNEL,
   TIME_CANVAS_HEIGHT,
@@ -20,8 +21,6 @@ import {
   DB_MARKER_POS,
   DB_TICK_NUM,
 } from "../constants";
-
-const backend = require("backend");
 
 const TIME_BOUNDARIES = Object.keys(TIME_TICK_SIZE)
   .map((boundary) => Number(boundary))
@@ -62,21 +61,6 @@ function MainViewer({
   selectTrack,
   showTrackContextMenu,
 }) {
-  const {
-    getFileName,
-    getMaxSec,
-    getNumCh,
-    getSampleFormat,
-    getSec,
-    getSr,
-    setImgState,
-    getImages,
-    getTimeAxis,
-    getAmpAxis,
-    getFreqAxis,
-    getdBAxis,
-  } = backend;
-
   const dragCounterRef = useRef(0);
   const prevTrackCountRef = useRef(0);
   const [dropboxIsVisible, setDropboxIsVisible] = useState(false);
@@ -213,7 +197,7 @@ function MainViewer({
       TIME_BOUNDARIES,
       drawOptionRef.current.px_per_sec,
     );
-    const timeMarkers = getTimeAxis(
+    const timeMarkers = NativeAPI.getTimeAxisMarkers(
       width,
       startSecRef.current,
       drawOptionRef.current.px_per_sec,
@@ -226,7 +210,7 @@ function MainViewer({
   const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height) => {
     if (!trackIds.length) return;
     const [maxAmpNumTicks, maxAmpNumLabels] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
-    ampMarkersRef.current = getAmpAxis(
+    ampMarkersRef.current = NativeAPI.getAmpAxisMarkers(
       height,
       maxAmpNumTicks,
       maxAmpNumLabels,
@@ -237,7 +221,11 @@ function MainViewer({
       FREQ_BOUNDARIES,
       height,
     );
-    freqMarkersRef.current = getFreqAxis(height, maxFreqNumTicks, maxFreqNumLabels);
+    freqMarkersRef.current = NativeAPI.getFreqAxisMarkers(
+      height,
+      maxFreqNumTicks,
+      maxFreqNumLabels,
+    );
   });
   const throttledSetDbMarkers = throttle(1000 / 240, (height) => {
     if (!trackIds.length) return;
@@ -246,13 +234,17 @@ function MainViewer({
       DB_BOUNDARIES,
       height,
     );
-    dbMarkersRef.current = getdBAxis(height, maxDeciBelNumTicks, maxDeciBelNumLabels);
+    dbMarkersRef.current = NativeAPI.getDbAxisMarkers(
+      height,
+      maxDeciBelNumTicks,
+      maxDeciBelNumLabels,
+    );
   });
 
   const throttledSetImgState = useCallback(
     throttle(1000 / 240, (idChArr, width, height) => {
       if (!idChArr.length) return;
-      setImgState(
+      NativeAPI.setImageState(
         idChArr,
         startSecRef.current,
         width,
@@ -265,7 +257,7 @@ function MainViewer({
   );
 
   const drawCanvas = async () => {
-    const images = getImages();
+    const images = NativeAPI.getImages();
     const promises = [];
     Object.entries(images).forEach((image) => {
       const [idChStr, buf] = image;
@@ -300,18 +292,19 @@ function MainViewer({
     </div>
   );
   const tracksLeft = trackIds.map((id) => {
-    const channels = [...Array(getNumCh(id)).keys()].map((ch) => {
+    const channelCount = NativeAPI.getChannelCounts(id);
+    const channels = [...Array(channelCount).keys()].map((ch) => {
       return (
         <div key={`${id}_${ch}`} className={styles.ch}>
-          <span>{CHANNEL[getNumCh(id)][ch]}</span>
+          <span>{CHANNEL[channelCount][ch]}</span>
         </div>
       );
     });
     const trackSummary = {
-      fileName: getFileName(id),
-      time: new Date(getSec(id).toFixed(3) * 1000).toISOString().substr(11, 12),
-      sampleFormat: getSampleFormat(id),
-      sampleRate: `${getSr(id)} Hz`,
+      fileName: NativeAPI.getFileName(id),
+      time: new Date(NativeAPI.getLength(id) * 1000).toISOString().substring(11, 23),
+      sampleFormat: NativeAPI.getSampleFormat(id),
+      sampleRate: `${NativeAPI.getSampleRate(id)} Hz`,
     };
 
     return (
@@ -325,7 +318,7 @@ function MainViewer({
         <TrackSummary
           className={styles.TrackSummary}
           data={trackSummary}
-          height={(height + 2) * getNumCh(id) - 2}
+          height={(height + 2) * NativeAPI.getChannelCounts(id) - 2}
         />
         <div className={styles.channels}>{channels}</div>
       </div>
@@ -367,7 +360,7 @@ function MainViewer({
         </div>
       </div>
     );
-    const channelsCanvases = [...Array(getNumCh(id)).keys()].map((ch) => {
+    const channelsCanvases = [...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => {
       return (
         <div key={`${id}_${ch}`} className={styles.chCanvases}>
           <AxisCanvas
@@ -455,7 +448,7 @@ function MainViewer({
 
   useEffect(() => {
     if (trackIds.length) {
-      maxTrackSecRef.current = getMaxSec();
+      maxTrackSecRef.current = NativeAPI.getLongestTrackLength();
       if (!prevTrackCountRef.current) {
         drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
         startSecRef.current = 0;
