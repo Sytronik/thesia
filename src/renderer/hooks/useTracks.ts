@@ -14,10 +14,10 @@ export default function useTracks() {
 
   const waitingIdsRef = useRef<number[]>([]);
 
-  const reloadTracks = useCallback(async (selectedIds: number[]) => {
+  const reloadTracks = useCallback(async (ids: number[]) => {
     try {
-      const reloadedIds = NativeAPI.reloadTracks(selectedIds);
-      const erroredIds = difference(selectedIds, reloadedIds);
+      const reloadedIds = NativeAPI.reloadTracks(ids);
+      const erroredIds = difference(ids, reloadedIds);
 
       if (erroredIds && erroredIds.length) {
         setErroredList(erroredIds);
@@ -89,14 +89,14 @@ export default function useTracks() {
     setErroredList((prevErroredList) => difference(prevErroredList, [erroredId]));
   }, []);
 
-  const removeTracks = useCallback(async (selectedIds) => {
+  const removeTracks = useCallback((ids: number[]) => {
     try {
       // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-      NativeAPI.removeTracks(selectedIds);
-      setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
-      setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
+      NativeAPI.removeTracks(ids);
+      setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
+      setErroredList((prevErroredList) => difference(prevErroredList, ids));
 
-      waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
+      waitingIdsRef.current = waitingIdsRef.current.concat(ids);
       if (waitingIdsRef.current.length > 1) {
         waitingIdsRef.current.sort((a, b) => a - b);
       }
