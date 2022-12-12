@@ -55,6 +55,7 @@ function MainViewer({
   trackIds,
   addDroppedFile,
   ignoreError,
+  refreshTracks,
   reloadTracks,
   removeTracks,
   showOpenDialog,
@@ -136,6 +137,14 @@ function MainViewer({
     dragCounterRef.current = 0;
     setDropboxIsVisible(false);
   };
+
+  const reloadAndRefreshTracks = useCallback(
+    (ids) => {
+      reloadTracks(ids);
+      refreshTracks();
+    },
+    [reloadTracks, refreshTracks],
+  );
 
   const handleWheel = (e) => {
     let yIsLarger;
@@ -339,7 +348,7 @@ function MainViewer({
       <div className={styles.errorBox}>
         <p>The file is corrupted and cannot be opened</p>
         <div>
-          <button type="button" onClick={() => reloadTracks([id])}>
+          <button type="button" onClick={() => reloadAndRefreshTracks([id])}>
             Reload
           </button>
           <button type="button" onClick={() => ignoreError(id)}>

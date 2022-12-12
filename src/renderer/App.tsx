@@ -13,8 +13,16 @@ function App() {
   const selectedIdsRef = useRef<number[]>([]);
   const nextSelectedIndexRef = useRef<number | null>(null);
 
-  const {trackIds, erroredList, refreshList, reloadTracks, addTracks, removeTracks, ignoreError} =
-    useTracks();
+  const {
+    trackIds,
+    erroredList,
+    refreshList,
+    reloadTracks,
+    refreshTracks,
+    addTracks,
+    removeTracks,
+    ignoreError,
+  } = useTracks();
 
   function showOpenDialog() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
@@ -36,7 +44,16 @@ function App() {
         unsupportedPaths.push(file.path);
       }
     });
-    addTracks(newPaths, unsupportedPaths);
+
+    const {existingIds, invalidPaths} = addTracks(newPaths);
+    if (unsupportedPaths.length || invalidPaths.length) {
+      ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths, SUPPORTED_TYPES);
+    }
+
+    if (existingIds.length) {
+      reloadTracks(existingIds);
+    }
+    refreshTracks();
   }
 
   const assignSelectedClass = (selectedIds: number[]) => {
@@ -66,6 +83,7 @@ function App() {
     if (e.key === "Delete" || e.key === "Backspace") {
       if (selectedIdsRef.current.length) {
         removeTracks(selectedIdsRef.current);
+        refreshTracks();
       }
     }
   };
@@ -82,7 +100,21 @@ function App() {
         const newPaths = file.filePaths;
         const unsupportedPaths: string[] = [];
 
-        addTracks(newPaths, unsupportedPaths);
+        const {existingIds, invalidPaths} = addTracks(newPaths);
+
+        if (unsupportedPaths.length || invalidPaths.length) {
+          ipcRenderer.send(
+            "show-file-open-err-msg",
+            unsupportedPaths,
+            invalidPaths,
+            SUPPORTED_TYPES,
+          );
+        }
+
+        if (existingIds.length) {
+          reloadTracks(existingIds);
+        }
+        refreshTracks();
       } else {
         console.log("file canceled: ", file.canceled);
       }
@@ -138,6 +170,7 @@ function App() {
         trackIds={trackIds}
         addDroppedFile={addDroppedFile}
         ignoreError={ignoreError}
+        refreshTracks={refreshTracks}
         reloadTracks={reloadTracks}
         removeTracks={removeTracks}
         showOpenDialog={showOpenDialog}
