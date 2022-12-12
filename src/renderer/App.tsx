@@ -128,6 +128,7 @@ function App() {
   useEffect(() => {
     ipcRenderer.on("delete-track", (e, targetTrackId) => {
       removeTracks([targetTrackId]);
+      refreshTracks();
     });
     return () => {
       ipcRenderer.removeAllListeners("delete-track");
