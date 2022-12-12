@@ -101,7 +101,7 @@ export default function useTracks() {
 
         addToWaitingIds(ids);
       } catch (err) {
-        console.log(err);
+        console.log("Could not remove track", err);
         alert("Could not remove track");
       }
     },
