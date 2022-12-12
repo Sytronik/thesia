@@ -95,7 +95,7 @@ function App() {
   };
 
   useEffect(() => {
-    ipcRenderer.on("open-dialog-closed", (event, file) => {
+    ipcRenderer.on("open-dialog-closed", (_, file) => {
       if (!file.canceled) {
         const newPaths = file.filePaths;
         const unsupportedPaths: string[] = [];
@@ -126,7 +126,7 @@ function App() {
   }, [addTracks]);
 
   useEffect(() => {
-    ipcRenderer.on("delete-track", (e, targetTrackId) => {
+    ipcRenderer.on("delete-track", (_, targetTrackId) => {
       removeTracks([targetTrackId]);
       refreshTracks();
     });
