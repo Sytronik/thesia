@@ -1,4 +1,5 @@
 import {useRef, useState, useCallback} from "react";
+import {difference} from "renderer/utils/arrayUtils";
 import NativeAPI from "../api";
 
 type AddTracksResultType = {
@@ -16,7 +17,7 @@ export default function useTracks() {
   const reloadTracks = useCallback(async (selectedIds: number[]) => {
     try {
       const reloadedIds = NativeAPI.reloadTracks(selectedIds);
-      const erroredIds = selectedIds.filter((id) => !reloadedIds.includes(id));
+      const erroredIds = difference(selectedIds, reloadedIds);
 
       if (erroredIds && erroredIds.length) {
         setErroredList(erroredIds);
@@ -41,7 +42,7 @@ export default function useTracks() {
     (paths: string[]): AddTracksResultType => {
       try {
         const newPaths = paths.filter((path) => NativeAPI.findIdByPath(path) === -1);
-        const existingPaths = paths.filter((path) => !newPaths.includes(path));
+        const existingPaths = difference(paths, newPaths);
         const existingIds = existingPaths.map((path) => NativeAPI.findIdByPath(path));
 
         if (!newPaths.length) {
@@ -65,7 +66,7 @@ export default function useTracks() {
           return {existingIds, invalidPaths: []};
         }
 
-        const invalidIds = newIds.filter((path) => !addedIds.includes(path));
+        const invalidIds = difference(newIds, addedIds);
         const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
 
         waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
@@ -85,17 +86,15 @@ export default function useTracks() {
   );
 
   const ignoreError = useCallback((erroredId: number) => {
-    setErroredList((prevErroredList) => prevErroredList.filter((id) => ![erroredId].includes(id)));
+    setErroredList((prevErroredList) => difference(prevErroredList, [erroredId]));
   }, []);
 
   const removeTracks = useCallback(async (selectedIds) => {
     try {
       // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
       NativeAPI.removeTracks(selectedIds);
-      setTrackIds((prevTrackIds) => prevTrackIds.filter((id) => !selectedIds.includes(id)));
-      setErroredList((prevErroredList) =>
-        prevErroredList.filter((id) => !selectedIds.includes(id)),
-      );
+      setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
+      setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
 
       waitingIdsRef.current = waitingIdsRef.current.concat(selectedIds);
       if (waitingIdsRef.current.length > 1) {
