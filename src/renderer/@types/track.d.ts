@@ -1,5 +1,6 @@
-// array of id & channel combination
-type IdChArr = string[];
+// id & channel combination
+type IdChannel = string;
+type IdChArr = IdChannel[];
 
 // written in snake case for compatibility with native api
 type DrawOption = {
@@ -10,7 +11,9 @@ type DrawOptionForWav = {
   min_amp: number;
   max_amp: number;
 };
-type SpecWavImage = [IdChArr, ArrayBuffer];
+type SpecWavImages = {
+  [key: string]: ArrayBuffer;
+};
 
 type TickPxPosition = number;
 type TickLable = string;

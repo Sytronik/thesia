@@ -15,7 +15,7 @@ export function removeTracks(trackIds: number[]): void {
   return backend.removeTracks(trackIds);
 }
 
-export function applyTrackListChanges(): Promise<IdChArr> | null {
+export function applyTrackListChanges(): Promise<IdChannel[]> | null {
   return backend.applyTrackListChanges();
 }
 

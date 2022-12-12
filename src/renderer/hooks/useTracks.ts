@@ -20,10 +20,10 @@ export default function useTracks() {
     }
   }, []);
 
-  const reloadTracks = useCallback(async (selectedIds: number[]) => {
+  const reloadTracks = useCallback(async (ids: number[]) => {
     try {
-      const reloadedIds = NativeAPI.reloadTracks(selectedIds);
-      const erroredIds = difference(selectedIds, reloadedIds);
+      const reloadedIds = NativeAPI.reloadTracks(ids);
+      const erroredIds = difference(ids, reloadedIds);
 
       if (erroredIds && erroredIds.length) {
         setErroredList(erroredIds);
@@ -55,9 +55,12 @@ export default function useTracks() {
           return {existingIds, invalidPaths: []};
         }
 
-        const createNeededIdCount = Math.max(newPaths.length - waitingIdsRef.current.length, 0);
-        const createdIds = [...Array(createNeededIdCount).keys()].map((i) => i + trackIds.length);
-        const newIds = [...waitingIdsRef.current, ...createdIds];
+        const newIds = [...Array(newPaths.length).keys()].map((i) => {
+          if (waitingIdsRef.current.length) {
+            return waitingIdsRef.current.shift() as number;
+          }
+          return trackIds.length + i;
+        });
 
         // nextSelectedIndexRef.current = trackIds.length;
         const addedIds = NativeAPI.addTracks(newIds, newPaths);
@@ -89,14 +92,14 @@ export default function useTracks() {
   }, []);
 
   const removeTracks = useCallback(
-    (selectedIds: number[]) => {
+    (ids: number[]) => {
       try {
         // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-        NativeAPI.removeTracks(selectedIds);
-        setTrackIds((prevTrackIds) => difference(prevTrackIds, selectedIds));
-        setErroredList((prevErroredList) => difference(prevErroredList, selectedIds));
+        NativeAPI.removeTracks(ids);
+        setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
+        setErroredList((prevErroredList) => difference(prevErroredList, ids));
 
-        addToWaitingIds(selectedIds);
+        addToWaitingIds(ids);
       } catch (err) {
         console.log("Could not remove track", err);
         alert("Could not remove track");

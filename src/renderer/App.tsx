@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState, useCallback} from "react";
+import React, {useEffect, useRef} from "react";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
 import Overview from "./prototypes/Overview/Overview";
@@ -9,11 +9,9 @@ import "./App.global.scss";
 import styles from "./prototypes/MainViewer/MainViewer.scss";
 import useTracks from "./hooks/useTracks";
 
-const backend = require("backend");
-
 function App() {
-  const selectedIdsRef = useRef([]);
-  const nextSelectedIndexRef = useRef(null);
+  const selectedIdsRef = useRef<number[]>([]);
+  const nextSelectedIndexRef = useRef<number | null>(null);
 
   const {
     trackIds,
@@ -30,14 +28,16 @@ function App() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
   }
 
-  function addDroppedFile(e) {
+  function addDroppedFile(e: React.DragEvent) {
     e.preventDefault();
     e.stopPropagation();
 
-    const newPaths = [];
-    const unsupportedPaths = [];
+    const newPaths: string[] = [];
+    const unsupportedPaths: string[] = [];
 
-    e.dataTransfer.files.forEach((file) => {
+    const droppedFiles = Array.from(e.dataTransfer.files);
+
+    droppedFiles.forEach((file: File) => {
       if (SUPPORTED_MIME.includes(file.type)) {
         newPaths.push(file.path);
       } else {
@@ -56,7 +56,7 @@ function App() {
     refreshTracks();
   }
 
-  const assignSelectedClass = (selectedIds) => {
+  const assignSelectedClass = (selectedIds: number[]) => {
     const targets = document.querySelectorAll(".js-track-left");
     targets.forEach((target) => {
       if (selectedIds.includes(Number(target.getAttribute("id")))) {
@@ -66,7 +66,7 @@ function App() {
       }
     });
   };
-  const selectTrack = (e) => {
+  const selectTrack = (e: React.MouseEvent) => {
     e.preventDefault();
 
     const targetClassList = e.currentTarget.classList;
@@ -77,7 +77,7 @@ function App() {
       assignSelectedClass(selectedIdsRef.current);
     }
   };
-  const deleteSelectedTracks = (e) => {
+  const deleteSelectedTracks = (e: KeyboardEvent) => {
     e.preventDefault();
 
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -88,7 +88,7 @@ function App() {
     }
   };
 
-  const showTrackContextMenu = (e) => {
+  const showTrackContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     const targetTrackId = Number(e.currentTarget.getAttribute("id"));
     ipcRenderer.send("show-track-context-menu", targetTrackId);
@@ -98,7 +98,7 @@ function App() {
     ipcRenderer.on("open-dialog-closed", (event, file) => {
       if (!file.canceled) {
         const newPaths = file.filePaths;
-        const unsupportedPaths = [];
+        const unsupportedPaths: string[] = [];
 
         const {existingIds, invalidPaths} = addTracks(newPaths);
 
@@ -133,7 +133,7 @@ function App() {
     return () => {
       ipcRenderer.removeAllListeners("delete-track");
     };
-  }, [removeTracks, refreshTracks]);
+  }, [removeTracks]);
 
   useEffect(() => {
     document.addEventListener("keydown", deleteSelectedTracks);
@@ -147,7 +147,7 @@ function App() {
     const trackCount = trackIds.length;
     if (!trackCount) {
       selectedIdsRef.current = [];
-    } else if (nextSelectedIndexRef.current < trackCount) {
+    } else if (nextSelectedIndexRef.current && nextSelectedIndexRef.current < trackCount) {
       selectedIdsRef.current = [trackIds[nextSelectedIndexRef.current]];
     } else {
       selectedIdsRef.current = [trackIds[trackCount - 1]];

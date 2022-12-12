@@ -139,14 +139,14 @@ function MainViewer({
   };
 
   const reloadAndRefreshTracks = useCallback(
-    (ids: number[]) => {
+    (ids) => {
       reloadTracks(ids);
       refreshTracks();
     },
     [reloadTracks, refreshTracks],
   );
   const removeAndRefreshTracks = useCallback(
-    (ids: number[]) => {
+    (ids) => {
       removeTracks(ids);
       refreshTracks();
     },
