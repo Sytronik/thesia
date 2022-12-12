@@ -13,6 +13,12 @@ export default function useTracks() {
   const [refreshList, setRefreshList] = useState<IdChArr>([]);
 
   const waitingIdsRef = useRef<number[]>([]);
+  const addToWaitingIds = useCallback((ids: number[]) => {
+    waitingIdsRef.current = waitingIdsRef.current.concat(ids);
+    if (waitingIdsRef.current.length > 1) {
+      waitingIdsRef.current.sort((a, b) => a - b);
+    }
+  }, []);
 
   const reloadTracks = useCallback(async (ids: number[]) => {
     try {
@@ -68,11 +74,7 @@ export default function useTracks() {
 
         const invalidIds = difference(newIds, addedIds);
         const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
-
-        waitingIdsRef.current = waitingIdsRef.current.concat(invalidIds);
-        if (waitingIdsRef.current.length > 1) {
-          waitingIdsRef.current.sort((a, b) => a - b);
-        }
+        addToWaitingIds(invalidIds);
 
         return {existingIds, invalidPaths};
       } catch (err) {
@@ -82,29 +84,29 @@ export default function useTracks() {
         return {existingIds: [], invalidPaths: []};
       }
     },
-    [trackIds],
+    [trackIds, addToWaitingIds],
   );
 
   const ignoreError = useCallback((erroredId: number) => {
     setErroredList((prevErroredList) => difference(prevErroredList, [erroredId]));
   }, []);
 
-  const removeTracks = useCallback((ids: number[]) => {
-    try {
-      // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
-      NativeAPI.removeTracks(ids);
-      setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
-      setErroredList((prevErroredList) => difference(prevErroredList, ids));
+  const removeTracks = useCallback(
+    (ids: number[]) => {
+      try {
+        // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
+        NativeAPI.removeTracks(ids);
+        setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
+        setErroredList((prevErroredList) => difference(prevErroredList, ids));
 
-      waitingIdsRef.current = waitingIdsRef.current.concat(ids);
-      if (waitingIdsRef.current.length > 1) {
-        waitingIdsRef.current.sort((a, b) => a - b);
+        addToWaitingIds(ids);
+      } catch (err) {
+        console.log(err);
+        alert("Could not remove track");
       }
-    } catch (err) {
-      console.log(err);
-      alert("Could not remove track");
-    }
-  }, []);
+    },
+    [addToWaitingIds],
+  );
 
   return {
     trackIds,
