@@ -97,7 +97,7 @@ function App() {
   useEffect(() => {
     ipcRenderer.on("open-dialog-closed", (_, file) => {
       if (!file.canceled) {
-        const newPaths = file.filePaths;
+        const newPaths: string[] = file.filePaths;
         const unsupportedPaths: string[] = [];
 
         const {existingIds, invalidPaths} = addTracks(newPaths);
