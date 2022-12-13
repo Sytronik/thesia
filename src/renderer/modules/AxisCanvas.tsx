@@ -22,24 +22,32 @@ type AxisCanvasProps = {
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   const {width, height, markerPos, direction, className} = props;
   const axisCanvasElem = useRef<HTMLCanvasElement>(null);
-  const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>(null);
+  const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>();
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
   useEffect(() => {
     const ratio = window.devicePixelRatio || 1;
 
+    if (!axisCanvasElem.current) {
+      return;
+    }
+
     axisCanvasElem.current.width = width * ratio;
     axisCanvasElem.current.height = height * ratio;
 
-    axisCanvasCtxRef.current = axisCanvasElem.current.getContext("2d");
+    axisCanvasCtxRef.current = axisCanvasElem.current.getContext("2d") as CanvasRenderingContext2D;
     axisCanvasCtxRef.current.scale(ratio, ratio);
   }, [width, height]);
 
   useImperativeHandle(ref, () => ({
     draw: (markers: Markers) => {
       const ctx = axisCanvasCtxRef.current;
+
+      if (!ctx || !markers) {
+        return;
+      }
+
       ctx.clearRect(0, 0, width, height); // [TEMP]
-      if (!markers) return;
 
       ctx.fillStyle = LABEL_COLOR;
       ctx.strokeStyle = TICK_COLOR;

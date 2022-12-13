@@ -49,11 +49,18 @@ type MainViewerProps = {
   showTrackContextMenu: (e: React.MouseEvent) => void;
 };
 
-function useRefs() {
-  const refs = useRef({});
+type ReactRefsObject<T> = {
+  [key: string]: T;
+};
+
+function useRefs<T>(): [
+  React.MutableRefObject<ReactRefsObject<T>>,
+  (refName: string) => React.RefCallback<T>,
+] {
+  const refs = useRef<ReactRefsObject<T>>({});
 
   const register = useCallback(
-    (refName) => (ref) => {
+    (refName: string) => (ref: T) => {
       refs.current[refName] = ref;
     },
     [],
@@ -90,19 +97,19 @@ function MainViewer(props: MainViewerProps) {
   const drawOptionRef = useRef({px_per_sec: 100});
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
 
-  const timeMarkersRef = useRef();
-  const timeCanvasElem = useRef();
-  const [timeUnitLabel, setTimeUnitLabel] = useState("");
-  const ampMarkersRef = useRef();
-  const [ampCanvasesRef, registerAmpCanvas] = useRefs();
-  const freqMarkersRef = useRef();
-  const [freqCanvasesRef, registerFreqCanvas] = useRefs();
-  const dbMarkersRef = useRef();
-  const dbCanvasElem = useRef();
-  const [imgCanvasesRef, registerImgCanvas] = useRefs();
-  const requestRef = useRef();
-  const [colorBarHeight, setColorBarHeight] = useState();
-  const colorBarElem = useRef();
+  const timeMarkersRef = useRef<Markers | null>(null);
+  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
+  const ampMarkersRef = useRef<Markers | null>(null);
+  const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
+  const freqMarkersRef = useRef<Markers | null>(null);
+  const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
+  const dbMarkersRef = useRef<Markers | null>(null);
+  const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
+  const requestRef = useRef<number>(0);
+  const [colorBarHeight, setColorBarHeight] = useState<number>(0);
+  const colorBarElem = useRef<HTMLDivElement>(null);
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
       const {target} = entries[0];
@@ -200,7 +207,7 @@ function MainViewer(props: MainViewerProps) {
     }
   };
 
-  const getTickScale = (table, boundaries, value) => {
+  const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
     const target = boundaries.find((boundary) => value > boundary);
     if (target === undefined) return table[value];
     return table[target];
@@ -225,7 +232,7 @@ function MainViewer(props: MainViewerProps) {
     setTimeUnitLabel(timeMarkers.pop()[1]);
     timeMarkersRef.current = timeMarkers;
   });
-  const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height) => {
+  const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height: number) => {
     if (!trackIds.length) return;
     const [maxAmpNumTicks, maxAmpNumLabels] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
     ampMarkersRef.current = NativeAPI.getAmpAxisMarkers(
@@ -245,7 +252,7 @@ function MainViewer(props: MainViewerProps) {
       maxFreqNumLabels,
     );
   });
-  const throttledSetDbMarkers = throttle(1000 / 240, (height) => {
+  const throttledSetDbMarkers = throttle(1000 / 240, (height: number) => {
     if (!trackIds.length) return;
     const [maxDeciBelNumTicks, maxDeciBelNumLabels] = getTickScale(
       DB_TICK_NUM,
@@ -260,7 +267,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const throttledSetImgState = useCallback(
-    throttle(1000 / 240, (idChArr, width, height) => {
+    throttle(1000 / 240, (idChArr: IdChannel[], width: number, height: number) => {
       if (!idChArr.length) return;
       NativeAPI.setImageState(
         idChArr,
@@ -276,7 +283,8 @@ function MainViewer(props: MainViewerProps) {
 
   const drawCanvas = async () => {
     const images = NativeAPI.getImages();
-    const promises = [];
+    const promises: void[] = [];
+
     Object.entries(images).forEach((image) => {
       const [idChStr, buf] = image;
       const ampCanvasRef = ampCanvasesRef.current[idChStr];
@@ -329,7 +337,7 @@ function MainViewer(props: MainViewerProps) {
       <div
         key={`${id}`}
         className={`${styles.trackLeft} js-track-left`}
-        id={id}
+        id={`${id}`}
         onClick={selectTrack}
         onContextMenu={showTrackContextMenu}
       >

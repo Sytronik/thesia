@@ -15,7 +15,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       if (!(buf && buf.byteLength === 4 * width * height)) {
         return;
       }
+
       const ctx = canvasElem?.current?.getContext("bitmaprenderer");
+
+      if (!ctx) {
+        return;
+      }
+
       const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
       const imbmp = await createImageBitmap(imdata);
       ctx.transferFromImageBitmap(imbmp);
