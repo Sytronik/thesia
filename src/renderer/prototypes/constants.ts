@@ -9,7 +9,7 @@ export const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}
 
 // axis
 export const AXIS_STYLE = {
-  LINE_WIDTH: "1px",
+  LINE_WIDTH: 1,
   TICK_COLOR: "#fff",
   LABEL_COLOR: "#fff",
   LABEL_FONT: "11px sans-serif",

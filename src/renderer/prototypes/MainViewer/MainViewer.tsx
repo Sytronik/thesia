@@ -35,6 +35,20 @@ const DB_BOUNDARIES = Object.keys(DB_TICK_NUM)
   .map((boundary) => Number(boundary))
   .sort((a, b) => b - a);
 
+type MainViewerProps = {
+  erroredList: number[];
+  refreshList: IdChArr;
+  trackIds: number[];
+  addDroppedFile: (e: React.DragEvent) => void;
+  reloadTracks: (ids: number[]) => void;
+  refreshTracks: () => void;
+  ignoreError: (id: number) => void;
+  removeTracks: (ids: number[]) => void;
+  showOpenDialog: () => void;
+  selectTrack: (e: React.MouseEvent) => void;
+  showTrackContextMenu: (e: React.MouseEvent) => void;
+};
+
 function useRefs() {
   const refs = useRef({});
 
@@ -48,30 +62,34 @@ function useRefs() {
   return [refs, register];
 }
 
-function MainViewer({
-  erroredList,
-  refreshList,
-  trackIds,
-  addDroppedFile,
-  ignoreError,
-  refreshTracks,
-  reloadTracks,
-  removeTracks,
-  showOpenDialog,
-  selectTrack,
-  showTrackContextMenu,
-}) {
-  const dragCounterRef = useRef(0);
-  const prevTrackCountRef = useRef(0);
-  const [dropboxIsVisible, setDropboxIsVisible] = useState(false);
+function MainViewer(props: MainViewerProps) {
+  const {
+    erroredList,
+    refreshList,
+    trackIds,
+    addDroppedFile,
+    ignoreError,
+    refreshTracks,
+    reloadTracks,
+    removeTracks,
+    showOpenDialog,
+    selectTrack,
+    showTrackContextMenu,
+  } = props;
 
-  const startSecRef = useRef(0);
-  const maxTrackSecRef = useRef(0);
-  const canvasIsFitRef = useRef(false);
+  const dragCounterRef = useRef<number>(0);
+  const prevTrackCountRef = useRef<number>(0);
+  const [dropboxIsVisible, setDropboxIsVisible] = useState<boolean>(false);
+
+  const startSecRef = useRef<number>(0);
+  const maxTrackSecRef = useRef<number>(0);
+  const canvasIsFitRef = useRef<boolean>(false);
+
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
+
   const timeMarkersRef = useRef();
   const timeCanvasElem = useRef();
   const [timeUnitLabel, setTimeUnitLabel] = useState("");
@@ -92,11 +110,11 @@ function MainViewer({
     }),
   );
 
-  const dragOver = (e) => {
+  const dragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
-  const dragEnter = (e) => {
+  const dragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -106,7 +124,7 @@ function MainViewer({
     }
     return false;
   };
-  const dragLeave = (e) => {
+  const dragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -116,21 +134,21 @@ function MainViewer({
     }
     return false;
   };
-  const addDroppedFileThenResetDropbox = (e) => {
+  const addDroppedFileThenResetDropbox = (e: React.DragEvent) => {
     addDroppedFile(e);
     dragCounterRef.current = 0;
     setDropboxIsVisible(false);
   };
 
   const reloadAndRefreshTracks = useCallback(
-    (ids) => {
+    (ids: number[]) => {
       reloadTracks(ids);
       refreshTracks();
     },
     [reloadTracks, refreshTracks],
   );
   const removeAndRefreshTracks = useCallback(
-    (ids) => {
+    (ids: number[]) => {
       removeTracks(ids);
       refreshTracks();
     },

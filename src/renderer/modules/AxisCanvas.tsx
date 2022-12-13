@@ -4,9 +4,25 @@ import styles from "./AxisCanvas.scss";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
 
-const AxisCanvas = forwardRef(({width, height, markerPos, direction, className}, ref) => {
-  const axisCanvasElem = useRef();
-  const axisCanvasCtxRef = useRef();
+type MarkerPosition = {
+  MAJOR_TICK_POS: number;
+  MINOR_TICK_POS: number;
+  LABEL_POS: number;
+  LABEL_LEFT_MARGIN: number;
+};
+
+type AxisCanvasProps = {
+  width: number;
+  height: number;
+  markerPos: MarkerPosition;
+  direction: string;
+  className: "timeRuler" | "ampAxis" | "freqAxis" | "dbAxis";
+};
+
+const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
+  const {width, height, markerPos, direction, className} = props;
+  const axisCanvasElem = useRef<HTMLCanvasElement>(null);
+  const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>(null);
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
   useEffect(() => {
@@ -20,7 +36,7 @@ const AxisCanvas = forwardRef(({width, height, markerPos, direction, className},
   }, [width, height]);
 
   useImperativeHandle(ref, () => ({
-    draw: (markers) => {
+    draw: (markers: Markers) => {
       const ctx = axisCanvasCtxRef.current;
       ctx.clearRect(0, 0, width, height); // [TEMP]
       if (!markers) return;

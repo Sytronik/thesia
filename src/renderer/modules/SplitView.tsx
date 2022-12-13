@@ -4,17 +4,22 @@ import styles from "./SplitView.scss";
 const MARGIN = 2;
 const MIN_WIDTH = 160 + 32;
 const MAX_WIDTH = 480 + 32;
-interface SplitViewProps {
+
+type SplitViewProps = {
   left: React.ReactElement;
   right: React.ReactElement;
   setCanvasWidth: (value: number) => void;
   className?: string;
-}
+};
 
-const LeftPane: React.FunctionComponent<{
+type LeftPaneProps = {
+  children: React.ReactElement;
   leftWidth: number | undefined;
   setLeftWidth: (value: number) => void;
-}> = ({children, leftWidth, setLeftWidth}) => {
+};
+
+const LeftPane = (props: LeftPaneProps) => {
+  const {children, leftWidth, setLeftWidth} = props;
   const leftElem = createRef<HTMLDivElement>();
 
   useEffect(() => {
@@ -35,12 +40,9 @@ const LeftPane: React.FunctionComponent<{
   );
 };
 
-const SplitView: React.FunctionComponent<SplitViewProps> = ({
-  left,
-  right,
-  setCanvasWidth,
-  className,
-}) => {
+const SplitView = (props: SplitViewProps) => {
+  const {left, right, setCanvasWidth, className} = props;
+
   const [leftWidth, setLeftWidth] = useState<undefined | number>(MIN_WIDTH);
   const [separatorXPosition, setSeparatorXPosition] = useState<undefined | number>(undefined);
   const [dragging, setDragging] = useState(false);
@@ -134,6 +136,7 @@ const SplitView: React.FunctionComponent<SplitViewProps> = ({
         {left}
       </LeftPane>
       <div
+        role="presentation"
         className={styles.divider}
         onMouseDown={onMouseDown}
         onTouchStart={onTouchStart}

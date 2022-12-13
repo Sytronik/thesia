@@ -1,10 +1,17 @@
 import React, {useEffect, useRef} from "react";
 import styles from "./TrackSummary.scss";
 
-function TrackSummary({className, data, height}) {
-  const trackSummaryElem = useRef();
-  const {fileName, time, sampleFormat, sampleRate} = data;
+type TrackSummaryProps = {
+  data: TrackSummary;
+  height: number;
+  className: string;
+};
 
+function TrackSummary(props: TrackSummaryProps) {
+  const {data, height, className} = props;
+  const trackSummaryElem = useRef<HTMLDivElement>(null);
+
+  const {fileName, time, sampleFormat, sampleRate} = data;
   const pathPieces = fileName.split("/");
   const name = pathPieces.pop();
 

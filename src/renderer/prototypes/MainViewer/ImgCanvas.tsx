@@ -1,15 +1,21 @@
 import React, {forwardRef, useRef, useImperativeHandle} from "react";
 import styles from "./ImgCanvas.scss";
 
-const ImgCanvas = forwardRef(({width, height}, ref) => {
-  const canvasElem = useRef(null);
+type ImgCanvasProps = {
+  width: number;
+  height: number;
+};
+
+const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
+  const {width, height} = props;
+  const canvasElem = useRef<HTMLCanvasElement>(null);
 
   useImperativeHandle(ref, () => ({
-    draw: async (buf) => {
+    draw: async (buf: ArrayBuffer) => {
       if (!(buf && buf.byteLength === 4 * width * height)) {
         return;
       }
-      const ctx = canvasElem.current.getContext("bitmaprenderer");
+      const ctx = canvasElem?.current?.getContext("bitmaprenderer");
       const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
       const imbmp = await createImageBitmap(imdata);
       ctx.transferFromImageBitmap(imbmp);

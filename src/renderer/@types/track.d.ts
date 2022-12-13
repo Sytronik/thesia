@@ -1,4 +1,4 @@
-// id & channel combination
+// IdChannel is form of id#_ch#
 type IdChannel = string;
 type IdChArr = IdChannel[];
 
@@ -12,9 +12,30 @@ type DrawOptionForWav = {
   max_amp: number;
 };
 type SpecWavImages = {
-  [key: string]: ArrayBuffer;
+  [key: IdChannel]: ArrayBuffer;
 };
 
+type ImgCanvasHandleElement = {
+  draw: (buf: ArrayBuffer) => void;
+};
+
+// Track Summary
+type TrackSummary = {
+  fileName: string;
+  time: string;
+  sampleFormat: string;
+  sampleRate: string;
+};
+
+// Axis Tick
 type TickPxPosition = number;
 type TickLable = string;
 type Markers = [TickPxPosition, TickLable][];
+
+type TickScaleTable = {
+  [key: number]: number[];
+};
+
+type AxisCanvasHandleElement = {
+  draw: (markers: Markers) => void;
+};
