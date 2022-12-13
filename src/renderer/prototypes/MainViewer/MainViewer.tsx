@@ -221,7 +221,7 @@ function MainViewer(props: MainViewerProps) {
     return table[target];
   };
 
-  const throttledSetTimeMarkers = throttle(1000 / 240, (width) => {
+  const throttledSetTimeMarkers = throttle(1000 / 240, (width: number) => {
     if (!trackIds.length) {
       timeMarkersRef.current = [];
       return;
@@ -238,7 +238,8 @@ function MainViewer(props: MainViewerProps) {
       minorUnit,
       minorTickNum,
     );
-    setTimeUnitLabel(timeMarkers.pop()[1]);
+    const timeUnit = timeMarkers.pop()?.[1] || "ss";
+    setTimeUnitLabel(timeUnit);
     timeMarkersRef.current = timeMarkers;
   });
 
