@@ -8,6 +8,12 @@ export const SUPPORTED_TYPES = ["flac", "mp3", "oga", "ogg", "wav"];
 export const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);
 
 // axis
+const createBoundaries = (tickScaleTable: TickScaleTable) => {
+  return Object.keys(tickScaleTable)
+    .map((boundary) => Number(boundary))
+    .sort((a, b) => b - a);
+};
+
 export const AXIS_STYLE = {
   LINE_WIDTH: 1,
   TICK_COLOR: "#fff",
@@ -57,6 +63,7 @@ export const TIME_TICK_SIZE = {
   10083750: [0.000002, 5],
   21800000: [0.000001, 5],
 };
+export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
 export const AMP_CANVAS_WIDTH = 23;
 export const AMP_MARKER_POS = {
@@ -98,6 +105,7 @@ export const AMP_TICK_NUM = {
   1185: [63, 63],
   1210: [65, 65],
 };
+export const AMP_BOUNDARIES = createBoundaries(AMP_TICK_NUM);
 
 export const FREQ_CANVAS_WIDTH = 23; // 24px - 1px(border)
 export const FREQ_MARKER_POS = {
@@ -123,6 +131,7 @@ export const FREQ_TICK_NUM = {
   720: [26, 23],
   765: [26, 24],
 };
+export const FREQ_BOUNDARIES = createBoundaries(FREQ_TICK_NUM);
 
 export const DB_CANVAS_WIDTH = 47; // 48px - 1px(border)
 export const DB_MARKER_POS = {
@@ -135,3 +144,4 @@ export const DB_TICK_NUM = {
   80: [13, 13],
   350: [25, 25],
 };
+export const DB_BOUNDARIES = createBoundaries(DB_TICK_NUM);

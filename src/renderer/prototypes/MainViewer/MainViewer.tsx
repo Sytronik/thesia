@@ -11,29 +11,20 @@ import {
   TIME_CANVAS_HEIGHT,
   TIME_MARKER_POS,
   TIME_TICK_SIZE,
+  TIME_BOUNDARIES,
   AMP_CANVAS_WIDTH,
   AMP_MARKER_POS,
   AMP_TICK_NUM,
+  AMP_BOUNDARIES,
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
   FREQ_TICK_NUM,
+  FREQ_BOUNDARIES,
   DB_CANVAS_WIDTH,
   DB_MARKER_POS,
   DB_TICK_NUM,
+  DB_BOUNDARIES,
 } from "../constants";
-
-const TIME_BOUNDARIES = Object.keys(TIME_TICK_SIZE)
-  .map((boundary) => Number(boundary))
-  .sort((a, b) => b - a);
-const AMP_BOUNDARIES = Object.keys(AMP_TICK_NUM)
-  .map((boundary) => Number(boundary))
-  .sort((a, b) => b - a);
-const FREQ_BOUNDARIES = Object.keys(FREQ_TICK_NUM)
-  .map((boundary) => Number(boundary))
-  .sort((a, b) => b - a);
-const DB_BOUNDARIES = Object.keys(DB_TICK_NUM)
-  .map((boundary) => Number(boundary))
-  .sort((a, b) => b - a);
 
 type MainViewerProps = {
   erroredList: number[];
