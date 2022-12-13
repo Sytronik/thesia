@@ -84,6 +84,8 @@ function MainViewer(props: MainViewerProps) {
     showTrackContextMenu,
   } = props;
 
+  const mainViewerElem = useRef<HTMLDivElement>(null);
+
   const dragCounterRef = useRef<number>(0);
   const prevTrackCountRef = useRef<number>(0);
   const [dropboxIsVisible, setDropboxIsVisible] = useState<boolean>(false);
@@ -168,7 +170,7 @@ function MainViewer(props: MainViewerProps) {
     [removeTracks, refreshTracks],
   );
 
-  const handleWheel = (e) => {
+  const handleWheel = (e: WheelEvent) => {
     let yIsLarger;
     let delta;
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -439,11 +441,10 @@ function MainViewer(props: MainViewerProps) {
   const getIdChArr = () => Object.keys(imgCanvasesRef.current);
 
   useEffect(() => {
-    const viewer = document.querySelector(".js-MainViewer");
-    viewer.addEventListener("wheel", handleWheel, {passive: false});
+    mainViewerElem?.current?.addEventListener("wheel", handleWheel, {passive: false});
 
     return () => {
-      viewer.removeEventListener("wheel", handleWheel, {passive: false});
+      mainViewerElem?.current?.removeEventListener("wheel", handleWheel);
     };
   });
 
@@ -516,7 +517,8 @@ function MainViewer(props: MainViewerProps) {
 
   return (
     <div
-      className={`${styles.MainViewer} js-MainViewer row-flex`}
+      className={`${styles.MainViewer} row-flex`}
+      ref={mainViewerElem}
       onDrop={addDroppedFileThenResetDropbox}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
