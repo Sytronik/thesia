@@ -92,24 +92,26 @@ function MainViewer(props: MainViewerProps) {
   const maxTrackSecRef = useRef<number>(0);
   const canvasIsFitRef = useRef<boolean>(false);
 
+  const requestRef = useRef<number>(0);
+
+  const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const drawOptionRef = useRef({px_per_sec: 100});
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
-
-  const timeMarkersRef = useRef<Markers | null>(null);
-  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
-  const ampMarkersRef = useRef<Markers | null>(null);
-  const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
-  const freqMarkersRef = useRef<Markers | null>(null);
-  const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
-  const dbMarkersRef = useRef<Markers | null>(null);
-  const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
-  const requestRef = useRef<number>(0);
-  const [colorBarHeight, setColorBarHeight] = useState<number>(0);
   const colorBarElem = useRef<HTMLDivElement>(null);
+  const [colorBarHeight, setColorBarHeight] = useState<number>(0);
+
+  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const timeMarkersRef = useRef<Markers | null>(null);
+  const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
+  const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
+  const ampMarkersRef = useRef<Markers | null>(null);
+  const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
+  const freqMarkersRef = useRef<Markers | null>(null);
+  const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const dbMarkersRef = useRef<Markers | null>(null);
+
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
       const {target} = entries[0];
@@ -121,6 +123,7 @@ function MainViewer(props: MainViewerProps) {
     e.preventDefault();
     e.stopPropagation();
   };
+
   const dragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -131,6 +134,7 @@ function MainViewer(props: MainViewerProps) {
     }
     return false;
   };
+
   const dragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -141,6 +145,7 @@ function MainViewer(props: MainViewerProps) {
     }
     return false;
   };
+
   const addDroppedFileThenResetDropbox = (e: React.DragEvent) => {
     addDroppedFile(e);
     dragCounterRef.current = 0;
@@ -154,6 +159,7 @@ function MainViewer(props: MainViewerProps) {
     },
     [reloadTracks, refreshTracks],
   );
+
   const removeAndRefreshTracks = useCallback(
     (ids: number[]) => {
       removeTracks(ids);
@@ -212,6 +218,7 @@ function MainViewer(props: MainViewerProps) {
     if (target === undefined) return table[value];
     return table[target];
   };
+
   const throttledSetTimeMarkers = throttle(1000 / 240, (width) => {
     if (!trackIds.length) {
       timeMarkersRef.current = null;
@@ -232,6 +239,7 @@ function MainViewer(props: MainViewerProps) {
     setTimeUnitLabel(timeMarkers.pop()[1]);
     timeMarkersRef.current = timeMarkers;
   });
+
   const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height: number) => {
     if (!trackIds.length) return;
     const [maxAmpNumTicks, maxAmpNumLabels] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
@@ -252,6 +260,7 @@ function MainViewer(props: MainViewerProps) {
       maxFreqNumLabels,
     );
   });
+
   const throttledSetDbMarkers = throttle(1000 / 240, (height: number) => {
     if (!trackIds.length) return;
     const [maxDeciBelNumTicks, maxDeciBelNumLabels] = getTickScale(
@@ -350,6 +359,7 @@ function MainViewer(props: MainViewerProps) {
       </div>
     );
   });
+
   const tracksEmpty = (
     <div key="empty" className={styles.trackEmpty}>
       <button type="button" onClick={showOpenDialog}>
@@ -369,6 +379,7 @@ function MainViewer(props: MainViewerProps) {
       className="timeRuler"
     />
   );
+
   const tracksRight = trackIds.map((id) => {
     const errorBox = (
       <div className={styles.errorBox}>
@@ -386,6 +397,7 @@ function MainViewer(props: MainViewerProps) {
         </div>
       </div>
     );
+
     const channelsCanvases = [...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => {
       return (
         <div key={`${id}_${ch}`} className={styles.chCanvases}>
