@@ -105,14 +105,14 @@ function MainViewer(props: MainViewerProps) {
   const [colorBarHeight, setColorBarHeight] = useState<number>(0);
 
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const timeMarkersRef = useRef<Markers | null>(null);
+  const timeMarkersRef = useRef<Markers>([]);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
-  const ampMarkersRef = useRef<Markers | null>(null);
+  const ampMarkersRef = useRef<Markers>([]);
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
-  const freqMarkersRef = useRef<Markers | null>(null);
+  const freqMarkersRef = useRef<Markers>([]);
   const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const dbMarkersRef = useRef<Markers | null>(null);
+  const dbMarkersRef = useRef<Markers>([]);
 
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
@@ -223,7 +223,7 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetTimeMarkers = throttle(1000 / 240, (width) => {
     if (!trackIds.length) {
-      timeMarkersRef.current = null;
+      timeMarkersRef.current = [];
       return;
     }
     const [minorUnit, minorTickNum] = getTickScale(
