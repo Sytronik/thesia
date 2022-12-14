@@ -1,6 +1,7 @@
 import React, {useRef, useCallback, useEffect, useLayoutEffect, useState} from "react";
 import {throttle} from "throttle-debounce";
 import AxisCanvas from "renderer/modules/AxisCanvas";
+import useDropzone from "renderer/hooks/useDropzone";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import styles from "./MainViewer.scss";
@@ -76,10 +77,7 @@ function MainViewer(props: MainViewerProps) {
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement>(null);
-
-  const dragCounterRef = useRef<number>(0);
   const prevTrackCountRef = useRef<number>(0);
-  const [dropboxIsVisible, setDropboxIsVisible] = useState<boolean>(false);
 
   const startSecRef = useRef<number>(0);
   const maxTrackSecRef = useRef<number>(0);
@@ -112,39 +110,8 @@ function MainViewer(props: MainViewerProps) {
     }),
   );
 
-  const dragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const dragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    dragCounterRef.current += 1;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setDropboxIsVisible(true);
-    }
-    return false;
-  };
-
-  const dragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    dragCounterRef.current -= 1;
-    if (dragCounterRef.current === 0) {
-      setDropboxIsVisible(false);
-    }
-    return false;
-  };
-
-  const addDroppedFileThenResetDropbox = (e: React.DragEvent) => {
-    addDroppedFile(e);
-    dragCounterRef.current = 0;
-    setDropboxIsVisible(false);
-  };
-
+  const {dropboxIsVisible, dragOver, dragEnter, dragLeave, handleDroppedAndResetDropbox} =
+    useDropzone({ref: mainViewerElem, onDrop: addDroppedFile});
   const reloadAndRefreshTracks = useCallback(
     (ids: number[]) => {
       reloadTracks(ids);
@@ -511,7 +478,7 @@ function MainViewer(props: MainViewerProps) {
     <div
       className={`${styles.MainViewer} row-flex`}
       ref={mainViewerElem}
-      onDrop={addDroppedFileThenResetDropbox}
+      onDrop={handleDroppedAndResetDropbox}
       onDragOver={dragOver}
       onDragEnter={dragEnter}
       onDragLeave={dragLeave}
