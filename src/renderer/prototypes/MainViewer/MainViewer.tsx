@@ -5,10 +5,9 @@ import useDropzone from "renderer/hooks/useDropzone";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import styles from "./MainViewer.scss";
-import TrackSummary from "./TrackSummary";
+import TrackInfo from "./TrackInfo";
 import NativeAPI from "../../api";
 import {
-  CHANNEL,
   TIME_CANVAS_HEIGHT,
   TIME_MARKER_POS,
   TIME_TICK_SIZE,
@@ -286,37 +285,17 @@ function MainViewer(props: MainViewerProps) {
       <p>{timeUnitLabel}</p>
     </div>
   );
-  const tracksLeft = trackIds.map((id) => {
-    const channelCount = NativeAPI.getChannelCounts(id);
-    const channels = [...Array(channelCount).keys()].map((ch) => {
-      return (
-        <div key={`${id}_${ch}`} className={styles.ch}>
-          <span>{CHANNEL[channelCount][ch]}</span>
-        </div>
-      );
-    });
-    const trackSummary = {
-      fileName: NativeAPI.getFileName(id),
-      time: new Date(NativeAPI.getLength(id) * 1000).toISOString().substring(11, 23),
-      sampleFormat: NativeAPI.getSampleFormat(id),
-      sampleRate: `${NativeAPI.getSampleRate(id)} Hz`,
-    };
 
+  const tracksInfos = trackIds.map((trackId: number) => {
     return (
-      <div
-        key={`${id}`}
-        className={`${styles.trackLeft} js-track-left`}
-        id={`${id}`}
-        onClick={selectTrack}
-        onContextMenu={showTrackContextMenu}
-      >
-        <TrackSummary
-          className={styles.TrackSummary}
-          data={trackSummary}
-          height={(height + 2) * NativeAPI.getChannelCounts(id) - 2}
-        />
-        <div className={styles.channels}>{channels}</div>
-      </div>
+      <TrackInfo
+        key={`${trackId}`}
+        trackId={trackId}
+        height={height}
+        isSelected={false} // [Temp]
+        selectTrack={selectTrack}
+        showTrackContextMenu={showTrackContextMenu}
+      />
     );
   });
 
@@ -476,7 +455,7 @@ function MainViewer(props: MainViewerProps) {
     <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
       {isDropzoneActive && <div className={styles.dropzone} />}
       <SplitView
-        left={[timeUnit, ...tracksLeft, tracksEmpty]}
+        left={[timeUnit, ...tracksInfos, tracksEmpty]}
         right={[timeRuler, tracksRight]}
         setCanvasWidth={setWidth}
       />

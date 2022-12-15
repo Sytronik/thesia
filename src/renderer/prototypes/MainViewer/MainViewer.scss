@@ -34,61 +34,6 @@
   }
 }
 
-.trackLeft {
-  display: flex;
-  flex: 0 0 auto;
-  position: relative;
-  margin-bottom: $track-margin;
-}
-
-// track summary
-.TrackSummary {
-  overflow: hidden;
-  flex: 1 1;
-  padding: $spacer-3;
-
-  > span:not(:first-child) {
-    display: inline-block;
-    width: 100%;
-  }
-}
-
-.selected {
-  .TrackSummary {
-    background-color: $bg-primary-light;
-  }
-  .ch {
-    background-color: $bg-primary-lighter;
-  }
-}
-
-// channels
-.channels {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 auto;
-  width: $channel-width;
-}
-
-.ch {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-
-  flex: 1 1 auto;
-  width: 100%;
-  background-color: $bg-primary-light;
-  text-align: center;
-
-  > span {
-    @include body-assist;
-  }
-
-  &:not(:last-child) {
-    margin-bottom: $track-margin;
-  }
-}
-
 // empty
 .trackEmpty {
   position: relative;
