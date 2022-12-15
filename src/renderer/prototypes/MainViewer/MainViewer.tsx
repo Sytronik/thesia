@@ -279,8 +279,6 @@ function MainViewer(props: MainViewerProps) {
     requestRef.current = requestAnimationFrame(drawCanvas);
   };
 
-  const dropbox = <div className={styles.dropbox} />;
-
   const timeUnit = (
     <div key="time_unit_label" className={styles.timeUnit}>
       <p>{timeUnitLabel}</p>
@@ -475,7 +473,7 @@ function MainViewer(props: MainViewerProps) {
 
   return (
     <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
-      {isDropzoneActive && dropbox}
+      {isDropzoneActive && <div className={styles.dropzone} />}
       <SplitView
         left={[timeUnit, ...tracksLeft, tracksEmpty]}
         right={[timeRuler, tracksRight]}
