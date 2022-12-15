@@ -31,7 +31,7 @@ type MainViewerProps = {
   erroredList: number[];
   refreshList: IdChArr;
   trackIds: number[];
-  addDroppedFile: (e: React.DragEvent) => void;
+  addDroppedFile: (e: DragEvent) => void;
   reloadTracks: (ids: number[]) => void;
   refreshTracks: () => void;
   ignoreError: (id: number) => void;
@@ -110,8 +110,7 @@ function MainViewer(props: MainViewerProps) {
     }),
   );
 
-  const {dropboxIsVisible, dragOver, dragEnter, dragLeave, handleDroppedAndResetDropbox} =
-    useDropzone({ref: mainViewerElem, onDrop: addDroppedFile});
+  const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
   const reloadAndRefreshTracks = useCallback(
     (ids: number[]) => {
       reloadTracks(ids);
@@ -475,15 +474,8 @@ function MainViewer(props: MainViewerProps) {
   }, [colorBarElem, resizeObserver]);
 
   return (
-    <div
-      className={`${styles.MainViewer} row-flex`}
-      ref={mainViewerElem}
-      onDrop={handleDroppedAndResetDropbox}
-      onDragOver={dragOver}
-      onDragEnter={dragEnter}
-      onDragLeave={dragLeave}
-    >
-      {dropboxIsVisible && dropbox}
+    <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
+      {isDropzoneActive && dropbox}
       <SplitView
         left={[timeUnit, ...tracksLeft, tracksEmpty]}
         right={[timeRuler, tracksRight]}

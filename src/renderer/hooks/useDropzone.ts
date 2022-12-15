@@ -1,55 +1,70 @@
-import React, {useRef, useCallback, useState} from "react";
+import React, {useRef, useCallback, useState, useEffect} from "react";
 
-type DropboxProps = {
-  ref: React.RefObject<HTMLElement>;
-  onDrop: (e: React.DragEvent) => void;
+type DropzoneProps = {
+  targetRef: React.RefObject<HTMLElement>;
+  handleDrop: (e: DragEvent) => void;
 };
 
-function useDropzone(props: DropboxProps) {
-  const {ref, onDrop} = props;
+function useDropzone(props: DropzoneProps) {
+  const {targetRef, handleDrop} = props;
 
   const dragCounterRef = useRef<number>(0);
-  const [dropboxIsVisible, setDropboxIsVisible] = useState<boolean>(false);
+  const [isDragActive, setIsDragActive] = useState<boolean>(false);
 
-  const dragOver = (e: React.DragEvent) => {
+  const onDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  };
+  }, []);
 
-  const dragEnter = (e: React.DragEvent) => {
+  const onDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     dragCounterRef.current += 1;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setDropboxIsVisible(true);
+    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      setIsDragActive(true);
     }
     return false;
-  };
+  }, []);
 
-  const dragLeave = (e: React.DragEvent) => {
+  const onDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     dragCounterRef.current -= 1;
     if (dragCounterRef.current === 0) {
-      setDropboxIsVisible(false);
+      setIsDragActive(false);
     }
     return false;
-  };
+  }, []);
 
-  const handleDroppedAndResetDropbox = (e: React.DragEvent) => {
-    onDrop(e);
-    dragCounterRef.current = 0;
-    setDropboxIsVisible(false);
-  };
+  const onDrop = useCallback(
+    (e: DragEvent) => {
+      handleDrop(e);
+      dragCounterRef.current = 0;
+      setIsDragActive(false);
+    },
+    [handleDrop],
+  );
+
+  useEffect(() => {
+    const target = targetRef.current;
+
+    target?.addEventListener("dragenter", onDragEnter);
+    target?.addEventListener("dragleave", onDragLeave);
+    target?.addEventListener("dragover", onDragOver);
+    target?.addEventListener("drop", onDrop);
+
+    return () => {
+      target?.removeEventListener("dragenter", onDragEnter);
+      target?.removeEventListener("dragleave", onDragLeave);
+      target?.removeEventListener("dragover", onDragOver);
+      target?.removeEventListener("drop", onDrop);
+    };
+  }, [targetRef, onDragEnter, onDragLeave, onDragOver, onDrop]);
 
   return {
-    dropboxIsVisible,
-    dragOver,
-    dragEnter,
-    dragLeave,
-    handleDroppedAndResetDropbox,
+    isDropzoneActive: isDragActive,
   };
 }
 

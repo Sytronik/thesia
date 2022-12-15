@@ -28,12 +28,16 @@ function App() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
   }
 
-  function addDroppedFile(e: React.DragEvent) {
+  function addDroppedFile(e: DragEvent) {
     e.preventDefault();
     e.stopPropagation();
 
     const newPaths: string[] = [];
     const unsupportedPaths: string[] = [];
+
+    if (!e?.dataTransfer?.files) {
+      return;
+    }
 
     const droppedFiles = Array.from(e.dataTransfer.files);
 
