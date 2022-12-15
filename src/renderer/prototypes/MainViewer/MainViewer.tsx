@@ -111,6 +111,7 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
+
   const reloadAndRefreshTracks = useCallback(
     (ids: number[]) => {
       reloadTracks(ids);
@@ -118,7 +119,6 @@ function MainViewer(props: MainViewerProps) {
     },
     [reloadTracks, refreshTracks],
   );
-
   const removeAndRefreshTracks = useCallback(
     (ids: number[]) => {
       removeTracks(ids);
@@ -126,51 +126,6 @@ function MainViewer(props: MainViewerProps) {
     },
     [removeTracks, refreshTracks],
   );
-
-  const handleWheel = (e: WheelEvent) => {
-    let yIsLarger;
-    let delta;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      delta = e.deltaY;
-      yIsLarger = true;
-    } else {
-      delta = e.deltaX;
-      yIsLarger = false;
-    }
-    if (e.altKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-        const pxPerSec = Math.min(
-          Math.max(
-            drawOptionRef.current.px_per_sec * (1 + delta / 1000),
-            width / (maxTrackSecRef.current - startSecRef.current),
-          ),
-          384000,
-        );
-        if (drawOptionRef.current.px_per_sec !== pxPerSec) {
-          drawOptionRef.current.px_per_sec = pxPerSec;
-          canvasIsFitRef.current = false;
-          throttledSetImgState(getIdChArr(), width, height);
-          throttledSetTimeMarkers(width);
-        }
-      } else {
-        setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
-      }
-    } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-      e.preventDefault();
-      e.stopPropagation();
-      const tempSec = Math.min(
-        Math.max(startSecRef.current + delta / drawOptionRef.current.px_per_sec, 0),
-        maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec,
-      );
-      if (startSecRef.current !== tempSec) {
-        startSecRef.current = tempSec;
-        throttledSetImgState(getIdChArr(), width, height);
-        throttledSetTimeMarkers(width);
-      }
-    }
-  };
 
   const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
     const target = boundaries.find((boundary) => value > boundary);
@@ -249,6 +204,53 @@ function MainViewer(props: MainViewerProps) {
     }),
     [],
   );
+
+  const getIdChArr = () => Object.keys(imgCanvasesRef.current);
+
+  const handleWheel = (e: WheelEvent) => {
+    let yIsLarger;
+    let delta;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      delta = e.deltaY;
+      yIsLarger = true;
+    } else {
+      delta = e.deltaX;
+      yIsLarger = false;
+    }
+    if (e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+        const pxPerSec = Math.min(
+          Math.max(
+            drawOptionRef.current.px_per_sec * (1 + delta / 1000),
+            width / (maxTrackSecRef.current - startSecRef.current),
+          ),
+          384000,
+        );
+        if (drawOptionRef.current.px_per_sec !== pxPerSec) {
+          drawOptionRef.current.px_per_sec = pxPerSec;
+          canvasIsFitRef.current = false;
+          throttledSetImgState(getIdChArr(), width, height);
+          throttledSetTimeMarkers(width);
+        }
+      } else {
+        setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
+      }
+    } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+      e.preventDefault();
+      e.stopPropagation();
+      const tempSec = Math.min(
+        Math.max(startSecRef.current + delta / drawOptionRef.current.px_per_sec, 0),
+        maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec,
+      );
+      if (startSecRef.current !== tempSec) {
+        startSecRef.current = tempSec;
+        throttledSetImgState(getIdChArr(), width, height);
+        throttledSetTimeMarkers(width);
+      }
+    }
+  };
 
   const drawCanvas = async () => {
     const images = NativeAPI.getImages();
@@ -394,13 +396,12 @@ function MainViewer(props: MainViewerProps) {
     );
   });
 
-  const getIdChArr = () => Object.keys(imgCanvasesRef.current);
-
   useEffect(() => {
-    mainViewerElem?.current?.addEventListener("wheel", handleWheel, {passive: false});
+    const mainViewer = mainViewerElem.current;
+    mainViewer?.addEventListener("wheel", handleWheel, {passive: false});
 
     return () => {
-      mainViewerElem?.current?.removeEventListener("wheel", handleWheel);
+      mainViewer?.removeEventListener("wheel", handleWheel);
     };
   });
 
