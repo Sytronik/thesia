@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from "react";
+import React, {useCallback, useEffect, useRef} from "react";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
 import Overview from "./prototypes/Overview/Overview";
@@ -81,16 +81,19 @@ function App() {
       assignSelectedClass(selectedIdsRef.current);
     }
   };
-  const deleteSelectedTracks = (e: KeyboardEvent) => {
-    e.preventDefault();
+  const deleteSelectedTracks = useCallback(
+    (e: KeyboardEvent) => {
+      e.preventDefault();
 
-    if (e.key === "Delete" || e.key === "Backspace") {
-      if (selectedIdsRef.current.length) {
-        removeTracks(selectedIdsRef.current);
-        refreshTracks();
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedIdsRef.current.length) {
+          removeTracks(selectedIdsRef.current);
+          refreshTracks();
+        }
       }
-    }
-  };
+    },
+    [removeTracks, refreshTracks],
+  );
 
   const showTrackContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -127,7 +130,7 @@ function App() {
     return () => {
       ipcRenderer.removeAllListeners("open-dialog-closed");
     };
-  }, [addTracks]);
+  }, [addTracks, reloadTracks, refreshTracks]);
 
   useEffect(() => {
     ipcRenderer.on("delete-track", (_, targetTrackId) => {
@@ -137,7 +140,7 @@ function App() {
     return () => {
       ipcRenderer.removeAllListeners("delete-track");
     };
-  }, [removeTracks]);
+  }, [removeTracks, refreshTracks]);
 
   useEffect(() => {
     document.addEventListener("keydown", deleteSelectedTracks);
@@ -145,7 +148,7 @@ function App() {
     return () => {
       document.removeEventListener("keydown", deleteSelectedTracks);
     };
-  });
+  }, [deleteSelectedTracks]);
 
   useEffect(() => {
     const trackCount = trackIds.length;
