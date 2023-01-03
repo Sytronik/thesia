@@ -75,10 +75,9 @@ function App() {
     [selectedTrackIds, removeTracks, refreshTracks],
   );
 
-  const showTrackContextMenu = (e: React.MouseEvent) => {
+  const showTrackContextMenu = (e: React.MouseEvent, id: number) => {
     e.preventDefault();
-    const targetTrackId = Number(e.currentTarget.getAttribute("id"));
-    ipcRenderer.send("show-track-context-menu", targetTrackId);
+    ipcRenderer.send("show-track-context-menu", id);
   };
 
   useEffect(() => {

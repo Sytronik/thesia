@@ -38,7 +38,7 @@ type MainViewerProps = {
   removeTracks: (ids: number[]) => void;
   showOpenDialog: () => void;
   selectTrack: (e: React.MouseEvent, id: number) => void;
-  showTrackContextMenu: (e: React.MouseEvent) => void;
+  showTrackContextMenu: (e: React.MouseEvent, id: number) => void;
 };
 
 type ReactRefsObject<T> = {
