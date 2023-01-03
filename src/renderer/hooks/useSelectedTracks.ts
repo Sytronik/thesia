@@ -1,4 +1,5 @@
 import React, {useCallback, useState} from "react";
+import {last, isNil} from "renderer/utils/arrayUtils";
 
 export default function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
@@ -17,7 +18,7 @@ export default function useSelectedTracks() {
     const nextSelectedTrackIndex = prevTrackIds.length;
     const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
 
-    if (!(nextSelectedTrackId === null)) {
+    if (!isNil(nextSelectedTrackId)) {
       setSelectedTrackIds([nextSelectedTrackId]);
     }
   }, []);
@@ -28,8 +29,7 @@ export default function useSelectedTracks() {
       selectedTrackIds.forEach((id) => {
         nextSelectedTrackIndex = Math.min(nextSelectedTrackIndex, prevTrackIds.indexOf(id));
       });
-      const nextSelectedTrackId =
-        newTrackIds[nextSelectedTrackIndex] ?? newTrackIds[newTrackIds.length - 1];
+      const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex] ?? last(newTrackIds);
 
       setSelectedTrackIds([nextSelectedTrackId]);
     },
