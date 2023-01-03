@@ -12,8 +12,8 @@ import useSelectedTracks from "./hooks/useSelectedTracks";
 function App() {
   const {
     trackIds,
-    erroredList,
-    refreshList,
+    erroredTrackIds,
+    needRefreshTrackIds,
     reloadTracks,
     refreshTracks,
     addTracks,
@@ -157,9 +157,9 @@ function App() {
         <SlideBar />
       </div>
       <MainViewer
-        erroredList={erroredList}
-        refreshList={refreshList}
         trackIds={trackIds}
+        erroredTrackIds={erroredTrackIds}
+        needRefreshTrackIds={needRefreshTrackIds}
         selectedTrackIds={selectedTrackIds}
         addDroppedFile={addDroppedFile}
         ignoreError={ignoreError}

@@ -27,9 +27,9 @@ import {
 } from "../constants";
 
 type MainViewerProps = {
-  erroredList: number[];
-  refreshList: IdChArr;
   trackIds: number[];
+  erroredTrackIds: number[];
+  needRefreshTrackIds: IdChArr;
   selectedTrackIds: number[];
   addDroppedFile: (e: DragEvent) => void;
   reloadTracks: (ids: number[]) => void;
@@ -63,8 +63,8 @@ function useRefs<T>(): [
 
 function MainViewer(props: MainViewerProps) {
   const {
-    erroredList,
-    refreshList,
+    erroredTrackIds,
+    needRefreshTrackIds,
     trackIds,
     selectedTrackIds,
     addDroppedFile,
@@ -372,7 +372,7 @@ function MainViewer(props: MainViewerProps) {
     });
     return (
       <div key={`${id}`} className={`${styles.trackRight} js-track-right`}>
-        {erroredList.includes(id) ? errorBox : null}
+        {erroredTrackIds.includes(id) ? errorBox : null}
         {channelsCanvases}
       </div>
     );
@@ -418,11 +418,11 @@ function MainViewer(props: MainViewerProps) {
   }, [colorBarHeight]);
 
   useEffect(() => {
-    throttledSetImgState(refreshList, width, height);
+    throttledSetImgState(needRefreshTrackIds, width, height);
     throttledSetTimeMarkers(width);
     throttledSetAmpFreqMarkers(height);
     throttledSetDbMarkers(colorBarHeight);
-  }, [refreshList]);
+  }, [needRefreshTrackIds]);
 
   useEffect(() => {
     if (trackIds.length) {

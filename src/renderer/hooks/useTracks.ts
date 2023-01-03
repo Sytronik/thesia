@@ -9,8 +9,8 @@ type AddTracksResultType = {
 
 export default function useTracks() {
   const [trackIds, setTrackIds] = useState<number[]>([]);
-  const [erroredList, setErroredList] = useState<number[]>([]);
-  const [refreshList, setRefreshList] = useState<IdChArr>([]);
+  const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
+  const [needRefreshTrackIds, setNeedRefreshTrackIds] = useState<IdChArr>([]);
 
   const waitingIdsRef = useRef<number[]>([]);
   const addToWaitingIds = useCallback((ids: number[]) => {
@@ -26,7 +26,7 @@ export default function useTracks() {
       const erroredIds = difference(ids, reloadedIds);
 
       if (erroredIds && erroredIds.length) {
-        setErroredList(erroredIds);
+        setErroredTrackIds(erroredIds);
       }
     } catch (err) {
       console.log("Track reloads error", err);
@@ -37,7 +37,7 @@ export default function useTracks() {
     try {
       const needRefreshIds = await NativeAPI.applyTrackListChanges();
       if (needRefreshIds) {
-        setRefreshList(needRefreshIds);
+        setNeedRefreshTrackIds(needRefreshIds);
       }
     } catch (err) {
       console.log("Track refresh error", err);
@@ -87,7 +87,7 @@ export default function useTracks() {
   );
 
   const ignoreError = useCallback((erroredId: number) => {
-    setErroredList((prevErroredList) => difference(prevErroredList, [erroredId]));
+    setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, [erroredId]));
   }, []);
 
   const removeTracks = useCallback(
@@ -95,7 +95,7 @@ export default function useTracks() {
       try {
         NativeAPI.removeTracks(ids);
         setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
-        setErroredList((prevErroredList) => difference(prevErroredList, ids));
+        setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 
         addToWaitingIds(ids);
       } catch (err) {
@@ -108,8 +108,8 @@ export default function useTracks() {
 
   return {
     trackIds,
-    erroredList,
-    refreshList,
+    erroredTrackIds,
+    needRefreshTrackIds,
     reloadTracks,
     refreshTracks,
     addTracks,
