@@ -62,7 +62,6 @@ export default function useTracks() {
           return trackIds.length + i;
         });
 
-        // nextSelectedIndexRef.current = trackIds.length;
         const addedIds = NativeAPI.addTracks(newIds, newPaths);
         setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
 
@@ -94,7 +93,6 @@ export default function useTracks() {
   const removeTracks = useCallback(
     (ids: number[]) => {
       try {
-        // nextSelectedIndexRef.current = trackIds.indexOf(selectedIds[0]);
         NativeAPI.removeTracks(ids);
         setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
         setErroredList((prevErroredList) => difference(prevErroredList, ids));

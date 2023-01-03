@@ -8,7 +8,7 @@ type TrackInfoProps = {
   trackId: number;
   height: number;
   isSelected: boolean;
-  selectTrack: (e: React.MouseEvent) => void;
+  selectTrack: (e: React.MouseEvent, id: number) => void;
   showTrackContextMenu: (e: React.MouseEvent) => void;
 };
 
@@ -34,9 +34,8 @@ function TrackInfo(props: TrackInfoProps) {
   return (
     <div
       role="presentation"
-      className={`${styles.TrackInfo} ${isSelected ? "selected" : ""}`}
-      id={`${trackId}`}
-      onClick={selectTrack}
+      className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
+      onClick={(e) => selectTrack(e, trackId)} // need optimization?
       onContextMenu={showTrackContextMenu}
     >
       <TrackSummary

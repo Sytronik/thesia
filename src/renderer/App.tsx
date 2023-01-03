@@ -6,13 +6,10 @@ import SlideBar from "./prototypes/SlideBar/SlideBar";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import {SUPPORTED_TYPES, SUPPORTED_MIME} from "./prototypes/constants";
 import "./App.global.scss";
-import styles from "./prototypes/MainViewer/MainViewer.scss";
 import useTracks from "./hooks/useTracks";
+import useSelectedTracks from "./hooks/useSelectedTracks";
 
 function App() {
-  const selectedIdsRef = useRef<number[]>([]);
-  const nextSelectedIndexRef = useRef<number | null>(null);
-
   const {
     trackIds,
     erroredList,
@@ -23,6 +20,10 @@ function App() {
     removeTracks,
     ignoreError,
   } = useTracks();
+  const {selectedTrackIds, selectTrack, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks} =
+    useSelectedTracks();
+
+  const prevTrackIds = useRef<number[]>([]);
 
   function showOpenDialog() {
     ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
@@ -50,49 +51,28 @@ function App() {
     });
 
     const {existingIds, invalidPaths} = addTracks(newPaths);
+
     if (unsupportedPaths.length || invalidPaths.length) {
       ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths, SUPPORTED_TYPES);
     }
-
     if (existingIds.length) {
       reloadTracks(existingIds);
     }
     refreshTracks();
   }
 
-  const assignSelectedClass = (selectedIds: number[]) => {
-    const targets = document.querySelectorAll(".js-track-left");
-    targets.forEach((target) => {
-      if (selectedIds.includes(Number(target.getAttribute("id")))) {
-        target.classList.add(styles.selected);
-      } else {
-        target.classList.remove(styles.selected);
-      }
-    });
-  };
-  const selectTrack = (e: React.MouseEvent) => {
-    e.preventDefault();
-
-    const targetClassList = e.currentTarget.classList;
-    const targetTrackId = Number(e.currentTarget.getAttribute("id"));
-
-    if (!targetClassList.contains(styles.selected)) {
-      selectedIdsRef.current = [targetTrackId];
-      assignSelectedClass(selectedIdsRef.current);
-    }
-  };
   const deleteSelectedTracks = useCallback(
     (e: KeyboardEvent) => {
       e.preventDefault();
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedIdsRef.current.length) {
-          removeTracks(selectedIdsRef.current);
+        if (selectedTrackIds.length) {
+          removeTracks(selectedTrackIds);
           refreshTracks();
         }
       }
     },
-    [removeTracks, refreshTracks],
+    [selectedTrackIds, removeTracks, refreshTracks],
   );
 
   const showTrackContextMenu = (e: React.MouseEvent) => {
@@ -151,17 +131,21 @@ function App() {
   }, [deleteSelectedTracks]);
 
   useEffect(() => {
-    const trackCount = trackIds.length;
-    if (!trackCount) {
-      selectedIdsRef.current = [];
-    } else if (nextSelectedIndexRef.current && nextSelectedIndexRef.current < trackCount) {
-      selectedIdsRef.current = [trackIds[nextSelectedIndexRef.current]];
-    } else {
-      selectedIdsRef.current = [trackIds[trackCount - 1]];
+    const prevTrackIdsCount = prevTrackIds.current.length;
+    const currTrackIdsCount = trackIds.length;
+
+    if (prevTrackIdsCount === currTrackIdsCount) {
+      return;
     }
-    assignSelectedClass(selectedIdsRef.current);
-    nextSelectedIndexRef.current = null;
-  }, [trackIds]);
+
+    if (prevTrackIdsCount < currTrackIdsCount) {
+      selectTrackAfterAddTracks(prevTrackIds.current, trackIds);
+    } else {
+      selectTrackAfterRemoveTracks(prevTrackIds.current, trackIds);
+    }
+
+    prevTrackIds.current = trackIds;
+  }, [trackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
 
   return (
     <div className="App">
@@ -176,6 +160,7 @@ function App() {
         erroredList={erroredList}
         refreshList={refreshList}
         trackIds={trackIds}
+        selectedTrackIds={selectedTrackIds}
         addDroppedFile={addDroppedFile}
         ignoreError={ignoreError}
         refreshTracks={refreshTracks}

@@ -30,13 +30,14 @@ type MainViewerProps = {
   erroredList: number[];
   refreshList: IdChArr;
   trackIds: number[];
+  selectedTrackIds: number[];
   addDroppedFile: (e: DragEvent) => void;
   reloadTracks: (ids: number[]) => void;
   refreshTracks: () => void;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
   showOpenDialog: () => void;
-  selectTrack: (e: React.MouseEvent) => void;
+  selectTrack: (e: React.MouseEvent, id: number) => void;
   showTrackContextMenu: (e: React.MouseEvent) => void;
 };
 
@@ -65,6 +66,7 @@ function MainViewer(props: MainViewerProps) {
     erroredList,
     refreshList,
     trackIds,
+    selectedTrackIds,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -287,12 +289,13 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const tracksInfos = trackIds.map((trackId: number) => {
+    const isSelected = selectedTrackIds.includes(trackId);
     return (
       <TrackInfo
         key={`${trackId}`}
         trackId={trackId}
         height={height}
-        isSelected={false} // [Temp]
+        isSelected={isSelected}
         selectTrack={selectTrack}
         showTrackContextMenu={showTrackContextMenu}
       />
