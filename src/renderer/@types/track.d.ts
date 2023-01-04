@@ -11,6 +11,13 @@ type DrawOptionForWav = {
   min_amp: number;
   max_amp: number;
 };
+
+type MarkerDrawOption = {
+  startSec?: number;
+  pxPerSec?: number;
+  drawOptionForWav?: DrawOptionForWav;
+};
+
 type SpecWavImages = {
   [key: IdChannel]: ArrayBuffer;
 };

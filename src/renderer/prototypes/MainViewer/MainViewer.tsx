@@ -4,6 +4,7 @@ import AxisCanvas from "renderer/modules/AxisCanvas";
 import useDropzone from "renderer/hooks/useDropzone";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
+import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import styles from "./MainViewer.scss";
 import TrackInfo from "./TrackInfo";
 import NativeAPI from "../../api";
@@ -95,14 +96,10 @@ function MainViewer(props: MainViewerProps) {
   const [colorBarHeight, setColorBarHeight] = useState<number>(0);
 
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const timeMarkersRef = useRef<Markers>([]);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
-  const ampMarkersRef = useRef<Markers>([]);
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
-  const freqMarkersRef = useRef<Markers>([]);
   const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const dbMarkersRef = useRef<Markers>([]);
 
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
@@ -128,69 +125,42 @@ function MainViewer(props: MainViewerProps) {
     [removeTracks, refreshTracks],
   );
 
-  const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
-    const target = boundaries.find((boundary) => value > boundary);
-    if (target === undefined) return table[value];
-    return table[target];
-  };
+  const {markersRef: timeMarkersRef, throttledSetMarkers: throttledSetTimeMarkers} =
+    useThrottledSetMarkers({
+      scaleTable: TIME_TICK_SIZE,
+      boundaries: TIME_BOUNDARIES,
+      getMarkers: NativeAPI.getTimeAxisMarkers,
+    });
 
-  const throttledSetTimeMarkers = throttle(1000 / 240, (width: number) => {
-    if (!trackIds.length) {
-      timeMarkersRef.current = [];
-      setTimeUnitLabel("");
-      return;
-    }
-    const [minorUnit, minorTickNum] = getTickScale(
-      TIME_TICK_SIZE,
-      TIME_BOUNDARIES,
-      drawOptionRef.current.px_per_sec,
-    );
-    const timeMarkers = NativeAPI.getTimeAxisMarkers(
-      width,
-      startSecRef.current,
-      drawOptionRef.current.px_per_sec,
-      minorUnit,
-      minorTickNum,
-    );
-    const timeUnit = timeMarkers.pop()?.[1] || "ss";
-    setTimeUnitLabel(timeUnit);
-    timeMarkersRef.current = timeMarkers;
-  });
+  const throttledSetTimeMarkersAndUnit = useCallback(
+    (width: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
+      throttledSetTimeMarkers(width, pxPerSec, drawOptions);
+      const timeUnit = timeMarkersRef.current.pop()?.[1] || "ss";
+      setTimeUnitLabel(timeUnit);
+    },
+    [timeMarkersRef, throttledSetTimeMarkers],
+  );
 
-  const throttledSetAmpFreqMarkers = throttle(1000 / 240, (height: number) => {
-    if (!trackIds.length) return;
-    const [maxAmpNumTicks, maxAmpNumLabels] = getTickScale(AMP_TICK_NUM, AMP_BOUNDARIES, height);
-    ampMarkersRef.current = NativeAPI.getAmpAxisMarkers(
-      height,
-      maxAmpNumTicks,
-      maxAmpNumLabels,
-      drawOptionForWavRef.current,
-    );
-    const [maxFreqNumTicks, maxFreqNumLabels] = getTickScale(
-      FREQ_TICK_NUM,
-      FREQ_BOUNDARIES,
-      height,
-    );
-    freqMarkersRef.current = NativeAPI.getFreqAxisMarkers(
-      height,
-      maxFreqNumTicks,
-      maxFreqNumLabels,
-    );
-  });
+  const {markersRef: ampMarkersRef, throttledSetMarkers: throttledSetAmpMarkers} =
+    useThrottledSetMarkers({
+      scaleTable: AMP_TICK_NUM,
+      boundaries: AMP_BOUNDARIES,
+      getMarkers: NativeAPI.getAmpAxisMarkers,
+    });
 
-  const throttledSetDbMarkers = throttle(1000 / 240, (height: number) => {
-    if (!trackIds.length) return;
-    const [maxDeciBelNumTicks, maxDeciBelNumLabels] = getTickScale(
-      DB_TICK_NUM,
-      DB_BOUNDARIES,
-      height,
-    );
-    dbMarkersRef.current = NativeAPI.getDbAxisMarkers(
-      height,
-      maxDeciBelNumTicks,
-      maxDeciBelNumLabels,
-    );
-  });
+  const {markersRef: freqMarkersRef, throttledSetMarkers: throttledSetFreqMarkers} =
+    useThrottledSetMarkers({
+      scaleTable: FREQ_TICK_NUM,
+      boundaries: FREQ_BOUNDARIES,
+      getMarkers: NativeAPI.getFreqAxisMarkers,
+    });
+
+  const {markersRef: dbMarkersRef, throttledSetMarkers: throttledSetDbMarkers} =
+    useThrottledSetMarkers({
+      scaleTable: DB_TICK_NUM,
+      boundaries: DB_BOUNDARIES,
+      getMarkers: NativeAPI.getDbAxisMarkers,
+    });
 
   const throttledSetImgState = useCallback(
     throttle(1000 / 240, (idChArr: IdChannel[], width: number, height: number) => {
@@ -210,6 +180,8 @@ function MainViewer(props: MainViewerProps) {
   const getIdChArr = () => Object.keys(imgCanvasesRef.current);
 
   const handleWheel = (e: WheelEvent) => {
+    if (!trackIds.length) return;
+
     let yIsLarger;
     let delta;
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -234,7 +206,10 @@ function MainViewer(props: MainViewerProps) {
           drawOptionRef.current.px_per_sec = pxPerSec;
           canvasIsFitRef.current = false;
           throttledSetImgState(getIdChArr(), width, height);
-          throttledSetTimeMarkers(width);
+          throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+            startSec: startSecRef.current,
+            pxPerSec: drawOptionRef.current.px_per_sec,
+          });
         }
       } else {
         setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
@@ -249,7 +224,10 @@ function MainViewer(props: MainViewerProps) {
       if (startSecRef.current !== tempSec) {
         startSecRef.current = tempSec;
         throttledSetImgState(getIdChArr(), width, height);
-        throttledSetTimeMarkers(width);
+        throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+          startSec: startSecRef.current,
+          pxPerSec: drawOptionRef.current.px_per_sec,
+        });
       }
     }
   };
@@ -404,25 +382,34 @@ function MainViewer(props: MainViewerProps) {
       }
     }
     throttledSetImgState(getIdChArr(), width, height);
-    throttledSetTimeMarkers(width);
+    throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+      startSec: startSecRef.current,
+      pxPerSec: drawOptionRef.current.px_per_sec,
+    });
   }, [width]);
 
   useEffect(() => {
     if (!trackIds.length) return;
     throttledSetImgState(getIdChArr(), width, height);
-    throttledSetAmpFreqMarkers(height);
+    throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
+    throttledSetFreqMarkers(height, height, {});
   }, [height]);
 
   useEffect(() => {
     if (!trackIds.length) return;
-    throttledSetDbMarkers(colorBarHeight);
+    throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
   }, [colorBarHeight]);
 
   useEffect(() => {
+    if (!needRefreshTrackIds.length) return;
     throttledSetImgState(needRefreshTrackIds, width, height);
-    throttledSetTimeMarkers(width);
-    throttledSetAmpFreqMarkers(height);
-    throttledSetDbMarkers(colorBarHeight);
+    throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+      startSec: startSecRef.current,
+      pxPerSec: drawOptionRef.current.px_per_sec,
+    });
+    throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
+    throttledSetFreqMarkers(height, height, {});
+    throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
   }, [needRefreshTrackIds]);
 
   useEffect(() => {

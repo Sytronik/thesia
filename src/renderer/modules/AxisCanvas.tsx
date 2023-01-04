@@ -43,7 +43,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     draw: (markers: Markers) => {
       const ctx = axisCanvasCtxRef.current;
 
-      if (!ctx || !markers) {
+      if (!ctx || !markers?.length) {
         return;
       }
 

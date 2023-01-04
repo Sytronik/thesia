@@ -1,3 +1,5 @@
+import {isNil} from "../utils/arrayUtils";
+
 const backend = require("backend");
 
 /* handle tracks */
@@ -58,11 +60,16 @@ export function getLongestTrackLength(): number {
 
 export function getTimeAxisMarkers(
   width: number,
-  startSec: number,
-  pxPerSec: number,
   subTickSec: number,
   subTickUnitCount: number,
+  markerDrawOptions: MarkerDrawOption,
 ): Markers {
+  const {startSec, pxPerSec} = markerDrawOptions || {};
+
+  if (isNil(startSec) || isNil(pxPerSec)) {
+    console.log("no start sec of px per sec value exist");
+    return [];
+  }
   return backend.getTimeAxis(width, startSec, pxPerSec, subTickSec, subTickUnitCount);
 }
 
@@ -83,8 +90,15 @@ export function getAmpAxisMarkers(
   height: number,
   maxNumTicks: number,
   maxNumLabels: number,
-  drawOptionForWav: DrawOptionForWav,
+  markerDrawOptions: MarkerDrawOption,
 ): Markers {
+  const {drawOptionForWav} = markerDrawOptions || {};
+
+  if (!drawOptionForWav) {
+    console.log("no draw option for wav exist");
+    return [];
+  }
+
   return backend.getAmpAxis(height, maxNumTicks, maxNumLabels, drawOptionForWav);
 }
 
