@@ -137,6 +137,7 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetTimeMarkers = throttle(1000 / 240, (width: number) => {
     if (!trackIds.length) {
       timeMarkersRef.current = [];
+      setTimeUnitLabel("");
       return;
     }
     const [minorUnit, minorTickNum] = getTickScale(
