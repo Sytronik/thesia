@@ -15,7 +15,7 @@ type AxisCanvasProps = {
   width: number;
   height: number;
   markerPos: MarkerPosition;
-  direction: string;
+  direction: "H" | "V"; // stands for horizontal and vertical
   className: "timeRuler" | "ampAxis" | "freqAxis" | "dbAxis";
 };
 
