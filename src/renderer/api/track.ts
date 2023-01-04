@@ -102,26 +102,6 @@ export function getAmpAxisMarkers(
   return backend.getAmpAxis(height, maxNumTicks, maxNumLabels, drawOptionForWav);
 }
 
-/* images */
-export function getImages(): SpecWavImages {
-  return backend.getImages();
-}
-
-export function getOverview(trackId: number, width: number, height: number) {
-  return backend.getOverview(trackId, width, height);
-}
-
-export function setImageState(
-  idChArr: string[],
-  startSec: number,
-  width: number,
-  drawOption: DrawOption,
-  drawOptionForWav: DrawOptionForWav,
-  blend: number,
-) {
-  return backend.setImgState(idChArr, startSec, width, drawOption, drawOptionForWav, blend);
-}
-
 /* db axis */
 export function getMaxdB(): number {
   return backend.getMaxdB();
@@ -141,4 +121,24 @@ export function getDbAxisMarkers(
   maxNumLabels: number,
 ): Markers {
   return backend.getdBAxis(height, maxNumTicks, maxNumLabels);
+}
+
+/* images */
+export function getImages(): SpecWavImages {
+  return backend.getImages();
+}
+
+export function getOverview(trackId: number, width: number, height: number) {
+  return backend.getOverview(trackId, width, height);
+}
+
+export function setImageState(
+  idChArr: string[],
+  startSec: number,
+  width: number,
+  drawOption: DrawOption,
+  drawOptionForWav: DrawOptionForWav,
+  blend: number,
+) {
+  return backend.setImgState(idChArr, startSec, width, drawOption, drawOptionForWav, blend);
 }
