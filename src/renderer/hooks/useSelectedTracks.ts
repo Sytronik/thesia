@@ -1,7 +1,7 @@
 import React, {useCallback, useState} from "react";
 import {last, isNil} from "renderer/utils/arrayUtils";
 
-export default function useSelectedTracks() {
+function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
 
   const selectTrack = useCallback(
@@ -43,3 +43,5 @@ export default function useSelectedTracks() {
     selectTrackAfterRemoveTracks,
   };
 }
+
+export default useSelectedTracks;

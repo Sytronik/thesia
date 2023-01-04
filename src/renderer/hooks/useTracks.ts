@@ -7,7 +7,7 @@ type AddTracksResultType = {
   invalidPaths: string[];
 };
 
-export default function useTracks() {
+function useTracks() {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIds, setNeedRefreshTrackIds] = useState<IdChArr>([]);
@@ -117,3 +117,5 @@ export default function useTracks() {
     ignoreError,
   };
 }
+
+export default useTracks;
