@@ -1,0 +1,20 @@
+@import '../../styles/index.scss';
+
+.trackAddButtonSection {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: $emptytrack-height;
+
+  > button {
+    @include btn-square($spacer-3);
+
+    display: inline-block;
+    position: absolute;
+    top: $spacer-3;
+    right: $spacer-3;
+  }
+}
+
+.btnPlus {
+  @include plus-btn($button-white, $spacer-2, 1px);
+}

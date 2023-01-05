@@ -18,42 +18,6 @@
   border-radius: $spacer-1;
 }
 
-/* Left Track Elements */
-
-.timeUnit {
-  @include body-label;
-
-  position: relative;
-  height: $time-ruler-height;
-  margin-bottom: $track-margin;
-
-  p {
-    position: absolute;
-    right: $spacer;
-    bottom: 2px;
-  }
-}
-
-// empty
-.trackEmpty {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: $emptytrack-height;
-
-  > button {
-    @include btn-square($spacer-3);
-
-    display: inline-block;
-    position: absolute;
-    top: $spacer-3;
-    right: $spacer-3;
-  }
-}
-
-.btnPlus {
-  @include plus-btn($button-white, $spacer-2, 1px);
-}
-
 /* Right Track Elements */
 
 .trackRight {

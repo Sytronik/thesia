@@ -4,10 +4,11 @@ import AxisCanvas from "renderer/modules/AxisCanvas";
 import useDropzone from "renderer/hooks/useDropzone";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
-import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import styles from "./MainViewer.scss";
 import TrackInfo from "./TrackInfo";
+import TimeUnitSection from "./TimeUnitSection";
+import TrackAddButtonSection from "./TrackAddButtonSection";
 import NativeAPI from "../../api";
 import {
   TIME_CANVAS_HEIGHT,
@@ -259,31 +260,23 @@ function MainViewer(props: MainViewerProps) {
     requestRef.current = requestAnimationFrame(drawCanvas);
   };
 
-  const timeUnit = (
-    <div key="time_unit_label" className={styles.timeUnit}>
-      <p>{timeUnitLabel}</p>
-    </div>
-  );
-
-  const tracksInfos = trackIds.map((trackId: number) => {
-    const isSelected = selectedTrackIds.includes(trackId);
-    return (
-      <TrackInfo
-        key={`${trackId}`}
-        trackId={trackId}
-        height={height}
-        isSelected={isSelected}
-        selectTrack={selectTrack}
-      />
-    );
-  });
-
-  const tracksEmpty = (
-    <div key="empty" className={styles.trackEmpty}>
-      <button type="button" onClick={showElectronOpenDialog}>
-        <span className={styles.btnPlus} />
-      </button>
-    </div>
+  const leftPane = (
+    <>
+      <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
+      {trackIds.map((trackId: number) => {
+        const isSelected = selectedTrackIds.includes(trackId);
+        return (
+          <TrackInfo
+            key={`${trackId}`}
+            trackId={trackId}
+            height={height}
+            isSelected={isSelected}
+            selectTrack={selectTrack}
+          />
+        );
+      })}
+      <TrackAddButtonSection key="track_add_button" />
+    </>
   );
 
   const timeRuler = (
@@ -442,11 +435,7 @@ function MainViewer(props: MainViewerProps) {
   return (
     <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
       {isDropzoneActive && <div className={styles.dropzone} />}
-      <SplitView
-        left={[timeUnit, ...tracksInfos, tracksEmpty]}
-        right={[timeRuler, tracksRight]}
-        setCanvasWidth={setWidth}
-      />
+      <SplitView left={leftPane} right={[timeRuler, tracksRight]} setCanvasWidth={setWidth} />
       <div className={styles.colorBar} ref={colorBarElem}>
         <AxisCanvas
           ref={dbCanvasElem}
