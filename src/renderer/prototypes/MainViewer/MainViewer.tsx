@@ -1,4 +1,4 @@
-import React, {useRef, useCallback, useEffect, useLayoutEffect, useState} from "react";
+import React, {useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState} from "react";
 import {throttle} from "throttle-debounce";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -124,77 +124,82 @@ function MainViewer(props: MainViewerProps) {
       getMarkers: NativeAPI.getDbAxisMarkers,
     });
 
-  const throttledSetImgState = useCallback(
-    throttle(1000 / 240, (idChArr: IdChannel[], width: number, height: number) => {
-      if (!idChArr.length) return;
-      NativeAPI.setImageState(
-        idChArr,
-        startSecRef.current,
-        width,
-        height,
-        pxPerSecRef.current,
-        drawOptionForWavRef.current,
-        0.3,
-      );
-    }),
+  const throttledSetImgState = useMemo(
+    () =>
+      throttle(1000 / 240, (idChArr: IdChannel[], width: number, height: number) => {
+        if (!idChArr.length) return;
+
+        NativeAPI.setImageState(
+          idChArr,
+          startSecRef.current,
+          width,
+          height,
+          pxPerSecRef.current,
+          drawOptionForWavRef.current,
+          0.3,
+        );
+      }),
     [],
   );
 
-  const getIdChArr = () => Object.keys(imgCanvasesRef.current);
-  const handleWheel = (e: WheelEvent) => {
-    if (!trackIds.length) return;
+  const getIdChArr = useCallback(() => Object.keys(imgCanvasesRef.current), [imgCanvasesRef]);
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      if (!trackIds.length) return;
 
-    let yIsLarger;
-    let delta;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      delta = e.deltaY;
-      yIsLarger = true;
-    } else {
-      delta = e.deltaX;
-      yIsLarger = false;
-    }
-    if (e.altKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-        const pxPerSec = Math.min(
-          Math.max(
-            pxPerSecRef.current * (1 + delta / 1000),
-            width / (maxTrackSecRef.current - startSecRef.current),
-          ),
-          384000,
+      let yIsLarger;
+      let delta;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        delta = e.deltaY;
+        yIsLarger = true;
+      } else {
+        delta = e.deltaX;
+        yIsLarger = false;
+      }
+      if (e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+          const pxPerSec = Math.min(
+            Math.max(
+              pxPerSecRef.current * (1 + delta / 1000),
+              width / (maxTrackSecRef.current - startSecRef.current),
+            ),
+            384000,
+          );
+          if (pxPerSecRef.current !== pxPerSec) {
+            pxPerSecRef.current = pxPerSec;
+            canvasIsFitRef.current = false;
+            throttledSetImgState(getIdChArr(), width, height);
+            throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
+              startSec: startSecRef.current,
+              pxPerSec: pxPerSecRef.current,
+            });
+          }
+        } else {
+          setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
+        }
+      } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+        e.preventDefault();
+        e.stopPropagation();
+        const tempSec = Math.min(
+          Math.max(startSecRef.current + delta / pxPerSecRef.current, 0),
+          maxTrackSecRef.current - width / pxPerSecRef.current,
         );
-        if (pxPerSecRef.current !== pxPerSec) {
-          pxPerSecRef.current = pxPerSec;
-          canvasIsFitRef.current = false;
+        if (startSecRef.current !== tempSec) {
+          startSecRef.current = tempSec;
           throttledSetImgState(getIdChArr(), width, height);
           throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
             startSec: startSecRef.current,
             pxPerSec: pxPerSecRef.current,
           });
         }
-      } else {
-        setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
       }
-    } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-      e.preventDefault();
-      e.stopPropagation();
-      const tempSec = Math.min(
-        Math.max(startSecRef.current + delta / pxPerSecRef.current, 0),
-        maxTrackSecRef.current - width / pxPerSecRef.current,
-      );
-      if (startSecRef.current !== tempSec) {
-        startSecRef.current = tempSec;
-        throttledSetImgState(getIdChArr(), width, height);
-        throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-          startSec: startSecRef.current,
-          pxPerSec: pxPerSecRef.current,
-        });
-      }
-    }
-  };
+    },
+    [trackIds, getIdChArr, height, width, throttledSetImgState, throttledSetTimeMarkersAndUnit],
+  );
 
-  const drawCanvas = async () => {
+  const drawCanvas = useCallback(async () => {
     const images = NativeAPI.getImages();
     const promises: void[] = [];
 
@@ -221,7 +226,17 @@ function MainViewer(props: MainViewerProps) {
     }
     await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
-  };
+  }, [
+    timeCanvasElem,
+    timeMarkersRef,
+    ampCanvasesRef,
+    ampMarkersRef,
+    freqCanvasesRef,
+    freqMarkersRef,
+    dbCanvasElem,
+    dbMarkersRef,
+    imgCanvasesRef,
+  ]);
 
   const reloadAndRefreshTrack = useCallback(
     (id: number) => {
