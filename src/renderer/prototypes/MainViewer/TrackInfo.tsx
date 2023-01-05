@@ -1,4 +1,5 @@
 import React from "react";
+import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import NativeAPI from "../../api";
 import styles from "./TrackInfo.scss";
@@ -9,11 +10,15 @@ type TrackInfoProps = {
   height: number;
   isSelected: boolean;
   selectTrack: (e: React.MouseEvent, id: number) => void;
-  showTrackContextMenu: (e: React.MouseEvent, id: number) => void;
+};
+
+const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
+  e.preventDefault();
+  showElectronContextMenu(trackId);
 };
 
 function TrackInfo(props: TrackInfoProps) {
-  const {trackId, height, isSelected, selectTrack, showTrackContextMenu} = props;
+  const {trackId, height, isSelected, selectTrack} = props;
   const channelCount = NativeAPI.getChannelCounts(trackId);
 
   const trackSummaryData = {

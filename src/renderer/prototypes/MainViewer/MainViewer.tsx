@@ -4,6 +4,7 @@ import AxisCanvas from "renderer/modules/AxisCanvas";
 import useDropzone from "renderer/hooks/useDropzone";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
+import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import styles from "./MainViewer.scss";
 import TrackInfo from "./TrackInfo";
@@ -37,9 +38,7 @@ type MainViewerProps = {
   refreshTracks: () => void;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
-  showOpenDialog: () => void;
   selectTrack: (e: React.MouseEvent, id: number) => void;
-  showTrackContextMenu: (e: React.MouseEvent, id: number) => void;
 };
 
 type ReactRefsObject<T> = {
@@ -73,9 +72,7 @@ function MainViewer(props: MainViewerProps) {
     refreshTracks,
     reloadTracks,
     removeTracks,
-    showOpenDialog,
     selectTrack,
-    showTrackContextMenu,
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement>(null);
@@ -277,14 +274,13 @@ function MainViewer(props: MainViewerProps) {
         height={height}
         isSelected={isSelected}
         selectTrack={selectTrack}
-        showTrackContextMenu={showTrackContextMenu}
       />
     );
   });
 
   const tracksEmpty = (
     <div key="empty" className={styles.trackEmpty}>
-      <button type="button" onClick={showOpenDialog}>
+      <button type="button" onClick={showElectronOpenDialog}>
         <span className={styles.btnPlus} />
       </button>
     </div>

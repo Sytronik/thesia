@@ -4,7 +4,8 @@ import Control from "./prototypes/Control/Control";
 import Overview from "./prototypes/Overview/Overview";
 import SlideBar from "./prototypes/SlideBar/SlideBar";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
-import {SUPPORTED_TYPES, SUPPORTED_MIME} from "./prototypes/constants";
+import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
+import {SUPPORTED_MIME} from "./prototypes/constants";
 import "./App.global.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
@@ -24,10 +25,6 @@ function App() {
     useSelectedTracks();
 
   const prevTrackIds = useRef<number[]>([]);
-
-  function showOpenDialog() {
-    ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
-  }
 
   function addDroppedFile(e: DragEvent) {
     e.preventDefault();
@@ -53,7 +50,7 @@ function App() {
     const {existingIds, invalidPaths} = addTracks(newPaths);
 
     if (unsupportedPaths.length || invalidPaths.length) {
-      ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths, SUPPORTED_TYPES);
+      showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
     }
     if (existingIds.length) {
       reloadTracks(existingIds);
@@ -75,11 +72,6 @@ function App() {
     [selectedTrackIds, removeTracks, refreshTracks],
   );
 
-  const showTrackContextMenu = (e: React.MouseEvent, id: number) => {
-    e.preventDefault();
-    ipcRenderer.send("show-track-context-menu", id);
-  };
-
   useEffect(() => {
     ipcRenderer.on("open-dialog-closed", (_, file) => {
       if (!file.canceled) {
@@ -89,12 +81,7 @@ function App() {
         const {existingIds, invalidPaths} = addTracks(newPaths);
 
         if (unsupportedPaths.length || invalidPaths.length) {
-          ipcRenderer.send(
-            "show-file-open-err-msg",
-            unsupportedPaths,
-            invalidPaths,
-            SUPPORTED_TYPES,
-          );
+          showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
         }
 
         if (existingIds.length) {
@@ -165,9 +152,7 @@ function App() {
         refreshTracks={refreshTracks}
         reloadTracks={reloadTracks}
         removeTracks={removeTracks}
-        showOpenDialog={showOpenDialog}
         selectTrack={selectTrack}
-        showTrackContextMenu={showTrackContextMenu}
       />
     </div>
   );
