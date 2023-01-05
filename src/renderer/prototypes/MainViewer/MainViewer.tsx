@@ -2,6 +2,7 @@ import React, {useRef, useCallback, useEffect, useLayoutEffect, useState} from "
 import {throttle} from "throttle-debounce";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import useDropzone from "renderer/hooks/useDropzone";
+import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
@@ -39,26 +40,6 @@ type MainViewerProps = {
   removeTracks: (ids: number[]) => void;
   selectTrack: (e: React.MouseEvent, id: number) => void;
 };
-
-type ReactRefsObject<T> = {
-  [key: string]: T;
-};
-
-function useRefs<T>(): [
-  React.MutableRefObject<ReactRefsObject<T>>,
-  (refName: string) => React.RefCallback<T>,
-] {
-  const refs = useRef<ReactRefsObject<T>>({});
-
-  const register = useCallback(
-    (refName: string) => (ref: T) => {
-      refs.current[refName] = ref;
-    },
-    [],
-  );
-
-  return [refs, register];
-}
 
 function MainViewer(props: MainViewerProps) {
   const {
