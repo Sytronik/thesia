@@ -136,9 +136,11 @@ export function setImageState(
   idChArr: string[],
   startSec: number,
   width: number,
-  drawOption: DrawOption,
+  height: number,
+  pxPerSec: number,
   drawOptionForWav: DrawOptionForWav,
   blend: number,
 ) {
+  const drawOption = {px_per_sec: pxPerSec, height};
   return backend.setImgState(idChArr, startSec, width, drawOption, drawOptionForWav, blend);
 }

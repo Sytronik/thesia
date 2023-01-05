@@ -90,7 +90,7 @@ function MainViewer(props: MainViewerProps) {
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
-  const drawOptionRef = useRef({px_per_sec: 100});
+  const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
   const colorBarElem = useRef<HTMLDivElement>(null);
   const [colorBarHeight, setColorBarHeight] = useState<number>(0);
@@ -169,7 +169,8 @@ function MainViewer(props: MainViewerProps) {
         idChArr,
         startSecRef.current,
         width,
-        {...drawOptionRef.current, height},
+        height,
+        pxPerSecRef.current,
         drawOptionForWavRef.current,
         0.3,
       );
@@ -197,18 +198,18 @@ function MainViewer(props: MainViewerProps) {
       if ((e.shiftKey && yIsLarger) || !yIsLarger) {
         const pxPerSec = Math.min(
           Math.max(
-            drawOptionRef.current.px_per_sec * (1 + delta / 1000),
+            pxPerSecRef.current * (1 + delta / 1000),
             width / (maxTrackSecRef.current - startSecRef.current),
           ),
           384000,
         );
-        if (drawOptionRef.current.px_per_sec !== pxPerSec) {
-          drawOptionRef.current.px_per_sec = pxPerSec;
+        if (pxPerSecRef.current !== pxPerSec) {
+          pxPerSecRef.current = pxPerSec;
           canvasIsFitRef.current = false;
           throttledSetImgState(getIdChArr(), width, height);
-          throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+          throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
             startSec: startSecRef.current,
-            pxPerSec: drawOptionRef.current.px_per_sec,
+            pxPerSec: pxPerSecRef.current,
           });
         }
       } else {
@@ -218,15 +219,15 @@ function MainViewer(props: MainViewerProps) {
       e.preventDefault();
       e.stopPropagation();
       const tempSec = Math.min(
-        Math.max(startSecRef.current + delta / drawOptionRef.current.px_per_sec, 0),
-        maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec,
+        Math.max(startSecRef.current + delta / pxPerSecRef.current, 0),
+        maxTrackSecRef.current - width / pxPerSecRef.current,
       );
       if (startSecRef.current !== tempSec) {
         startSecRef.current = tempSec;
         throttledSetImgState(getIdChArr(), width, height);
-        throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+        throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
           startSec: startSecRef.current,
-          pxPerSec: drawOptionRef.current.px_per_sec,
+          pxPerSec: pxPerSecRef.current,
         });
       }
     }
@@ -369,9 +370,9 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    const secOutOfCanvas = maxTrackSecRef.current - width / drawOptionRef.current.px_per_sec;
+    const secOutOfCanvas = maxTrackSecRef.current - width / pxPerSecRef.current;
     if (canvasIsFitRef.current) {
-      drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
+      pxPerSecRef.current = width / maxTrackSecRef.current;
     } else {
       if (secOutOfCanvas <= 0) {
         canvasIsFitRef.current = true;
@@ -382,9 +383,9 @@ function MainViewer(props: MainViewerProps) {
       }
     }
     throttledSetImgState(getIdChArr(), width, height);
-    throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
-      pxPerSec: drawOptionRef.current.px_per_sec,
+      pxPerSec: pxPerSecRef.current,
     });
   }, [width]);
 
@@ -403,9 +404,9 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!needRefreshTrackIds.length) return;
     throttledSetImgState(needRefreshTrackIds, width, height);
-    throttledSetTimeMarkersAndUnit(width, drawOptionRef.current.px_per_sec, {
+    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
-      pxPerSec: drawOptionRef.current.px_per_sec,
+      pxPerSec: pxPerSecRef.current,
     });
     throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
     throttledSetFreqMarkers(height, height, {});
@@ -416,7 +417,7 @@ function MainViewer(props: MainViewerProps) {
     if (trackIds.length) {
       maxTrackSecRef.current = NativeAPI.getLongestTrackLength();
       if (!prevTrackCountRef.current) {
-        drawOptionRef.current.px_per_sec = width / maxTrackSecRef.current;
+        pxPerSecRef.current = width / maxTrackSecRef.current;
         startSecRef.current = 0;
         canvasIsFitRef.current = true;
       }
