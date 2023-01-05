@@ -6,21 +6,19 @@ import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import styles from "./MainViewer.scss";
+import AmpAxis from "./AmpAxis";
+import ErrorBox from "./ErrorBox";
+import FreqAxis from "./FreqAxis";
 import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
+import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
 import NativeAPI from "../../api";
 import {
-  TIME_CANVAS_HEIGHT,
-  TIME_MARKER_POS,
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
-  AMP_CANVAS_WIDTH,
-  AMP_MARKER_POS,
   AMP_TICK_NUM,
   AMP_BOUNDARIES,
-  FREQ_CANVAS_WIDTH,
-  FREQ_MARKER_POS,
   FREQ_TICK_NUM,
   FREQ_BOUNDARIES,
   DB_CANVAS_WIDTH,
@@ -108,21 +106,6 @@ function MainViewer(props: MainViewerProps) {
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
-  const reloadAndRefreshTracks = useCallback(
-    (ids: number[]) => {
-      reloadTracks(ids);
-      refreshTracks();
-    },
-    [reloadTracks, refreshTracks],
-  );
-  const removeAndRefreshTracks = useCallback(
-    (ids: number[]) => {
-      removeTracks(ids);
-      refreshTracks();
-    },
-    [removeTracks, refreshTracks],
-  );
-
   const {markersRef: timeMarkersRef, throttledSetMarkers: throttledSetTimeMarkers} =
     useThrottledSetMarkers({
       scaleTable: TIME_TICK_SIZE,
@@ -177,7 +160,6 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const getIdChArr = () => Object.keys(imgCanvasesRef.current);
-
   const handleWheel = (e: WheelEvent) => {
     if (!trackIds.length) return;
 
@@ -260,6 +242,21 @@ function MainViewer(props: MainViewerProps) {
     requestRef.current = requestAnimationFrame(drawCanvas);
   };
 
+  const reloadAndRefreshTrack = useCallback(
+    (id: number) => {
+      reloadTracks([id]);
+      refreshTracks();
+    },
+    [reloadTracks, refreshTracks],
+  );
+  const removeAndRefreshTrack = useCallback(
+    (id: number) => {
+      removeTracks([id]);
+      refreshTracks();
+    },
+    [removeTracks, refreshTracks],
+  );
+
   const leftPane = (
     <>
       <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
@@ -279,73 +276,43 @@ function MainViewer(props: MainViewerProps) {
     </>
   );
 
-  const timeRuler = (
-    <AxisCanvas
-      key="time"
-      ref={timeCanvasElem}
-      width={width}
-      height={TIME_CANVAS_HEIGHT}
-      markerPos={TIME_MARKER_POS}
-      direction="H"
-      className="timeRuler"
-    />
+  const rightPane = (
+    <>
+      <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
+      {trackIds.map((id) => (
+        <div key={`${id}`} className={`${styles.trackRight}`}>
+          {erroredTrackIds.includes(id) ? (
+            <ErrorBox
+              trackId={id}
+              handleReload={reloadAndRefreshTrack}
+              handleIgnore={ignoreError}
+              handleClose={removeAndRefreshTrack}
+            />
+          ) : null}
+          {[...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => (
+            <div key={`${id}_${ch}`} className={styles.chCanvases}>
+              <FreqAxis
+                key={`freq_${id}_${ch}`}
+                ref={registerFreqCanvas(`${id}_${ch}`)}
+                height={height}
+              />
+              <AmpAxis
+                key={`amp_${id}_${ch}`}
+                ref={registerAmpCanvas(`${id}_${ch}`)}
+                height={height}
+              />
+              <ImgCanvas
+                key={`img_${id}_${ch}`}
+                ref={registerImgCanvas(`${id}_${ch}`)}
+                width={width}
+                height={height}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
   );
-
-  const tracksRight = trackIds.map((id) => {
-    const errorBox = (
-      <div className={styles.errorBox}>
-        <p>The file is corrupted and cannot be opened</p>
-        <div>
-          <button type="button" onClick={() => reloadAndRefreshTracks([id])}>
-            Reload
-          </button>
-          <button type="button" onClick={() => ignoreError(id)}>
-            Ignore
-          </button>
-          <button type="button" onClick={() => removeAndRefreshTracks([id])}>
-            Close
-          </button>
-        </div>
-      </div>
-    );
-
-    const channelsCanvases = [...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => {
-      return (
-        <div key={`${id}_${ch}`} className={styles.chCanvases}>
-          <AxisCanvas
-            key={`freq_${id}_${ch}`}
-            ref={registerFreqCanvas(`${id}_${ch}`)}
-            width={FREQ_CANVAS_WIDTH}
-            height={height}
-            markerPos={FREQ_MARKER_POS}
-            direction="V"
-            className="freqAxis"
-          />
-          <AxisCanvas
-            key={`amp_${id}_${ch}`}
-            ref={registerAmpCanvas(`${id}_${ch}`)}
-            width={AMP_CANVAS_WIDTH}
-            height={height}
-            markerPos={AMP_MARKER_POS}
-            direction="V"
-            className="ampAxis"
-          />
-          <ImgCanvas
-            key={`img_${id}_${ch}`}
-            ref={registerImgCanvas(`${id}_${ch}`)}
-            width={width}
-            height={height}
-          />
-        </div>
-      );
-    });
-    return (
-      <div key={`${id}`} className={`${styles.trackRight} js-track-right`}>
-        {erroredTrackIds.includes(id) ? errorBox : null}
-        {channelsCanvases}
-      </div>
-    );
-  });
 
   useEffect(() => {
     const mainViewer = mainViewerElem.current;
@@ -435,7 +402,7 @@ function MainViewer(props: MainViewerProps) {
   return (
     <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
       {isDropzoneActive && <div className={styles.dropzone} />}
-      <SplitView left={leftPane} right={[timeRuler, tracksRight]} setCanvasWidth={setWidth} />
+      <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
       <div className={styles.colorBar} ref={colorBarElem}>
         <AxisCanvas
           ref={dbCanvasElem}

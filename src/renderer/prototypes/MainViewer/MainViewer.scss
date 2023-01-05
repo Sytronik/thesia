@@ -1,4 +1,4 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .MainViewer {
   position: relative;
@@ -22,33 +22,6 @@
 
 .trackRight {
   position: relative;
-}
-
-// error box
-.errorBox {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background-color: $bg-main-transparent;
-
-  > p {
-    margin-bottom: $spacer-4;
-    font-size: $body-font-size-xlarge;
-    text-align: center;
-  }
-
-  > div {
-    text-align: center;
-  }
-
-  & button {
-    @include btn-medium;
-    @include btn-outline($button-white, $button-white);
-    margin: $spacer-2;
-  }
 }
 
 .chCanvases {
