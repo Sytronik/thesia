@@ -1,6 +1,5 @@
-import React, {useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState} from "react";
+import React, {useRef, useCallback, useEffect, useMemo, useState} from "react";
 import {throttle} from "throttle-debounce";
-import AxisCanvas from "renderer/modules/AxisCanvas";
 import useDropzone from "renderer/hooks/useDropzone";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
@@ -8,6 +7,7 @@ import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import styles from "./MainViewer.scss";
 import AmpAxis from "./AmpAxis";
+import ColorMap from "./ColorMap";
 import ErrorBox from "./ErrorBox";
 import FreqAxis from "./FreqAxis";
 import TrackInfo from "./TrackInfo";
@@ -22,8 +22,6 @@ import {
   AMP_BOUNDARIES,
   FREQ_TICK_NUM,
   FREQ_BOUNDARIES,
-  DB_CANVAS_WIDTH,
-  DB_MARKER_POS,
   DB_TICK_NUM,
   DB_BOUNDARIES,
 } from "../constants";
@@ -69,21 +67,13 @@ function MainViewer(props: MainViewerProps) {
   const [height, setHeight] = useState(250);
   const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
-  const colorBarElem = useRef<HTMLDivElement>(null);
-  const [colorBarHeight, setColorBarHeight] = useState<number>(0);
+  const [colorMapHeight, setColorMapHeight] = useState<number>(0);
 
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
   const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
-
-  const [resizeObserver, setResizeObserver] = useState(
-    new ResizeObserver((entries) => {
-      const {target} = entries[0];
-      setColorBarHeight(target.clientHeight - (16 + 2 + 24));
-    }),
-  );
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
@@ -350,8 +340,8 @@ function MainViewer(props: MainViewerProps) {
 
   useEffect(() => {
     if (!trackIds.length) return;
-    throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
-  }, [colorBarHeight]);
+    throttledSetDbMarkers(colorMapHeight, colorMapHeight, {});
+  }, [colorMapHeight]);
 
   useEffect(() => {
     if (!needRefreshTrackIds.length) return;
@@ -362,7 +352,7 @@ function MainViewer(props: MainViewerProps) {
     });
     throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
     throttledSetFreqMarkers(height, height, {});
-    throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
+    throttledSetDbMarkers(colorMapHeight, colorMapHeight, {});
   }, [needRefreshTrackIds]);
 
   useEffect(() => {
@@ -385,30 +375,15 @@ function MainViewer(props: MainViewerProps) {
     return () => cancelAnimationFrame(requestRef.current);
   }, []);
 
-  useLayoutEffect(() => {
-    if (colorBarElem.current) {
-      resizeObserver.observe(colorBarElem.current);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [colorBarElem, resizeObserver]);
-
   return (
     <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
       {isDropzoneActive && <div className={styles.dropzone} />}
       <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
-      <div className={styles.colorBar} ref={colorBarElem}>
-        <AxisCanvas
-          ref={dbCanvasElem}
-          width={DB_CANVAS_WIDTH}
-          height={colorBarHeight}
-          markerPos={DB_MARKER_POS}
-          direction="V"
-          className="dbAxis"
-        />
-      </div>
+      <ColorMap
+        height={colorMapHeight}
+        setHeight={setColorMapHeight}
+        dbAxisCanvasElem={dbCanvasElem}
+      />
     </div>
   );
 }
