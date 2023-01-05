@@ -40,8 +40,8 @@ function TrackInfo(props: TrackInfoProps) {
     <div
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
-      onClick={(e) => selectTrack(e, trackId)} // need optimization?
-      onContextMenu={(e) => showTrackContextMenu(e, trackId)} // need optimization?
+      onClick={(e) => selectTrack(e, trackId)} // TODO: need optimization?
+      onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: need optimization?
     >
       <TrackSummary
         className={styles.TrackSummary}
