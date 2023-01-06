@@ -300,6 +300,83 @@ function MainViewer(props: MainViewerProps) {
     </>
   );
 
+  // canvas img and markers setting logic
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
+  }, [throttledSetAmpMarkers, height, trackIds, needRefreshTrackIds]);
+
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    throttledSetFreqMarkers(height, height, {});
+  }, [throttledSetFreqMarkers, height, trackIds, needRefreshTrackIds]);
+
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    throttledSetDbMarkers(colorMapHeight, colorMapHeight, {});
+  }, [throttledSetDbMarkers, colorMapHeight, trackIds, needRefreshTrackIds]);
+
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
+      startSec: startSecRef.current,
+      pxPerSec: pxPerSecRef.current,
+    });
+  }, [throttledSetTimeMarkersAndUnit, width, trackIds, needRefreshTrackIds]);
+
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    const idChannels = needRefreshTrackIds.length ? needRefreshTrackIds : getIdChArr();
+    throttledSetImgState(idChannels, width, height);
+  }, [throttledSetImgState, getIdChArr, width, height, trackIds, needRefreshTrackIds]);
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(drawCanvas);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [drawCanvas]);
+
+  // startSec setting logic
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    const secOutOfCanvas = maxTrackSecRef.current - width / pxPerSecRef.current;
+
+    if (canvasIsFitRef.current) {
+      pxPerSecRef.current = width / maxTrackSecRef.current;
+      return;
+    }
+    if (secOutOfCanvas <= 0) {
+      canvasIsFitRef.current = true;
+      return;
+    }
+    if (startSecRef.current > secOutOfCanvas) {
+      startSecRef.current = secOutOfCanvas;
+    }
+  }, [trackIds, width]);
+
+  // pxPerSec and canvasIsFit setting logic
+  useEffect(() => {
+    prevTrackCountRef.current = trackIds.length;
+
+    if (!trackIds.length) {
+      maxTrackSecRef.current = 0;
+      canvasIsFitRef.current = false;
+      return;
+    }
+
+    maxTrackSecRef.current = NativeAPI.getLongestTrackLength();
+    if (!prevTrackCountRef.current) {
+      pxPerSecRef.current = width / maxTrackSecRef.current;
+      startSecRef.current = 0;
+      canvasIsFitRef.current = true;
+    }
+  }, [trackIds, width]);
+
   useEffect(() => {
     const mainViewer = mainViewerElem.current;
     mainViewer?.addEventListener("wheel", handleWheel, {passive: false});
@@ -308,72 +385,6 @@ function MainViewer(props: MainViewerProps) {
       mainViewer?.removeEventListener("wheel", handleWheel);
     };
   });
-
-  useEffect(() => {
-    if (!trackIds.length) return;
-
-    const secOutOfCanvas = maxTrackSecRef.current - width / pxPerSecRef.current;
-    if (canvasIsFitRef.current) {
-      pxPerSecRef.current = width / maxTrackSecRef.current;
-    } else {
-      if (secOutOfCanvas <= 0) {
-        canvasIsFitRef.current = true;
-        return;
-      }
-      if (startSecRef.current > secOutOfCanvas) {
-        startSecRef.current = secOutOfCanvas;
-      }
-    }
-    throttledSetImgState(getIdChArr(), width, height);
-    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-      startSec: startSecRef.current,
-      pxPerSec: pxPerSecRef.current,
-    });
-  }, [width]);
-
-  useEffect(() => {
-    if (!trackIds.length) return;
-    throttledSetImgState(getIdChArr(), width, height);
-    throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
-    throttledSetFreqMarkers(height, height, {});
-  }, [height]);
-
-  useEffect(() => {
-    if (!trackIds.length) return;
-    throttledSetDbMarkers(colorMapHeight, colorMapHeight, {});
-  }, [colorMapHeight]);
-
-  useEffect(() => {
-    if (!needRefreshTrackIds.length) return;
-    throttledSetImgState(needRefreshTrackIds, width, height);
-    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-      startSec: startSecRef.current,
-      pxPerSec: pxPerSecRef.current,
-    });
-    throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
-    throttledSetFreqMarkers(height, height, {});
-    throttledSetDbMarkers(colorMapHeight, colorMapHeight, {});
-  }, [needRefreshTrackIds]);
-
-  useEffect(() => {
-    if (trackIds.length) {
-      maxTrackSecRef.current = NativeAPI.getLongestTrackLength();
-      if (!prevTrackCountRef.current) {
-        pxPerSecRef.current = width / maxTrackSecRef.current;
-        startSecRef.current = 0;
-        canvasIsFitRef.current = true;
-      }
-    } else {
-      maxTrackSecRef.current = 0;
-      canvasIsFitRef.current = false;
-    }
-    prevTrackCountRef.current = trackIds.length;
-  }, [trackIds]);
-
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(drawCanvas);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, []);
 
   return (
     <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
