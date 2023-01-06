@@ -85,8 +85,8 @@ function MainViewer(props: MainViewerProps) {
     });
 
   const throttledSetTimeMarkersAndUnit = useCallback(
-    (width: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
-      throttledSetTimeMarkers(width, pxPerSec, drawOptions);
+    (canvasWidth: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
+      throttledSetTimeMarkers(canvasWidth, pxPerSec, drawOptions);
       const timeUnit = timeMarkersRef.current.pop()?.[1] || "ss";
       setTimeUnitLabel(timeUnit);
     },
@@ -116,14 +116,14 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetImgState = useMemo(
     () =>
-      throttle(1000 / 240, (idChArr: IdChannel[], width: number, height: number) => {
+      throttle(1000 / 240, (idChArr: IdChannel[], canvasWidth: number, canvasHeight: number) => {
         if (!idChArr.length) return;
 
         NativeAPI.setImageState(
           idChArr,
           startSecRef.current,
-          width,
-          height,
+          canvasWidth,
+          canvasHeight,
           pxPerSecRef.current,
           drawOptionForWavRef.current,
           0.3,
