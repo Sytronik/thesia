@@ -59,20 +59,20 @@ function MainViewer(props: MainViewerProps) {
   const startSecRef = useRef<number>(0);
   const maxTrackSecRef = useRef<number>(0);
   const canvasIsFitRef = useRef<boolean>(false);
+  const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
   const requestRef = useRef<number>(0);
 
-  const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
+  const [colorMapHeight, setColorMapHeight] = useState<number>(0);
   const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
-  const [colorMapHeight, setColorMapHeight] = useState<number>(0);
 
-  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
+  const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
+  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
