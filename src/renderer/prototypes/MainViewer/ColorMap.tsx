@@ -17,7 +17,7 @@ function ColorMap(props: ColorBarProps) {
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
       const {target} = entries[0];
-      setHeight(Math.min(target.clientHeight - (16 + 2 + 24)), MIN_HEIGHT);
+      setHeight(Math.max(target.clientHeight - (16 + 2 + 24), MIN_HEIGHT));
     }),
   );
 
