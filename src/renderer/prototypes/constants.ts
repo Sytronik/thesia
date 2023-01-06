@@ -145,3 +145,7 @@ export const DB_TICK_NUM = {
   350: [25, 25],
 };
 export const DB_BOUNDARIES = createBoundaries(DB_TICK_NUM);
+
+export const MIN_TICK_SCALE_BOUNDARY = 80;
+export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 10;
+export const MAX_HEIGHT = 5000;

@@ -1,7 +1,7 @@
 import React, {useRef, useLayoutEffect, useState} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import styles from "./ColorMap.scss";
-import {DB_CANVAS_WIDTH, DB_MARKER_POS} from "../constants";
+import {DB_CANVAS_WIDTH, DB_MARKER_POS, MIN_HEIGHT} from "../constants";
 
 type ColorBarProps = {
   height: number;
@@ -17,7 +17,7 @@ function ColorMap(props: ColorBarProps) {
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
       const {target} = entries[0];
-      setHeight(target.clientHeight - (16 + 2 + 24));
+      setHeight(Math.min(target.clientHeight - (16 + 2 + 24)), MIN_HEIGHT);
     }),
   );
 

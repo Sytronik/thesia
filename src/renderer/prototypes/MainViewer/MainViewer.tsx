@@ -24,6 +24,8 @@ import {
   FREQ_BOUNDARIES,
   DB_TICK_NUM,
   DB_BOUNDARIES,
+  MIN_HEIGHT,
+  MAX_HEIGHT,
 } from "../constants";
 
 type MainViewerProps = {
@@ -167,7 +169,9 @@ function MainViewer(props: MainViewerProps) {
             });
           }
         } else {
-          setHeight(Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), 10), 5000)));
+          setHeight(
+            Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), MIN_HEIGHT), MAX_HEIGHT)),
+          );
         }
       } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
         e.preventDefault();
