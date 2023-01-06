@@ -26,37 +26,40 @@ function App() {
 
   const prevTrackIds = useRef<number[]>([]);
 
-  function addDroppedFile(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  const addDroppedFile = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    const newPaths: string[] = [];
-    const unsupportedPaths: string[] = [];
+      const newPaths: string[] = [];
+      const unsupportedPaths: string[] = [];
 
-    if (!e?.dataTransfer?.files) {
-      return;
-    }
-
-    const droppedFiles = Array.from(e.dataTransfer.files);
-
-    droppedFiles.forEach((file: File) => {
-      if (SUPPORTED_MIME.includes(file.type)) {
-        newPaths.push(file.path);
-      } else {
-        unsupportedPaths.push(file.path);
+      if (!e?.dataTransfer?.files) {
+        return;
       }
-    });
 
-    const {existingIds, invalidPaths} = addTracks(newPaths);
+      const droppedFiles = Array.from(e.dataTransfer.files);
 
-    if (unsupportedPaths.length || invalidPaths.length) {
-      showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
-    }
-    if (existingIds.length) {
-      reloadTracks(existingIds);
-    }
-    refreshTracks();
-  }
+      droppedFiles.forEach((file: File) => {
+        if (SUPPORTED_MIME.includes(file.type)) {
+          newPaths.push(file.path);
+        } else {
+          unsupportedPaths.push(file.path);
+        }
+      });
+
+      const {existingIds, invalidPaths} = addTracks(newPaths);
+
+      if (unsupportedPaths.length || invalidPaths.length) {
+        showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+      }
+      if (existingIds.length) {
+        reloadTracks(existingIds);
+      }
+      refreshTracks();
+    },
+    [addTracks, reloadTracks, refreshTracks],
+  );
 
   const deleteSelectedTracks = useCallback(
     (e: KeyboardEvent) => {
