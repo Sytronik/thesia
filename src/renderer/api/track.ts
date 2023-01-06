@@ -67,7 +67,7 @@ export function getTimeAxisMarkers(
   const {startSec, pxPerSec} = markerDrawOptions || {};
 
   if (isNil(startSec) || isNil(pxPerSec)) {
-    console.log("no start sec of px per sec value exist");
+    console.error("no start sec of px per sec value exist");
     return [];
   }
   return backend.getTimeAxis(width, startSec, pxPerSec, subTickSec, subTickUnitCount);
@@ -95,7 +95,7 @@ export function getAmpAxisMarkers(
   const {drawOptionForWav} = markerDrawOptions || {};
 
   if (!drawOptionForWav) {
-    console.log("no draw option for wav exist");
+    console.error("no draw option for wav exist");
     return [];
   }
 

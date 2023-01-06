@@ -29,7 +29,7 @@ function useTracks() {
         setErroredTrackIds(erroredIds);
       }
     } catch (err) {
-      console.log("Track reloads error", err);
+      console.error("Could not reload tracks", err);
     }
   }, []);
 
@@ -40,7 +40,7 @@ function useTracks() {
         setNeedRefreshTrackIds(needRefreshIds);
       }
     } catch (err) {
-      console.log("Track refresh error", err);
+      console.error("Could not refresh tracks", err);
     }
   }, []);
 
@@ -77,7 +77,7 @@ function useTracks() {
 
         return {existingIds, invalidPaths};
       } catch (err) {
-        console.log("Track adds error", err);
+        console.error("Track adds error", err);
         alert("Track adds error");
 
         return {existingIds: [], invalidPaths: []};
@@ -99,7 +99,7 @@ function useTracks() {
 
         addToWaitingIds(ids);
       } catch (err) {
-        console.log("Could not remove track", err);
+        console.error("Could not remove track", err);
         alert("Could not remove track");
       }
     },

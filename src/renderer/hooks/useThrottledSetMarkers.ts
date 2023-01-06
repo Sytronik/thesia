@@ -17,7 +17,7 @@ const THRESHOLD = 1000 / 240;
 const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
   const target = boundaries.find((boundary) => value > boundary);
   if (target === undefined) {
-    console.log("tick scale boundary error");
+    console.error("tick scale boundary error");
     return null;
   }
 
