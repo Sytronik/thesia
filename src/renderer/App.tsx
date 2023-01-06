@@ -35,6 +35,7 @@ function App() {
       const unsupportedPaths: string[] = [];
 
       if (!e?.dataTransfer?.files) {
+        console.error("no file exists in dropzone");
         return;
       }
 
