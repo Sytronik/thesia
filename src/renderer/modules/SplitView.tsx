@@ -23,13 +23,14 @@ const LeftPane = (props: LeftPaneProps) => {
   const leftElem = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (leftElem.current) {
-      if (!leftWidth) {
-        setLeftWidth(leftElem.current.clientWidth);
-        return;
-      }
-      leftElem.current.style.width = `${leftWidth}px`;
+    if (!leftElem.current) {
+      return;
     }
+    if (!leftWidth) {
+      setLeftWidth(leftElem.current.clientWidth);
+      return;
+    }
+    leftElem.current.style.width = `${leftWidth}px`;
   }, [leftElem, leftWidth, setLeftWidth]);
 
   return (
