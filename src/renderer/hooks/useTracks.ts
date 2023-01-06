@@ -63,9 +63,9 @@ function useTracks() {
         });
 
         const addedIds = NativeAPI.addTracks(newIds, newPaths);
-        setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
-
-        waitingIdsRef.current = waitingIdsRef.current.slice(newPaths.length);
+        if (addedIds.length) {
+          setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
+        }
 
         if (newIds.length === addedIds.length) {
           return {existingIds, invalidPaths: []};
