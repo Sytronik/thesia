@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useLayoutEffect, useState} from "react";
+import React, {useRef, useEffect, useLayoutEffect, useState, useCallback} from "react";
 import styles from "./SplitView.scss";
 
 const MARGIN = 2;
@@ -50,56 +50,65 @@ const SplitView = (props: SplitViewProps) => {
   const splitPaneElem = useRef<HTMLDivElement>(null);
   const rightPaneElem = useRef<HTMLDivElement>(null);
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
     setSeparatorXPosition(e.clientX);
     setDragging(true);
-  };
+  }, []);
 
-  const onTouchStart = (e: React.TouchEvent) => {
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
     setSeparatorXPosition(e.touches[0].clientX);
     setDragging(true);
-  };
+  }, []);
 
-  const onMove = (clientX: number) => {
-    if (dragging && leftWidth && separatorXPosition) {
-      const newLeftWidth = leftWidth + clientX - separatorXPosition;
-      setSeparatorXPosition(clientX);
+  const onMove = useCallback(
+    (clientX: number) => {
+      if (dragging && leftWidth && separatorXPosition) {
+        const newLeftWidth = leftWidth + clientX - separatorXPosition;
+        setSeparatorXPosition(clientX);
 
-      if (newLeftWidth < MIN_WIDTH) {
-        setLeftWidth(MIN_WIDTH);
-        return;
-      }
-
-      if (splitPaneElem.current) {
-        const splitPaneWidth = splitPaneElem.current.clientWidth;
-
-        if (newLeftWidth > splitPaneWidth - MARGIN) {
-          setLeftWidth(splitPaneWidth - MARGIN);
+        if (newLeftWidth < MIN_WIDTH) {
+          setLeftWidth(MIN_WIDTH);
           return;
         }
+
+        if (splitPaneElem.current) {
+          const splitPaneWidth = splitPaneElem.current.clientWidth;
+
+          if (newLeftWidth > splitPaneWidth - MARGIN) {
+            setLeftWidth(splitPaneWidth - MARGIN);
+            return;
+          }
+        }
+
+        if (newLeftWidth > MAX_WIDTH) {
+          setLeftWidth(MAX_WIDTH);
+          return;
+        }
+
+        setLeftWidth(newLeftWidth);
       }
+    },
+    [dragging, leftWidth, separatorXPosition],
+  );
 
-      if (newLeftWidth > MAX_WIDTH) {
-        setLeftWidth(MAX_WIDTH);
-        return;
-      }
+  const onMouseMove = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      onMove(e.clientX);
+    },
+    [onMove],
+  );
 
-      setLeftWidth(newLeftWidth);
-    }
-  };
+  const onTouchMove = useCallback(
+    (e: TouchEvent) => {
+      onMove(e.touches[0].clientX);
+    },
+    [onMove],
+  );
 
-  const onMouseMove = (e: MouseEvent) => {
-    e.preventDefault();
-    onMove(e.clientX);
-  };
-
-  const onTouchMove = (e: TouchEvent) => {
-    onMove(e.touches[0].clientX);
-  };
-
-  const onMouseUp = () => {
+  const onMouseUp = useCallback(() => {
     setDragging(false);
-  };
+  }, []);
 
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
