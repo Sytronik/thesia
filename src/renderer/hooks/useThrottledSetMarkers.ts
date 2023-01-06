@@ -17,7 +17,7 @@ const THRESHOLD = 1000 / 240;
 const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
   const target = boundaries.find((boundary) => value > boundary);
   if (target === undefined) {
-    console.error("tick scale boundary error");
+    console.error("invalid tick scale determinant");
     return null;
   }
 
@@ -32,9 +32,13 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
     THRESHOLD,
     (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
       // TODO: block execution when no trackIds exist
-      const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
+      if (!canvasLength) {
+        console.error("invalid canvas");
+        return;
+      }
 
-      if (!canvasLength || !tickScale) {
+      const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
+      if (!tickScale) {
         return;
       }
 
