@@ -65,7 +65,7 @@ function MainViewer(props: MainViewerProps) {
 
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
-  const [colorMapHeight, setColorMapHeight] = useState<number>(0);
+  const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef({min_amp: -1, max_amp: 1});
 
