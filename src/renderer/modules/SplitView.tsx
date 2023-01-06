@@ -1,4 +1,4 @@
-import React, {createRef, useRef, useEffect, useLayoutEffect, useState} from "react";
+import React, {useRef, useEffect, useLayoutEffect, useState} from "react";
 import styles from "./SplitView.scss";
 
 const MARGIN = 2;
@@ -20,7 +20,7 @@ type LeftPaneProps = {
 
 const LeftPane = (props: LeftPaneProps) => {
   const {children, leftWidth, setLeftWidth} = props;
-  const leftElem = createRef<HTMLDivElement>();
+  const leftElem = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (leftElem.current) {
@@ -28,7 +28,6 @@ const LeftPane = (props: LeftPaneProps) => {
         setLeftWidth(leftElem.current.clientWidth);
         return;
       }
-
       leftElem.current.style.width = `${leftWidth}px`;
     }
   }, [leftElem, leftWidth, setLeftWidth]);
@@ -47,7 +46,7 @@ const SplitView = (props: SplitViewProps) => {
   const [separatorXPosition, setSeparatorXPosition] = useState<undefined | number>(undefined);
   const [dragging, setDragging] = useState(false);
 
-  const splitPaneElem = createRef<HTMLDivElement>();
+  const splitPaneElem = useRef<HTMLDivElement>(null);
   const rightPaneElem = useRef<HTMLDivElement>(null);
 
   const onMouseDown = (e: React.MouseEvent) => {
