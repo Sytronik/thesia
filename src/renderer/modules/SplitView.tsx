@@ -104,7 +104,9 @@ const SplitView = (props: SplitViewProps) => {
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const {target} = entries[0];
-      setCanvasWidth(target.clientWidth);
+      if (target.clientWidth >= 1) {
+        setCanvasWidth(target.clientWidth);
+      }
     }),
   );
 
@@ -131,7 +133,7 @@ const SplitView = (props: SplitViewProps) => {
   }, [rightPaneElem, resizeObserver]);
 
   return (
-    <div className={`${styles.SplitView} ${className ?? ""}`} ref={splitPaneElem}>
+    <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
       <LeftPane leftWidth={leftWidth} setLeftWidth={setLeftWidth}>
         {left}
       </LeftPane>
@@ -149,6 +151,10 @@ const SplitView = (props: SplitViewProps) => {
       </div>
     </div>
   );
+};
+
+SplitView.defaultProps = {
+  className: "",
 };
 
 export default SplitView;
