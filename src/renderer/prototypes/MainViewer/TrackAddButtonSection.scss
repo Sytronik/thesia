@@ -4,6 +4,7 @@
   position: relative;
   flex: 1 1 auto;
   min-height: $emptytrack-height;
+  height: 100%;
 
   > button {
     @include btn-square($spacer-3);
