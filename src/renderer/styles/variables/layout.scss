@@ -19,38 +19,3 @@ $em-spacer-3: 0.25em !default; // 1/4
 $em-spacer-4: 0.375em !default; // 3/8
 $em-spacer-5: 0.5em !default; // 1/2
 $em-spacer-6: 0.75em !default; // 3/4
-
-// Fixed-width container variables
-$container-width: 960px !default;
-$grid-gutter: 16px !default;
-
-// Breakpoint widths
-$width-xs: 0 !default;
-// Small screen / phone
-$width-sm: 576px !default;
-// Medium screen / tablet
-$width-md: 768px !default;
-// Large screen / desktop (960 + 16 * 2)
-$width-lg: 992px !default;
-// Extra large screen / wide desktop
-$width-xl: 1200px !default;
-
-$breakpoints: (
-  sm: $width-sm,
-  md: $width-md,
-  lg: $width-lg,
-  xl: $width-xl,
-) !default;
-
-// Responsive container widths
-$container-sm: 540px !default;
-$container-md: 720px !default;
-$container-lg: 960px !default;
-$container-xl: 1140px !default;
-
-$container-max-widths: (
-  sm: 540px,
-  md: 720px,
-  lg: 960px,
-  xl: 1140px,
-) !default;
