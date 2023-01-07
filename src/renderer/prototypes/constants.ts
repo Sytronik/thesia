@@ -65,7 +65,7 @@ export const TIME_TICK_SIZE = {
 };
 export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
-export const AMP_CANVAS_WIDTH = 23;
+export const AMP_CANVAS_WIDTH = 32;
 export const AMP_MARKER_POS = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,
@@ -107,7 +107,7 @@ export const AMP_TICK_NUM = {
 };
 export const AMP_BOUNDARIES = createBoundaries(AMP_TICK_NUM);
 
-export const FREQ_CANVAS_WIDTH = 23; // 24px - 1px(border)
+export const FREQ_CANVAS_WIDTH = 32;
 export const FREQ_MARKER_POS = {
   MAJOR_TICK_POS: 4, // LENGTH: 4px
   MINOR_TICK_POS: 3, // LENGTH: 3px,
