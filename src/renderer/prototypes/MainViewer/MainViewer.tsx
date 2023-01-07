@@ -281,9 +281,10 @@ function MainViewer(props: MainViewerProps) {
           ) : null}
           {[...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => (
             <div key={`${id}_${ch}`} className={styles.chCanvases}>
-              <FreqAxis
-                key={`freq_${id}_${ch}`}
-                ref={registerFreqCanvas(`${id}_${ch}`)}
+              <ImgCanvas
+                key={`img_${id}_${ch}`}
+                ref={registerImgCanvas(`${id}_${ch}`)}
+                width={width}
                 height={height}
               />
               <AmpAxis
@@ -291,10 +292,9 @@ function MainViewer(props: MainViewerProps) {
                 ref={registerAmpCanvas(`${id}_${ch}`)}
                 height={height}
               />
-              <ImgCanvas
-                key={`img_${id}_${ch}`}
-                ref={registerImgCanvas(`${id}_${ch}`)}
-                width={width}
+              <FreqAxis
+                key={`freq_${id}_${ch}`}
+                ref={registerFreqCanvas(`${id}_${ch}`)}
                 height={height}
               />
             </div>

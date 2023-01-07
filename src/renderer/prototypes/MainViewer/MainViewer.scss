@@ -25,6 +25,8 @@
 }
 
 .chCanvases {
+  display: flex;
+
   canvas {
     display: block;
     margin-bottom: $track-margin;
