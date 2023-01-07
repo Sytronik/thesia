@@ -29,14 +29,6 @@ button {
   background: transparent;
 }
 
-a {
-  text-decoration: none;
-}
-
-table {
-  border-collapse: collapse;
-}
-
 // Box-Sizing
 html {
   box-sizing: border-box;
@@ -56,10 +48,6 @@ body {
   font-family: $body-font;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
 #root {
@@ -100,29 +88,4 @@ code {
     flex: 1 1 auto;
     width: 100%;
   }
-}
-
-.Control {
-  // temporary guide
-  border: $border;
-
-  flex: 1 1 auto;
-  margin: $component-gap / 2;
-}
-
-.Overview {
-  // temporary guide
-  border: $border;
-
-  flex: 1 1 auto;
-  margin: $component-gap / 2;
-}
-
-.SlideBar {
-  // temporary guide
-  border: $border;
-
-  flex: 0 0 auto;
-  width: $slidebar-width;
-  margin: $component-gap / 2;
 }
