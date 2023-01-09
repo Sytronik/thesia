@@ -12,7 +12,7 @@ type ColorBarProps = {
 function ColorMap(props: ColorBarProps) {
   const {height, setHeight, dbAxisCanvasElem} = props;
 
-  const colorBarElem = useRef<HTMLDivElement>(null);
+  const colorMapElem = useRef<HTMLDivElement>(null);
 
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
@@ -22,17 +22,17 @@ function ColorMap(props: ColorBarProps) {
   );
 
   useLayoutEffect(() => {
-    if (colorBarElem.current) {
-      resizeObserver.observe(colorBarElem.current);
+    if (colorMapElem.current) {
+      resizeObserver.observe(colorMapElem.current);
     }
 
     return () => {
       resizeObserver.disconnect();
     };
-  }, [colorBarElem, resizeObserver]);
+  }, [colorMapElem, resizeObserver]);
 
   return (
-    <div className={styles.colorBar} ref={colorBarElem}>
+    <div className={styles.colorBar} ref={colorMapElem}>
       <AxisCanvas
         ref={dbAxisCanvasElem}
         width={DB_CANVAS_WIDTH}
