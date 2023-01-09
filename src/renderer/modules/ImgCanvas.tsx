@@ -1,5 +1,4 @@
 import React, {forwardRef, useRef, useImperativeHandle} from "react";
-import {AXIS_SPACE} from "renderer/prototypes/constants";
 import styles from "./ImgCanvas.scss";
 
 type ImgCanvasProps = {
@@ -31,12 +30,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   return (
     <>
-      <canvas
-        className={styles.ImgCanvas}
-        ref={canvasElem}
-        height={height}
-        width={width - AXIS_SPACE}
-      />{" "}
+      <canvas className={styles.ImgCanvas} ref={canvasElem} height={height} width={width} />{" "}
       {/* TEMP */}
     </>
   );

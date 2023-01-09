@@ -1,4 +1,5 @@
 import React, {useRef, useEffect, useLayoutEffect, useState, useCallback} from "react";
+import {AXIS_SPACE} from "renderer/prototypes/constants";
 import styles from "./SplitView.scss";
 
 const MARGIN = 2;
@@ -114,7 +115,7 @@ const SplitView = (props: SplitViewProps) => {
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const {target} = entries[0];
       if (target.clientWidth >= 1) {
-        setCanvasWidth(target.clientWidth);
+        setCanvasWidth(target.clientWidth - AXIS_SPACE);
       }
     }),
   );
