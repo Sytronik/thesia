@@ -133,6 +133,8 @@ export const FREQ_TICK_NUM = {
 };
 export const FREQ_BOUNDARIES = createBoundaries(FREQ_TICK_NUM);
 
+export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH;
+
 export const DB_CANVAS_WIDTH = 47; // 48px - 1px(border)
 export const DB_MARKER_POS = {
   MAJOR_TICK_POS: 4,

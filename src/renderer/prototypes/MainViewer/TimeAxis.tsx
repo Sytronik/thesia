@@ -1,13 +1,6 @@
 import React, {forwardRef} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
-import {
-  TIME_CANVAS_HEIGHT,
-  TIME_MARKER_POS,
-  AMP_CANVAS_WIDTH,
-  FREQ_CANVAS_WIDTH,
-} from "../constants";
-
-const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH;
+import {TIME_CANVAS_HEIGHT, TIME_MARKER_POS, AXIS_SPACE} from "../constants";
 
 const TimeAxis = forwardRef((props: {width: number}, ref) => {
   const {width} = props;

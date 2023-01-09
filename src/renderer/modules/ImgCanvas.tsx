@@ -1,13 +1,11 @@
 import React, {forwardRef, useRef, useImperativeHandle} from "react";
-import {AMP_CANVAS_WIDTH, FREQ_CANVAS_WIDTH} from "renderer/prototypes/constants";
+import {AXIS_SPACE} from "renderer/prototypes/constants";
 import styles from "./ImgCanvas.scss";
 
 type ImgCanvasProps = {
   width: number;
   height: number;
 };
-
-const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH;
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {width, height} = props;
