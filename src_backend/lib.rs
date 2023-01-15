@@ -1,27 +1,26 @@
-use std::convert::TryInto;
-use std::sync::Arc;
+#![allow(dead_code)]
+
+use std::{collections::HashMap, sync::Arc};
 
 use lazy_static::{initialize, lazy_static};
-use napi::{
-    CallContext, ContextlessResult, Env, JsBuffer, JsNumber, JsObject, JsString, JsUndefined,
-    Result as JsResult,
-};
-use napi_derive::*;
+
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
 use parking_lot::RwLock;
+use serde_json::json;
 
 mod backend;
 mod img_mgr;
-mod napi_utils;
 
 use backend::*;
 use img_mgr::{DrawParams, ImgMsg};
-use napi_utils::*;
 
-#[cfg(all(unix, not(target_env = "musl"), not(target_arch = "aarch64")))]
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
-#[cfg(all(windows, target_arch = "x86_64"))]
+#[cfg(all(
+    any(windows, unix),
+    target_arch = "x86_64",
+    not(target_env = "musl"),
+    not(debug_assertions)
+))]
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -29,38 +28,46 @@ lazy_static! {
     static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
 }
 
-#[js_function(2)]
-fn add_tracks(ctx: CallContext) -> JsResult<JsObject> {
-    let id_list: Vec<usize> = vec_usize_from(&ctx, 0)?;
-    let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
+#[napi]
+fn init() {
+    initialize(&TM);
+    img_mgr::spawn_runtime();
+}
+
+#[napi]
+fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
+    // let id_list: Vec<usize> = vec_usize_from(&ctx, 0)?;
+    // let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    let added_ids = TM.write().add_tracks(id_list, path_list);
-    convert_usize_arr_to_jsarr(ctx.env, &added_ids)
+    let added_ids = TM
+        .write()
+        .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
+    // convert_usize_arr_to_jsarr(ctx.env, &added_ids)
+    added_ids.into_iter().map(|x| x as u32).collect()
 }
 
-#[js_function(1)]
-fn reload_tracks(ctx: CallContext) -> JsResult<JsObject> {
-    let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
+#[napi]
+fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     assert!(!track_ids.is_empty());
 
+    let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let no_err_ids = TM.write().reload_tracks(&track_ids);
-    convert_usize_arr_to_jsarr(ctx.env, &no_err_ids)
+    no_err_ids.into_iter().map(|x| x as u32).collect()
 }
 
-#[js_function(1)]
-fn remove_tracks(ctx: CallContext) -> JsResult<JsUndefined> {
-    let track_ids: Vec<usize> = vec_usize_from(&ctx, 0)?;
+#[napi]
+fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
+    let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let mut tm = TM.write();
     img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids)));
     tm.remove_tracks(&track_ids);
-    ctx.env.get_undefined()
 }
 
-#[contextless_function]
-fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
+#[napi]
+fn apply_track_list_changes() -> Vec<String> {
     let id_ch_tuples = {
         let mut tm = TM.write();
         let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
@@ -68,232 +75,207 @@ fn apply_track_list_changes(env: Env) -> ContextlessResult<JsObject> {
     };
 
     img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone()));
-    convert_id_ch_arr_to_jsarr(&env, &id_ch_tuples).map(Some)
+    id_ch_tuples
+        .into_iter()
+        .map(|(id, ch)| format!("{}_{}", id, ch))
+        .collect()
 }
 
-#[js_function(6)]
-fn set_img_state(ctx: CallContext) -> JsResult<JsUndefined> {
+#[napi]
+fn set_img_state(
+    id_ch_strs: Vec<String>,
+    start_sec: f64,
+    width: u32,
+    option: DrawOption,
+    opt_for_wav: serde_json::Value,
+    blend: f64,
+) -> Result<Undefined> {
     // let start = Instant::now();
-    let id_ch_tuples = id_ch_tuples_from(&ctx, 0)?;
-    let start_sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let width: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
-    let option = draw_option_from_js_obj(ctx.get::<JsObject>(3)?)?;
-    let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(4)?)?;
-    let blend: f64 = ctx.get::<JsNumber>(5)?.try_into()?;
-
-    assert!(!id_ch_tuples.is_empty());
+    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
+    assert!(!id_ch_strs.is_empty());
     assert!(width >= 1);
     assert!(option.px_per_sec.is_finite());
     assert!(option.px_per_sec >= 0.);
     assert!(option.height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
+    let id_ch_tuples = parse_id_ch_tuples(id_ch_strs)?;
     img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
         DrawParams::new(start_sec, width, option, opt_for_wav, blend),
     )));
-    ctx.env.get_undefined()
+    Ok(())
 }
 
-#[contextless_function]
-fn get_images(env: Env) -> ContextlessResult<JsObject> {
-    let mut result = env.create_object()?;
+#[napi]
+fn get_images() -> HashMap<String, Buffer> {
     if let Some(images) = img_mgr::recv() {
-        for ((id, ch), im) in images {
-            let name = format!("{}_{}", id, ch);
-            let buf = env.create_buffer_with_data(im)?.into_raw();
-            result.set_named_property(name.as_str(), buf)?;
-        }
+        images
+            .into_iter()
+            .map(|((id, ch), img)| (format!("{}_{}", id, ch), img.into()))
+            .collect()
+    } else {
+        HashMap::new()
     }
-    Ok(Some(result))
 }
 
-#[js_function(1)]
-fn find_id_by_path(ctx: CallContext) -> JsResult<JsNumber> {
-    let path = ctx.get::<JsString>(0)?.into_utf8()?;
+#[napi(js_name = "findIDbyPath")]
+fn find_id_by_path(path: String) -> i32 {
     TM.read()
         .tracklist
-        .find_id_by_path(path.as_str()?)
-        .map_or_else(
-            || ctx.env.create_int64(-1),
-            |id| ctx.env.create_int64(id as i64),
-        )
+        .find_id_by_path(&path)
+        .map_or_else(|| -1, |id| id as i32)
 }
 
-#[js_function(3)]
-fn get_overview(ctx: CallContext) -> JsResult<JsBuffer> {
-    let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
-    let width: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let height: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+#[napi]
+fn get_overview(id: u32, width: u32, height: u32) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
-    ctx.env
-        .create_buffer_with_data(TM.read().draw_overview(id, width, height))
-        .map(|x| x.into_raw())
+    TM.read().draw_overview(id as usize, width, height).into()
 }
 
-#[js_function(2)]
-fn get_hz_at(ctx: CallContext) -> JsResult<JsNumber> {
-    let y: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let height: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
+#[napi]
+fn get_hz_at(y: u32, height: u32) -> f64 {
     assert!(height >= 1 && y < height);
 
-    ctx.env
-        .create_double(TM.read().calc_hz_of(y, height) as f64)
+    TM.read().calc_hz_of(y, height) as f64
 }
 
-#[js_function(5)]
-fn get_time_axis(ctx: CallContext) -> JsResult<JsObject> {
-    let width: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let start_sec: f64 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let px_per_sec: f64 = ctx.get::<JsNumber>(2)?.try_into()?;
-    let tick_unit: f64 = ctx.get::<JsNumber>(3)?.try_into()?;
-    let label_interval: u32 = ctx.get::<JsNumber>(4)?.try_into()?;
+#[napi]
+fn get_time_axis(
+    width: u32,
+    start_sec: f64,
+    px_per_sec: f64,
+    tick_unit: f64,
+    label_interval: u32,
+) -> serde_json::Value {
     assert!(width >= 1);
     assert!(px_per_sec.is_finite());
     assert!(px_per_sec >= 0.);
     assert!(label_interval > 0);
-    convert_axis_to_jsarr(
-        ctx.env,
-        TM.read()
-            .create_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval),
-    )
+    json!(&TM
+        .read()
+        .create_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval,))
 }
 
-#[js_function(3)]
-fn get_freq_axis(ctx: CallContext) -> JsResult<JsObject> {
-    let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let max_num_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let max_num_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+#[napi]
+fn get_freq_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
     assert_axis_params(height, max_num_ticks, max_num_labels);
 
-    convert_axis_to_jsarr(
-        ctx.env,
-        TM.read()
-            .create_freq_axis(height, max_num_ticks, max_num_labels),
-    )
+    json!(TM
+        .read()
+        .create_freq_axis(height, max_num_ticks, max_num_labels))
 }
 
-#[js_function(4)]
-fn get_amp_axis(ctx: CallContext) -> JsResult<JsObject> {
-    let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let max_num_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let max_num_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
-    let opt_for_wav = draw_opt_for_wav_from_js_obj(ctx.get::<JsObject>(3)?)?;
+#[napi]
+fn get_amp_axis(
+    height: u32,
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    opt_for_wav: serde_json::Value,
+) -> Result<serde_json::Value> {
+    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
     assert_axis_params(height, max_num_ticks, max_num_labels);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
-    convert_axis_to_jsarr(
-        ctx.env,
-        TrackManager::create_amp_axis(height, max_num_ticks, max_num_labels, opt_for_wav.amp_range),
-    )
+    Ok(json!(TrackManager::create_amp_axis(
+        height,
+        max_num_ticks,
+        max_num_labels,
+        opt_for_wav.amp_range
+    )))
 }
 
-#[js_function(3)]
-fn get_db_axis(ctx: CallContext) -> JsResult<JsObject> {
-    let height: u32 = ctx.get::<JsNumber>(0)?.try_into()?;
-    let max_num_ticks: u32 = ctx.get::<JsNumber>(1)?.try_into()?;
-    let max_num_labels: u32 = ctx.get::<JsNumber>(2)?.try_into()?;
+#[napi(js_name = "getdBAxis")]
+fn get_db_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
     assert_axis_params(height, max_num_ticks, max_num_labels);
 
-    convert_axis_to_jsarr(
-        ctx.env,
-        TM.read()
-            .create_db_axis(height, max_num_ticks, max_num_labels),
-    )
+    json!(TM
+        .read()
+        .create_db_axis(height, max_num_ticks, max_num_labels))
 }
 
-#[contextless_function]
-fn get_max_db(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().max_db as f64).map(Some)
+#[napi(js_name = "getMaxdB")]
+fn get_max_db() -> f64 {
+    TM.read().max_db as f64
 }
 
-#[contextless_function]
-fn get_min_db(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().min_db as f64).map(Some)
+#[napi(js_name = "getMindB")]
+fn get_min_db() -> f64 {
+    TM.read().min_db as f64
 }
 
-#[contextless_function]
-fn get_max_sec(env: Env) -> ContextlessResult<JsNumber> {
-    env.create_double(TM.read().tracklist.max_sec as f64)
-        .map(Some)
+#[napi]
+fn get_max_sec() -> f64 {
+    TM.read().tracklist.max_sec as f64
 }
 
-#[js_function(1)]
-fn get_n_ch(ctx: CallContext) -> JsResult<JsNumber> {
+#[napi(js_name = "getNumCh")]
+fn get_n_ch(track_id: u32) -> u32 {
     let tm = TM.read();
-    let track = get_track!(ctx, 0, tm);
-    ctx.env.create_uint32(track.n_ch() as u32)
+    tm.tracklist[track_id as usize].n_ch() as u32
 }
 
-#[js_function(1)]
-fn get_sec(ctx: CallContext) -> JsResult<JsNumber> {
+#[napi]
+fn get_sec(track_id: u32) -> f64 {
     let tm = TM.read();
-    let track = get_track!(ctx, 0, tm);
-    ctx.env.create_double(track.sec())
+    tm.tracklist[track_id as usize].sec()
 }
 
-#[js_function(1)]
-fn get_sr(ctx: CallContext) -> JsResult<JsNumber> {
+#[napi]
+fn get_sr(track_id: u32) -> u32 {
     let tm = TM.read();
-    let track = get_track!(ctx, 0, tm);
-    ctx.env.create_uint32(track.sr)
+    tm.tracklist[track_id as usize].sr
 }
 
-#[js_function(1)]
-fn get_sample_format(ctx: CallContext) -> JsResult<JsString> {
+#[napi]
+fn get_sample_format(track_id: u32) -> String {
     let tm = TM.read();
-    let track = get_track!(ctx, 0, tm);
-    ctx.env.create_string(&track.sample_format_str)
+    tm.tracklist[track_id as usize].sample_format_str.to_owned()
 }
 
-#[js_function(1)]
-fn get_path(ctx: CallContext) -> JsResult<JsString> {
+#[napi]
+fn get_path(track_id: u32) -> String {
     let tm = TM.read();
-    let track = get_track!(ctx, 0, tm);
-    ctx.env.create_string_from_std(track.path_string())
+    tm.tracklist[track_id as usize].path_string()
 }
 
-#[js_function(1)]
-fn get_filename(ctx: CallContext) -> JsResult<JsString> {
-    let id: usize = ctx.get::<JsNumber>(0)?.try_into_usize()?;
-    ctx.env
-        .create_string_from_std(TM.read().tracklist.get_filename(id).to_owned())
+#[napi(js_name = "getFileName")]
+fn get_filename(track_id: u32) -> String {
+    TM.read()
+        .tracklist
+        .get_filename(track_id as usize)
+        .to_owned()
 }
 
-#[contextless_function]
-fn get_colormap(env: Env) -> ContextlessResult<JsBuffer> {
-    env.create_buffer_with_data(display::get_colormap_rgb())
-        .map(|x| Some(x.into_raw()))
+#[napi]
+fn get_colormap() -> Buffer {
+    display::get_colormap_rgb().into()
 }
 
-#[module_exports]
-fn init(mut exports: JsObject) -> JsResult<()> {
-    initialize(&TM);
-    img_mgr::spawn_runtime();
+#[inline]
+pub fn assert_axis_params(height: u32, max_num_ticks: u32, max_num_labels: u32) {
+    assert!(height >= 1);
+    assert!(max_num_ticks >= 2);
+    assert!(max_num_labels >= 2);
+    assert!(max_num_ticks >= max_num_labels);
+}
 
-    exports.create_named_method("addTracks", add_tracks)?;
-    exports.create_named_method("reloadTracks", reload_tracks)?;
-    exports.create_named_method("removeTracks", remove_tracks)?;
-    exports.create_named_method("applyTrackListChanges", apply_track_list_changes)?;
-    exports.create_named_method("setImgState", set_img_state)?;
-    exports.create_named_method("getImages", get_images)?;
-    exports.create_named_method("findIDbyPath", find_id_by_path)?;
-    exports.create_named_method("getOverview", get_overview)?;
-    exports.create_named_method("getHzAt", get_hz_at)?;
-    exports.create_named_method("getTimeAxis", get_time_axis)?;
-    exports.create_named_method("getFreqAxis", get_freq_axis)?;
-    exports.create_named_method("getAmpAxis", get_amp_axis)?;
-    exports.create_named_method("getdBAxis", get_db_axis)?;
-    exports.create_named_method("getMaxdB", get_max_db)?;
-    exports.create_named_method("getMindB", get_min_db)?;
-    exports.create_named_method("getMaxSec", get_max_sec)?;
-    exports.create_named_method("getNumCh", get_n_ch)?;
-    exports.create_named_method("getSec", get_sec)?;
-    exports.create_named_method("getSr", get_sr)?;
-    exports.create_named_method("getSampleFormat", get_sample_format)?;
-    exports.create_named_method("getPath", get_path)?;
-    exports.create_named_method("getFileName", get_filename)?;
-    exports.create_named_method("getColormap", get_colormap)?;
-    Ok(())
+pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
+    let mut result = IdChVec::with_capacity(id_ch_strs.len());
+    for s in id_ch_strs {
+        let mut iter = s.split('_').map(|x| x.parse::<usize>());
+        match (iter.next(), iter.next()) {
+            (Some(Ok(id)), Some(Ok(ch))) => {
+                result.push((id, ch));
+            }
+            _ => {
+                return Err(Error::new(
+                    Status::Unknown,
+                    String::from("The array element should be \"{unsigned_int}_{unsigned_int}\"."),
+                ));
+            }
+        }
+    }
+    Ok(result)
 }

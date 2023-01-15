@@ -2,6 +2,8 @@ import {isNil} from "../utils/arrayUtils";
 
 const backend = require("backend");
 
+backend.init();
+
 /* handle tracks */
 export function addTracks(newTrackIds: number[], newPaths: string[]): number[] {
   // return successfully opened track ids
@@ -141,6 +143,6 @@ export function setImageState(
   drawOptionForWav: DrawOptionForWav,
   blend: number,
 ) {
-  const drawOption = {px_per_sec: pxPerSec, height};
+  const drawOption = {pxPerSec, height};
   return backend.setImgState(idChArr, startSec, width, drawOption, drawOptionForWav, blend);
 }
