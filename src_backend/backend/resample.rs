@@ -13,24 +13,24 @@ use super::sinc::calc_windowed_sincs;
 use super::windows::WindowType;
 
 #[derive(Clone)]
-pub struct FftResampler<T> {
+pub struct FftResampler<A> {
     input_size: usize,
     output_size: usize,
     latency: usize,
-    fft: Arc<dyn RealToComplex<T>>,
-    ifft: Arc<dyn ComplexToReal<T>>,
-    filter_f: Array1<Complex<T>>,
-    scratch_fw: Vec<Complex<T>>,
-    scratch_inv: Vec<Complex<T>>,
-    input_buf: Array1<T>,
-    input_f: Array1<Complex<T>>,
-    output_f: Array1<Complex<T>>,
-    output_buf: Array1<T>,
+    fft: Arc<dyn RealToComplex<A>>,
+    ifft: Arc<dyn ComplexToReal<A>>,
+    filter_f: Array1<Complex<A>>,
+    scratch_fw: Vec<Complex<A>>,
+    scratch_inv: Vec<Complex<A>>,
+    input_buf: Array1<A>,
+    input_f: Array1<Complex<A>>,
+    output_f: Array1<Complex<A>>,
+    output_buf: Array1<A>,
 }
 
-impl<T> FftResampler<T>
+impl<A> FftResampler<A>
 where
-    T: Float
+    A: Float
         + FloatConst
         + FromPrimitive
         + ScalarOperand
@@ -49,18 +49,18 @@ where
             0.4f32.powf(16.0 / input_size as f32)
         };
 
-        let sinc = calc_windowed_sincs::<T>(input_size, 1, cutoff, WindowType::Blackman)
+        let sinc = calc_windowed_sincs::<A>(input_size, 1, cutoff, WindowType::Blackman)
             .index_axis_move(Axis(0), 0);
         let latency =
             ((sinc.argmax().unwrap() * output_size) as f32 / input_size as f32).round() as usize;
 
-        let mut planner = RealFftPlanner::<T>::new();
+        let mut planner = RealFftPlanner::<A>::new();
         let fft = planner.plan_fft_forward(2 * input_size);
         let ifft = planner.plan_fft_inverse(2 * output_size);
 
         let mut filter_t = {
-            let x = &sinc / T::from(2 * input_size).unwrap();
-            x.pad((0, input_size), Axis(0), PadMode::Constant(T::zero()))
+            let x = &sinc / A::from(2 * input_size).unwrap();
+            x.pad((0, input_size), Axis(0), PadMode::Constant(A::zero()))
         };
         let mut filter_f = Array1::zeros(input_size + 1);
         fft.process(
@@ -92,7 +92,7 @@ where
         }
     }
 
-    pub fn resample(&mut self, wav_in: ArrayView1<T>) -> ArrayView1<T> {
+    pub fn resample(&mut self, wav_in: ArrayView1<A>) -> ArrayView1<A> {
         assert_eq!(wav_in.len(), self.input_size);
         // Copy to input buffer and clear padding area
         self.input_buf

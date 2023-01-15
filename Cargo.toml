@@ -18,6 +18,7 @@ approx = "0.5.1"
 blas-src = {version = "0.8.0", features = ["openblas"]}
 cached = "0.42.0"
 chrono = "0.4.23"
+creak = "0.3.0"
 futures = "0.3.25"
 lazy_static = "1.4.0"
 ndarray = {version = "0.15.6", features = ["rayon", "approx", "blas"]}
@@ -38,10 +39,6 @@ tokio = {version = "1.24.1", features = ["rt-multi-thread", "sync"]}
 [dependencies.resize]
 git = "https://github.com/Sytronik/resize.git"
 rev = "860ff756349d6580f95324374f0ffce4d1675607"
-
-[dependencies.rodio]
-git = "https://github.com/Sytronik/rodio.git"
-rev = "e7353f7218803d94b473ea09e6d8355e8defc102"
 
 [dev-dependencies]
 image = "0.24.5"

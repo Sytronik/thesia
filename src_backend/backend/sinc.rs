@@ -18,7 +18,7 @@ where
     }
 }
 
-/// Helper function. Make a set of windowed sincs.  
+/// Helper function. Make a set of windowed sincs.
 pub fn calc_windowed_sincs<T>(
     npoints: usize,
     factor: usize,
