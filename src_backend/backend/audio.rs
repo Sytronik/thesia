@@ -1,19 +1,15 @@
-use std::fs::File;
-use std::io::{self, BufReader};
-
+use creak::{Decoder, DecoderError};
 use ndarray::prelude::*;
 
-use rodio::{Decoder, Source};
-
-pub fn open_audio_file(path: &str) -> io::Result<(Array2<f32>, u32, String)> {
-    let source = match Decoder::new(BufReader::new(File::open(path)?)) {
-        Ok(decoder) => decoder,
-        Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e)),
-    };
-    let sr = source.sample_rate();
-    let channels = source.channels() as usize;
-    let sample_format_str = source.sample_format_str();
-    let mut vec: Vec<f32> = source.collect();
+pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), DecoderError> {
+    let decoder = Decoder::open(path)?;
+    let info = decoder.info();
+    let channels = info.channels() as usize;
+    let sample_format_str = info.format().to_string(); // TODO: sample format
+    let mut vec: Vec<f32> = Vec::with_capacity(channels);
+    for sample in decoder.into_samples()? {
+        vec.push(sample?);
+    }
     if vec.len() < channels {
         (vec.len()..channels).into_iter().for_each(|_| vec.push(0.));
     }
@@ -21,7 +17,7 @@ pub fn open_audio_file(path: &str) -> io::Result<(Array2<f32>, u32, String)> {
     let shape = (channels, vec.len() / channels);
     vec.truncate(shape.0 * shape.1); // defensive code
     let wav = Array2::from_shape_vec(shape.strides((1, shape.0)), vec).unwrap();
-    Ok((wav, sr, sample_format_str))
+    Ok((wav, info.sample_rate(), sample_format_str))
 }
 
 #[cfg(test)]

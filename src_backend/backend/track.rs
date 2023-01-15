@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::io;
 use std::ops::Index;
 use std::path::PathBuf;
 
+use creak::DecoderError;
 use ndarray::prelude::*;
 
 use super::audio;
@@ -40,17 +40,17 @@ pub struct AudioTrack {
 }
 
 impl AudioTrack {
-    pub fn new(path: String) -> io::Result<Self> {
+    pub fn new(path: String) -> Result<Self, DecoderError> {
         let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
         Ok(AudioTrack {
             sr,
             sample_format_str,
-            path: PathBuf::from(path).canonicalize()?,
+            path: PathBuf::from(path).canonicalize().unwrap(),
             wavs,
         })
     }
 
-    pub fn reload(&mut self) -> io::Result<bool> {
+    pub fn reload(&mut self) -> Result<bool, DecoderError> {
         let (wavs, sr, sample_format_str) =
             audio::open_audio_file(self.path.to_string_lossy().as_ref())?;
         if sr == self.sr && sample_format_str == self.sample_format_str && wavs == self.wavs {
