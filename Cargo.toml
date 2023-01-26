@@ -1,41 +1,53 @@
 [package]
-name = "thesia"
-version = "0.1.0"
 authors = ["Sytronik <sytronik210@gmail.com>", "crackyachae <crackyache@gmail.com>"]
 edition = "2018"
-license = "MIT/Apache-2.0"
-repository = "https://github.com/Sytronik/thesia"
+license = "MIT"
+name = "thesia-native-backend"
+version = "0.1.0"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
-path = "src_rust/lib.rs"
+crate-type = ["cdylib"]
+path = "src_backend/lib.rs"
 
 [dependencies]
-ndarray = { version = "0.14.0", features = ["rayon", "approx"] }
-rayon = "1.5.0"
-num-traits = "0.2.14"
-rustfft = "4.0.0"
-rodio = { version = "0.13.0", default-features = false, features=["flac", "vorbis", "wav"] }
-hound = "3.4.0"
-image = "0.23.12"
-wasm-bindgen = "0.2.69"
-approx = {version = "0.4.0", features = ["num-complex"] }
+napi = {version = "2.10.6", features = ["serde-json", "async"]}
+napi-derive = "2.9.5"
 
-[dependencies.ndarray-stats]
-git = "https://github.com/rust-ndarray/ndarray-stats.git"
-rev = "74a818026aca7c3ed40a3de09c779d225f3eef67"
+# cpal = "0.13.3"
+approx = "0.5.1"
+blas-src = {version = "0.8.0", features = ["openblas"]}
+cached = "0.42.0"
+chrono = "0.4.23"
+creak = "0.3.0"
+futures = "0.3.25"
+lazy_static = "1.4.0"
+ndarray = {version = "0.15.6", features = ["rayon", "approx", "blas"]}
+ndarray-stats = "0.5.1"
+num-traits = "0.2.15"
+openblas-src = {version = "0.10.8", features = ["cblas", "system"]}
+parking_lot = "0.12.1"
+rayon = "1.6.1"
+readonly = "0.2.3"
+realfft = "3.2.0"
+rgb = "0.8.34"
+rustfft = "6.1.0"
+serde = {version = "1.0.152", features = ["derive"]}
+serde_json = "1.0.91"
+tiny-skia = "0.8.2"
+tokio = {version = "1.24.1", features = ["rt-multi-thread", "sync"]}
+
+[dependencies.resize]
+git = "https://github.com/Sytronik/resize.git"
+rev = "860ff756349d6580f95324374f0ffce4d1675607"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.13"
-criterion = "0.3"
+image = "0.24.5"
+
+[build-dependencies]
+napi-build = "2.0.1"
+
+[target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
+mimalloc = {version = "0.1.34"}
 
 [profile.release]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-
-[[bench]]
-name = "bench"
-harness = false
+lto = true

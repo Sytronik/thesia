@@ -1,0 +1,13 @@
+@import '../../styles/index.scss';
+
+// color bar
+.colorBar {
+  // temporary guide
+  border: $border;
+
+  flex: 0 0 auto;
+  width: $colorbar-width;
+  margin: $component-gap / 2;
+
+  padding-top: $time-ruler-height + $track-margin; // TEMP
+}

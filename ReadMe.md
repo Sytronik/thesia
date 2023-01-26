@@ -2,17 +2,26 @@
 
 This project is in a very early stage.
 
+## Design Draft
+
+![design_draft](https://user-images.githubusercontent.com/61383377/102886103-d806b200-4497-11eb-91b2-2e752df089e5.png)
+
 ## Run
 
 ```
-wasm-pack build
-npm start
+yarn start
 ```
 
 ## Plan
 
-- [ ] zoom in / out
-- [ ] floating tools: dB colorbar, waveform amplitude zoom in/out slider
+- [ ] dB colorbar
+- [ ] Hi-DPI display support
+- [ ] time / frequency info on mouse hover
+- [ ] waveform amplitude zoom in/out slider
 - [ ] selecting spectrogram mode / waveform mode
+- [ ] configurable STFT parameters (preset?)
 - [ ] Audio Player
+- [ ] peak / RMS / LUFS / LKFS level calculator
+- [ ] volume normalization
+- [ ] pitch / formant tracker
 - [ ] Adaptive STFT (sth like iZotope RX Editor)

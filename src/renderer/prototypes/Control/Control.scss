@@ -1,0 +1,9 @@
+@import '../../styles/index.scss';
+
+.Control {
+  // temporary guide
+  border: $border;
+
+  flex: 1 1 auto;
+  margin: $component-gap / 2;
+}

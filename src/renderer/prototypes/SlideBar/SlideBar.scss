@@ -1,0 +1,10 @@
+@import '../../styles/index.scss';
+
+.SlideBar {
+  // temporary guide
+  border: $border;
+
+  flex: 0 0 auto;
+  width: $slidebar-width;
+  margin: $component-gap / 2;
+}

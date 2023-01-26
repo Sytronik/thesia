@@ -1,0 +1,91 @@
+@import './styles/index.scss';
+
+// Type Selector Reset
+// prettier-ignore
+html, body {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	font-size: 100%;
+}
+
+// prettier-ignore
+div, dl, dt, dd, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, code, form, fieldset, legend, input, textarea, p, blockquote, th, td, figure, span {
+	margin: 0;
+	padding: 0;
+}
+
+// prettier-ignore
+header, footer, section, article, aside, nav, hgroup, details, menu, figure, figcaption {
+	display: block;
+}
+
+button {
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+// Box-Sizing
+html {
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body {
+  background-color: $bg-main;
+}
+
+body {
+  font-family: $body-font;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+
+  width: 100%;
+  height: 100vh;
+  padding: $component-gap / 2;
+  color: $text-white;
+
+  // [TEMP] class 등으로 대체
+  > div {
+    display: flex;
+    justify-content: space-between;
+  }
+}
+
+.row {
+  &-fixed {
+    flex: 0 0 auto;
+
+    &.control {
+      height: $control-height;
+    }
+    &.overview {
+      height: $overview-height;
+    }
+  }
+  &-flex {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}

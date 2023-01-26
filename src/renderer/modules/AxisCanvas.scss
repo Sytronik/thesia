@@ -1,0 +1,11 @@
+@import '../styles/index.scss';
+
+.timeRuler {
+  height: $spacer-3;
+  margin-bottom: $track-margin;
+}
+
+.ampAxis,
+.freqAxis {
+  flex: 0 0 auto;
+}

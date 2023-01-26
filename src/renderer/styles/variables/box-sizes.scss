@@ -1,0 +1,22 @@
+@import 'layout.scss';
+
+$component-gap: $spacer;
+
+// Components container
+$control-height: 80px;
+$overview-height: 64px;
+
+// Components
+$slidebar-width: 160px;
+$colorbar-width: 104px;
+
+// MainViewer
+$time-ruler-height: $spacer-3;
+$emptytrack-height: 80px;
+$track-margin: 2px;
+
+// Channels
+$channel-width: 32px;
+
+// Buttons
+$button-size: $spacer-3;

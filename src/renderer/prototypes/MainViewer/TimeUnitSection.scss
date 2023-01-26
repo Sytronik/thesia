@@ -1,0 +1,15 @@
+@import '../../styles/index.scss';
+
+.timeUnitSection {
+  @include body-label;
+
+  position: relative;
+  height: $time-ruler-height;
+  margin-bottom: $track-margin;
+
+  p {
+    position: absolute;
+    right: $spacer;
+    bottom: 2px;
+  }
+}
