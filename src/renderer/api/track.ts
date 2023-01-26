@@ -4,6 +4,8 @@ const backend = require("backend");
 
 backend.init();
 
+// most api returns empty array for edge case
+
 /* handle tracks */
 export function addTracks(newTrackIds: number[], newPaths: string[]): number[] {
   // return successfully opened track ids
