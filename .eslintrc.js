@@ -2,15 +2,13 @@ module.exports = {
   extends: "erb",
   rules: {
     // A temporary hack related to IDE not resolving correct package.json
-    "no-alert": "off",
+    "no-alert": "warn",
     "no-restricted-syntax": "warn",
-    "import/no-extraneous-dependencies": "off",
-    "jsx-a11y/click-events-have-key-events": "off",
-    "jsx-a11y/no-static-element-interactions": "off",
-    "react/prop-types": "off",
-    "react/jsx-filename-extension": "off",
-    "@typescript-eslint/no-shadow": "off",
-    "@typescript-eslint/no-use-before-define": "off",
+    "import/no-extraneous-dependencies": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "react/prop-types": "warn",
+    "@typescript-eslint/no-shadow": "warn",
   },
   parserOptions: {
     ecmaVersion: 2020,
