@@ -4,15 +4,12 @@ import {last, isNil} from "renderer/utils/arrayUtils";
 function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
 
-  const selectTrack = useCallback(
-    (e: React.MouseEvent, id: number) => {
-      e.preventDefault();
+  const selectTrack = useCallback((e: React.MouseEvent, id: number) => {
+    e.preventDefault();
 
-      // with nothing pressed
-      setSelectedTrackIds([id]);
-    },
-    [setSelectedTrackIds],
-  );
+    // with nothing pressed
+    setSelectedTrackIds([id]);
+  }, []);
 
   const selectTrackAfterAddTracks = useCallback((prevTrackIds: number[], newTrackIds: number[]) => {
     const nextSelectedTrackIndex = prevTrackIds.length;
