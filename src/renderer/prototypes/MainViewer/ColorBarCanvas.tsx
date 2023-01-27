@@ -1,4 +1,4 @@
-import React, {forwardRef, useMemo, useRef, useImperativeHandle} from "react";
+import React, {forwardRef, useMemo, useRef, useImperativeHandle, useEffect} from "react";
 import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH, COLORBAR_COLORS_COUNT} from "renderer/prototypes/constants";
 import NativeAPI from "../../api";
@@ -16,6 +16,12 @@ const ColorBarCanvas = forwardRef((props: ColorBarCanvasProps, ref) => {
   const canvasElem = useRef<HTMLCanvasElement>(null);
 
   const colorBarGradientBuf = useMemo(() => NativeAPI.getColorMap(), []);
+
+  useEffect(() => {
+    if (canvasElem.current) {
+      canvasElem.current.style.height = `${height}px`;
+    }
+  }, [height]);
 
   useImperativeHandle(ref, () => ({
     draw: async () => {
