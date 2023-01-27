@@ -2,7 +2,7 @@ import React, {forwardRef, useMemo, useRef, useImperativeHandle} from "react";
 import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH, COLORBAR_COLORS_COUNT} from "renderer/prototypes/constants";
 import NativeAPI from "../../api";
-import styles from "../../modules/ImgCanvas.scss";
+import styles from "./ColorBarCanvas.scss";
 
 type ColorBarCanvasProps = {
   width: number;
@@ -48,7 +48,7 @@ const ColorBarCanvas = forwardRef((props: ColorBarCanvasProps, ref) => {
 
   return (
     <>
-      <canvas className={styles.ImgCanvas} ref={canvasElem} height={height} width={width} />
+      <canvas className={styles.ColorBarCanvas} ref={canvasElem} height={height} width={width} />
     </>
   );
 });

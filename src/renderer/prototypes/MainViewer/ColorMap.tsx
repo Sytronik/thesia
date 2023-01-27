@@ -1,6 +1,6 @@
 import React, {useRef, useLayoutEffect, useState, useCallback} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
-import GradientBarCanvas from "renderer/prototypes/MainViewer/GradientBarCanvas";
+import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.scss";
 import {COLORBAR_CANVAS_WIDTH, DB_CANVAS_WIDTH, DB_MARKER_POS, MIN_HEIGHT} from "../constants";
 
@@ -40,7 +40,7 @@ function ColorMap(props: ColorMapProps) {
 
   return (
     <div className={styles.colorBar} ref={colorMapElem}>
-      <GradientBarCanvas ref={drawedColorBarElem} width={COLORBAR_CANVAS_WIDTH} height={height} />
+      <ColorBarCanvas ref={drawedColorBarElem} width={COLORBAR_CANVAS_WIDTH} height={height} />
       <AxisCanvas
         ref={dbAxisCanvasElem}
         width={DB_CANVAS_WIDTH}
