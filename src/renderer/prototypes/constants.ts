@@ -21,7 +21,7 @@ export const AXIS_STYLE = {
   LABEL_FONT: "11px sans-serif",
 };
 
-export const TIME_CANVAS_HEIGHT = 15; // 16px - 1px (border)
+export const TIME_CANVAS_HEIGHT = 16;
 export const TIME_MARKER_POS = {
   MAJOR_TICK_POS: 4, // LENGTH: 12px, 16px - 12px
   MINOR_TICK_POS: 13, // LENGTH: 3px, 16px - 13px
@@ -138,7 +138,7 @@ export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH;
 export const COLORBAR_COLORS_COUNT = 10;
 export const COLORBAR_CANVAS_WIDTH = 16;
 
-export const DB_CANVAS_WIDTH = 31; // 32 - 1px(border)
+export const DB_CANVAS_WIDTH = 32;
 export const DB_MARKER_POS = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,
