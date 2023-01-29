@@ -21,11 +21,11 @@ export const AXIS_STYLE = {
   LABEL_FONT: "11px sans-serif",
 };
 
-export const TIME_CANVAS_HEIGHT = 15; // 16px - 1px (border)
+export const TIME_CANVAS_HEIGHT = 16;
 export const TIME_MARKER_POS = {
-  MAJOR_TICK_POS: 4, // LENGTH: 12px, 16px - 12px
+  MAJOR_TICK_POS: 2, // LENGTH: 14px, 16px - 14px
   MINOR_TICK_POS: 13, // LENGTH: 3px, 16px - 13px
-  LABEL_POS: 4,
+  LABEL_POS: 2,
   LABEL_LEFT_MARGIN: 4,
 };
 
@@ -65,6 +65,7 @@ export const TIME_TICK_SIZE = {
 };
 export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
+export const LABEL_HEIGHT_ADJUSTMENT = 4;
 export const AMP_CANVAS_WIDTH = 32;
 export const AMP_MARKER_POS = {
   MAJOR_TICK_POS: 4,
@@ -133,9 +134,14 @@ export const FREQ_TICK_NUM = {
 };
 export const FREQ_BOUNDARIES = createBoundaries(FREQ_TICK_NUM);
 
-export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH;
+export const TINY_MARGIN = 2;
+// margin exist between amp axis and freq axis
+export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH + TINY_MARGIN;
 
-export const DB_CANVAS_WIDTH = 47; // 48px - 1px(border)
+export const COLORBAR_COLORS_COUNT = 10;
+export const COLORBAR_CANVAS_WIDTH = 16;
+
+export const DB_CANVAS_WIDTH = 32;
 export const DB_MARKER_POS = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,

@@ -19,6 +19,17 @@
 }
 
 /* Right Track Elements */
+.trackRightHeader {
+  display: flex;
+}
+
+.axisLabelSection {
+  @include body-label;
+
+  flex: 0 0 auto;
+  width: 32px;
+  text-align: center;
+}
 
 .trackRight {
   position: relative;

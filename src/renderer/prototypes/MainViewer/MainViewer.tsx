@@ -268,7 +268,11 @@ function MainViewer(props: MainViewerProps) {
 
   const rightPane = (
     <>
-      <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
+      <div className={styles.trackRightHeader}>
+        <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
+        <span className={styles.axisLabelSection}>dB</span>
+        <span className={styles.axisLabelSection}>Hz</span>
+      </div>
       {trackIds.map((id) => (
         <div key={`${id}`} className={`${styles.trackRight}`}>
           {erroredTrackIds.includes(id) ? (

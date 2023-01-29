@@ -1,5 +1,5 @@
 import React, {forwardRef, useRef, useImperativeHandle, useEffect} from "react";
-import {AXIS_STYLE} from "../prototypes/constants";
+import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants";
 import styles from "./AxisCanvas.scss";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
@@ -55,29 +55,51 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
       ctx.font = LABEL_FONT;
       ctx.textBaseline = "hanging";
 
-      markers.forEach((marker) => {
-        const [pxPosition, label] = marker;
-        let xPxPosition = [];
-        let yPxPosition = [];
-        if (direction === "H") {
-          xPxPosition = [pxPosition, pxPosition, pxPosition, pxPosition];
-          yPxPosition = [LABEL_POS, MAJOR_TICK_POS, MINOR_TICK_POS, height];
-        } else {
-          xPxPosition = [LABEL_POS, MAJOR_TICK_POS, MINOR_TICK_POS, 0];
-          yPxPosition = [pxPosition, pxPosition, pxPosition, pxPosition];
-        }
-
+      if (direction === "H") {
         ctx.beginPath();
-        if (label) {
-          ctx.fillText(label, xPxPosition[0] + LABEL_LEFT_MARGIN, yPxPosition[0]);
-          ctx.moveTo(xPxPosition[1], yPxPosition[1]);
-        } else {
-          ctx.moveTo(xPxPosition[2], yPxPosition[2]);
-        }
-        ctx.lineTo(xPxPosition[3], yPxPosition[3]);
-        ctx.closePath();
+        ctx.moveTo(0, height);
+        ctx.lineTo(width, height);
         ctx.stroke();
-      });
+
+        markers.forEach((marker) => {
+          const [pxPosition, label] = marker;
+
+          ctx.beginPath();
+          if (label) {
+            ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
+            ctx.moveTo(pxPosition, MAJOR_TICK_POS);
+          } else {
+            ctx.moveTo(pxPosition, MINOR_TICK_POS);
+          }
+          ctx.lineTo(pxPosition, height);
+          ctx.closePath();
+          ctx.stroke();
+        });
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, height);
+        ctx.stroke();
+
+        markers.forEach((marker) => {
+          const [pxPosition, label] = marker;
+
+          ctx.beginPath();
+          if (label) {
+            ctx.fillText(
+              label,
+              LABEL_POS + LABEL_LEFT_MARGIN,
+              pxPosition - LABEL_HEIGHT_ADJUSTMENT,
+            );
+            ctx.moveTo(MAJOR_TICK_POS, pxPosition);
+          } else {
+            ctx.moveTo(MINOR_TICK_POS, pxPosition);
+          }
+          ctx.lineTo(0, pxPosition);
+          ctx.closePath();
+          ctx.stroke();
+        });
+      }
     },
   }));
 

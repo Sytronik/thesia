@@ -5,7 +5,15 @@
   margin-bottom: $track-margin;
 }
 
-.ampAxis,
+.ampAxis {
+  flex: 0 0 auto;
+  margin-right: $track-margin;
+}
+
 .freqAxis {
+  flex: 0 0 auto;
+}
+
+.dbAxis {
   flex: 0 0 auto;
 }
