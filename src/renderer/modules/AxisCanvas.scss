@@ -7,11 +7,11 @@
 
 .ampAxis {
   flex: 0 0 auto;
+  margin-right: $track-margin;
 }
 
 .freqAxis {
   flex: 0 0 auto;
-  margin-left: $track-margin;
 }
 
 .dbAxis {
