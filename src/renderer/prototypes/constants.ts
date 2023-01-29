@@ -23,9 +23,9 @@ export const AXIS_STYLE = {
 
 export const TIME_CANVAS_HEIGHT = 16;
 export const TIME_MARKER_POS = {
-  MAJOR_TICK_POS: 4, // LENGTH: 12px, 16px - 12px
+  MAJOR_TICK_POS: 2, // LENGTH: 14px, 16px - 14px
   MINOR_TICK_POS: 13, // LENGTH: 3px, 16px - 13px
-  LABEL_POS: 4,
+  LABEL_POS: 2,
   LABEL_LEFT_MARGIN: 4,
 };
 
