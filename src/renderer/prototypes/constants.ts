@@ -133,7 +133,9 @@ export const FREQ_TICK_NUM = {
 };
 export const FREQ_BOUNDARIES = createBoundaries(FREQ_TICK_NUM);
 
-export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH;
+export const TINY_MARGIN = 2;
+// margin exist between amp axis and freq axis
+export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH + TINY_MARGIN;
 
 export const COLORBAR_COLORS_COUNT = 10;
 export const COLORBAR_CANVAS_WIDTH = 16;
