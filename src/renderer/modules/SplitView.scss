@@ -1,9 +1,6 @@
 @import '../styles/index.scss';
 
 .SplitView {
-  // temporary guide
-  border: $border;
-
   flex: 1 1 auto;
   width: calc(100% - #{$colorbar-width + $component-gap * 2});
   margin: $component-gap / 2;
