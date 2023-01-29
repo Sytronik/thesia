@@ -14,8 +14,8 @@ yarn start
 
 ## Plan
 
-- [ ] dB colorbar
-- [ ] Hi-DPI display support
+- [x] dB colorbar
+- [x] Hi-DPI display support
 - [ ] time / frequency info on mouse hover
 - [ ] waveform amplitude zoom in/out slider
 - [ ] selecting spectrogram mode / waveform mode
