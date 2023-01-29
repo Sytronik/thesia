@@ -65,6 +65,7 @@ export const TIME_TICK_SIZE = {
 };
 export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
+export const LABEL_HEIGHT_ADJUSTMENT = 4;
 export const AMP_CANVAS_WIDTH = 32;
 export const AMP_MARKER_POS = {
   MAJOR_TICK_POS: 4,

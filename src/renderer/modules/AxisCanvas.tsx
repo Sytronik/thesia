@@ -1,5 +1,5 @@
 import React, {forwardRef, useRef, useImperativeHandle, useEffect} from "react";
-import {AXIS_STYLE} from "../prototypes/constants";
+import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants";
 import styles from "./AxisCanvas.scss";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
@@ -86,7 +86,11 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
           ctx.beginPath();
           if (label) {
-            ctx.fillText(label, LABEL_POS + LABEL_LEFT_MARGIN, pxPosition);
+            ctx.fillText(
+              label,
+              LABEL_POS + LABEL_LEFT_MARGIN,
+              pxPosition - LABEL_HEIGHT_ADJUSTMENT,
+            );
             ctx.moveTo(MAJOR_TICK_POS, pxPosition);
           } else {
             ctx.moveTo(MINOR_TICK_POS, pxPosition);
