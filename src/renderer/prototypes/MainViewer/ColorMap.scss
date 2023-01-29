@@ -1,5 +1,12 @@
 @import '../../styles/index.scss';
 
+.colorMapHeader {
+  @include body-label;
+
+  height: $time-ruler-height + $track-margin; // TEMP
+  text-align: center;
+}
+
 // color bar
 .colorBar {
   // temporary guide
@@ -11,6 +18,4 @@
   flex: 0 0 auto;
   width: $colorbar-width;
   margin: $component-gap / 2;
-
-  padding-top: $time-ruler-height + $track-margin; // TEMP
 }

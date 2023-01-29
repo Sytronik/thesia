@@ -40,15 +40,18 @@ function ColorMap(props: ColorMapProps) {
 
   return (
     <div className={styles.colorBar} ref={colorMapElem}>
-      <ColorBarCanvas ref={drawedColorBarElem} width={COLORBAR_CANVAS_WIDTH} height={height} />
-      <AxisCanvas
-        ref={dbAxisCanvasElem}
-        width={DB_CANVAS_WIDTH}
-        height={height}
-        markerPos={DB_MARKER_POS}
-        direction="V"
-        className="dbAxis"
-      />
+      <div>
+        <div className={styles.colorMapHeader}>dB</div>
+        <ColorBarCanvas ref={drawedColorBarElem} width={COLORBAR_CANVAS_WIDTH} height={height} />
+        <AxisCanvas
+          ref={dbAxisCanvasElem}
+          width={DB_CANVAS_WIDTH}
+          height={height}
+          markerPos={DB_MARKER_POS}
+          direction="V"
+          className="dbAxis"
+        />
+      </div>
     </div>
   );
 }
