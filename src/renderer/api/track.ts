@@ -7,25 +7,25 @@ backend.init();
 // most api returns empty array for edge case
 
 /* handle tracks */
-export function addTracks(newTrackIds: number[], newPaths: string[]): number[] {
+export async function addTracks(newTrackIds: number[], newPaths: string[]): Promise<number[]> {
   // return successfully opened track ids
   return backend.addTracks(newTrackIds, newPaths);
 }
 
-export function reloadTracks(trackIds: number[]): number[] {
+export async function reloadTracks(trackIds: number[]): Promise<number[]> {
   // return successfully reloaded track ids
   return backend.reloadTracks(trackIds);
 }
 
-export function removeTracks(trackIds: number[]): void {
+export async function removeTracks(trackIds: number[]): Promise<void> {
   return backend.removeTracks(trackIds);
 }
 
-export function applyTrackListChanges(): Promise<IdChannel[]> | null {
+export async function applyTrackListChanges(): Promise<Promise<IdChannel[]> | null> {
   return backend.applyTrackListChanges();
 }
 
-export function findIdByPath(path: string): number {
+export async function findIdByPath(path: string): Promise<number> {
   // return -1 if path is new
   return backend.findIDbyPath(path);
 }
@@ -47,7 +47,7 @@ export function getSampleFormat(trackId: number): string {
   return backend.getSampleFormat(trackId);
 }
 
-export function getPath(trackId: number): string {
+export async function getPath(trackId: number): Promise<string> {
   return backend.getPath(trackId);
 }
 
@@ -62,12 +62,12 @@ export function getLongestTrackLength(): number {
   return backend.getMaxSec();
 }
 
-export function getTimeAxisMarkers(
+export async function getTimeAxisMarkers(
   width: number,
   subTickSec: number,
   subTickUnitCount: number,
   markerDrawOptions: MarkerDrawOption,
-): Markers {
+): Promise<Markers> {
   const {startSec, pxPerSec} = markerDrawOptions || {};
 
   if (isNil(startSec) || isNil(pxPerSec)) {
@@ -78,24 +78,24 @@ export function getTimeAxisMarkers(
 }
 
 /* track axis */
-export function getHzAtPointer(yPosition: number, height: number): number {
+export async function getHzAtPointer(yPosition: number, height: number): Promise<number> {
   return backend.getHzAt(yPosition, height);
 }
 
-export function getFreqAxisMarkers(
+export async function getFreqAxisMarkers(
   height: number,
   maxNumTicks: number,
   maxNumLabels: number,
-): Markers {
+): Promise<Markers> {
   return backend.getFreqAxis(height, maxNumTicks, maxNumLabels);
 }
 
-export function getAmpAxisMarkers(
+export async function getAmpAxisMarkers(
   height: number,
   maxNumTicks: number,
   maxNumLabels: number,
   markerDrawOptions: MarkerDrawOption,
-): Markers {
+): Promise<Markers> {
   const {drawOptionForWav} = markerDrawOptions || {};
 
   if (!drawOptionForWav) {
@@ -107,11 +107,11 @@ export function getAmpAxisMarkers(
 }
 
 /* db axis */
-export function getMaxdB(): number {
+export async function getMaxdB(): Promise<number> {
   return backend.getMaxdB();
 }
 
-export function getMindB(): number {
+export async function getMindB(): Promise<number> {
   return backend.getMindB();
 }
 
@@ -119,11 +119,11 @@ export function getColorMap(): ArrayBuffer {
   return backend.getColormap();
 }
 
-export function getDbAxisMarkers(
+export async function getDbAxisMarkers(
   height: number,
   maxNumTicks: number,
   maxNumLabels: number,
-): Markers {
+): Promise<Markers> {
   return backend.getdBAxis(height, maxNumTicks, maxNumLabels);
 }
 
@@ -132,11 +132,11 @@ export function getImages(): SpecWavImages {
   return backend.getImages();
 }
 
-export function getOverview(trackId: number, width: number, height: number) {
+export async function getOverview(trackId: number, width: number, height: number) {
   return backend.getOverview(trackId, width, height);
 }
 
-export function setImageState(
+export async function setImageState(
   idChArr: string[],
   startSec: number,
   width: number,

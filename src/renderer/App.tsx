@@ -27,7 +27,7 @@ function App() {
   const prevTrackIds = useRef<number[]>([]);
 
   const addDroppedFile = useCallback(
-    (e: DragEvent) => {
+    async (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -49,7 +49,7 @@ function App() {
         }
       });
 
-      const {existingIds, invalidPaths} = addTracks(newPaths);
+      const {existingIds, invalidPaths} = await addTracks(newPaths);
 
       if (unsupportedPaths.length || invalidPaths.length) {
         showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
@@ -77,12 +77,12 @@ function App() {
   );
 
   useEffect(() => {
-    ipcRenderer.on("open-dialog-closed", (_, file) => {
+    ipcRenderer.on("open-dialog-closed", async (_, file) => {
       if (!file.canceled) {
         const newPaths: string[] = file.filePaths;
         const unsupportedPaths: string[] = [];
 
-        const {existingIds, invalidPaths} = addTracks(newPaths);
+        const {existingIds, invalidPaths} = await addTracks(newPaths);
 
         if (unsupportedPaths.length || invalidPaths.length) {
           showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);

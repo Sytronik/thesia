@@ -89,9 +89,9 @@ struct CategorizedIdChVec {
     need_new_caches: IdChVec,
 }
 
-pub fn send(msg: ImgMsg) {
+pub async fn send(msg: ImgMsg) {
     let img_mngr_tx = unsafe { MSG_TX.clone().unwrap() };
-    if let Err(e) = img_mngr_tx.blocking_send(msg) {
+    if let Err(e) = img_mngr_tx.send(msg).await {
         panic!("DRAW_TX error: {}", e);
     }
 }
@@ -258,7 +258,7 @@ async fn draw_imgs(
         blend,
     } = params_backup;
     let (total_widths, cat_by_spec, cat_by_wav, blended_imgs) = {
-        let tm = TM.read();
+        let tm = TM.read().await;
         let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
         let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
         total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
@@ -335,7 +335,7 @@ async fn draw_imgs(
 
     // draw part
     let blended_imgs = {
-        let tm = TM.read();
+        let tm = TM.read().await;
         if !cat_by_spec.need_parts.is_empty() {
             let fast_resize_vec = Some(
                 cat_by_spec
@@ -367,7 +367,8 @@ async fn draw_imgs(
     }
 
     let blended_imgs = {
-        let tm = TM.read();
+        let tm = TM.read().await;
+
         let mut spec_caches_lock = spec_caches.lock();
         let mut wav_caches_lock = wav_caches.lock();
         let (spec_imgs, eff_l_w_map) = if !cat_by_spec.need_new_caches.is_empty() {

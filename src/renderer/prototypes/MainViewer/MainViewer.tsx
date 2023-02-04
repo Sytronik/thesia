@@ -118,19 +118,22 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetImgState = useMemo(
     () =>
-      throttle(1000 / 240, (idChArr: IdChannel[], canvasWidth: number, canvasHeight: number) => {
-        if (!idChArr.length) return;
+      throttle(
+        1000 / 240,
+        async (idChArr: IdChannel[], canvasWidth: number, canvasHeight: number) => {
+          if (!idChArr.length) return;
 
-        NativeAPI.setImageState(
-          idChArr,
-          startSecRef.current,
-          canvasWidth,
-          canvasHeight,
-          pxPerSecRef.current,
-          drawOptionForWavRef.current,
-          0.3,
-        );
-      }),
+          await NativeAPI.setImageState(
+            idChArr,
+            startSecRef.current,
+            canvasWidth,
+            canvasHeight,
+            pxPerSecRef.current,
+            drawOptionForWavRef.current,
+            0.3,
+          );
+        },
+      ),
     [],
   );
 
