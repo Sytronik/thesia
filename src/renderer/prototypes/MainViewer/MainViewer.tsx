@@ -26,6 +26,7 @@ import {
   DB_BOUNDARIES,
   MIN_HEIGHT,
   MAX_HEIGHT,
+  VERTICAL_AXIS_PADDING,
 } from "../constants";
 
 type MainViewerProps = {
@@ -67,7 +68,9 @@ function MainViewer(props: MainViewerProps) {
 
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
+  const imgHeight = height - VERTICAL_AXIS_PADDING * 2;
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
+  const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
   const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef<DrawOptionForWav>({amp_range: [-1, 1]});
 
@@ -165,7 +168,7 @@ function MainViewer(props: MainViewerProps) {
           if (pxPerSecRef.current !== pxPerSec) {
             pxPerSecRef.current = pxPerSec;
             canvasIsFitRef.current = false;
-            throttledSetImgState(getIdChArr(), width, height);
+            throttledSetImgState(getIdChArr(), width, imgHeight);
             throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
               startSec: startSecRef.current,
               pxPerSec: pxPerSecRef.current,
@@ -185,7 +188,7 @@ function MainViewer(props: MainViewerProps) {
         );
         if (startSecRef.current !== tempSec) {
           startSecRef.current = tempSec;
-          throttledSetImgState(getIdChArr(), width, height);
+          throttledSetImgState(getIdChArr(), width, imgHeight);
           throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
             startSec: startSecRef.current,
             pxPerSec: pxPerSecRef.current,
@@ -193,7 +196,15 @@ function MainViewer(props: MainViewerProps) {
         }
       }
     },
-    [trackIds, getIdChArr, height, width, throttledSetImgState, throttledSetTimeMarkersAndUnit],
+    [
+      trackIds,
+      getIdChArr,
+      height,
+      imgHeight,
+      width,
+      throttledSetImgState,
+      throttledSetTimeMarkersAndUnit,
+    ],
   );
 
   const drawCanvas = useCallback(async () => {
@@ -292,7 +303,7 @@ function MainViewer(props: MainViewerProps) {
                 key={`img_${id}_${ch}`}
                 ref={registerImgCanvas(`${id}_${ch}`)}
                 width={width}
-                height={height}
+                height={imgHeight}
               />
               <AmpAxis
                 key={`amp_${id}_${ch}`}
@@ -315,20 +326,20 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetAmpMarkers(height, height, {drawOptionForWav: drawOptionForWavRef.current});
-  }, [throttledSetAmpMarkers, height, trackIds, needRefreshTrackIds]);
+    throttledSetAmpMarkers(imgHeight, imgHeight, {drawOptionForWav: drawOptionForWavRef.current});
+  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIds]);
 
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetFreqMarkers(height, height, {});
-  }, [throttledSetFreqMarkers, height, trackIds, needRefreshTrackIds]);
+    throttledSetFreqMarkers(imgHeight, imgHeight, {});
+  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIds]);
 
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetDbMarkers(colorMapHeight, colorMapHeight, {});
-  }, [throttledSetDbMarkers, colorMapHeight, trackIds, needRefreshTrackIds]);
+    throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
+  }, [throttledSetDbMarkers, colorBarHeight, trackIds, needRefreshTrackIds]);
 
   useEffect(() => {
     if (!trackIds.length) return;
@@ -343,8 +354,8 @@ function MainViewer(props: MainViewerProps) {
     if (!trackIds.length) return;
 
     const idChannels = needRefreshTrackIds.length ? needRefreshTrackIds : getIdChArr();
-    throttledSetImgState(idChannels, width, height);
-  }, [throttledSetImgState, getIdChArr, width, height, trackIds, needRefreshTrackIds]);
+    throttledSetImgState(idChannels, width, imgHeight);
+  }, [throttledSetImgState, getIdChArr, width, imgHeight, trackIds, needRefreshTrackIds]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -403,6 +414,7 @@ function MainViewer(props: MainViewerProps) {
       <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
       <ColorMap
         height={colorMapHeight}
+        colorBarHeight={colorBarHeight}
         setHeight={setColorMapHeight}
         dbAxisCanvasElem={dbCanvasElem}
       />

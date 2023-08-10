@@ -1,4 +1,4 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .MainViewer {
   position: relative;
@@ -38,6 +38,7 @@
 
 .chCanvases {
   display: flex;
+  align-items: center;
 
   canvas {
     display: block;

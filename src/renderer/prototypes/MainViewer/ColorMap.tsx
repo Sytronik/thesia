@@ -2,16 +2,23 @@ import React, {useRef, useLayoutEffect, useState, useCallback} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.scss";
-import {COLORBAR_CANVAS_WIDTH, DB_CANVAS_WIDTH, DB_MARKER_POS, MIN_HEIGHT} from "../constants";
+import {
+  COLORBAR_CANVAS_WIDTH,
+  DB_CANVAS_WIDTH,
+  DB_MARKER_POS,
+  MIN_HEIGHT,
+  VERTICAL_AXIS_PADDING,
+} from "../constants";
 
 type ColorMapProps = {
   height: number;
   setHeight: (height: number) => void;
+  colorBarHeight: number;
   dbAxisCanvasElem: React.RefObject<AxisCanvasHandleElement>;
 };
 
 function ColorMap(props: ColorMapProps) {
-  const {height, setHeight, dbAxisCanvasElem} = props;
+  const {height, setHeight, colorBarHeight, dbAxisCanvasElem} = props;
 
   const colorMapElem = useRef<HTMLDivElement>(null);
   const drawedColorBarElem = useCallback((ref: ColorBarCanvasHandleElement) => {
@@ -40,13 +47,18 @@ function ColorMap(props: ColorMapProps) {
 
   return (
     <div className={styles.colorBar} ref={colorMapElem}>
-      <div>
-        <div className={styles.colorMapHeader}>dB</div>
-        <ColorBarCanvas ref={drawedColorBarElem} width={COLORBAR_CANVAS_WIDTH} height={height} />
+      <div className={styles.colorMapHeader}>dB</div>
+      <div style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
+        <ColorBarCanvas
+          ref={drawedColorBarElem}
+          width={COLORBAR_CANVAS_WIDTH}
+          height={colorBarHeight}
+        />
         <AxisCanvas
           ref={dbAxisCanvasElem}
           width={DB_CANVAS_WIDTH}
           height={height}
+          axisPadding={VERTICAL_AXIS_PADDING}
           markerPos={DB_MARKER_POS}
           direction="V"
           className="dbAxis"

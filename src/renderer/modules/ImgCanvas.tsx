@@ -30,7 +30,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   return (
     <>
-      <canvas className={styles.ImgCanvas} ref={canvasElem} height={height} width={width} />{" "}
+      <canvas
+        className={styles.ImgCanvas}
+        ref={canvasElem}
+        height={height}
+        width={width}
+        style={{width, height}}
+      />{" "}
       {/* TEMP */}
     </>
   );

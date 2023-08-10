@@ -3,7 +3,7 @@ import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import NativeAPI from "../../api";
 import styles from "./TrackInfo.scss";
-import {CHANNEL} from "../constants";
+import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
 
 type TrackInfoProps = {
   trackId: number;
@@ -46,7 +46,7 @@ function TrackInfo(props: TrackInfoProps) {
       <TrackSummary
         className={styles.TrackSummary}
         data={trackSummaryData}
-        height={(height + 2) * channelCount - 2}
+        height={(height + 2) * channelCount - 2 - VERTICAL_AXIS_PADDING * 2}
       />
       <div className={styles.channels}>{channels}</div>
     </div>

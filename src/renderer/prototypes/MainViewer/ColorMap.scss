@@ -1,16 +1,17 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .colorMapHeader {
   @include body-label;
 
-  height: $time-ruler-height + $track-margin; // TEMP
+  height: $time-ruler-height; // + $track-margin; // TEMP
   text-align: center;
+  margin-left: 1.5em;
 }
 
 // color bar
 .colorBar {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
 
   flex: 0 0 auto;
   width: $colorbar-width;

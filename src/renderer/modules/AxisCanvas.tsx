@@ -14,13 +14,14 @@ type MarkerPosition = {
 type AxisCanvasProps = {
   width: number;
   height: number;
+  axisPadding: number;
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
   className: "timeRuler" | "ampAxis" | "freqAxis" | "dbAxis";
 };
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
-  const {width, height, markerPos, direction, className} = props;
+  const {width, height, axisPadding, markerPos, direction, className} = props;
   const axisCanvasElem = useRef<HTMLCanvasElement>(null);
   const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>();
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
@@ -57,12 +58,13 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
       if (direction === "H") {
         ctx.beginPath();
-        ctx.moveTo(0, height);
-        ctx.lineTo(width, height);
+        ctx.moveTo(axisPadding, height);
+        ctx.lineTo(width - axisPadding, height);
         ctx.stroke();
 
         markers.forEach((marker) => {
-          const [pxPosition, label] = marker;
+          const [axisPosition, label] = marker;
+          const pxPosition = axisPosition + axisPadding;
 
           ctx.beginPath();
           if (label) {
@@ -77,12 +79,13 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         });
       } else {
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, height);
+        ctx.moveTo(0, axisPadding);
+        ctx.lineTo(0, height - axisPadding);
         ctx.stroke();
 
         markers.forEach((marker) => {
-          const [pxPosition, label] = marker;
+          const [axisPosition, label] = marker;
+          const pxPosition = axisPosition + axisPadding;
 
           ctx.beginPath();
           if (label) {

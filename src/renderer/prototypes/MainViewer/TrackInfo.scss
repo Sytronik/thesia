@@ -1,9 +1,10 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .TrackInfo {
   display: flex;
   flex: 0 0 auto;
   position: relative;
+  padding: 5px 0;
   margin-bottom: $track-margin;
 }
 
