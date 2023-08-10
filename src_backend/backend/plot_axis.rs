@@ -138,7 +138,8 @@ fn create_time_axis(
                     let milli = ((sec - sec_u32 as f64) * 1000.).round() as u32 / n_mod * n_mod;
                     milli * 1000_000
                 };
-                let mut result = NaiveTime::from_num_seconds_from_midnight(sec_u32, nano)
+                let mut result = NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
+                    .unwrap()
                     .format(&time_format)
                     .to_string();
                 if time_format.starts_with("%S") && sec_u32 < 10 {
