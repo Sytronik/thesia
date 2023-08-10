@@ -22,7 +22,7 @@ function useTracks() {
 
   const reloadTracks = useCallback(async (ids: number[]) => {
     try {
-      const reloadedIds = NativeAPI.reloadTracks(ids);
+      const reloadedIds = await NativeAPI.reloadTracks(ids);
       const erroredIds = difference(ids, reloadedIds);
 
       if (erroredIds && erroredIds.length) {
@@ -45,11 +45,13 @@ function useTracks() {
   }, []);
 
   const addTracks = useCallback(
-    (paths: string[]): AddTracksResultType => {
+    async (paths: string[]): Promise<AddTracksResultType> => {
       try {
-        const newPaths = paths.filter((path) => NativeAPI.findIdByPath(path) === -1);
+        const newPaths = paths.filter(async (path) => (await NativeAPI.findIdByPath(path)) === -1);
         const existingPaths = difference(paths, newPaths);
-        const existingIds = existingPaths.map((path) => NativeAPI.findIdByPath(path));
+        const existingIds = await Promise.all(
+          existingPaths.map(async (path) => NativeAPI.findIdByPath(path)),
+        );
 
         if (!newPaths.length) {
           return {existingIds, invalidPaths: []};
@@ -62,7 +64,7 @@ function useTracks() {
           return trackIds.length + i;
         });
 
-        const addedIds = NativeAPI.addTracks(newIds, newPaths);
+        const addedIds = await NativeAPI.addTracks(newIds, newPaths);
         if (addedIds.length) {
           setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
         }
@@ -91,9 +93,9 @@ function useTracks() {
   }, []);
 
   const removeTracks = useCallback(
-    (ids: number[]) => {
+    async (ids: number[]) => {
       try {
-        NativeAPI.removeTracks(ids);
+        await NativeAPI.removeTracks(ids);
         setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
         setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 

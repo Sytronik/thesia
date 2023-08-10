@@ -6,8 +6,8 @@ use lazy_static::{initialize, lazy_static};
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use parking_lot::RwLock;
 use serde_json::json;
+use tokio::sync::RwLock;
 
 mod backend;
 mod img_mgr;
@@ -35,46 +35,49 @@ fn init() {
 }
 
 #[napi]
-fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
+async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     // let id_list: Vec<usize> = vec_usize_from(&ctx, 0)?;
     // let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
     let added_ids = TM
         .write()
+        .await
         .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
     // convert_usize_arr_to_jsarr(ctx.env, &added_ids)
     added_ids.into_iter().map(|x| x as u32).collect()
 }
 
 #[napi]
-fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
+async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let no_err_ids = TM.write().reload_tracks(&track_ids);
+    let no_err_ids = TM.write().await.reload_tracks(&track_ids);
     no_err_ids.into_iter().map(|x| x as u32).collect()
 }
 
 #[napi]
-fn remove_tracks(track_ids: Vec<u32>) {
+async fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let mut tm = TM.write();
-    img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids)));
+    let mut tm = TM.write().await;
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(
+        tm.id_ch_tuples_from(&track_ids),
+    )));
     tm.remove_tracks(&track_ids);
 }
 
 #[napi]
-fn apply_track_list_changes() -> Vec<String> {
+async fn apply_track_list_changes() -> Vec<String> {
     let id_ch_tuples = {
-        let mut tm = TM.write();
+        let mut tm = TM.write().await;
         let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
         tm.id_ch_tuples_from(&updated_ids)
     };
 
-    img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone()));
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone())));
     id_ch_tuples
         .into_iter()
         .map(|(id, ch)| format!("{}_{}", id, ch))
@@ -82,7 +85,7 @@ fn apply_track_list_changes() -> Vec<String> {
 }
 
 #[napi]
-fn set_img_state(
+async fn set_img_state(
     id_ch_strs: Vec<String>,
     start_sec: f64,
     width: u32,
@@ -100,10 +103,10 @@ fn set_img_state(
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
     let id_ch_tuples = parse_id_ch_tuples(id_ch_strs)?;
-    img_mgr::send(ImgMsg::Draw((
+    tokio::spawn(img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
         DrawParams::new(start_sec, width, option, opt_for_wav, blend),
-    )));
+    ))));
     Ok(())
 }
 
@@ -120,29 +123,33 @@ fn get_images() -> HashMap<String, Buffer> {
 }
 
 #[napi(js_name = "findIDbyPath")]
-fn find_id_by_path(path: String) -> i32 {
+async fn find_id_by_path(path: String) -> i32 {
     TM.read()
+        .await
         .tracklist
         .find_id_by_path(&path)
         .map_or_else(|| -1, |id| id as i32)
 }
 
 #[napi]
-fn get_overview(id: u32, width: u32, height: u32) -> Buffer {
+async fn get_overview(id: u32, width: u32, height: u32) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
-    TM.read().draw_overview(id as usize, width, height).into()
+    TM.read()
+        .await
+        .draw_overview(id as usize, width, height)
+        .into()
 }
 
 #[napi]
-fn get_hz_at(y: u32, height: u32) -> f64 {
+async fn get_hz_at(y: u32, height: u32) -> f64 {
     assert!(height >= 1 && y < height);
 
-    TM.read().calc_hz_of(y, height) as f64
+    TM.read().await.calc_hz_of(y, height) as f64
 }
 
 #[napi]
-fn get_time_axis(
+async fn get_time_axis(
     width: u32,
     start_sec: f64,
     px_per_sec: f64,
@@ -153,22 +160,27 @@ fn get_time_axis(
     assert!(px_per_sec.is_finite());
     assert!(px_per_sec >= 0.);
     assert!(label_interval > 0);
-    json!(&TM
-        .read()
-        .create_time_axis(width, start_sec, px_per_sec, tick_unit, label_interval,))
+    json!(&TM.read().await.create_time_axis(
+        width,
+        start_sec,
+        px_per_sec,
+        tick_unit,
+        label_interval,
+    ))
 }
 
 #[napi]
-fn get_freq_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+async fn get_freq_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
     assert_axis_params(height, max_num_ticks, max_num_labels);
 
     json!(TM
         .read()
+        .await
         .create_freq_axis(height, max_num_ticks, max_num_labels))
 }
 
 #[napi]
-fn get_amp_axis(
+async fn get_amp_axis(
     height: u32,
     max_num_ticks: u32,
     max_num_labels: u32,
@@ -187,62 +199,63 @@ fn get_amp_axis(
 }
 
 #[napi(js_name = "getdBAxis")]
-fn get_db_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+async fn get_db_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
     assert_axis_params(height, max_num_ticks, max_num_labels);
 
     json!(TM
         .read()
+        .await
         .create_db_axis(height, max_num_ticks, max_num_labels))
 }
 
 #[napi(js_name = "getMaxdB")]
 fn get_max_db() -> f64 {
-    TM.read().max_db as f64
+    TM.blocking_read().max_db as f64
 }
 
 #[napi(js_name = "getMindB")]
 fn get_min_db() -> f64 {
-    TM.read().min_db as f64
+    TM.blocking_read().min_db as f64
 }
 
 #[napi]
 fn get_max_sec() -> f64 {
-    TM.read().tracklist.max_sec as f64
+    TM.blocking_read().tracklist.max_sec as f64
 }
 
 #[napi(js_name = "getNumCh")]
 fn get_n_ch(track_id: u32) -> u32 {
-    let tm = TM.read();
+    let tm = TM.blocking_read();
     tm.tracklist[track_id as usize].n_ch() as u32
 }
 
 #[napi]
 fn get_sec(track_id: u32) -> f64 {
-    let tm = TM.read();
+    let tm = TM.blocking_read();
     tm.tracklist[track_id as usize].sec()
 }
 
 #[napi]
 fn get_sr(track_id: u32) -> u32 {
-    let tm = TM.read();
+    let tm = TM.blocking_read();
     tm.tracklist[track_id as usize].sr
 }
 
 #[napi]
 fn get_sample_format(track_id: u32) -> String {
-    let tm = TM.read();
+    let tm = TM.blocking_read();
     tm.tracklist[track_id as usize].sample_format_str.to_owned()
 }
 
 #[napi]
 fn get_path(track_id: u32) -> String {
-    let tm = TM.read();
+    let tm = TM.blocking_read();
     tm.tracklist[track_id as usize].path_string()
 }
 
 #[napi(js_name = "getFileName")]
 fn get_filename(track_id: u32) -> String {
-    TM.read()
+    TM.blocking_read()
         .tracklist
         .get_filename(track_id as usize)
         .to_owned()
