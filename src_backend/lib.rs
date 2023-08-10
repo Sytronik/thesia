@@ -63,7 +63,9 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let mut tm = TM.write().await;
-    img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples_from(&track_ids))).await;
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(
+        tm.id_ch_tuples_from(&track_ids),
+    )));
     tm.remove_tracks(&track_ids);
 }
 
@@ -75,7 +77,7 @@ async fn apply_track_list_changes() -> Vec<String> {
         tm.id_ch_tuples_from(&updated_ids)
     };
 
-    img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone())).await;
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone())));
     id_ch_tuples
         .into_iter()
         .map(|(id, ch)| format!("{}_{}", id, ch))
@@ -101,11 +103,10 @@ async fn set_img_state(
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
     let id_ch_tuples = parse_id_ch_tuples(id_ch_strs)?;
-    img_mgr::send(ImgMsg::Draw((
+    tokio::spawn(img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
         DrawParams::new(start_sec, width, option, opt_for_wav, blend),
-    )))
-    .await;
+    ))));
     Ok(())
 }
 
