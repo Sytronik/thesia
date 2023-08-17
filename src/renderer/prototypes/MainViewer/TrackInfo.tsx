@@ -7,7 +7,8 @@ import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
 
 type TrackInfoProps = {
   trackId: number;
-  height: number;
+  channelHeight: number;
+  imgHeight: number;
   isSelected: boolean;
   selectTrack: (e: React.MouseEvent, id: number) => void;
 };
@@ -18,7 +19,7 @@ const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
 };
 
 function TrackInfo(props: TrackInfoProps) {
-  const {trackId, height, isSelected, selectTrack} = props;
+  const {trackId, channelHeight, imgHeight, isSelected, selectTrack} = props;
   const channelCount = NativeAPI.getChannelCounts(trackId);
 
   const trackSummaryData = {
@@ -30,7 +31,7 @@ function TrackInfo(props: TrackInfoProps) {
 
   const channels = [...Array(channelCount).keys()].map((ch) => {
     return (
-      <div key={`${trackId}_${ch}`} className={styles.ch}>
+      <div key={`${trackId}_${ch}`} className={styles.ch} style={{height: imgHeight}}>
         <span>{CHANNEL[channelCount][ch]}</span>
       </div>
     );
@@ -42,12 +43,12 @@ function TrackInfo(props: TrackInfoProps) {
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
       onClick={(e) => selectTrack(e, trackId)} // TODO: need optimization?
       onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: need optimization?
+      style={{
+        padding: `${VERTICAL_AXIS_PADDING}px 0`,
+        height: channelHeight * channelCount + 2 * (channelCount - 1),
+      }}
     >
-      <TrackSummary
-        className={styles.TrackSummary}
-        data={trackSummaryData}
-        height={(height + 2) * channelCount - 2 - VERTICAL_AXIS_PADDING * 2}
-      />
+      <TrackSummary className={styles.TrackSummary} data={trackSummaryData} />
       <div className={styles.channels}>{channels}</div>
     </div>
   );

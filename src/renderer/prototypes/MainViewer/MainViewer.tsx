@@ -270,7 +270,8 @@ function MainViewer(props: MainViewerProps) {
           <TrackInfo
             key={`${trackId}`}
             trackId={trackId}
-            height={height}
+            channelHeight={height}
+            imgHeight={imgHeight}
             isSelected={isSelected}
             selectTrack={selectTrack}
           />

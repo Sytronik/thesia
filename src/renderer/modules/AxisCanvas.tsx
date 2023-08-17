@@ -40,71 +40,84 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     axisCanvasCtxRef.current.scale(ratio, ratio);
   }, [width, height]);
 
-  useImperativeHandle(ref, () => ({
-    draw: (markers: Markers) => {
-      const ctx = axisCanvasCtxRef.current;
+  useImperativeHandle(
+    ref,
+    () => ({
+      draw: (markers: Markers) => {
+        const ctx = axisCanvasCtxRef.current;
 
-      if (!ctx || !markers?.length) {
-        return;
-      }
+        if (!ctx || !markers?.length) {
+          return;
+        }
 
-      ctx.clearRect(0, 0, width, height); // [TEMP]
+        ctx.clearRect(0, 0, width, height); // [TEMP]
 
-      ctx.fillStyle = LABEL_COLOR;
-      ctx.strokeStyle = TICK_COLOR;
-      ctx.lineWidth = LINE_WIDTH;
-      ctx.font = LABEL_FONT;
-      ctx.textBaseline = "hanging";
+        ctx.fillStyle = LABEL_COLOR;
+        ctx.strokeStyle = TICK_COLOR;
+        ctx.lineWidth = LINE_WIDTH;
+        ctx.font = LABEL_FONT;
+        ctx.textBaseline = "hanging";
 
-      if (direction === "H") {
-        ctx.beginPath();
-        ctx.moveTo(axisPadding, height);
-        ctx.lineTo(width - axisPadding, height);
-        ctx.stroke();
-
-        markers.forEach((marker) => {
-          const [axisPosition, label] = marker;
-          const pxPosition = axisPosition + axisPadding;
-
+        if (direction === "H") {
           ctx.beginPath();
-          if (label) {
-            ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
-            ctx.moveTo(pxPosition, MAJOR_TICK_POS);
-          } else {
-            ctx.moveTo(pxPosition, MINOR_TICK_POS);
-          }
-          ctx.lineTo(pxPosition, height);
-          ctx.closePath();
+          ctx.moveTo(axisPadding, height);
+          ctx.lineTo(width - axisPadding, height);
           ctx.stroke();
-        });
-      } else {
-        ctx.beginPath();
-        ctx.moveTo(0, axisPadding);
-        ctx.lineTo(0, height - axisPadding);
-        ctx.stroke();
 
-        markers.forEach((marker) => {
-          const [axisPosition, label] = marker;
-          const pxPosition = axisPosition + axisPadding;
+          markers.forEach((marker) => {
+            const [axisPosition, label] = marker;
+            const pxPosition = axisPosition + axisPadding;
 
+            ctx.beginPath();
+            if (label) {
+              ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
+              ctx.moveTo(pxPosition, MAJOR_TICK_POS);
+            } else {
+              ctx.moveTo(pxPosition, MINOR_TICK_POS);
+            }
+            ctx.lineTo(pxPosition, height);
+            ctx.closePath();
+            ctx.stroke();
+          });
+        } else {
           ctx.beginPath();
-          if (label) {
-            ctx.fillText(
-              label,
-              LABEL_POS + LABEL_LEFT_MARGIN,
-              pxPosition - LABEL_HEIGHT_ADJUSTMENT,
-            );
-            ctx.moveTo(MAJOR_TICK_POS, pxPosition);
-          } else {
-            ctx.moveTo(MINOR_TICK_POS, pxPosition);
-          }
-          ctx.lineTo(0, pxPosition);
-          ctx.closePath();
+          ctx.moveTo(0, axisPadding);
+          ctx.lineTo(0, height - axisPadding);
           ctx.stroke();
-        });
-      }
-    },
-  }));
+
+          markers.forEach((marker) => {
+            const [axisPosition, label] = marker;
+            const pxPosition = axisPosition + axisPadding;
+
+            ctx.beginPath();
+            if (label) {
+              ctx.fillText(
+                label,
+                LABEL_POS + LABEL_LEFT_MARGIN,
+                pxPosition - LABEL_HEIGHT_ADJUSTMENT,
+              );
+              ctx.moveTo(MAJOR_TICK_POS, pxPosition);
+            } else {
+              ctx.moveTo(MINOR_TICK_POS, pxPosition);
+            }
+            ctx.lineTo(0, pxPosition);
+            ctx.closePath();
+            ctx.stroke();
+          });
+        }
+      },
+    }),
+    [
+      LABEL_LEFT_MARGIN,
+      LABEL_POS,
+      MAJOR_TICK_POS,
+      MINOR_TICK_POS,
+      axisPadding,
+      direction,
+      height,
+      width,
+    ],
+  );
 
   return (
     <>
