@@ -12,6 +12,7 @@ const TimeAxis = forwardRef((props: {width: number}, ref) => {
       axisPadding={HORIZONTAL_AXIS_PADDING}
       markerPos={TIME_MARKER_POS}
       direction="H"
+      noClearRect={false}
       className="timeRuler"
     />
   );

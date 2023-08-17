@@ -17,11 +17,12 @@ type AxisCanvasProps = {
   axisPadding: number;
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
+  noClearRect: boolean;
   className: "timeRuler" | "ampAxis" | "freqAxis" | "dbAxis";
 };
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
-  const {width, height, axisPadding, markerPos, direction, className} = props;
+  const {width, height, axisPadding, markerPos, direction, noClearRect, className} = props;
   const axisCanvasElem = useRef<HTMLCanvasElement>(null);
   const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>();
   const prevMarkersRef = useRef<Markers>([]);
@@ -61,7 +62,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
           return;
         }
 
-        ctx.clearRect(0, 0, width, height); // [TEMP]
+        if (!noClearRect) ctx.clearRect(0, 0, width, height);
 
         ctx.fillStyle = LABEL_COLOR;
         ctx.strokeStyle = TICK_COLOR;
@@ -127,6 +128,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
       direction,
       height,
       width,
+      noClearRect,
     ],
   );
 

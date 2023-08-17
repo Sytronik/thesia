@@ -12,6 +12,7 @@ const FreqAxis = forwardRef((props: {height: number}, ref) => {
       axisPadding={VERTICAL_AXIS_PADDING}
       markerPos={FREQ_MARKER_POS}
       direction="V"
+      noClearRect
       className="freqAxis"
     />
   );
