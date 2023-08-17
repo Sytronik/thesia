@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useLayoutEffect, useState, useCallback} from "react";
+import React, {useRef, useEffect, useState, useCallback} from "react";
 import {AXIS_SPACE} from "renderer/prototypes/constants";
 import styles from "./SplitView.scss";
 
@@ -132,7 +132,7 @@ const SplitView = (props: SplitViewProps) => {
     };
   });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (rightPaneElem.current) {
       resizeObserver.observe(rightPaneElem.current);
     }

@@ -1,4 +1,4 @@
-import React, {useRef, useLayoutEffect, useState, useCallback} from "react";
+import React, {useRef, useEffect, useState, useCallback} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.scss";
@@ -35,7 +35,7 @@ function ColorMap(props: ColorMapProps) {
     }),
   );
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (colorMapElem.current) {
       resizeObserver.observe(colorMapElem.current);
     }
