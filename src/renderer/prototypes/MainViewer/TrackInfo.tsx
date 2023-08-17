@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useMemo} from "react";
 import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import NativeAPI from "../../api";
@@ -7,6 +7,7 @@ import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
 
 type TrackInfoProps = {
   trackId: number;
+  trackSummary: TrackSummary;
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
@@ -19,15 +20,8 @@ const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
 };
 
 function TrackInfo(props: TrackInfoProps) {
-  const {trackId, channelHeight, imgHeight, isSelected, selectTrack} = props;
-  const channelCount = NativeAPI.getChannelCounts(trackId);
-
-  const trackSummaryData = {
-    fileName: NativeAPI.getFileName(trackId),
-    time: new Date(NativeAPI.getLength(trackId) * 1000).toISOString().substring(11, 23),
-    sampleFormat: NativeAPI.getSampleFormat(trackId),
-    sampleRate: `${NativeAPI.getSampleRate(trackId)} Hz`,
-  };
+  const {trackId, trackSummary, channelHeight, imgHeight, isSelected, selectTrack} = props;
+  const channelCount = useMemo(() => NativeAPI.getChannelCounts(trackId), [trackId]);
 
   const channels = [...Array(channelCount).keys()].map((ch) => {
     return (
@@ -48,7 +42,7 @@ function TrackInfo(props: TrackInfoProps) {
         height: channelHeight * channelCount + 2 * (channelCount - 1),
       }}
     >
-      <TrackSummary className={styles.TrackSummary} data={trackSummaryData} />
+      <TrackSummary className={styles.TrackSummary} data={trackSummary} />
       <div className={styles.channels}>{channels}</div>
     </div>
   );

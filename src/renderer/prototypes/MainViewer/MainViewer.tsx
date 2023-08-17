@@ -261,15 +261,29 @@ function MainViewer(props: MainViewerProps) {
     [removeTracks, refreshTracks],
   );
 
+  const trackSummaryArr = useMemo(
+    () =>
+      trackIds.map((trackId) => {
+        return {
+          fileName: NativeAPI.getFileName(trackId),
+          time: new Date(NativeAPI.getLength(trackId) * 1000).toISOString().substring(11, 23),
+          sampleFormat: NativeAPI.getSampleFormat(trackId),
+          sampleRate: `${NativeAPI.getSampleRate(trackId)} Hz`,
+        };
+      }),
+    [trackIds],
+  );
+
   const leftPane = (
     <>
       <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
-      {trackIds.map((trackId: number) => {
+      {trackIds.map((trackId, i) => {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
             key={`${trackId}`}
             trackId={trackId}
+            trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
