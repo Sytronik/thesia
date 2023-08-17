@@ -15,7 +15,7 @@ type ThrottledSetMarkersParams = {
 const THRESHOLD = 1000 / 240;
 
 const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
-  const target = boundaries.find((boundary) => value > boundary);
+  const target = boundaries.find((boundary) => value >= boundary);
   if (target === undefined) {
     console.error("invalid tick scale determinant");
     return null;
