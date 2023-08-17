@@ -285,7 +285,7 @@ function MainViewer(props: MainViewerProps) {
     <>
       <div className={styles.trackRightHeader}>
         <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
-        <span className={styles.axisLabelSection}>dB</span>
+        <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
       {trackIds.map((id) => (
