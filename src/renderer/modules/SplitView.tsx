@@ -120,7 +120,7 @@ const SplitView = (props: SplitViewProps) => {
     }),
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("touchmove", onTouchMove);
     document.addEventListener("mouseup", onMouseUp);
