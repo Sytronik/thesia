@@ -28,7 +28,6 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   const axisCanvasElem = useRef<HTMLCanvasElement>(null);
   const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>();
   const prevMarkersRef = useRef<Markers>([]);
-  const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
   useEffect(() => {
     if (!axisCanvasElem.current) {
@@ -56,6 +55,8 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
           ctx.clearRect(0, 0, width, height);
           return;
         }
+
+        const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
         if (!noClearRect) ctx.clearRect(0, 0, width, height);
 
@@ -115,17 +116,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         prevMarkersRef.current = markers;
       },
     }),
-    [
-      LABEL_LEFT_MARGIN,
-      LABEL_POS,
-      MAJOR_TICK_POS,
-      MINOR_TICK_POS,
-      axisPadding,
-      direction,
-      height,
-      width,
-      noClearRect,
-    ],
+    [height, width, axisPadding, markerPos, direction, noClearRect],
   );
 
   return (
