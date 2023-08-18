@@ -70,9 +70,13 @@ function MainViewer(props: MainViewerProps) {
   const pixelRatio = useDevicePixelRatio();
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
-  const imgHeight = height - VERTICAL_AXIS_PADDING * 2;
+  const imgHeight = useMemo(() => height - 2 * VERTICAL_AXIS_PADDING, [height]);
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
-  const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
+  const colorBarHeight = useMemo(
+    () => colorMapHeight - 2 * VERTICAL_AXIS_PADDING,
+    [colorMapHeight],
+  );
+
   const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef<DrawOptionForWav>({amp_range: [-1, 1]});
 
