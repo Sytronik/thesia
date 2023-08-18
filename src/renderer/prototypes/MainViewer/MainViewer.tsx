@@ -1,5 +1,6 @@
 import React, {useRef, useCallback, useEffect, useMemo, useState} from "react";
 import {throttle} from "throttle-debounce";
+import {useDevicePixelRatio} from "use-device-pixel-ratio";
 import useDropzone from "renderer/hooks/useDropzone";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
@@ -66,6 +67,7 @@ function MainViewer(props: MainViewerProps) {
 
   const requestRef = useRef<number>(0);
 
+  const pixelRatio = useDevicePixelRatio();
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const imgHeight = height - VERTICAL_AXIS_PADDING * 2;
@@ -129,15 +131,15 @@ function MainViewer(props: MainViewerProps) {
           await NativeAPI.setImageState(
             idChArr,
             startSecRef.current,
-            canvasWidth,
-            canvasHeight,
-            pxPerSecRef.current,
+            canvasWidth * pixelRatio,
+            canvasHeight * pixelRatio,
+            pxPerSecRef.current * pixelRatio,
             drawOptionForWavRef.current,
             0.3,
           );
         },
       ),
-    [],
+    [pixelRatio],
   );
 
   const getIdChArr = useCallback(() => Object.keys(imgCanvasesRef.current), [imgCanvasesRef]);
@@ -298,7 +300,7 @@ function MainViewer(props: MainViewerProps) {
   const rightPane = (
     <>
       <div className={styles.trackRightHeader}>
-        <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
+        <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} pixelRatio={pixelRatio} />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
@@ -319,16 +321,19 @@ function MainViewer(props: MainViewerProps) {
                 ref={registerImgCanvas(`${id}_${ch}`)}
                 width={width}
                 height={imgHeight}
+                pixelRatio={pixelRatio}
               />
               <AmpAxis
                 key={`amp_${id}_${ch}`}
                 ref={registerAmpCanvas(`${id}_${ch}`)}
                 height={height}
+                pixelRatio={pixelRatio}
               />
               <FreqAxis
                 key={`freq_${id}_${ch}`}
                 ref={registerFreqCanvas(`${id}_${ch}`)}
                 height={height}
+                pixelRatio={pixelRatio}
               />
             </div>
           ))}
@@ -431,6 +436,7 @@ function MainViewer(props: MainViewerProps) {
         height={colorMapHeight}
         colorBarHeight={colorBarHeight}
         setHeight={setColorMapHeight}
+        pixelRatio={pixelRatio}
         dbAxisCanvasElem={dbCanvasElem}
       />
     </div>

@@ -14,6 +14,7 @@ type MarkerPosition = {
 type AxisCanvasProps = {
   width: number;
   height: number;
+  pixelRatio: number;
   axisPadding: number;
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
@@ -22,25 +23,24 @@ type AxisCanvasProps = {
 };
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
-  const {width, height, axisPadding, markerPos, direction, noClearRect, className} = props;
+  const {width, height, pixelRatio, axisPadding, markerPos, direction, noClearRect, className} =
+    props;
   const axisCanvasElem = useRef<HTMLCanvasElement>(null);
   const axisCanvasCtxRef = useRef<CanvasRenderingContext2D>();
   const prevMarkersRef = useRef<Markers>([]);
   const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
   useEffect(() => {
-    const ratio = window.devicePixelRatio || 1;
-
     if (!axisCanvasElem.current) {
       return;
     }
 
-    axisCanvasElem.current.width = width * ratio;
-    axisCanvasElem.current.height = height * ratio;
+    axisCanvasElem.current.width = width * pixelRatio;
+    axisCanvasElem.current.height = height * pixelRatio;
 
     axisCanvasCtxRef.current = axisCanvasElem.current.getContext("2d") as CanvasRenderingContext2D;
-    axisCanvasCtxRef.current.scale(ratio, ratio);
-  }, [width, height]);
+    axisCanvasCtxRef.current.scale(pixelRatio, pixelRatio);
+  }, [width, height, pixelRatio]);
 
   useImperativeHandle(
     ref,
@@ -55,7 +55,6 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         ) {
           return;
         }
-        prevMarkersRef.current = markers.slice();
         const ctx = axisCanvasCtxRef.current;
 
         if (!ctx || !markers?.length) {
@@ -117,6 +116,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
             ctx.stroke();
           });
         }
+        prevMarkersRef.current = markers.slice();
       },
     }),
     [

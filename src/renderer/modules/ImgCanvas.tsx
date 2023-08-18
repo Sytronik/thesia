@@ -1,45 +1,45 @@
-import React, {forwardRef, useRef, useImperativeHandle} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useEffect} from "react";
 import styles from "./ImgCanvas.scss";
 
 type ImgCanvasProps = {
   width: number;
   height: number;
+  pixelRatio: number;
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height} = props;
+  const {width, height, pixelRatio} = props;
   const canvasElem = useRef<HTMLCanvasElement>(null);
 
-  useImperativeHandle(ref, () => ({
-    draw: async (buf: ArrayBuffer) => {
-      if (!(buf && buf.byteLength === 4 * width * height)) {
-        return;
-      }
+  useEffect(() => {
+    if (!canvasElem.current) return;
 
-      const ctx = canvasElem?.current?.getContext("bitmaprenderer");
+    canvasElem.current.width = width * pixelRatio;
+    canvasElem.current.height = height * pixelRatio;
+  }, [width, height, pixelRatio]);
 
-      if (!ctx) {
-        return;
-      }
+  useImperativeHandle(
+    ref,
+    () => ({
+      draw: async (buf: Buffer) => {
+        const bitmapWidth = width * pixelRatio;
+        const bitmapHeight = height * pixelRatio;
+        if (!(buf && buf.byteLength === 4 * bitmapWidth * bitmapHeight)) {
+          return;
+        }
 
-      const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
-      const imbmp = await createImageBitmap(imdata);
-      ctx.transferFromImageBitmap(imbmp);
-    },
-  }));
+        const ctx = canvasElem.current?.getContext("bitmaprenderer");
+        if (!ctx) return;
 
-  return (
-    <>
-      <canvas
-        className={styles.ImgCanvas}
-        ref={canvasElem}
-        height={height}
-        width={width}
-        style={{width, height}}
-      />{" "}
-      {/* TEMP */}
-    </>
+        const imdata = new ImageData(new Uint8ClampedArray(buf), bitmapWidth, bitmapHeight);
+        const imbmp = await createImageBitmap(imdata);
+        ctx.transferFromImageBitmap(imbmp);
+      },
+    }),
+    [width, height, pixelRatio],
   );
+
+  return <canvas className={styles.ImgCanvas} ref={canvasElem} style={{width, height}} />;
 });
 ImgCanvas.displayName = "ImgCanvas";
 
