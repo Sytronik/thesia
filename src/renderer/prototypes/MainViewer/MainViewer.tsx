@@ -97,8 +97,14 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetTimeMarkersAndUnit = useCallback(
     (canvasWidth: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
+      if (canvasWidth === 0) {
+        throttledSetTimeMarkers(0, 0, {});
+        setTimeUnitLabel("");
+        return;
+      }
       throttledSetTimeMarkers(canvasWidth, pxPerSec, drawOptions);
-      const timeUnit = timeMarkersRef.current.pop()?.[1] || "ss";
+      if (!timeMarkersRef.current.length) return;
+      const timeUnit = timeMarkersRef.current[timeMarkersRef.current.length - 1][1];
       setTimeUnitLabel(timeUnit);
     },
     [timeMarkersRef, throttledSetTimeMarkers],
@@ -360,13 +366,19 @@ function MainViewer(props: MainViewerProps) {
   }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIds]);
 
   useEffect(() => {
-    if (!trackIds.length) return;
+    if (!trackIds.length) {
+      throttledSetDbMarkers(0, 0, {});
+      return;
+    }
 
     throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
   }, [throttledSetDbMarkers, colorBarHeight, trackIds, needRefreshTrackIds]);
 
   useEffect(() => {
-    if (!trackIds.length) return;
+    if (!trackIds.length) {
+      throttledSetTimeMarkersAndUnit(0, 0, {});
+      return;
+    }
 
     throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
       startSec: startSecRef.current,

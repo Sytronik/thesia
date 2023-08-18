@@ -35,7 +35,7 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
         async (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
           // TODO: block execution when no trackIds exist
           if (!canvasLength) {
-            console.error("invalid canvas");
+            markersRef.current = [];
             return;
           }
 

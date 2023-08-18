@@ -51,7 +51,11 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         }
         const ctx = axisCanvasCtxRef.current;
 
-        if (!ctx || !markers?.length) return;
+        if (!ctx) return;
+        if (!markers?.length) {
+          ctx.clearRect(0, 0, width, height);
+          return;
+        }
 
         if (!noClearRect) ctx.clearRect(0, 0, width, height);
 
