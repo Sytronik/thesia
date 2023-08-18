@@ -57,7 +57,7 @@ function MainViewer(props: MainViewerProps) {
     selectTrack,
   } = props;
 
-  const mainViewerElem = useRef<HTMLDivElement>(null);
+  const mainViewerElem = useRef<HTMLDivElement | null>(null);
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
@@ -435,17 +435,21 @@ function MainViewer(props: MainViewerProps) {
     }
   }, [trackIds, width]);
 
-  useEffect(() => {
-    const mainViewer = mainViewerElem.current;
-    mainViewer?.addEventListener("wheel", handleWheel, {passive: false});
-
-    return () => {
-      mainViewer?.removeEventListener("wheel", handleWheel);
-    };
-  });
+  const mainViewerElemCallback = useCallback(
+    (node) => {
+      if (node === null) {
+        mainViewerElem.current?.removeEventListener("wheel", handleWheel);
+        mainViewerElem.current = null;
+        return;
+      }
+      node.addEventListener("wheel", handleWheel, {passive: false});
+      mainViewerElem.current = node;
+    },
+    [handleWheel],
+  );
 
   return (
-    <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElem}>
+    <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElemCallback}>
       {isDropzoneActive && <div className={styles.dropzone} />}
       <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
       <ColorMap
