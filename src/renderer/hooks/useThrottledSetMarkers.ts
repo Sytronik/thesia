@@ -1,4 +1,4 @@
-import {useRef} from "react";
+import {useRef, useMemo} from "react";
 import {throttle} from "throttle-debounce";
 
 type ThrottledSetMarkersParams = {
@@ -28,25 +28,32 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
   const markersRef = useRef<Markers>([]);
   const {scaleTable, boundaries, getMarkers} = params;
 
-  const throttledSetMarkers = throttle(
-    THRESHOLD,
-    async (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
-      // TODO: block execution when no trackIds exist
-      if (!canvasLength) {
-        console.error("invalid canvas");
-        return;
-      }
+  const throttledSetMarkers = useMemo(
+    () =>
+      throttle(
+        THRESHOLD,
+        async (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
+          // TODO: block execution when no trackIds exist
+          if (!canvasLength) {
+            console.error("invalid canvas");
+            return;
+          }
 
-      const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
-      if (!tickScale) {
-        return;
-      }
+          const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
+          if (!tickScale) return;
 
-      // time axis returns [size of minor unit, number of minor tick]
-      // instead of tick and lable count
-      const [maxTickCount, maxLabelCount] = tickScale;
-      markersRef.current = await getMarkers(canvasLength, maxTickCount, maxLabelCount, drawOptions);
-    },
+          // time axis returns [size of minor unit, number of minor tick]
+          // instead of tick and lable count
+          const [maxTickCount, maxLabelCount] = tickScale;
+          markersRef.current = await getMarkers(
+            canvasLength,
+            maxTickCount,
+            maxLabelCount,
+            drawOptions,
+          );
+        },
+      ),
+    [boundaries, getMarkers, scaleTable],
   );
 
   return {

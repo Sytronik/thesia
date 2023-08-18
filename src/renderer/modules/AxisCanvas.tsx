@@ -46,20 +46,12 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     ref,
     () => ({
       draw: (markers: Markers) => {
-        if (
-          markers.length === prevMarkersRef.current.length &&
-          markers.every(
-            (m, i) =>
-              m[0] === prevMarkersRef.current[i][0] && m[1] === prevMarkersRef.current[i][1],
-          )
-        ) {
+        if (prevMarkersRef.current === markers) {
           return;
         }
         const ctx = axisCanvasCtxRef.current;
 
-        if (!ctx || !markers?.length) {
-          return;
-        }
+        if (!ctx || !markers?.length) return;
 
         if (!noClearRect) ctx.clearRect(0, 0, width, height);
 
@@ -116,7 +108,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
             ctx.stroke();
           });
         }
-        prevMarkersRef.current = markers.slice();
+        prevMarkersRef.current = markers;
       },
     }),
     [
