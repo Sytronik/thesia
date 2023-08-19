@@ -13,7 +13,6 @@ const AmpAxis = forwardRef((props: {height: number; pixelRatio: number}, ref) =>
       axisPadding={VERTICAL_AXIS_PADDING}
       markerPos={AMP_MARKER_POS}
       direction="V"
-      noClearRect
       className="ampAxis"
     />
   );

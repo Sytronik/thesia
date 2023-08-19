@@ -58,7 +58,6 @@ function ColorMap(props: ColorMapProps) {
           axisPadding={VERTICAL_AXIS_PADDING}
           markerPos={DB_MARKER_POS}
           direction="V"
-          noClearRect
           className="dbAxis"
         />
       </div>

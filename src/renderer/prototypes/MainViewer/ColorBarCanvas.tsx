@@ -52,15 +52,9 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     ctx.fillRect(0, 0, COLORBAR_CANVAS_WIDTH, height);
   }, [colorBarGradientBuf, height]);
 
-  useEffect(() => {
-    draw();
-  }, [draw]);
+  useEffect(draw, [draw]);
 
-  return (
-    <>
-      <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />
-    </>
-  );
+  return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />;
 }
 
 export default ColorBarCanvas;
