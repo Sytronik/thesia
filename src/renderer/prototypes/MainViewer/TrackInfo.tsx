@@ -1,12 +1,12 @@
-import React, {useMemo} from "react";
+import React from "react";
 import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
-import NativeAPI from "../../api";
 import styles from "./TrackInfo.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
 
 type TrackInfoProps = {
   trackId: number;
+  trackIdChArr: IdChArr;
   trackSummary: TrackSummary;
   channelHeight: number;
   imgHeight: number;
@@ -20,13 +20,20 @@ const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
 };
 
 function TrackInfo(props: TrackInfoProps) {
-  const {trackId, trackSummary, channelHeight, imgHeight, isSelected, selectTrack} = props;
-  const channelCount = useMemo(() => NativeAPI.getChannelCounts(trackId), [trackId]);
+  const {
+    trackId,
+    trackIdChArr: trackIdCh,
+    trackSummary,
+    channelHeight,
+    imgHeight,
+    isSelected,
+    selectTrack,
+  } = props;
 
-  const channels = [...Array(channelCount).keys()].map((ch) => {
+  const channels = trackIdCh.map((idChStr, ch) => {
     return (
-      <div key={`${trackId}_${ch}`} className={styles.ch} style={{height: imgHeight}}>
-        <span>{CHANNEL[channelCount][ch]}</span>
+      <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
+        <span>{CHANNEL[trackIdCh.length][ch] || ""}</span>
       </div>
     );
   });
@@ -39,7 +46,7 @@ function TrackInfo(props: TrackInfoProps) {
       onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: need optimization?
       style={{
         padding: `${VERTICAL_AXIS_PADDING}px 0`,
-        height: channelHeight * channelCount + 2 * (channelCount - 1),
+        height: channelHeight * trackIdCh.length + 2 * (trackIdCh.length - 1),
       }}
     >
       <TrackSummary className={styles.TrackSummary} data={trackSummary} />

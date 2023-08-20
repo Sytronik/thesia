@@ -1,8 +1,9 @@
 // audio file
-export const CHANNEL = {
-  1: ["M"],
-  2: ["L", "R"],
-};
+export const CHANNEL = [
+  [], // Unreachable
+  ["M"], // mono
+  ["L", "R"], // stereo
+];
 
 export const SUPPORTED_TYPES = ["flac", "mp3", "oga", "ogg", "wav"];
 export const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);

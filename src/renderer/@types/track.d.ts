@@ -1,6 +1,7 @@
 // IdChannel is form of id#_ch#
 type IdChannel = string;
 type IdChArr = IdChannel[];
+type IdChMap = Map<number, IdChArr>;
 
 // written in snake case for compatibility with native api
 type DrawOptionForWav = {

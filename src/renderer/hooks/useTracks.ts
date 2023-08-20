@@ -1,4 +1,4 @@
-import {useRef, useState, useCallback} from "react";
+import {useRef, useState, useCallback, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import NativeAPI from "../api";
 
@@ -19,6 +19,17 @@ function useTracks() {
       waitingIdsRef.current.sort((a, b) => a - b);
     }
   }, []);
+
+  const trackIdChMap: IdChMap = useMemo(
+    () =>
+      new Map(
+        trackIds.map((id) => [
+          id,
+          [...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
+        ]),
+      ),
+    [trackIds],
+  );
 
   const reloadTracks = useCallback(async (ids: number[]) => {
     try {
@@ -111,6 +122,7 @@ function useTracks() {
   return {
     trackIds,
     erroredTrackIds,
+    trackIdChMap,
     needRefreshTrackIdChArr,
     reloadTracks,
     refreshTracks,

@@ -14,6 +14,7 @@ function App() {
   const {
     trackIds,
     erroredTrackIds,
+    trackIdChMap,
     needRefreshTrackIdChArr,
     reloadTracks,
     refreshTracks,
@@ -149,8 +150,9 @@ function App() {
       <MainViewer
         trackIds={trackIds}
         erroredTrackIds={erroredTrackIds}
-        needRefreshTrackIdChArr={needRefreshTrackIdChArr}
         selectedTrackIds={selectedTrackIds}
+        trackIdChMap={trackIdChMap}
+        needRefreshTrackIdChArr={needRefreshTrackIdChArr}
         addDroppedFile={addDroppedFile}
         ignoreError={ignoreError}
         refreshTracks={refreshTracks}

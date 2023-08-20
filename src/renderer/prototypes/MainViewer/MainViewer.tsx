@@ -33,8 +33,9 @@ import {
 type MainViewerProps = {
   trackIds: number[];
   erroredTrackIds: number[];
-  needRefreshTrackIdChArr: IdChArr;
   selectedTrackIds: number[];
+  trackIdChMap: IdChMap;
+  needRefreshTrackIdChArr: IdChArr;
   addDroppedFile: (e: DragEvent) => void;
   reloadTracks: (ids: number[]) => void;
   refreshTracks: () => void;
@@ -45,10 +46,11 @@ type MainViewerProps = {
 
 function MainViewer(props: MainViewerProps) {
   const {
-    erroredTrackIds,
-    needRefreshTrackIdChArr,
     trackIds,
+    erroredTrackIds,
     selectedTrackIds,
+    trackIdChMap,
+    needRefreshTrackIdChArr,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -149,7 +151,10 @@ function MainViewer(props: MainViewerProps) {
     [pixelRatio],
   );
 
-  const getIdChArr = useCallback(() => Object.keys(imgCanvasesRef.current), [imgCanvasesRef]);
+  const getIdChArr = useCallback(
+    () => Array.from(trackIdChMap.values()).flatMap((v) => v),
+    [trackIdChMap],
+  ); // TODO: return only viewport
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!trackIds.length) return;
@@ -290,8 +295,9 @@ function MainViewer(props: MainViewerProps) {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
-            key={`${trackId}`}
+            key={trackId}
             trackId={trackId}
+            trackIdChArr={trackIdChMap.get(trackId) || []}
             trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
@@ -321,29 +327,24 @@ function MainViewer(props: MainViewerProps) {
               handleClose={removeAndRefreshTrack}
             />
           ) : null}
-          {[...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => (
-            <div key={`${id}_${ch}`} className={styles.chCanvases}>
-              <ImgCanvas
-                key={`img_${id}_${ch}`}
-                ref={registerImgCanvas(`${id}_${ch}`)}
-                width={width}
-                height={imgHeight}
-                pixelRatio={pixelRatio}
-              />
-              <AmpAxis
-                key={`amp_${id}_${ch}`}
-                ref={registerAmpCanvas(`${id}_${ch}`)}
-                height={height}
-                pixelRatio={pixelRatio}
-              />
-              <FreqAxis
-                key={`freq_${id}_${ch}`}
-                ref={registerFreqCanvas(`${id}_${ch}`)}
-                height={height}
-                pixelRatio={pixelRatio}
-              />
-            </div>
-          ))}
+          {trackIdChMap.get(id)?.map((idChStr) => {
+            return (
+              <div key={idChStr} className={styles.chCanvases}>
+                <ImgCanvas
+                  ref={registerImgCanvas(idChStr)}
+                  width={width}
+                  height={imgHeight}
+                  pixelRatio={pixelRatio}
+                />
+                <AmpAxis ref={registerAmpCanvas(idChStr)} height={height} pixelRatio={pixelRatio} />
+                <FreqAxis
+                  ref={registerFreqCanvas(idChStr)}
+                  height={height}
+                  pixelRatio={pixelRatio}
+                />
+              </div>
+            );
+          })}
         </div>
       ))}
     </>
@@ -386,8 +387,8 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    const idChannels = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
-    throttledSetImgState(idChannels, width, imgHeight);
+    const currentIdChArr = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
+    throttledSetImgState(currentIdChArr, width, imgHeight);
   }, [throttledSetImgState, getIdChArr, width, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
