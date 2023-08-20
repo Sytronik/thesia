@@ -115,7 +115,7 @@ export async function getMindB(): Promise<number> {
   return backend.getMindB();
 }
 
-export function getColorMap(): ArrayBuffer {
+export function getColorMap(): Buffer {
   return backend.getColormap();
 }
 

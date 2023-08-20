@@ -14,11 +14,11 @@ type MarkerDrawOption = {
 };
 
 type SpecWavImages = {
-  [key: IdChannel]: ArrayBuffer;
+  [key: IdChannel]: Buffer;
 };
 
 type ImgCanvasHandleElement = {
-  draw: (buf: ArrayBuffer) => void;
+  draw: (buf: Buffer) => void;
 };
 
 type ColorBarCanvasHandleElement = {

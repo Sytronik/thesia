@@ -33,7 +33,7 @@ import {
 type MainViewerProps = {
   trackIds: number[];
   erroredTrackIds: number[];
-  needRefreshTrackIds: IdChArr;
+  needRefreshTrackIdChArr: IdChArr;
   selectedTrackIds: number[];
   addDroppedFile: (e: DragEvent) => void;
   reloadTracks: (ids: number[]) => void;
@@ -46,7 +46,7 @@ type MainViewerProps = {
 function MainViewer(props: MainViewerProps) {
   const {
     erroredTrackIds,
-    needRefreshTrackIds,
+    needRefreshTrackIdChArr,
     trackIds,
     selectedTrackIds,
     addDroppedFile,
@@ -133,22 +133,19 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetImgState = useMemo(
     () =>
-      throttle(
-        1000 / 240,
-        async (idChArr: IdChannel[], canvasWidth: number, canvasHeight: number) => {
-          if (!idChArr.length) return;
+      throttle(1000 / 240, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
+        if (!idChArr.length) return;
 
-          await NativeAPI.setImageState(
-            idChArr,
-            startSecRef.current,
-            canvasWidth * pixelRatio,
-            canvasHeight * pixelRatio,
-            pxPerSecRef.current * pixelRatio,
-            drawOptionForWavRef.current,
-            0.3,
-          );
-        },
-      ),
+        await NativeAPI.setImageState(
+          idChArr,
+          startSecRef.current,
+          canvasWidth * pixelRatio,
+          canvasHeight * pixelRatio,
+          pxPerSecRef.current * pixelRatio,
+          drawOptionForWavRef.current,
+          0.3,
+        );
+      }),
     [pixelRatio],
   );
 
@@ -357,13 +354,13 @@ function MainViewer(props: MainViewerProps) {
     if (!trackIds.length) return;
 
     throttledSetAmpMarkers(imgHeight, imgHeight, {drawOptionForWav: drawOptionForWavRef.current});
-  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIds]);
+  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) return;
 
     throttledSetFreqMarkers(imgHeight, imgHeight, {});
-  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIds]);
+  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) {
@@ -372,7 +369,7 @@ function MainViewer(props: MainViewerProps) {
     }
 
     throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
-  }, [throttledSetDbMarkers, colorBarHeight, trackIds, needRefreshTrackIds]);
+  }, [throttledSetDbMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) {
@@ -384,14 +381,14 @@ function MainViewer(props: MainViewerProps) {
       startSec: startSecRef.current,
       pxPerSec: pxPerSecRef.current,
     });
-  }, [throttledSetTimeMarkersAndUnit, width, trackIds, needRefreshTrackIds]);
+  }, [throttledSetTimeMarkersAndUnit, width, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) return;
 
-    const idChannels = needRefreshTrackIds.length ? needRefreshTrackIds : getIdChArr();
+    const idChannels = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
     throttledSetImgState(idChannels, width, imgHeight);
-  }, [throttledSetImgState, getIdChArr, width, imgHeight, trackIds, needRefreshTrackIds]);
+  }, [throttledSetImgState, getIdChArr, width, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);

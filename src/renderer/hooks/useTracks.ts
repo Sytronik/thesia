@@ -10,7 +10,7 @@ type AddTracksResultType = {
 function useTracks() {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
-  const [needRefreshTrackIds, setNeedRefreshTrackIds] = useState<IdChArr>([]);
+  const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
   const waitingIdsRef = useRef<number[]>([]);
   const addToWaitingIds = useCallback((ids: number[]) => {
@@ -35,9 +35,9 @@ function useTracks() {
 
   const refreshTracks = useCallback(async () => {
     try {
-      const needRefreshIds = await NativeAPI.applyTrackListChanges();
-      if (needRefreshIds) {
-        setNeedRefreshTrackIds(needRefreshIds);
+      const needRefreshIdChArr = await NativeAPI.applyTrackListChanges();
+      if (needRefreshIdChArr) {
+        setNeedRefreshTrackIdChArr(needRefreshIdChArr);
       }
     } catch (err) {
       console.error("Could not refresh tracks", err);
@@ -111,7 +111,7 @@ function useTracks() {
   return {
     trackIds,
     erroredTrackIds,
-    needRefreshTrackIds,
+    needRefreshTrackIdChArr,
     reloadTracks,
     refreshTracks,
     addTracks,
