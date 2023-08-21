@@ -22,10 +22,6 @@ type ImgCanvasHandleElement = {
   draw: (buf: Buffer) => void;
 };
 
-type ColorBarCanvasHandleElement = {
-  draw: () => void;
-};
-
 // Track Summary
 type TrackSummary = {
   fileName: string;

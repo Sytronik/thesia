@@ -90,6 +90,11 @@ function MainViewer(props: MainViewerProps) {
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
+  const getIdChArr = useCallback(
+    () => Array.from(trackIdChMap.values()).flatMap((v) => v),
+    [trackIdChMap],
+  ); // TODO: return only viewport
+
   const {markersRef: timeMarkersRef, throttledSetMarkers: throttledSetTimeMarkers} =
     useThrottledSetMarkers({
       scaleTable: TIME_TICK_SIZE,
@@ -151,10 +156,6 @@ function MainViewer(props: MainViewerProps) {
     [pixelRatio],
   );
 
-  const getIdChArr = useCallback(
-    () => Array.from(trackIdChMap.values()).flatMap((v) => v),
-    [trackIdChMap],
-  ); // TODO: return only viewport
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!trackIds.length) return;
@@ -233,29 +234,19 @@ function MainViewer(props: MainViewerProps) {
       if (imgCanvasRef) {
         promises.push(imgCanvasRef.draw(buf));
       }
-      if (ampCanvasRef) {
-        ampCanvasRef.draw(ampMarkersRef.current);
-      }
-      if (freqCanvasRef) {
-        freqCanvasRef.draw(freqMarkersRef.current);
-      }
+      ampCanvasRef?.draw(ampMarkersRef.current);
+      freqCanvasRef?.draw(freqMarkersRef.current);
     });
-    if (timeCanvasElem.current) {
-      timeCanvasElem.current.draw(timeMarkersRef.current);
-    }
-    if (dbCanvasElem.current) {
-      dbCanvasElem.current.draw(dbMarkersRef.current);
-    }
+    timeCanvasElem.current?.draw(timeMarkersRef.current);
+    dbCanvasElem.current?.draw(dbMarkersRef.current);
     await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
   }, [
-    timeCanvasElem,
     timeMarkersRef,
     ampCanvasesRef,
     ampMarkersRef,
     freqCanvasesRef,
     freqMarkersRef,
-    dbCanvasElem,
     dbMarkersRef,
     imgCanvasesRef,
   ]);
