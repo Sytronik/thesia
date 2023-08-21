@@ -16,6 +16,7 @@ function App() {
     erroredTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
+    maxTrackSec,
     reloadTracks,
     refreshTracks,
     addTracks,
@@ -153,6 +154,7 @@ function App() {
         selectedTrackIds={selectedTrackIds}
         trackIdChMap={trackIdChMap}
         needRefreshTrackIdChArr={needRefreshTrackIdChArr}
+        maxTrackSec={maxTrackSec}
         addDroppedFile={addDroppedFile}
         ignoreError={ignoreError}
         refreshTracks={refreshTracks}

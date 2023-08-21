@@ -36,6 +36,7 @@ type MainViewerProps = {
   selectedTrackIds: number[];
   trackIdChMap: IdChMap;
   needRefreshTrackIdChArr: IdChArr;
+  maxTrackSec: number;
   addDroppedFile: (e: DragEvent) => void;
   reloadTracks: (ids: number[]) => void;
   refreshTracks: () => void;
@@ -51,6 +52,7 @@ function MainViewer(props: MainViewerProps) {
     selectedTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
+    maxTrackSec,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -63,7 +65,6 @@ function MainViewer(props: MainViewerProps) {
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
-  const maxTrackSecRef = useRef<number>(0);
   const canvasIsFitRef = useRef<boolean>(false);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
@@ -176,7 +177,7 @@ function MainViewer(props: MainViewerProps) {
           const pxPerSec = Math.min(
             Math.max(
               pxPerSecRef.current * (1 + delta / 1000),
-              width / (maxTrackSecRef.current - startSecRef.current),
+              width / (maxTrackSec - startSecRef.current),
             ),
             384000,
           );
@@ -199,7 +200,7 @@ function MainViewer(props: MainViewerProps) {
         e.stopPropagation();
         const tempSec = Math.min(
           Math.max(startSecRef.current + delta / pxPerSecRef.current, 0),
-          maxTrackSecRef.current - width / pxPerSecRef.current,
+          maxTrackSec - width / pxPerSecRef.current,
         );
         if (startSecRef.current !== tempSec) {
           startSecRef.current = tempSec;
@@ -213,6 +214,7 @@ function MainViewer(props: MainViewerProps) {
     },
     [
       trackIds,
+      maxTrackSec,
       getIdChArr,
       height,
       imgHeight,
@@ -391,10 +393,10 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    const secOutOfCanvas = maxTrackSecRef.current - width / pxPerSecRef.current;
+    const secOutOfCanvas = maxTrackSec - width / pxPerSecRef.current;
 
     if (canvasIsFitRef.current) {
-      pxPerSecRef.current = width / maxTrackSecRef.current;
+      pxPerSecRef.current = width / maxTrackSec;
       return;
     }
     if (secOutOfCanvas <= 0) {
@@ -404,25 +406,23 @@ function MainViewer(props: MainViewerProps) {
     if (startSecRef.current > secOutOfCanvas) {
       startSecRef.current = secOutOfCanvas;
     }
-  }, [trackIds, width]);
+  }, [trackIds, width, maxTrackSec]);
 
   // pxPerSec and canvasIsFit setting logic
   useEffect(() => {
     prevTrackCountRef.current = trackIds.length;
 
     if (!trackIds.length) {
-      maxTrackSecRef.current = 0;
       canvasIsFitRef.current = false;
       return;
     }
 
-    maxTrackSecRef.current = NativeAPI.getLongestTrackLength();
-    if (!prevTrackCountRef.current) {
-      pxPerSecRef.current = width / maxTrackSecRef.current;
+    if (prevTrackCountRef.current === 0) {
+      pxPerSecRef.current = width / maxTrackSec;
       startSecRef.current = 0;
       canvasIsFitRef.current = true;
     }
-  }, [trackIds, width]);
+  }, [trackIds, width, maxTrackSec]);
 
   const mainViewerElemCallback = useCallback(
     (node) => {

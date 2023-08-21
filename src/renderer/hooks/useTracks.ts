@@ -20,6 +20,7 @@ function useTracks() {
     }
   }, []);
 
+  const maxTrackSec = useMemo(() => NativeAPI.getLongestTrackLength(), [trackIds]);
   const trackIdChMap: IdChMap = useMemo(
     () =>
       new Map(
@@ -124,6 +125,7 @@ function useTracks() {
     erroredTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
+    maxTrackSec,
     reloadTracks,
     refreshTracks,
     addTracks,
