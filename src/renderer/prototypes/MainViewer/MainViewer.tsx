@@ -11,6 +11,8 @@ import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
 import ErrorBox from "./ErrorBox";
 import FreqAxis from "./FreqAxis";
+import Overview from "../Overview/Overview";
+import SlideBar from "../SlideBar/SlideBar";
 import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
@@ -86,6 +88,7 @@ function MainViewer(props: MainViewerProps) {
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
+  const overviewElem = useRef<OverviewCanvasHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
 
@@ -239,11 +242,13 @@ function MainViewer(props: MainViewerProps) {
       ampCanvasRef?.draw(ampMarkersRef.current);
       freqCanvasRef?.draw(freqMarkersRef.current);
     });
+    overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     timeCanvasElem.current?.draw(timeMarkersRef.current);
     dbCanvasElem.current?.draw(dbMarkersRef.current);
     await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
   }, [
+    width,
     timeMarkersRef,
     ampCanvasesRef,
     ampMarkersRef,
@@ -438,17 +443,31 @@ function MainViewer(props: MainViewerProps) {
   );
 
   return (
-    <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElemCallback}>
-      {isDropzoneActive && <div className={styles.dropzone} />}
-      <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
-      <ColorMap
-        height={colorMapHeight}
-        colorBarHeight={colorBarHeight}
-        setHeight={setColorMapHeight}
-        pixelRatio={pixelRatio}
-        dbAxisCanvasElem={dbCanvasElem}
-      />
-    </div>
+    <>
+      <div className="row-fixed overview">
+        <Overview
+          ref={overviewElem}
+          selectedTrackId={
+            trackIds.length > 0 && selectedTrackIds.length > 0
+              ? selectedTrackIds[selectedTrackIds.length - 1]
+              : null
+          }
+          pixelRatio={pixelRatio}
+        />
+        <SlideBar />
+      </div>
+      <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElemCallback}>
+        {isDropzoneActive && <div className={styles.dropzone} />}
+        <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
+        <ColorMap
+          height={colorMapHeight}
+          colorBarHeight={colorBarHeight}
+          setHeight={setColorMapHeight}
+          pixelRatio={pixelRatio}
+          dbAxisCanvasElem={dbCanvasElem}
+        />
+      </div>
+    </>
   );
 }
 

@@ -22,6 +22,8 @@ export const AXIS_STYLE = {
   LABEL_FONT: "11px sans-serif",
 };
 
+export const OVERVIEW_LENS_STYLE = {ALPHA: 0.4, LINE_WIDTH: 1.6};
+
 export const TIME_CANVAS_HEIGHT = 16;
 export const TIME_MARKER_POS = {
   MAJOR_TICK_POS: 2, // LENGTH: 14px, 16px - 14px

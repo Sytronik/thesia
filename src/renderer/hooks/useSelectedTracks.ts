@@ -1,5 +1,4 @@
 import React, {useCallback, useState} from "react";
-import {last, isNil} from "renderer/utils/arrayUtils";
 
 function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
@@ -13,22 +12,25 @@ function useSelectedTracks() {
 
   const selectTrackAfterAddTracks = useCallback((prevTrackIds: number[], newTrackIds: number[]) => {
     const nextSelectedTrackIndex = prevTrackIds.length;
-    const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
-
-    if (!isNil(nextSelectedTrackId)) {
+    if (newTrackIds.length > nextSelectedTrackIndex) {
+      const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
       setSelectedTrackIds([nextSelectedTrackId]);
     }
   }, []);
 
   const selectTrackAfterRemoveTracks = useCallback(
     (prevTrackIds: number[], newTrackIds: number[]) => {
-      let nextSelectedTrackIndex = newTrackIds.length;
-      selectedTrackIds.forEach((id) => {
-        nextSelectedTrackIndex = Math.min(nextSelectedTrackIndex, prevTrackIds.indexOf(id));
-      });
-      const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex] ?? last(newTrackIds);
+      if (newTrackIds.length) {
+        let nextSelectedTrackIndex = newTrackIds.length - 1;
+        selectedTrackIds.forEach((id) => {
+          nextSelectedTrackIndex = Math.min(nextSelectedTrackIndex, prevTrackIds.indexOf(id));
+        });
+        const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
 
-      setSelectedTrackIds([nextSelectedTrackId]);
+        setSelectedTrackIds([nextSelectedTrackId]);
+      } else {
+        setSelectedTrackIds([]);
+      }
     },
     [selectedTrackIds],
   );

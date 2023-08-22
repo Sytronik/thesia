@@ -1,8 +1,6 @@
 import React, {useCallback, useEffect, useRef} from "react";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
-import Overview from "./prototypes/Overview/Overview";
-import SlideBar from "./prototypes/SlideBar/SlideBar";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
 import {SUPPORTED_MIME} from "./prototypes/constants";
@@ -143,10 +141,6 @@ function App() {
     <div className="App">
       <div className="row-fixed control">
         <Control />
-      </div>
-      <div className="row-fixed overview">
-        <Overview />
-        <SlideBar />
       </div>
       <MainViewer
         trackIds={trackIds}

@@ -42,3 +42,7 @@ type TickScaleTable = {
 type AxisCanvasHandleElement = {
   draw: (markers: Markers) => void;
 };
+
+type OverviewCanvasHandleElement = {
+  draw: (startSec: number, lensDurationSec: number) => void;
+};
