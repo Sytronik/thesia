@@ -24,7 +24,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     canvasElem.current.width = width * pixelRatio;
     canvasElem.current.height = height * pixelRatio;
 
-    ctxRef.current = canvasElem.current.getContext("2d");
+    ctxRef.current = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
     ctxRef.current?.scale(pixelRatio, pixelRatio);
   }, [width, height, pixelRatio]);
 
@@ -52,7 +52,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     ctx.fillRect(0, 0, COLORBAR_CANVAS_WIDTH, height);
   }, [colorBarGradientBuf, height]);
 
-  useEffect(draw, [draw]);
+  useEffect(draw, [draw, pixelRatio]);
 
   return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />;
 }
