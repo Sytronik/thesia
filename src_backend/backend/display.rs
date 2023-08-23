@@ -245,24 +245,38 @@ impl TrackDrawer for TrackManager {
 
     fn draw_overview(&self, id: usize, width: u32, height: u32) -> Vec<u8> {
         let track = &self.tracklist[id];
+        let (pad_left, drawing_width, pad_right) =
+            track.decompose_width_of(0., width, width as f64 / self.tracklist.max_sec);
         let ch_h = height / track.n_ch() as u32;
-        let i_start = (height % track.n_ch() as u32 / 2 * width * 4) as usize;
-        let i_end = i_start + (track.n_ch() as u32 * ch_h * width * 4) as usize;
-        let mut result = vec![0u8; width as usize * height as usize * 4];
-        result[i_start..i_end]
-            .par_chunks_exact_mut(ch_h as usize * width as usize * 4)
+        let i_start = (height % track.n_ch() as u32 / 2 * drawing_width * 4) as usize;
+        let i_end = i_start + (track.n_ch() as u32 * ch_h * drawing_width * 4) as usize;
+        let mut vec = vec![0u8; drawing_width as usize * height as usize * 4];
+        vec[i_start..i_end]
+            .par_chunks_exact_mut(ch_h as usize * drawing_width as usize * 4)
             .enumerate()
             .for_each(|(ch, x)| {
                 draw_wav_to(
                     x,
                     ArrWithSliceInfo::entire(&track.get_wav(ch)),
-                    width,
+                    drawing_width,
                     ch_h,
                     (-1., 1.),
                     None,
                 )
             });
-        result
+
+        if width != drawing_width {
+            let mut arr =
+                Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
+            arr = arr.pad(
+                (pad_left as usize, pad_right as usize),
+                Axis(1),
+                PadMode::Constant(0),
+            );
+            arr.into_raw_vec()
+        } else {
+            vec
+        }
     }
 }
 
