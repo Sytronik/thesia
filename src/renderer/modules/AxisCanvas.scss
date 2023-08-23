@@ -3,17 +3,21 @@
 .timeRuler {
   height: $spacer-3;
   margin-bottom: $track-margin;
+  background-color: $bg-main;
 }
 
 .ampAxis {
   flex: 0 0 auto;
   margin-right: $track-margin;
+  background-color: $bg-main;
 }
 
 .freqAxis {
   flex: 0 0 auto;
+  background-color: $bg-main;
 }
 
 .dbAxis {
   flex: 0 0 auto;
+  background-color: $bg-main;
 }

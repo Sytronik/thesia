@@ -23,37 +23,51 @@ type AxisCanvasProps = {
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   const {width, height, pixelRatio, axisPadding, markerPos, direction, className} = props;
-  const axisCanvasElem = useRef<HTMLCanvasElement>(null);
-  const axisCanvasCtxRef = useRef<CanvasRenderingContext2D | null>();
+  const canvasElem = useRef<HTMLCanvasElement | null>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const prevMarkersRef = useRef<Markers>([]);
+  const bgColor = useRef<string>("");
+
+  const canvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
+    if (!elem) {
+      canvasElem.current = null;
+      return;
+    }
+    bgColor.current = window.getComputedStyle(elem).backgroundColor;
+    canvasElem.current = elem;
+  }, []);
+
+  const correctHMarkerPos = useCallback((x: number) => x + LINE_WIDTH / 2, []);
+  const correctVMarkerPos = useCallback(
+    (x: number) => Math.round(x * (1 - LINE_WIDTH / (height - 2 * axisPadding))) + LINE_WIDTH / 2,
+    [height, axisPadding],
+  );
 
   const draw = useCallback(
     (markers: Markers, forced = false) => {
       if (prevMarkersRef.current === markers && !forced) return;
-      const ctx = axisCanvasCtxRef.current;
+      const ctx = ctxRef.current;
 
       if (!ctx) return;
 
-      ctx.clearRect(0, 0, width, height);
+      ctx.save();
+      ctx.fillStyle = bgColor.current;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+
       if (!markers?.length) return;
 
       const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
-      ctx.fillStyle = LABEL_COLOR;
-      ctx.strokeStyle = TICK_COLOR;
-      ctx.lineWidth = LINE_WIDTH;
-      ctx.font = LABEL_FONT;
-      ctx.textBaseline = "hanging";
-
       if (direction === "H") {
         ctx.beginPath();
-        ctx.moveTo(axisPadding, height);
-        ctx.lineTo(width - axisPadding, height);
+        ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
+        ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
         ctx.stroke();
 
         markers.forEach((marker) => {
           const [axisPosition, label] = marker;
-          const pxPosition = axisPosition + axisPadding;
+          const pxPosition = correctHMarkerPos(axisPosition + axisPadding);
 
           ctx.beginPath();
           if (label) {
@@ -68,13 +82,13 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         });
       } else {
         ctx.beginPath();
-        ctx.moveTo(0, axisPadding);
-        ctx.lineTo(0, height - axisPadding);
+        ctx.moveTo(LINE_WIDTH / 2, axisPadding);
+        ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
         ctx.stroke();
 
         markers.forEach((marker) => {
           const [axisPosition, label] = marker;
-          const pxPosition = axisPosition + axisPadding;
+          const pxPosition = correctVMarkerPos(axisPosition + axisPadding);
 
           ctx.beginPath();
           if (label) {
@@ -94,17 +108,25 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
       }
       prevMarkersRef.current = markers;
     },
-    [axisPadding, direction, height, markerPos, width],
+    [axisPadding, direction, height, markerPos, width, correctHMarkerPos, correctVMarkerPos],
   );
 
   useEffect(() => {
-    if (!axisCanvasElem.current) return;
+    if (!canvasElem.current) return;
 
-    axisCanvasElem.current.width = width * pixelRatio;
-    axisCanvasElem.current.height = height * pixelRatio;
+    canvasElem.current.width = width * pixelRatio;
+    canvasElem.current.height = height * pixelRatio;
 
-    axisCanvasCtxRef.current = axisCanvasElem.current.getContext("2d");
-    axisCanvasCtxRef.current?.scale(pixelRatio, pixelRatio);
+    const ctx = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
+    ctxRef.current = ctx;
+    if (!ctx) return;
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.fillStyle = LABEL_COLOR;
+    ctx.strokeStyle = TICK_COLOR;
+    ctx.lineWidth = LINE_WIDTH;
+    ctx.font = LABEL_FONT;
+    ctx.textBaseline = "hanging";
+
     draw(prevMarkersRef.current, true);
   }, [width, height, pixelRatio, draw]);
 
@@ -113,7 +135,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   return (
     <canvas
       className={`AxisCanvas ${styles[className]}`}
-      ref={axisCanvasElem}
+      ref={canvasElemCallback}
       style={{width, height}}
     />
   );
