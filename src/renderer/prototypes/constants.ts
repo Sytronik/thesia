@@ -74,7 +74,7 @@ export const TIME_TICK_SIZE = {
 export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
 export const LABEL_HEIGHT_ADJUSTMENT = 4;
-export const AMP_CANVAS_WIDTH = 32;
+export const AMP_CANVAS_WIDTH = 45;
 export const AMP_MARKER_POS = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,
@@ -116,7 +116,7 @@ export const AMP_TICK_NUM = {
 };
 export const AMP_BOUNDARIES = createBoundaries(AMP_TICK_NUM);
 
-export const FREQ_CANVAS_WIDTH = 32;
+export const FREQ_CANVAS_WIDTH = 45;
 export const FREQ_MARKER_POS = {
   MAJOR_TICK_POS: 4, // LENGTH: 4px
   MINOR_TICK_POS: 3, // LENGTH: 3px,
@@ -163,7 +163,7 @@ export const DB_TICK_NUM = {
 export const DB_BOUNDARIES = createBoundaries(DB_TICK_NUM);
 
 export const MIN_TICK_SCALE_BOUNDARY = 80;
-export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 10;
+export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 45;
 export const MAX_HEIGHT = 5000;
 
 export const VERTICAL_AXIS_PADDING = 5;

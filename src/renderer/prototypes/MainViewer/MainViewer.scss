@@ -1,4 +1,4 @@
-@import "../../styles/index.scss";
+@import '../../styles/index.scss';
 
 .MainViewer {
   position: relative;
@@ -27,8 +27,11 @@
   @include body-label;
 
   flex: 0 0 auto;
-  width: 32px;
-  text-align: center;
+  width: 45px;
+  padding-left: 7px;
+  &:not(:nth-last-of-type(1)) {
+    margin-right: 2px;
+  }
 }
 
 .trackRight {
