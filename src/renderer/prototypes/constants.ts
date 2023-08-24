@@ -22,7 +22,12 @@ export const AXIS_STYLE = {
   LABEL_FONT: "11px sans-serif",
 };
 
-export const OVERVIEW_LENS_STYLE = {ALPHA: 0.4, LINE_WIDTH: 1.6};
+export const OVERVIEW_LENS_STYLE = {
+  OUT_LENS_FILL_STYLE: "rgba(0, 0, 0, 0.4)",
+  LENS_STROKE_STYLE: "rgba(255, 255, 255, 0.4)",
+  OUT_TRACK_FILL_STYLE: "rgba(0, 0, 0, 0.2)",
+  LINE_WIDTH: 1.6,
+};
 
 export const TIME_CANVAS_HEIGHT = 16;
 export const TIME_MARKER_POS = {
@@ -163,3 +168,5 @@ export const MAX_HEIGHT = 5000;
 
 export const VERTICAL_AXIS_PADDING = 5;
 export const HORIZONTAL_AXIS_PADDING = 0;
+
+export const MAX_PX_PER_SEC = 384000;

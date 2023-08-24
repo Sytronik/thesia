@@ -30,6 +30,7 @@ import {
   MIN_HEIGHT,
   MAX_HEIGHT,
   VERTICAL_AXIS_PADDING,
+  MAX_PX_PER_SEC,
 } from "../constants";
 
 type MainViewerProps = {
@@ -67,6 +68,7 @@ function MainViewer(props: MainViewerProps) {
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
+  const pxPerSecRef = useRef<number>(100);
   const canvasIsFitRef = useRef<boolean>(false);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
@@ -82,7 +84,6 @@ function MainViewer(props: MainViewerProps) {
     [colorMapHeight],
   );
 
-  const pxPerSecRef = useRef<number>(100);
   const drawOptionForWavRef = useRef<DrawOptionForWav>({amp_range: [-1, 1]});
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
@@ -160,6 +161,67 @@ function MainViewer(props: MainViewerProps) {
     [pixelRatio],
   );
 
+  const updateLensParams = useCallback(
+    (params: {startSec?: number; pxPerSec?: number}) => {
+      let startSec = params.startSec ?? startSecRef.current;
+      let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
+      if (startSec !== startSecRef.current) {
+        const lensDurationSec = width / pxPerSec;
+        startSec = Math.min(Math.max(startSec, 0), maxTrackSec - lensDurationSec);
+      }
+      if (pxPerSec !== pxPerSecRef.current)
+        pxPerSec = Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC);
+      startSecRef.current = startSec;
+      pxPerSecRef.current = pxPerSec;
+
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+      throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
+        startSec: startSecRef.current,
+        pxPerSec: pxPerSecRef.current,
+      });
+    },
+    [
+      getIdChArr,
+      imgHeight,
+      maxTrackSec,
+      throttledSetImgState,
+      throttledSetTimeMarkersAndUnit,
+      width,
+    ],
+  );
+
+  const moveLens = useCallback(
+    (sec: number, anchorRatio: number) => {
+      const lensDurationSec = width / pxPerSecRef.current;
+      updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
+    },
+    [width, updateLensParams],
+  );
+
+  const resizeLensLeft = useCallback(
+    (sec: number) => {
+      const endSec = startSecRef.current + width / pxPerSecRef.current;
+      if (sec + 1 / MAX_PX_PER_SEC > endSec) return;
+
+      const pxPerSec = width / (endSec - sec);
+
+      updateLensParams({startSec: sec, pxPerSec});
+      canvasIsFitRef.current = false;
+    },
+    [width, updateLensParams],
+  );
+
+  const resizeLensRight = useCallback(
+    (sec: number) => {
+      if (sec - 1 / MAX_PX_PER_SEC < startSecRef.current) return;
+
+      const pxPerSec = width / (sec - startSecRef.current);
+      updateLensParams({pxPerSec});
+      canvasIsFitRef.current = false;
+    },
+    [width, updateLensParams],
+  );
+
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!trackIds.length) return;
@@ -177,22 +239,8 @@ function MainViewer(props: MainViewerProps) {
         e.preventDefault();
         e.stopPropagation();
         if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-          const pxPerSec = Math.min(
-            Math.max(
-              pxPerSecRef.current * (1 + delta / 1000),
-              width / (maxTrackSec - startSecRef.current),
-            ),
-            384000,
-          );
-          if (pxPerSecRef.current !== pxPerSec) {
-            pxPerSecRef.current = pxPerSec;
-            canvasIsFitRef.current = false;
-            throttledSetImgState(getIdChArr(), width, imgHeight);
-            throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-              startSec: startSecRef.current,
-              pxPerSec: pxPerSecRef.current,
-            });
-          }
+          updateLensParams({pxPerSec: pxPerSecRef.current * (1 + delta / 1000)});
+          canvasIsFitRef.current = false;
         } else {
           setHeight(
             Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), MIN_HEIGHT), MAX_HEIGHT)),
@@ -201,30 +249,10 @@ function MainViewer(props: MainViewerProps) {
       } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
         e.preventDefault();
         e.stopPropagation();
-        const tempSec = Math.min(
-          Math.max(startSecRef.current + delta / pxPerSecRef.current, 0),
-          maxTrackSec - width / pxPerSecRef.current,
-        );
-        if (startSecRef.current !== tempSec) {
-          startSecRef.current = tempSec;
-          throttledSetImgState(getIdChArr(), width, imgHeight);
-          throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-            startSec: startSecRef.current,
-            pxPerSec: pxPerSecRef.current,
-          });
-        }
+        updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
       }
     },
-    [
-      trackIds,
-      maxTrackSec,
-      getIdChArr,
-      height,
-      imgHeight,
-      width,
-      throttledSetImgState,
-      throttledSetTimeMarkersAndUnit,
-    ],
+    [trackIds, height, updateLensParams],
   );
 
   const drawCanvas = useCallback(async () => {
@@ -401,7 +429,7 @@ function MainViewer(props: MainViewerProps) {
     const secOutOfCanvas = maxTrackSec - width / pxPerSecRef.current;
 
     if (canvasIsFitRef.current) {
-      pxPerSecRef.current = width / maxTrackSec;
+      updateLensParams({pxPerSec: width / maxTrackSec});
       return;
     }
     if (secOutOfCanvas <= 0) {
@@ -409,9 +437,9 @@ function MainViewer(props: MainViewerProps) {
       return;
     }
     if (startSecRef.current > secOutOfCanvas) {
-      startSecRef.current = secOutOfCanvas;
+      updateLensParams({startSec: secOutOfCanvas});
     }
-  }, [trackIds, width, maxTrackSec]);
+  }, [trackIds, width, maxTrackSec, updateLensParams]);
 
   // pxPerSec and canvasIsFit setting logic
   useEffect(() => {
@@ -423,11 +451,10 @@ function MainViewer(props: MainViewerProps) {
     }
 
     if (prevTrackCountRef.current === 0) {
-      pxPerSecRef.current = width / maxTrackSec;
-      startSecRef.current = 0;
+      updateLensParams({startSec: 0, pxPerSec: width / maxTrackSec});
       canvasIsFitRef.current = true;
     }
-  }, [trackIds, width, maxTrackSec]);
+  }, [trackIds, width, maxTrackSec, updateLensParams]);
 
   const mainViewerElemCallback = useCallback(
     (node) => {
@@ -452,7 +479,11 @@ function MainViewer(props: MainViewerProps) {
               ? selectedTrackIds[selectedTrackIds.length - 1]
               : null
           }
+          maxTrackSec={maxTrackSec}
           pixelRatio={pixelRatio}
+          moveLens={moveLens}
+          resizeLensLeft={resizeLensLeft}
+          resizeLensRight={resizeLensRight}
         />
         <SlideBar />
       </div>
