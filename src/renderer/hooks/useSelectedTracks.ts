@@ -7,7 +7,7 @@ function useSelectedTracks() {
     e.preventDefault();
 
     // with nothing pressed
-    setSelectedTrackIds([id]);
+    setSelectedTrackIds((current) => (id !== current[0] ? [id] : current));
   }, []);
 
   const selectTrackAfterAddTracks = useCallback((prevTrackIds: number[], newTrackIds: number[]) => {
@@ -27,7 +27,7 @@ function useSelectedTracks() {
         });
         const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
 
-        setSelectedTrackIds([nextSelectedTrackId]);
+        if (nextSelectedTrackId !== selectedTrackIds[0]) setSelectedTrackIds([nextSelectedTrackId]);
       } else {
         setSelectedTrackIds([]);
       }
