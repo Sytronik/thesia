@@ -65,4 +65,4 @@ function ColorMap(props: ColorMapProps) {
   );
 }
 
-export default ColorMap;
+export default React.memo(ColorMap);

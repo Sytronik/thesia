@@ -43,4 +43,4 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 });
 ImgCanvas.displayName = "ImgCanvas";
 
-export default ImgCanvas;
+export default React.memo(ImgCanvas);

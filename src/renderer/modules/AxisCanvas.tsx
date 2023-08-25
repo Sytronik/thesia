@@ -142,4 +142,4 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 });
 AxisCanvas.displayName = "AxisCanvas";
 
-export default AxisCanvas;
+export default React.memo(AxisCanvas);

@@ -282,4 +282,4 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
 });
 Overview.displayName = "Overview";
 
-export default Overview;
+export default React.memo(Overview);

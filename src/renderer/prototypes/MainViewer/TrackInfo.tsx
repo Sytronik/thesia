@@ -4,6 +4,8 @@ import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
 
+const MemoizedTrackSummary = React.memo(TrackSummary);
+
 type TrackInfoProps = {
   trackId: number;
   trackIdChArr: IdChArr;
@@ -49,7 +51,7 @@ function TrackInfo(props: TrackInfoProps) {
         height: channelHeight * trackIdCh.length + 2 * (trackIdCh.length - 1),
       }}
     >
-      <TrackSummary className={styles.TrackSummary} data={trackSummary} />
+      <MemoizedTrackSummary className={styles.TrackSummary} data={trackSummary} />
       <div className={styles.channels}>{channels}</div>
     </div>
   );
