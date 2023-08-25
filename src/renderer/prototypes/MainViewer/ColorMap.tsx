@@ -39,12 +39,12 @@ function ColorMap(props: ColorMapProps) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [colorMapElem, resizeObserver]);
+  }, [resizeObserver]);
 
   return (
-    <div className={styles.colorBar} ref={colorMapElem}>
+    <div className={styles.colorMap} ref={colorMapElem}>
       <div className={styles.colorMapHeader}>dB</div>
-      <div style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
+      <div className={styles.colorMapBody}>
         <ColorBarCanvas
           width={COLORBAR_CANVAS_WIDTH}
           height={colorBarHeight}
