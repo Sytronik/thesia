@@ -6,13 +6,12 @@ import React, {
   useMemo,
   forwardRef,
   useImperativeHandle,
-  MouseEvent,
 } from "react";
 import styles from "./Overview.scss";
 import NativeAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants";
 
-const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH} =
+const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
   OVERVIEW_LENS_STYLE;
 
 const THICKNESS = 3;
@@ -36,13 +35,13 @@ enum OverviewMouseState {
 type ArgsGetOverview = [trackId: number, width: number, height: number];
 type ArgsLens = [startSec: number, lensDurationSec: number];
 
-function calcX(e: MouseEvent) {
+function calcX(e: React.MouseEvent | MouseEvent) {
   const elem = e.target as Element;
   const x = e.clientX - elem.getBoundingClientRect().left;
   return x;
 }
 
-function calcRatioX(e: MouseEvent) {
+function calcRatioX(e: React.MouseEvent) {
   const elem = e.target as Element;
   const x = e.clientX - elem.getBoundingClientRect().left;
   return x / elem.clientWidth;
@@ -63,7 +62,6 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   const prevArgsRef = useRef<ArgsGetOverview | null>(null);
   const prevArgsLensRef = useRef<ArgsLens | null>(null);
 
-  const isDraggingRef = useRef<boolean>(false);
   const dragAnchorRatioRef = useRef<number>(0.5);
   const mouseStateRef = useRef<OverviewMouseState>(OverviewMouseState.OutLens);
 
@@ -183,7 +181,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   useImperativeHandle(ref, () => ({draw}), [draw]);
 
   const updateMouseState = useCallback(
-    (e: MouseEvent) => {
+    (e: React.MouseEvent | MouseEvent) => {
       mouseStateRef.current = OverviewMouseState.OutLens;
       if (!prevArgsLensRef.current) return;
 
@@ -202,42 +200,48 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     },
     [calcPxPerSec],
   );
-  const updateCursor = useCallback(() => {
-    if (!lensElem.current) return;
-    if (
-      mouseStateRef.current === OverviewMouseState.Left ||
-      mouseStateRef.current === OverviewMouseState.Right
-    ) {
-      lensElem.current.style.cursor = "col-resize";
-    } else {
-      lensElem.current.style.cursor = "";
-    }
-  }, []);
 
-  const handleDragging = useCallback(
-    (e: MouseEvent) => {
-      if (selectedTrackId === null) return;
-      const sec = calcRatioX(e) * maxTrackSec;
+  const onDragging = useCallback(
+    (e: React.MouseEvent | MouseEvent) => {
+      e.preventDefault();
+      if (!backgroundElem.current) return;
+
+      const x = e.clientX - backgroundElem.current.getBoundingClientRect().left;
+      const ratioX = x / backgroundElem.current.clientWidth;
+      const sec = ratioX * maxTrackSec;
       switch (mouseStateRef.current) {
         case OverviewMouseState.Left:
           resizeLensLeft(sec);
+          document.body.style.cursor = RESIZE_CURSOR;
           break;
         case OverviewMouseState.Right:
           resizeLensRight(sec);
+          document.body.style.cursor = RESIZE_CURSOR;
           break;
         default:
           moveLens(sec, dragAnchorRatioRef.current);
+          document.body.style.cursor = "text";
           break;
       }
     },
-    [selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight],
+    [maxTrackSec, moveLens, resizeLensLeft, resizeLensRight],
   );
 
-  const onMouseDown = (e: MouseEvent) => {
+  const onMouseUp = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      dragAnchorRatioRef.current = 0.5;
+      updateMouseState(e);
+      document.removeEventListener("mousemove", onDragging);
+      document.body.style.cursor = "";
+    },
+    [updateMouseState, onDragging],
+  );
+
+  const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    isDraggingRef.current = e.buttons === 1;
+    if (selectedTrackId === null) return;
     updateMouseState(e);
-    updateCursor();
     if (prevArgsLensRef.current !== null && mouseStateRef.current === OverviewMouseState.InLens) {
       const ratioX = calcRatioX(e);
       const secOfX = ratioX * maxTrackSec;
@@ -246,37 +250,29 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     } else {
       dragAnchorRatioRef.current = 0.5;
     }
-    if (isDraggingRef.current) handleDragging(e);
+    if (mouseStateRef.current === OverviewMouseState.OutLens) onDragging(e);
+    document.addEventListener("mousemove", onDragging);
+    document.addEventListener("mouseup", onMouseUp, {once: true});
   };
 
-  const onMouseMove = (e: MouseEvent) => {
+  const onMouseMove = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (e.buttons !== 1 && isDraggingRef.current) isDraggingRef.current = false;
-    if (isDraggingRef.current) {
-      handleDragging(e);
-    } else {
-      updateMouseState(e);
-      updateCursor();
-    }
-  };
-
-  const onMouseUp = (e: MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = false;
-    dragAnchorRatioRef.current = 0.5;
+    if (e.buttons === 1 || !lensElem.current || selectedTrackId === null) return;
     updateMouseState(e);
-    updateCursor();
+    if (
+      mouseStateRef.current === OverviewMouseState.Left ||
+      mouseStateRef.current === OverviewMouseState.Right
+    ) {
+      lensElem.current.style.cursor = RESIZE_CURSOR;
+    } else {
+      lensElem.current.style.cursor = "";
+    }
   };
 
   return (
     <div className={styles.Overview} role="navigation">
       <canvas ref={backgroundElem} />
-      <canvas
-        ref={lensElem}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-      />
+      <canvas ref={lensElem} onMouseDown={onMouseDown} onMouseMove={onMouseMove} />
     </div>
   );
 });

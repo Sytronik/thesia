@@ -27,6 +27,7 @@ export const OVERVIEW_LENS_STYLE = {
   LENS_STROKE_STYLE: "rgba(255, 255, 255, 0.4)",
   OUT_TRACK_FILL_STYLE: "rgba(0, 0, 0, 0.2)",
   LINE_WIDTH: 1.6,
+  RESIZE_CURSOR: "col-resize",
 };
 
 export const TIME_CANVAS_HEIGHT = 16;
