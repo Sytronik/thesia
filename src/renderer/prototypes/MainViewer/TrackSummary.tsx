@@ -17,7 +17,7 @@ function TrackSummary(props: TrackSummaryProps) {
     <div className={className}>
       <span className={styles.pathName}>
         {pathPieces.length ? <span className={styles.path}>{pathPieces.join("/")}</span> : null}
-        <span className={pathPieces.length ? styles.name + styles.withPath : styles.name}>
+        <span className={pathPieces.length ? `${styles.name} ${styles.withPath}` : styles.name}>
           {name}
         </span>
       </span>

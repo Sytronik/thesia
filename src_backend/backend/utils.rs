@@ -36,7 +36,11 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
         } else {
             let mut parents = unique_filenames(hm);
             for parent in parents.values_mut() {
-                *parent = format!("{}{}{}", parent, path::MAIN_SEPARATOR, name);
+                if parent == path::MAIN_SEPARATOR_STR {
+                    *parent = format!("{}{}", path::MAIN_SEPARATOR, name);
+                } else {
+                    *parent = format!("{}{}{}", parent, path::MAIN_SEPARATOR, name);
+                }
             }
             result.extend(parents);
         }
