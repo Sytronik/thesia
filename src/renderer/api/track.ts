@@ -1,6 +1,4 @@
-import {isNil} from "../utils/arrayUtils";
-
-const backend = require("backend");
+import backend from "backend";
 
 backend.init();
 
@@ -32,7 +30,10 @@ export async function findIdByPath(path: string): Promise<number> {
 
 /* get each track file's information */
 export function getChannelCounts(trackId: number): 1 | 2 {
-  return backend.getNumCh(trackId);
+  const ch = backend.getNumCh(trackId);
+  if (!(ch === 1 || ch === 2)) console.error(`No. of channel ${ch} not supported!`);
+  if (ch >= 1.5) return 2;
+  return 1;
 }
 
 export function getLength(trackId: number): number {
@@ -70,7 +71,7 @@ export async function getTimeAxisMarkers(
 ): Promise<Markers> {
   const {startSec, pxPerSec} = markerDrawOptions || {};
 
-  if (isNil(startSec) || isNil(pxPerSec)) {
+  if (startSec === undefined || pxPerSec === undefined) {
     console.error("no start sec of px per sec value exist");
     return [];
   }
