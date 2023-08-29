@@ -16,6 +16,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "backend": "file:../../target_node"
+    "backend": "link:../backend"
   }
 }

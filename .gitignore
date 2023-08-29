@@ -20,6 +20,7 @@ node_modules
 
 build/app/dist
 build/release
+build/backend/*.node
 .erb/dll
 
 .idea
