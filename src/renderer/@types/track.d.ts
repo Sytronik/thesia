@@ -43,6 +43,6 @@ type AxisCanvasHandleElement = {
   draw: (markers: Markers) => void;
 };
 
-type OverviewCanvasHandleElement = {
+type OverviewHandleElement = {
   draw: (startSec: number, lensDurationSec: number) => void;
 };

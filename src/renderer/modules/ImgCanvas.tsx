@@ -1,4 +1,5 @@
 import React, {forwardRef, useRef, useImperativeHandle, useEffect} from "react";
+import useEvent from "react-use-event-hook";
 import styles from "./ImgCanvas.scss";
 
 type ImgCanvasProps = {
@@ -18,26 +19,23 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     canvasElem.current.height = height * pixelRatio;
   }, [width, height, pixelRatio]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      draw: async (buf: Buffer) => {
-        const bitmapWidth = width * pixelRatio;
-        const bitmapHeight = height * pixelRatio;
-        if (!(buf && buf.byteLength === 4 * bitmapWidth * bitmapHeight)) {
-          return;
-        }
+  const draw = useEvent(async (buf: Buffer) => {
+    const bitmapWidth = width * pixelRatio;
+    const bitmapHeight = height * pixelRatio;
+    if (!(buf && buf.byteLength === 4 * bitmapWidth * bitmapHeight)) {
+      return;
+    }
 
-        const ctx = canvasElem.current?.getContext("bitmaprenderer");
-        if (!ctx) return;
+    const ctx = canvasElem.current?.getContext("bitmaprenderer");
+    if (!ctx) return;
 
-        const imdata = new ImageData(new Uint8ClampedArray(buf), bitmapWidth, bitmapHeight);
-        const imbmp = await createImageBitmap(imdata);
-        ctx.transferFromImageBitmap(imbmp);
-      },
-    }),
-    [width, height, pixelRatio],
-  );
+    const imdata = new ImageData(new Uint8ClampedArray(buf), bitmapWidth, bitmapHeight);
+    const imbmp = await createImageBitmap(imdata);
+    ctx.transferFromImageBitmap(imbmp);
+  });
+
+  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({draw});
+  useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
   return <canvas className={styles.ImgCanvas} ref={canvasElem} style={{width, height}} />;
 });

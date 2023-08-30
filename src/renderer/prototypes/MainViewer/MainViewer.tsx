@@ -6,6 +6,7 @@ import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
+import useEvent from "react-use-event-hook";
 import styles from "./MainViewer.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -89,7 +90,7 @@ function MainViewer(props: MainViewerProps) {
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
-  const overviewElem = useRef<OverviewCanvasHandleElement>(null);
+  const overviewElem = useRef<OverviewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
 
@@ -107,7 +108,7 @@ function MainViewer(props: MainViewerProps) {
       getMarkers: NativeAPI.getTimeAxisMarkers,
     });
 
-  const throttledSetTimeMarkersAndUnit = useCallback(
+  const throttledSetTimeMarkersAndUnit = useEvent(
     (canvasWidth: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
       if (canvasWidth === 0) {
         throttledSetTimeMarkers(0, 0, {});
@@ -119,7 +120,6 @@ function MainViewer(props: MainViewerProps) {
       const timeUnit = timeMarkersRef.current[timeMarkersRef.current.length - 1][1];
       setTimeUnitLabel(timeUnit);
     },
-    [timeMarkersRef, throttledSetTimeMarkers],
   );
 
   const {markersRef: ampMarkersRef, throttledSetMarkers: throttledSetAmpMarkers} =
@@ -161,98 +161,76 @@ function MainViewer(props: MainViewerProps) {
     [pixelRatio],
   );
 
-  const updateLensParams = useCallback(
-    (params: {startSec?: number; pxPerSec?: number}) => {
-      let startSec = params.startSec ?? startSecRef.current;
-      let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
-      if (startSec !== startSecRef.current) {
-        const lensDurationSec = width / pxPerSec;
-        startSec = Math.min(Math.max(startSec, 0), maxTrackSec - lensDurationSec);
-      }
-      if (pxPerSec !== pxPerSecRef.current)
-        pxPerSec = Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC);
-      startSecRef.current = startSec;
-      pxPerSecRef.current = pxPerSec;
+  const updateLensParams = useEvent((params: {startSec?: number; pxPerSec?: number}) => {
+    let startSec = params.startSec ?? startSecRef.current;
+    let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
+    if (startSec !== startSecRef.current) {
+      const lensDurationSec = width / pxPerSec;
+      startSec = Math.min(Math.max(startSec, 0), maxTrackSec - lensDurationSec);
+    }
+    if (pxPerSec !== pxPerSecRef.current)
+      pxPerSec = Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC);
+    startSecRef.current = startSec;
+    pxPerSecRef.current = pxPerSec;
 
-      throttledSetImgState(getIdChArr(), width, imgHeight);
-      throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-        startSec: startSecRef.current,
-        pxPerSec: pxPerSecRef.current,
-      });
-    },
-    [
-      getIdChArr,
-      imgHeight,
-      maxTrackSec,
-      throttledSetImgState,
-      throttledSetTimeMarkersAndUnit,
-      width,
-    ],
-  );
+    throttledSetImgState(getIdChArr(), width, imgHeight);
+    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
+      startSec: startSecRef.current,
+      pxPerSec: pxPerSecRef.current,
+    });
+  });
 
-  const moveLens = useCallback(
-    (sec: number, anchorRatio: number) => {
-      const lensDurationSec = width / pxPerSecRef.current;
-      updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
-    },
-    [width, updateLensParams],
-  );
+  const moveLens = useEvent((sec: number, anchorRatio: number) => {
+    const lensDurationSec = width / pxPerSecRef.current;
+    updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
+  });
 
-  const resizeLensLeft = useCallback(
-    (sec: number) => {
-      const endSec = startSecRef.current + width / pxPerSecRef.current;
-      const startSec = Math.min(Math.max(sec, 0), endSec - width / MAX_PX_PER_SEC);
-      const pxPerSec = width / (endSec - startSec);
+  const resizeLensLeft = useEvent((sec: number) => {
+    const endSec = startSecRef.current + width / pxPerSecRef.current;
+    const startSec = Math.min(Math.max(sec, 0), endSec - width / MAX_PX_PER_SEC);
+    const pxPerSec = width / (endSec - startSec);
 
-      updateLensParams({startSec, pxPerSec});
-      canvasIsFitRef.current = false;
-    },
-    [width, updateLensParams],
-  );
+    updateLensParams({startSec, pxPerSec});
+    canvasIsFitRef.current = false;
+  });
 
-  const resizeLensRight = useCallback(
-    (sec: number) => {
-      const pxPerSec = Math.min(width / Math.max(sec - startSecRef.current, 0), MAX_PX_PER_SEC);
-      updateLensParams({pxPerSec});
-      canvasIsFitRef.current = false;
-    },
-    [width, updateLensParams],
-  );
+  const resizeLensRight = useEvent((sec: number) => {
+    const pxPerSec = Math.min(width / Math.max(sec - startSecRef.current, 0), MAX_PX_PER_SEC);
+    updateLensParams({pxPerSec});
+    canvasIsFitRef.current = false;
+  });
 
-  const handleWheel = useCallback(
-    (e: WheelEvent) => {
-      if (!trackIds.length) return;
+  const handleWheel = useEvent((e: WheelEvent) => {
+    if (!trackIds.length) return;
 
-      let yIsLarger;
-      let delta;
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        delta = e.deltaY;
-        yIsLarger = true;
+    let yIsLarger;
+    let delta;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      delta = e.deltaY;
+      yIsLarger = true;
+    } else {
+      delta = e.deltaX;
+      yIsLarger = false;
+    }
+    if (e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+        updateLensParams({pxPerSec: pxPerSecRef.current * (1 + delta / 1000)});
+        canvasIsFitRef.current = false;
       } else {
-        delta = e.deltaX;
-        yIsLarger = false;
+        setHeight(
+          Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), MIN_HEIGHT), MAX_HEIGHT)),
+        );
       }
-      if (e.altKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-          updateLensParams({pxPerSec: pxPerSecRef.current * (1 + delta / 1000)});
-          canvasIsFitRef.current = false;
-        } else {
-          setHeight(
-            Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), MIN_HEIGHT), MAX_HEIGHT)),
-          );
-        }
-      } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-        e.preventDefault();
-        e.stopPropagation();
-        updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
-      }
-    },
-    [trackIds, height, updateLensParams],
-  );
+    } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+      e.preventDefault();
+      e.stopPropagation();
+      updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
+    }
+  });
 
-  const drawCanvas = useCallback(async () => {
+  const drawCanvas = useEvent(async () => {
     const images = NativeAPI.getImages();
     const promises: void[] = [];
 
@@ -272,31 +250,16 @@ function MainViewer(props: MainViewerProps) {
     dbCanvasElem.current?.draw(dbMarkersRef.current);
     await Promise.all(promises);
     requestRef.current = requestAnimationFrame(drawCanvas);
-  }, [
-    width,
-    timeMarkersRef,
-    ampCanvasesRef,
-    ampMarkersRef,
-    freqCanvasesRef,
-    freqMarkersRef,
-    dbMarkersRef,
-    imgCanvasesRef,
-  ]);
+  });
 
-  const reloadAndRefreshTrack = useCallback(
-    (id: number) => {
-      reloadTracks([id]);
-      refreshTracks();
-    },
-    [reloadTracks, refreshTracks],
-  );
-  const removeAndRefreshTrack = useCallback(
-    (id: number) => {
-      removeTracks([id]);
-      refreshTracks();
-    },
-    [removeTracks, refreshTracks],
-  );
+  const reloadAndRefreshTrack = useEvent((id: number) => {
+    reloadTracks([id]);
+    refreshTracks();
+  });
+  const removeAndRefreshTrack = useEvent((id: number) => {
+    removeTracks([id]);
+    refreshTracks();
+  });
 
   const trackSummaryArr = useMemo(
     () =>

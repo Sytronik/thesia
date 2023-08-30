@@ -1,4 +1,5 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {useEffect, useRef} from "react";
+import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
@@ -26,55 +27,49 @@ function App() {
 
   const prevTrackIds = useRef<number[]>([]);
 
-  const addDroppedFile = useCallback(
-    async (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+  const addDroppedFile = useEvent(async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-      const newPaths: string[] = [];
-      const unsupportedPaths: string[] = [];
+    const newPaths: string[] = [];
+    const unsupportedPaths: string[] = [];
 
-      if (!e?.dataTransfer?.files) {
-        console.error("no file exists in dropzone");
-        return;
+    if (!e?.dataTransfer?.files) {
+      console.error("no file exists in dropzone");
+      return;
+    }
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+
+    droppedFiles.forEach((file: File) => {
+      if (SUPPORTED_MIME.includes(file.type)) {
+        newPaths.push(file.path);
+      } else {
+        unsupportedPaths.push(file.path);
       }
+    });
 
-      const droppedFiles = Array.from(e.dataTransfer.files);
+    const {existingIds, invalidPaths} = await addTracks(newPaths);
 
-      droppedFiles.forEach((file: File) => {
-        if (SUPPORTED_MIME.includes(file.type)) {
-          newPaths.push(file.path);
-        } else {
-          unsupportedPaths.push(file.path);
-        }
-      });
+    if (unsupportedPaths.length || invalidPaths.length) {
+      showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+    }
+    if (existingIds.length) {
+      reloadTracks(existingIds);
+    }
+    refreshTracks();
+  });
 
-      const {existingIds, invalidPaths} = await addTracks(newPaths);
+  const deleteSelectedTracks = useEvent((e: KeyboardEvent) => {
+    e.preventDefault();
 
-      if (unsupportedPaths.length || invalidPaths.length) {
-        showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (selectedTrackIds.length) {
+        removeTracks(selectedTrackIds);
+        refreshTracks();
       }
-      if (existingIds.length) {
-        reloadTracks(existingIds);
-      }
-      refreshTracks();
-    },
-    [addTracks, reloadTracks, refreshTracks],
-  );
-
-  const deleteSelectedTracks = useCallback(
-    (e: KeyboardEvent) => {
-      e.preventDefault();
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedTrackIds.length) {
-          removeTracks(selectedTrackIds);
-          refreshTracks();
-        }
-      }
-    },
-    [selectedTrackIds, removeTracks, refreshTracks],
-  );
+    }
+  });
 
   useEffect(() => {
     ipcRenderer.on("open-dialog-closed", async (_, file) => {

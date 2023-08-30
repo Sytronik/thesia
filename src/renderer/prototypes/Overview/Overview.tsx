@@ -1,12 +1,5 @@
-import React, {
-  useRef,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
+import React, {useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle} from "react";
+import useEvent from "react-use-event-hook";
 import styles from "./Overview.scss";
 import NativeAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants";
@@ -65,86 +58,80 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   const dragAnchorRatioRef = useRef<number>(0.5);
   const mouseStateRef = useRef<OverviewMouseState>(OverviewMouseState.OutLens);
 
-  const calcPxPerSec = useCallback(() => {
+  const calcPxPerSec = useEvent(() => {
     const width = lensElem.current?.clientWidth ?? 0;
     return width / maxTrackSec;
-  }, [maxTrackSec]);
+  });
 
-  const drawLens = useCallback(
-    (startSec, lensDurationSec) => {
-      const ctx = lensCtxRef.current;
-      if (!lensElem.current || !ctx) return;
-      const {clientWidth: width, clientHeight: height} = lensElem.current;
-      const pxPerSec = calcPxPerSec();
-      const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
-      const endSec = durationSec * pxPerSec;
-      ctx.clearRect(0, 0, width, height);
-      if (durationSec < maxTrackSec) {
-        ctx.save();
-        ctx.fillStyle = OUT_TRACK_FILL_STYLE;
-        ctx.fillRect(endSec, 0, width, height);
-        ctx.restore();
+  const drawLens = (startSec: number, lensDurationSec: number) => {
+    const ctx = lensCtxRef.current;
+    if (!lensElem.current || !ctx) return;
+    const {clientWidth: width, clientHeight: height} = lensElem.current;
+    const pxPerSec = calcPxPerSec();
+    const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
+    const endSec = durationSec * pxPerSec;
+    ctx.clearRect(0, 0, width, height);
+    if (durationSec < maxTrackSec) {
+      ctx.save();
+      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
+      ctx.fillRect(endSec, 0, width, height);
+      ctx.restore();
+    }
+    if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
+    ctx.strokeRect(
+      startSec * pxPerSec + LINE_WIDTH / 2,
+      LINE_WIDTH / 2,
+      lensDurationSec * pxPerSec - LINE_WIDTH,
+      height - LINE_WIDTH,
+    );
+    if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
+    prevArgsLensRef.current = [startSec, lensDurationSec];
+  };
+
+  const draw = useEvent(async (startSec: number, lensDurationSec: number, forced = false) => {
+    if (!backgroundElem.current || !lensElem.current) return;
+
+    const backgroundCtx = backgroundElem.current.getContext("bitmaprenderer");
+
+    if (selectedTrackId === null) {
+      if (forced || prevArgsRef.current !== null) {
+        backgroundCtx?.transferFromImageBitmap(null);
+        lensCtxRef.current?.clearRect(
+          0,
+          0,
+          lensElem.current.clientWidth,
+          lensElem.current.clientHeight,
+        );
       }
-      if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
-      ctx.strokeRect(
-        startSec * pxPerSec + LINE_WIDTH / 2,
-        LINE_WIDTH / 2,
-        lensDurationSec * pxPerSec - LINE_WIDTH,
-        height - LINE_WIDTH,
-      );
-      if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
-      prevArgsLensRef.current = [startSec, lensDurationSec];
-    },
-    [maxTrackSec, durationSec, calcPxPerSec],
-  );
+      prevArgsRef.current = null;
+      prevArgsLensRef.current = null;
+      return;
+    }
 
-  const draw = useCallback(
-    async (startSec: number, lensDurationSec: number, forced = false) => {
-      if (!backgroundElem.current || !lensElem.current) return;
+    if (
+      forced ||
+      prevArgsLensRef.current === null ||
+      prevArgsLensRef.current[0] !== startSec ||
+      prevArgsLensRef.current[1] !== lensDurationSec
+    ) {
+      drawLens(startSec, lensDurationSec);
+    }
 
-      const backgroundCtx = backgroundElem.current.getContext("bitmaprenderer");
-
-      if (selectedTrackId === null) {
-        if (forced || prevArgsRef.current !== null) {
-          backgroundCtx?.transferFromImageBitmap(null);
-          lensCtxRef.current?.clearRect(
-            0,
-            0,
-            lensElem.current.clientWidth,
-            lensElem.current.clientHeight,
-          );
-        }
-        prevArgsRef.current = null;
-        prevArgsLensRef.current = null;
-        return;
-      }
-
-      if (
-        forced ||
-        prevArgsLensRef.current === null ||
-        prevArgsLensRef.current[0] !== startSec ||
-        prevArgsLensRef.current[1] !== lensDurationSec
-      ) {
-        drawLens(startSec, lensDurationSec);
-      }
-
-      if (!backgroundCtx) return;
-      const {width, height} = backgroundElem.current;
-      const args: ArgsGetOverview = [selectedTrackId, width, height];
-      if (
-        forced ||
-        prevArgsRef.current === null ||
-        prevArgsRef.current.some((v, i) => args[i] !== v)
-      ) {
-        const buf = await NativeAPI.getOverview(selectedTrackId, width, height);
-        const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
-        const imbmp = await createImageBitmap(imdata);
-        backgroundCtx.transferFromImageBitmap(imbmp);
-        prevArgsRef.current = args;
-      }
-    },
-    [selectedTrackId, drawLens],
-  );
+    if (!backgroundCtx) return;
+    const {width, height} = backgroundElem.current;
+    const args: ArgsGetOverview = [selectedTrackId, width, height];
+    if (
+      forced ||
+      prevArgsRef.current === null ||
+      prevArgsRef.current.some((v, i) => args[i] !== v)
+    ) {
+      const buf = await NativeAPI.getOverview(selectedTrackId, width, height);
+      const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
+      const imbmp = await createImageBitmap(imdata);
+      backgroundCtx.transferFromImageBitmap(imbmp);
+      prevArgsRef.current = args;
+    }
+  });
 
   useEffect(() => {
     setResizeObserver(
@@ -178,65 +165,57 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     };
   }, [resizeObserver]);
 
-  useImperativeHandle(ref, () => ({draw}), [draw]);
+  const imperativeInstanceRef = useRef<OverviewHandleElement>({draw});
+  useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
-  const updateMouseState = useCallback(
-    (e: React.MouseEvent | MouseEvent) => {
-      mouseStateRef.current = OverviewMouseState.OutLens;
-      if (!prevArgsLensRef.current) return;
+  const updateMouseState = (e: React.MouseEvent | MouseEvent) => {
+    mouseStateRef.current = OverviewMouseState.OutLens;
+    if (!prevArgsLensRef.current) return;
 
-      const [startSec, lensDuratoinSec] = prevArgsLensRef.current;
-      const pxPerSec = calcPxPerSec();
-      const lensStartX = Math.round(startSec * pxPerSec);
-      const lensEndX = Math.round((startSec + lensDuratoinSec) * pxPerSec);
-      const x = calcX(e);
-      if (lensStartX - THICKNESS <= x && x <= lensStartX + THICKNESS) {
-        mouseStateRef.current = OverviewMouseState.Left;
-      } else if (lensStartX + THICKNESS < x && x < lensEndX - THICKNESS) {
-        mouseStateRef.current = OverviewMouseState.InLens;
-      } else if (lensEndX - THICKNESS <= x && x <= lensEndX + THICKNESS) {
-        mouseStateRef.current = OverviewMouseState.Right;
-      }
-    },
-    [calcPxPerSec],
-  );
+    const [startSec, lensDuratoinSec] = prevArgsLensRef.current;
+    const pxPerSec = calcPxPerSec();
+    const lensStartX = Math.round(startSec * pxPerSec);
+    const lensEndX = Math.round((startSec + lensDuratoinSec) * pxPerSec);
+    const x = calcX(e);
+    if (lensStartX - THICKNESS <= x && x <= lensStartX + THICKNESS) {
+      mouseStateRef.current = OverviewMouseState.Left;
+    } else if (lensStartX + THICKNESS < x && x < lensEndX - THICKNESS) {
+      mouseStateRef.current = OverviewMouseState.InLens;
+    } else if (lensEndX - THICKNESS <= x && x <= lensEndX + THICKNESS) {
+      mouseStateRef.current = OverviewMouseState.Right;
+    }
+  };
 
-  const onDragging = useCallback(
-    (e: React.MouseEvent | MouseEvent) => {
-      e.preventDefault();
-      if (!backgroundElem.current) return;
+  const onDragging = useEvent((e: React.MouseEvent | MouseEvent) => {
+    e.preventDefault();
+    if (!backgroundElem.current) return;
 
-      const x = e.clientX - backgroundElem.current.getBoundingClientRect().left;
-      const ratioX = x / backgroundElem.current.clientWidth;
-      const sec = ratioX * maxTrackSec;
-      switch (mouseStateRef.current) {
-        case OverviewMouseState.Left:
-          resizeLensLeft(sec);
-          document.body.style.cursor = RESIZE_CURSOR;
-          break;
-        case OverviewMouseState.Right:
-          resizeLensRight(sec);
-          document.body.style.cursor = RESIZE_CURSOR;
-          break;
-        default:
-          moveLens(sec, dragAnchorRatioRef.current);
-          document.body.style.cursor = "text";
-          break;
-      }
-    },
-    [maxTrackSec, moveLens, resizeLensLeft, resizeLensRight],
-  );
+    const x = e.clientX - backgroundElem.current.getBoundingClientRect().left;
+    const ratioX = x / backgroundElem.current.clientWidth;
+    const sec = ratioX * maxTrackSec;
+    switch (mouseStateRef.current) {
+      case OverviewMouseState.Left:
+        resizeLensLeft(sec);
+        document.body.style.cursor = RESIZE_CURSOR;
+        break;
+      case OverviewMouseState.Right:
+        resizeLensRight(sec);
+        document.body.style.cursor = RESIZE_CURSOR;
+        break;
+      default:
+        moveLens(sec, dragAnchorRatioRef.current);
+        document.body.style.cursor = "text";
+        break;
+    }
+  });
 
-  const onMouseUp = useCallback(
-    (e: MouseEvent) => {
-      e.preventDefault();
-      dragAnchorRatioRef.current = 0.5;
-      updateMouseState(e);
-      document.removeEventListener("mousemove", onDragging);
-      document.body.style.cursor = "";
-    },
-    [updateMouseState, onDragging],
-  );
+  const onMouseUp = (e: MouseEvent) => {
+    e.preventDefault();
+    dragAnchorRatioRef.current = 0.5;
+    updateMouseState(e);
+    document.removeEventListener("mousemove", onDragging);
+    document.body.style.cursor = "";
+  };
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();

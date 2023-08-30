@@ -1,4 +1,5 @@
 import React, {forwardRef, useRef, useImperativeHandle, useEffect, useCallback} from "react";
+import useEvent from "react-use-event-hook";
 import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants";
 import styles from "./AxisCanvas.scss";
 
@@ -37,79 +38,71 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     canvasElem.current = elem;
   }, []);
 
-  const correctHMarkerPos = useCallback((x: number) => x + LINE_WIDTH / 2, []);
-  const correctVMarkerPos = useCallback(
+  const correctHMarkerPos = useEvent((x: number) => x + LINE_WIDTH / 2);
+  const correctVMarkerPos = useEvent(
     (x: number) => Math.round(x * (1 - LINE_WIDTH / (height - 2 * axisPadding))) + LINE_WIDTH / 2,
-    [height, axisPadding],
   );
 
-  const draw = useCallback(
-    (markers: Markers, forced = false) => {
-      if (prevMarkersRef.current === markers && !forced) return;
-      const ctx = ctxRef.current;
+  const draw = useEvent((markers: Markers, forced = false) => {
+    if (prevMarkersRef.current === markers && !forced) return;
+    const ctx = ctxRef.current;
 
-      if (!ctx) return;
+    if (!ctx) return;
 
-      ctx.save();
-      ctx.fillStyle = bgColor.current;
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
+    ctx.save();
+    ctx.fillStyle = bgColor.current;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
-      if (!markers?.length) return;
+    if (!markers?.length) return;
 
-      const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
+    const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
-      if (direction === "H") {
+    if (direction === "H") {
+      ctx.beginPath();
+      ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
+      ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
+      ctx.stroke();
+
+      markers.forEach((marker) => {
+        const [axisPosition, label] = marker;
+        const pxPosition = correctHMarkerPos(axisPosition + axisPadding);
+
         ctx.beginPath();
-        ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
-        ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
+        if (label) {
+          ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
+          ctx.moveTo(pxPosition, MAJOR_TICK_POS);
+        } else {
+          ctx.moveTo(pxPosition, MINOR_TICK_POS);
+        }
+        ctx.lineTo(pxPosition, height);
+        ctx.closePath();
         ctx.stroke();
+      });
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(LINE_WIDTH / 2, axisPadding);
+      ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
+      ctx.stroke();
 
-        markers.forEach((marker) => {
-          const [axisPosition, label] = marker;
-          const pxPosition = correctHMarkerPos(axisPosition + axisPadding);
+      markers.forEach((marker) => {
+        const [axisPosition, label] = marker;
+        const pxPosition = correctVMarkerPos(axisPosition + axisPadding);
 
-          ctx.beginPath();
-          if (label) {
-            ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
-            ctx.moveTo(pxPosition, MAJOR_TICK_POS);
-          } else {
-            ctx.moveTo(pxPosition, MINOR_TICK_POS);
-          }
-          ctx.lineTo(pxPosition, height);
-          ctx.closePath();
-          ctx.stroke();
-        });
-      } else {
         ctx.beginPath();
-        ctx.moveTo(LINE_WIDTH / 2, axisPadding);
-        ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
+        if (label) {
+          ctx.fillText(label, LABEL_POS + LABEL_LEFT_MARGIN, pxPosition - LABEL_HEIGHT_ADJUSTMENT);
+          ctx.moveTo(MAJOR_TICK_POS, pxPosition);
+        } else {
+          ctx.moveTo(MINOR_TICK_POS, pxPosition);
+        }
+        ctx.lineTo(0, pxPosition);
+        ctx.closePath();
         ctx.stroke();
-
-        markers.forEach((marker) => {
-          const [axisPosition, label] = marker;
-          const pxPosition = correctVMarkerPos(axisPosition + axisPadding);
-
-          ctx.beginPath();
-          if (label) {
-            ctx.fillText(
-              label,
-              LABEL_POS + LABEL_LEFT_MARGIN,
-              pxPosition - LABEL_HEIGHT_ADJUSTMENT,
-            );
-            ctx.moveTo(MAJOR_TICK_POS, pxPosition);
-          } else {
-            ctx.moveTo(MINOR_TICK_POS, pxPosition);
-          }
-          ctx.lineTo(0, pxPosition);
-          ctx.closePath();
-          ctx.stroke();
-        });
-      }
-      prevMarkersRef.current = markers;
-    },
-    [axisPadding, direction, height, markerPos, width, correctHMarkerPos, correctVMarkerPos],
-  );
+      });
+    }
+    prevMarkersRef.current = markers;
+  });
 
   useEffect(() => {
     if (!canvasElem.current) return;
@@ -130,7 +123,8 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     draw(prevMarkersRef.current, true);
   }, [width, height, pixelRatio, draw]);
 
-  useImperativeHandle(ref, () => ({draw}), [draw]);
+  const imperativeInstanceRef = useRef<AxisCanvasHandleElement>({draw});
+  useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
   return (
     <canvas
