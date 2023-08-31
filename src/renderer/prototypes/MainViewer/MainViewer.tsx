@@ -201,11 +201,10 @@ function MainViewer(props: MainViewerProps) {
   const resizeLensLeft = useCallback(
     (sec: number) => {
       const endSec = startSecRef.current + width / pxPerSecRef.current;
-      if (sec + 1 / MAX_PX_PER_SEC > endSec) return;
+      const startSec = Math.min(Math.max(sec, 0), endSec - width / MAX_PX_PER_SEC);
+      const pxPerSec = width / (endSec - startSec);
 
-      const pxPerSec = width / (endSec - sec);
-
-      updateLensParams({startSec: sec, pxPerSec});
+      updateLensParams({startSec, pxPerSec});
       canvasIsFitRef.current = false;
     },
     [width, updateLensParams],
@@ -213,9 +212,7 @@ function MainViewer(props: MainViewerProps) {
 
   const resizeLensRight = useCallback(
     (sec: number) => {
-      if (sec - 1 / MAX_PX_PER_SEC < startSecRef.current) return;
-
-      const pxPerSec = width / (sec - startSecRef.current);
+      const pxPerSec = Math.min(width / Math.max(sec - startSecRef.current, 0), MAX_PX_PER_SEC);
       updateLensParams({pxPerSec});
       canvasIsFitRef.current = false;
     },
