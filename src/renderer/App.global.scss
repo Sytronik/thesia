@@ -89,3 +89,11 @@ body {
     width: 100%;
   }
 }
+
+body.textCursor * {
+  cursor: text !important;
+}
+
+body.colResizeCursor * {
+  cursor: col-resize !important;
+}

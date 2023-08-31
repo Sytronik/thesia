@@ -196,15 +196,12 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     switch (mouseStateRef.current) {
       case OverviewMouseState.Left:
         resizeLensLeft(sec);
-        document.body.style.cursor = RESIZE_CURSOR;
         break;
       case OverviewMouseState.Right:
         resizeLensRight(sec);
-        document.body.style.cursor = RESIZE_CURSOR;
         break;
       default:
         moveLens(sec, dragAnchorRatioRef.current);
-        document.body.style.cursor = "text";
         break;
     }
   });
@@ -212,9 +209,13 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   const onMouseUp = (e: MouseEvent) => {
     e.preventDefault();
     dragAnchorRatioRef.current = 0.5;
+    const bodyElem = document.querySelector("body");
+    if (bodyElem !== null) {
+      bodyElem.className = bodyElem.className.replace(" textCursor", "");
+      bodyElem.className = bodyElem.className.replace(" colResizeCursor", "");
+    }
     updateMouseState(e);
     document.removeEventListener("mousemove", onDragging);
-    document.body.style.cursor = "";
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -230,6 +231,18 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       dragAnchorRatioRef.current = 0.5;
     }
     if (mouseStateRef.current === OverviewMouseState.OutLens) onDragging(e);
+
+    const bodyElem = document.querySelector("body");
+    if (bodyElem) {
+      if (
+        mouseStateRef.current === OverviewMouseState.Left ||
+        mouseStateRef.current === OverviewMouseState.Right
+      ) {
+        bodyElem.className += " colResizeCursor";
+      } else {
+        bodyElem.className += " textCursor";
+      }
+    }
     document.addEventListener("mousemove", onDragging);
     document.addEventListener("mouseup", onMouseUp, {once: true});
   };
