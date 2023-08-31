@@ -307,6 +307,12 @@ pub fn calc_effective_slice(
     }
 }
 
+pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
+    image
+        .slice_mut(s![.., left as isize..(left + width) as isize, 3])
+        .mapv_inplace(|_| u8::MAX);
+}
+
 pub fn blend_img(
     spec_img: &[u8],
     wav_img: &[u8],
