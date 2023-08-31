@@ -161,9 +161,10 @@ function MainViewer(props: MainViewerProps) {
     [pixelRatio],
   );
 
-  const updateLensParams = useEvent((params: {startSec?: number; pxPerSec?: number}) => {
+  const updateLensParams = useEvent((params: OptionalLensParams) => {
     let startSec = params.startSec ?? startSecRef.current;
     let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
+
     if (startSec !== startSecRef.current) {
       const lensDurationSec = width / pxPerSec;
       startSec = Math.min(Math.max(startSec, 0), maxTrackSec - lensDurationSec);
@@ -173,6 +174,9 @@ function MainViewer(props: MainViewerProps) {
     startSecRef.current = startSec;
     pxPerSecRef.current = pxPerSec;
 
+    Object.values(imgCanvasesRef.current).forEach((value) =>
+      value?.updateLensParams({startSec, pxPerSec}),
+    );
     throttledSetImgState(getIdChArr(), width, imgHeight);
     throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
@@ -321,6 +325,7 @@ function MainViewer(props: MainViewerProps) {
                   width={width}
                   height={imgHeight}
                   pixelRatio={pixelRatio}
+                  maxTrackSec={maxTrackSec}
                 />
                 <AmpAxis ref={registerAmpCanvas(idChStr)} height={height} pixelRatio={pixelRatio} />
                 <FreqAxis

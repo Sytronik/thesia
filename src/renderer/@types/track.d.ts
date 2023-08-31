@@ -20,6 +20,7 @@ type SpecWavImages = {
 
 type ImgCanvasHandleElement = {
   draw: (buf: Buffer) => void;
+  updateLensParams: (params: OptionalLensParams) => void;
 };
 
 // Track Summary
@@ -46,3 +47,5 @@ type AxisCanvasHandleElement = {
 type OverviewHandleElement = {
   draw: (startSec: number, lensDurationSec: number) => void;
 };
+
+type OptionalLensParams = {startSec?: number; pxPerSec?: number};
