@@ -32,6 +32,8 @@ import {
   MAX_HEIGHT,
   VERTICAL_AXIS_PADDING,
   MAX_PX_PER_SEC,
+  FIT_TOLERANCE_SEC,
+  TIME_CANVAS_HEIGHT,
 } from "../constants";
 
 type MainViewerProps = {
@@ -78,6 +80,7 @@ function MainViewer(props: MainViewerProps) {
   const pixelRatio = useDevicePixelRatio();
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
+  const [scrollTop, setScrollTop] = useState(0);
   const imgHeight = useMemo(() => height - 2 * VERTICAL_AXIS_PADDING, [height]);
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = useMemo(
@@ -87,12 +90,21 @@ function MainViewer(props: MainViewerProps) {
 
   const drawOptionForWavRef = useRef<DrawOptionForWav>({amp_range: [-1, 1]});
 
+  const overviewElem = useRef<OverviewHandleElement>(null);
+  const splitViewElem = useRef<SplitViewHandleElement>(null);
+  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
+
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
-  const overviewElem = useRef<OverviewHandleElement>(null);
-  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
+
+  const prevCursorClientY = useRef<number>(0);
+  const vScrollAnchorInfoRef = useRef<VScrollAnchorInfo>({
+    imgIndex: 0,
+    cursorRatioOnImg: 0.0,
+    cursorOffset: 0,
+  });
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
@@ -161,18 +173,26 @@ function MainViewer(props: MainViewerProps) {
     [pixelRatio],
   );
 
+  const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
+    return Math.min(Math.max(startSec, 0), maxEndSec - width / pxPerSec);
+  });
+
+  const normalizePxPerSec = useEvent((pxPerSec, startSec) =>
+    Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC),
+  );
+
   const updateLensParams = useEvent((params: OptionalLensParams) => {
     let startSec = params.startSec ?? startSecRef.current;
     let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
 
-    if (startSec !== startSecRef.current) {
-      const lensDurationSec = width / pxPerSec;
-      startSec = Math.min(Math.max(startSec, 0), maxTrackSec - lensDurationSec);
-    }
-    if (pxPerSec !== pxPerSecRef.current)
-      pxPerSec = Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC);
+    if (startSec !== startSecRef.current)
+      startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
+    if (pxPerSec !== pxPerSecRef.current) pxPerSec = normalizePxPerSec(pxPerSec, startSec);
+
     startSecRef.current = startSec;
     pxPerSecRef.current = pxPerSec;
+    canvasIsFitRef.current =
+      startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec;
 
     Object.values(imgCanvasesRef.current).forEach((value) =>
       value?.updateLensParams({startSec, pxPerSec}),
@@ -191,48 +211,119 @@ function MainViewer(props: MainViewerProps) {
 
   const resizeLensLeft = useEvent((sec: number) => {
     const endSec = startSecRef.current + width / pxPerSecRef.current;
-    const startSec = Math.min(Math.max(sec, 0), endSec - width / MAX_PX_PER_SEC);
-    const pxPerSec = width / (endSec - startSec);
+    const startSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
+    const pxPerSec = normalizePxPerSec(width / (endSec - startSec), startSec);
 
     updateLensParams({startSec, pxPerSec});
-    canvasIsFitRef.current = false;
   });
 
   const resizeLensRight = useEvent((sec: number) => {
-    const pxPerSec = Math.min(width / Math.max(sec - startSecRef.current, 0), MAX_PX_PER_SEC);
+    const pxPerSec = normalizePxPerSec(
+      width / Math.max(sec - startSecRef.current, 0),
+      startSecRef.current,
+    );
     updateLensParams({pxPerSec});
-    canvasIsFitRef.current = false;
   });
+
+  const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
+    let i = 0;
+    let prevBottom = 0;
+    trackIds.forEach((id) =>
+      trackIdChMap.get(id)?.forEach((idChStr) => {
+        const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
+        if (imgClientRect === undefined) return;
+        const bottom = imgClientRect.y + imgClientRect.height;
+        // TODO: when cursor is out of ImgCanvas
+        if (prevBottom <= cursorClientY && cursorClientY < imgClientRect.y) {
+          vScrollAnchorInfoRef.current.imgIndex = i;
+          vScrollAnchorInfoRef.current.cursorRatioOnImg = 0;
+          vScrollAnchorInfoRef.current.cursorOffset = cursorClientY - imgClientRect.y;
+        } else if (imgClientRect.y <= cursorClientY && cursorClientY < bottom) {
+          vScrollAnchorInfoRef.current.imgIndex = i;
+          vScrollAnchorInfoRef.current.cursorRatioOnImg =
+            (cursorClientY - imgClientRect.y) / imgClientRect.height;
+          vScrollAnchorInfoRef.current.cursorOffset = 0;
+        }
+        i += 1;
+        prevBottom = bottom;
+      }),
+    );
+    if (prevBottom <= cursorClientY) {
+      vScrollAnchorInfoRef.current.imgIndex = i - 1;
+      vScrollAnchorInfoRef.current.cursorRatioOnImg = 1;
+      vScrollAnchorInfoRef.current.cursorOffset = cursorClientY - prevBottom;
+    }
+  });
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (e.clientY === prevCursorClientY.current) return;
+    updateVScrollAnchorInfo(e.clientY);
+    prevCursorClientY.current = e.clientY;
+  };
 
   const handleWheel = useEvent((e: WheelEvent) => {
     if (!trackIds.length) return;
 
-    let yIsLarger;
-    let delta;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      delta = e.deltaY;
-      yIsLarger = true;
-    } else {
+    let delta: number;
+    let horizontal: boolean;
+    if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) {
       delta = e.deltaX;
-      yIsLarger = false;
+      horizontal = !e.shiftKey;
+    } else {
+      delta = e.deltaY;
+      horizontal = e.shiftKey;
     }
     if (e.altKey) {
+      // zoom
       e.preventDefault();
       e.stopPropagation();
-      if ((e.shiftKey && yIsLarger) || !yIsLarger) {
-        updateLensParams({pxPerSec: pxPerSecRef.current * (1 + delta / 1000)});
-        canvasIsFitRef.current = false;
+      if (horizontal) {
+        // horizontal zoom
+        const pxPerSec = normalizePxPerSec(pxPerSecRef.current * (1 + delta / 1000), 0);
+        const cursorX =
+          e.clientX - (imgCanvasesRef.current[getIdChArr()[0]].getBoundingClientRect()?.x ?? 0);
+        const startSec = normalizeStartSec(
+          startSecRef.current + cursorX / pxPerSecRef.current - cursorX / pxPerSec,
+          pxPerSec,
+          maxTrackSec,
+        );
+        updateLensParams({startSec, pxPerSec});
       } else {
-        setHeight(
-          Math.round(Math.min(Math.max(height * (1 + e.deltaY / 1000), MIN_HEIGHT), MAX_HEIGHT)),
+        // vertical zoom
+        const splitView = splitViewElem.current;
+        if (!splitView) return;
+
+        const newHeight = Math.round(
+          Math.min(Math.max(height * (1 + delta / 1000), MIN_HEIGHT), MAX_HEIGHT),
+        );
+        setHeight(newHeight);
+
+        const cursorY = e.clientY - splitView.getBoundingClientY();
+        const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
+        // TODO: remove hard-coded 2
+        setScrollTop(
+          TIME_CANVAS_HEIGHT +
+            imgIndex * (newHeight + 2) +
+            VERTICAL_AXIS_PADDING +
+            cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
+            cursorOffset -
+            cursorY,
         );
       }
-    } else if ((e.shiftKey && yIsLarger) || !yIsLarger) {
+    } else if (horizontal) {
+      // horizontal scroll
       e.preventDefault();
       e.stopPropagation();
       updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
+    } else {
+      // vertical scroll (native)
+      updateVScrollAnchorInfo(e.clientY);
     }
   });
+
+  useEffect(() => {
+    splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
+  }, [scrollTop]);
 
   const drawCanvas = useEvent(async () => {
     const images = NativeAPI.getImages();
@@ -376,50 +467,27 @@ function MainViewer(props: MainViewerProps) {
   }, [throttledSetTimeMarkersAndUnit, width, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
-    if (!trackIds.length) return;
-
-    const currentIdChArr = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
-    throttledSetImgState(currentIdChArr, width, imgHeight);
-  }, [throttledSetImgState, getIdChArr, width, imgHeight, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
     return () => cancelAnimationFrame(requestRef.current);
   }, [drawCanvas]);
 
-  // startSec setting logic
+  // set LensParams when track changes
   useEffect(() => {
     if (!trackIds.length) return;
-
-    const secOutOfCanvas = maxTrackSec - width / pxPerSecRef.current;
-
-    if (canvasIsFitRef.current) {
-      updateLensParams({pxPerSec: width / maxTrackSec});
-      return;
-    }
-    if (secOutOfCanvas <= 0) {
-      canvasIsFitRef.current = true;
-      return;
-    }
-    if (startSecRef.current > secOutOfCanvas) {
-      updateLensParams({startSec: secOutOfCanvas});
-    }
-  }, [trackIds, width, maxTrackSec, updateLensParams]);
-
-  // pxPerSec and canvasIsFit setting logic
-  useEffect(() => {
-    prevTrackCountRef.current = trackIds.length;
-
-    if (!trackIds.length) {
-      canvasIsFitRef.current = false;
-      return;
-    }
-
-    if (prevTrackCountRef.current === 0) {
+    if (prevTrackCountRef.current === 0 || canvasIsFitRef.current) {
       updateLensParams({startSec: 0, pxPerSec: width / maxTrackSec});
-      canvasIsFitRef.current = true;
+    } else {
+      const startSec = normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
+      updateLensParams({startSec, pxPerSec: pxPerSecRef.current});
     }
-  }, [trackIds, width, maxTrackSec, updateLensParams]);
+
+    prevTrackCountRef.current = trackIds.length;
+  }, [trackIds, width, maxTrackSec, updateLensParams, normalizeStartSec, normalizePxPerSec]);
+
+  useEffect(() => {
+    const currentIdChArr = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
+    if (currentIdChArr.length) throttledSetImgState(currentIdChArr, width, imgHeight);
+  }, [throttledSetImgState, getIdChArr, width, imgHeight, needRefreshTrackIdChArr]);
 
   const mainViewerElemCallback = useCallback(
     (node) => {
@@ -452,9 +520,18 @@ function MainViewer(props: MainViewerProps) {
         />
         <SlideBar />
       </div>
-      <div className={`${styles.MainViewer} row-flex`} ref={mainViewerElemCallback}>
+      <div
+        className={`${styles.MainViewer} row-flex`}
+        ref={mainViewerElemCallback}
+        onMouseMove={onMouseMove}
+      >
         {isDropzoneActive && <div className={styles.dropzone} />}
-        <SplitView left={leftPane} right={rightPane} setCanvasWidth={setWidth} />
+        <SplitView
+          ref={splitViewElem}
+          left={leftPane}
+          right={rightPane}
+          setCanvasWidth={setWidth}
+        />
         <ColorMap
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}

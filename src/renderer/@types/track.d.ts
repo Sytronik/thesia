@@ -18,9 +18,15 @@ type SpecWavImages = {
   [key: IdChannel]: Buffer;
 };
 
+type SplitViewHandleElement = {
+  getBoundingClientY: () => number;
+  scrollTo: (option: ScrollToOptions) => void;
+};
+
 type ImgCanvasHandleElement = {
   draw: (buf: Buffer) => void;
   updateLensParams: (params: OptionalLensParams) => void;
+  getBoundingClientRect: () => DOMRect;
 };
 
 // Track Summary
@@ -49,3 +55,5 @@ type OverviewHandleElement = {
 };
 
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
+
+type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};

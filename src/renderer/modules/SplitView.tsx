@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState} from "react";
+import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE} from "renderer/prototypes/constants";
 import styles from "./SplitView.scss";
@@ -14,7 +14,7 @@ type SplitViewProps = {
   className?: string;
 };
 
-const SplitView = (props: SplitViewProps) => {
+const SplitView = forwardRef((props: SplitViewProps, ref) => {
   const {left, right, setCanvasWidth, className} = props;
 
   const [leftWidth, setLeftWidth] = useState<number>(MIN_WIDTH);
@@ -69,6 +69,12 @@ const SplitView = (props: SplitViewProps) => {
     }),
   );
 
+  const imperativeInstanceRef = useRef<SplitViewHandleElement>({
+    getBoundingClientY: () => splitPaneElem.current?.getBoundingClientRect().y ?? 0,
+    scrollTo: (options: ScrollToOptions) => splitPaneElem.current?.scrollTo(options),
+  });
+  useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
+
   useEffect(() => {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("touchmove", onTouchMove);
@@ -111,8 +117,9 @@ const SplitView = (props: SplitViewProps) => {
       </div>
     </div>
   );
-};
+});
 
+SplitView.displayName = "SplitView";
 SplitView.defaultProps = {
   className: "",
 };

@@ -47,7 +47,15 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     pxPerSecRef.current = params.pxPerSec ?? pxPerSecRef.current;
   });
 
-  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({draw, updateLensParams});
+  const getBoundingClientRect = useEvent(() => {
+    return canvasElem.current?.getBoundingClientRect() ?? new DOMRect();
+  });
+
+  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({
+    draw,
+    updateLensParams,
+    getBoundingClientRect,
+  });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
   const setTooltipPositionByCursorPos = useEvent((e: React.MouseEvent) => {
