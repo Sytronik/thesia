@@ -23,6 +23,20 @@
   display: flex;
 }
 
+.stickyHeader {
+  position: absolute;
+  z-index: 1;
+  background-color: $bg-main;
+  height: $time-ruler-height + $track-margin;
+  min-width: 1px;
+  display: flex;
+}
+
+.dummyBoxForStickyHeader {
+  height: $time-ruler-height;
+  margin-bottom: $track-margin;
+}
+
 .axisLabelSection {
   @include body-label;
 

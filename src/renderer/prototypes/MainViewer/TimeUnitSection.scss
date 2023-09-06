@@ -4,8 +4,9 @@
   @include body-label;
 
   position: relative;
-  height: $time-ruler-height;
-  margin-bottom: $track-margin;
+  flex: 1 1 auto;
+  height: $time-ruler-height + $track-margin;
+  border-bottom: solid $track-margin $bg-main;
 
   p {
     position: absolute;

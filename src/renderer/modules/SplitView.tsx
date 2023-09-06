@@ -8,14 +8,14 @@ const MIN_WIDTH = 160 + 32;
 const MAX_WIDTH = 480 + 32;
 
 type SplitViewProps = {
-  left: React.ReactElement;
+  createLeft: (leftWidth: number) => React.ReactElement;
   right: React.ReactElement;
   setCanvasWidth: (value: number) => void;
   className?: string;
 };
 
 const SplitView = forwardRef((props: SplitViewProps, ref) => {
-  const {left, right, setCanvasWidth, className} = props;
+  const {createLeft, right, setCanvasWidth, className} = props;
 
   const [leftWidth, setLeftWidth] = useState<number>(MIN_WIDTH);
   const [separatorXPosition, setSeparatorXPosition] = useState<undefined | number>(undefined);
@@ -102,7 +102,7 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
   return (
     <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
       <div className={styles.LeftPane} style={{width: leftWidth}}>
-        {left}
+        {createLeft(leftWidth)}
       </div>
       <div
         role="presentation"

@@ -369,9 +369,12 @@ function MainViewer(props: MainViewerProps) {
     [trackIds],
   );
 
-  const leftPane = (
+  const createLeftPane = (leftWidth: number) => (
     <>
-      <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
+      <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
+        <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
+      </div>
+      <div className={styles.dummyBoxForStickyHeader} />
       {trackIds.map((trackId, i) => {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
@@ -393,11 +396,12 @@ function MainViewer(props: MainViewerProps) {
 
   const rightPane = (
     <>
-      <div className={styles.trackRightHeader}>
+      <div className={`${styles.trackRightHeader}  ${styles.stickyHeader}`}>
         <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} pixelRatio={pixelRatio} />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
+      <div className={styles.dummyBoxForStickyHeader} />
       {trackIds.map((id) => (
         <div key={`${id}`} className={`${styles.trackRight}`}>
           {erroredTrackIds.includes(id) ? (
@@ -528,7 +532,7 @@ function MainViewer(props: MainViewerProps) {
         {isDropzoneActive && <div className={styles.dropzone} />}
         <SplitView
           ref={splitViewElem}
-          left={leftPane}
+          createLeft={createLeftPane}
           right={rightPane}
           setCanvasWidth={setWidth}
         />
