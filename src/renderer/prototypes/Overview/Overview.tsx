@@ -1,5 +1,14 @@
-import React, {useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle} from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useContext,
+} from "react";
 import useEvent from "react-use-event-hook";
+import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.scss";
 import NativeAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants";
@@ -12,7 +21,6 @@ const THICKNESS = 3;
 type OverviewProps = {
   selectedTrackId: number | null;
   maxTrackSec: number;
-  pixelRatio: number;
   moveLens: (sec: number, anchorRatio: number) => void;
   resizeLensLeft: (sec: number) => void;
   resizeLensRight: (sec: number) => void;
@@ -41,8 +49,8 @@ function calcRatioX(e: React.MouseEvent) {
 }
 
 const Overview = forwardRef((props: OverviewProps, ref) => {
-  const {selectedTrackId, maxTrackSec, pixelRatio, moveLens, resizeLensLeft, resizeLensRight} =
-    props;
+  const {selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight} = props;
+  const devicePixelRatio = useContext(DevicePixelRatioContext);
   const [resizeObserver, setResizeObserver] = useState(new ResizeObserver(() => {}));
   const durationSec = useMemo(
     () => (selectedTrackId !== null ? NativeAPI.getLength(selectedTrackId) : 0),
@@ -137,15 +145,15 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     setResizeObserver(
       new ResizeObserver((entries) => {
         const backgroundElemTarget = entries[0].target as HTMLCanvasElement;
-        backgroundElemTarget.width = backgroundElemTarget.clientWidth * pixelRatio;
-        backgroundElemTarget.height = backgroundElemTarget.clientHeight * pixelRatio;
+        backgroundElemTarget.width = backgroundElemTarget.clientWidth * devicePixelRatio;
+        backgroundElemTarget.height = backgroundElemTarget.clientHeight * devicePixelRatio;
         if (!lensElem.current) return;
         lensElem.current.width = backgroundElemTarget.width;
         lensElem.current.height = backgroundElemTarget.height;
         const lensCtx = lensElem.current.getContext("2d", {desynchronized: true});
         lensCtxRef.current = lensCtx;
         if (!lensCtx) return;
-        lensCtx.scale(pixelRatio, pixelRatio);
+        lensCtx.scale(devicePixelRatio, devicePixelRatio);
         lensCtx.lineWidth = LINE_WIDTH;
         lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
         lensCtx.strokeStyle = LENS_STROKE_STYLE;
@@ -153,7 +161,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
           draw(prevArgsLensRef.current[0], prevArgsLensRef.current[1], true);
       }),
     );
-  }, [draw, pixelRatio]);
+  }, [draw, devicePixelRatio]);
 
   useEffect(() => {
     if (backgroundElem.current) {

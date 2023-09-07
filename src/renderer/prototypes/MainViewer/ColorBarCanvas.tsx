@@ -1,32 +1,35 @@
-import React, {useMemo, useRef, useCallback, useEffect} from "react";
+import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react";
 import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH, COLORBAR_COLORS_COUNT} from "renderer/prototypes/constants";
+import {DevicePixelRatioContext} from "renderer/contexts";
 import NativeAPI from "../../api";
 import styles from "./ColorBarCanvas.scss";
 
 type ColorBarCanvasProps = {
   width: number;
   height: number;
-  pixelRatio: number;
 };
 
 const COLORBAR_CENTER = COLORBAR_CANVAS_WIDTH / 2;
 
 function ColorBarCanvas(props: ColorBarCanvasProps) {
-  const {width, height, pixelRatio} = props;
+  const {width, height} = props;
+  const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const requestRef = useRef<number | null>(null);
+  const prevHeightRef = useRef<number>(0);
 
   const colorBarGradientBuf = useMemo(() => NativeAPI.getColorMap(), []);
 
   useEffect(() => {
     if (!canvasElem.current) return;
-    canvasElem.current.width = width * pixelRatio;
-    canvasElem.current.height = height * pixelRatio;
+    canvasElem.current.width = width * devicePixelRatio;
+    canvasElem.current.height = height * devicePixelRatio;
 
     ctxRef.current = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
-    ctxRef.current?.scale(pixelRatio, pixelRatio);
-  }, [width, height, pixelRatio]);
+    ctxRef.current?.scale(devicePixelRatio, devicePixelRatio);
+  }, [width, height, devicePixelRatio]);
 
   const draw = useCallback(() => {
     if (!(colorBarGradientBuf.byteLength === COLORBAR_COLORS_COUNT * 3)) {
@@ -52,7 +55,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     ctx.fillRect(0, 0, COLORBAR_CANVAS_WIDTH, height);
   }, [colorBarGradientBuf, height]);
 
-  useEffect(draw, [draw, pixelRatio]);
+  useEffect(draw, [draw, devicePixelRatio]);
 
   return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />;
 }

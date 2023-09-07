@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState} from "react";
+import React, {useRef, useEffect, useState, useContext} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.scss";
@@ -14,12 +14,11 @@ type ColorMapProps = {
   height: number;
   setHeight: (height: number) => void;
   colorBarHeight: number;
-  pixelRatio: number;
   dbAxisCanvasElem: React.RefObject<AxisCanvasHandleElement>;
 };
 
 function ColorMap(props: ColorMapProps) {
-  const {height, setHeight, colorBarHeight, pixelRatio, dbAxisCanvasElem} = props;
+  const {height, setHeight, colorBarHeight, dbAxisCanvasElem} = props;
 
   const colorMapElem = useRef<HTMLDivElement>(null);
 
@@ -45,16 +44,11 @@ function ColorMap(props: ColorMapProps) {
     <div className={styles.colorMap} ref={colorMapElem}>
       <div className={styles.colorMapHeader}>dB</div>
       <div className={styles.colorMapBody}>
-        <ColorBarCanvas
-          width={COLORBAR_CANVAS_WIDTH}
-          height={colorBarHeight}
-          pixelRatio={pixelRatio}
-        />
+        <ColorBarCanvas width={COLORBAR_CANVAS_WIDTH} height={colorBarHeight} />
         <AxisCanvas
           ref={dbAxisCanvasElem}
           width={DB_CANVAS_WIDTH}
           height={height}
-          pixelRatio={pixelRatio}
           axisPadding={VERTICAL_AXIS_PADDING}
           markerPos={DB_MARKER_POS}
           direction="V"

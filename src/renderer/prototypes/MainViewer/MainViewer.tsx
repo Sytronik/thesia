@@ -1,12 +1,12 @@
-import React, {useRef, useCallback, useEffect, useMemo, useState} from "react";
+import React, {useRef, useCallback, useEffect, useMemo, useState, useContext} from "react";
 import {throttle} from "throttle-debounce";
-import {useDevicePixelRatio} from "use-device-pixel-ratio";
 import useDropzone from "renderer/hooks/useDropzone";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
+import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./MainViewer.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -77,7 +77,7 @@ function MainViewer(props: MainViewerProps) {
 
   const requestRef = useRef<number>(0);
 
-  const pixelRatio = useDevicePixelRatio();
+  const devicePixelRatio = useContext(DevicePixelRatioContext);
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
@@ -163,14 +163,14 @@ function MainViewer(props: MainViewerProps) {
         await NativeAPI.setImageState(
           idChArr,
           startSecRef.current,
-          canvasWidth * pixelRatio,
-          canvasHeight * pixelRatio,
-          pxPerSecRef.current * pixelRatio,
+          canvasWidth * devicePixelRatio,
+          canvasHeight * devicePixelRatio,
+          pxPerSecRef.current * devicePixelRatio,
           drawOptionForWavRef.current,
           0.3,
         );
       }),
-    [pixelRatio],
+    [devicePixelRatio],
   );
 
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
@@ -397,7 +397,7 @@ function MainViewer(props: MainViewerProps) {
   const rightPane = (
     <>
       <div className={`${styles.trackRightHeader}  ${styles.stickyHeader}`}>
-        <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} pixelRatio={pixelRatio} />
+        <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
@@ -419,15 +419,10 @@ function MainViewer(props: MainViewerProps) {
                   ref={registerImgCanvas(idChStr)}
                   width={width}
                   height={imgHeight}
-                  pixelRatio={pixelRatio}
                   maxTrackSec={maxTrackSec}
                 />
-                <AmpAxis ref={registerAmpCanvas(idChStr)} height={height} pixelRatio={pixelRatio} />
-                <FreqAxis
-                  ref={registerFreqCanvas(idChStr)}
-                  height={height}
-                  pixelRatio={pixelRatio}
-                />
+                <AmpAxis ref={registerAmpCanvas(idChStr)} height={height} />
+                <FreqAxis ref={registerFreqCanvas(idChStr)} height={height} />
               </div>
             );
           })}
@@ -517,7 +512,6 @@ function MainViewer(props: MainViewerProps) {
               : null
           }
           maxTrackSec={maxTrackSec}
-          pixelRatio={pixelRatio}
           moveLens={moveLens}
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
@@ -540,7 +534,6 @@ function MainViewer(props: MainViewerProps) {
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
           setHeight={setColorMapHeight}
-          pixelRatio={pixelRatio}
           dbAxisCanvasElem={dbCanvasElem}
         />
       </div>

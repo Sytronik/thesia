@@ -1,6 +1,14 @@
-import React, {forwardRef, useRef, useImperativeHandle, useEffect, useState} from "react";
+import React, {
+  forwardRef,
+  useRef,
+  useImperativeHandle,
+  useEffect,
+  useState,
+  useContext,
+} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
+import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./ImgCanvas.scss";
 import NativeAPI from "../api";
 
@@ -8,11 +16,11 @@ type ImgCanvasProps = {
   width: number;
   height: number;
   maxTrackSec: number;
-  pixelRatio: number;
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, maxTrackSec, pixelRatio} = props;
+  const {width, height, maxTrackSec} = props;
+  const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(1);
@@ -23,13 +31,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   useEffect(() => {
     if (!canvasElem.current) return;
 
-    canvasElem.current.width = width * pixelRatio;
-    canvasElem.current.height = height * pixelRatio;
-  }, [width, height, pixelRatio]);
+    canvasElem.current.width = width * devicePixelRatio;
+    canvasElem.current.height = height * devicePixelRatio;
+  }, [width, height, devicePixelRatio]);
 
   const draw = useEvent(async (buf: Buffer) => {
-    const bitmapWidth = width * pixelRatio;
-    const bitmapHeight = height * pixelRatio;
+    const bitmapWidth = width * devicePixelRatio;
+    const bitmapHeight = height * devicePixelRatio;
     if (!(buf && buf.byteLength === 4 * bitmapWidth * bitmapHeight)) {
       return;
     }

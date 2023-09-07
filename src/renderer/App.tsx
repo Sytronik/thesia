@@ -8,6 +8,7 @@ import {SUPPORTED_MIME} from "./prototypes/constants";
 import "./App.global.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
+import {DevicePixelRatioProvider} from "./contexts";
 
 function App() {
   const {
@@ -137,20 +138,22 @@ function App() {
       <div className="row-fixed control">
         <Control />
       </div>
-      <MainViewer
-        trackIds={trackIds}
-        erroredTrackIds={erroredTrackIds}
-        selectedTrackIds={selectedTrackIds}
-        trackIdChMap={trackIdChMap}
-        needRefreshTrackIdChArr={needRefreshTrackIdChArr}
-        maxTrackSec={maxTrackSec}
-        addDroppedFile={addDroppedFile}
-        ignoreError={ignoreError}
-        refreshTracks={refreshTracks}
-        reloadTracks={reloadTracks}
-        removeTracks={removeTracks}
-        selectTrack={selectTrack}
-      />
+      <DevicePixelRatioProvider>
+        <MainViewer
+          trackIds={trackIds}
+          erroredTrackIds={erroredTrackIds}
+          selectedTrackIds={selectedTrackIds}
+          trackIdChMap={trackIdChMap}
+          needRefreshTrackIdChArr={needRefreshTrackIdChArr}
+          maxTrackSec={maxTrackSec}
+          addDroppedFile={addDroppedFile}
+          ignoreError={ignoreError}
+          refreshTracks={refreshTracks}
+          reloadTracks={reloadTracks}
+          removeTracks={removeTracks}
+          selectTrack={selectTrack}
+        />
+      </DevicePixelRatioProvider>
     </div>
   );
 }

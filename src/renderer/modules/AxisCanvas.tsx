@@ -1,5 +1,13 @@
-import React, {forwardRef, useRef, useImperativeHandle, useEffect, useCallback} from "react";
+import React, {
+  forwardRef,
+  useRef,
+  useImperativeHandle,
+  useEffect,
+  useCallback,
+  useContext,
+} from "react";
 import useEvent from "react-use-event-hook";
+import {DevicePixelRatioContext} from "renderer/contexts";
 import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants";
 import styles from "./AxisCanvas.scss";
 
@@ -15,7 +23,6 @@ type MarkerPosition = {
 type AxisCanvasProps = {
   width: number;
   height: number;
-  pixelRatio: number;
   axisPadding: number;
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
@@ -23,7 +30,8 @@ type AxisCanvasProps = {
 };
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
-  const {width, height, pixelRatio, axisPadding, markerPos, direction, className} = props;
+  const {width, height, axisPadding, markerPos, direction, className} = props;
+  const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const prevMarkersRef = useRef<Markers>([]);
@@ -107,13 +115,13 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   useEffect(() => {
     if (!canvasElem.current) return;
 
-    canvasElem.current.width = width * pixelRatio;
-    canvasElem.current.height = height * pixelRatio;
+    canvasElem.current.width = width * devicePixelRatio;
+    canvasElem.current.height = height * devicePixelRatio;
 
     const ctx = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
     ctxRef.current = ctx;
     if (!ctx) return;
-    ctx.scale(pixelRatio, pixelRatio);
+    ctx.scale(devicePixelRatio, devicePixelRatio);
     ctx.fillStyle = LABEL_COLOR;
     ctx.strokeStyle = TICK_COLOR;
     ctx.lineWidth = LINE_WIDTH;
@@ -121,7 +129,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     ctx.textBaseline = "hanging";
 
     draw(prevMarkersRef.current, true);
-  }, [width, height, pixelRatio, draw]);
+  }, [width, height, devicePixelRatio, draw]);
 
   const imperativeInstanceRef = useRef<AxisCanvasHandleElement>({draw});
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
