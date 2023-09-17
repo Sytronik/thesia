@@ -5,6 +5,7 @@ use approx::abs_diff_ne;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 mod audio;
 mod decibel;
@@ -32,7 +33,7 @@ pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 type FramingParams = (usize, usize, usize);
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SpecSetting {
     pub win_ms: f32,
     pub t_overlap: usize,

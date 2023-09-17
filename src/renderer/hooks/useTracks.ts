@@ -12,6 +12,9 @@ function useTracks() {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
+  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
+    NativeAPI.getSpecSetting(),
+  );
 
   const waitingIdsRef = useRef<number[]>([]);
   const addToWaitingIds = useEvent((ids: number[]) => {
@@ -116,17 +119,25 @@ function useTracks() {
     }
   });
 
+  const setSpecSetting = useEvent(async (specSetting: SpecSetting) => {
+    await NativeAPI.setSpecSetting(specSetting);
+    setCurrentSpecSetting(NativeAPI.getSpecSetting());
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+  });
+
   return {
     trackIds,
     erroredTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    specSetting: currentSpecSetting,
     reloadTracks,
     refreshTracks,
     addTracks,
     removeTracks,
     ignoreError,
+    setSpecSetting,
   };
 }
 

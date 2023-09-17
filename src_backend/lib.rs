@@ -111,6 +111,18 @@ async fn set_img_state(
 }
 
 #[napi]
+fn get_spec_setting() -> serde_json::Value {
+    json!(TM.blocking_read().get_setting())
+}
+
+#[napi]
+async fn set_spec_setting(spec_setting: serde_json::Value) {
+    let mut tm = TM.write().await;
+    tm.set_setting(serde_json::from_value(spec_setting).unwrap());
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+}
+
+#[napi]
 fn get_images() -> HashMap<String, Buffer> {
     if let Some(images) = img_mgr::recv() {
         images

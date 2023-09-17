@@ -57,3 +57,12 @@ type OverviewHandleElement = {
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
 
 type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
+
+type FreqScale = "Mel" | "Linear";
+
+type SpecSetting = {
+  win_ms: number;
+  t_overlap: number;
+  f_overlap: number;
+  freq_scale: FreqScale;
+};

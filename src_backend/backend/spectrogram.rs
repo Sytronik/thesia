@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use realfft::{RealFftPlanner, RealToComplex};
+use serde::{Deserialize, Serialize};
 
 pub mod mel;
 mod stft;
@@ -13,7 +14,8 @@ pub use stft::perform_stft;
 
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum FreqScale {
     Linear,
     Mel,

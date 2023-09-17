@@ -149,3 +149,11 @@ export async function setImageState(
   const drawOption = {pxPerSec, height};
   return backend.setImgState(idChArr, startSec, width, drawOption, drawOptionForWav, blend);
 }
+
+export function getSpecSetting(): SpecSetting {
+  return backend.getSpecSetting();
+}
+
+export async function setSpecSetting(specSetting: SpecSetting) {
+  await backend.setSpecSetting(specSetting);
+}

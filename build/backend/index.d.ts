@@ -13,6 +13,8 @@ export function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
 export function removeTracks(trackIds: Array<number>): Promise<void>
 export function applyTrackListChanges(): Promise<Array<string>>
 export function setImgState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
+export function getSpecSetting(): any
+export function setSpecSetting(specSetting: any): Promise<void>
 export function getImages(): Record<string, Buffer>
 export function findIDbyPath(path: string): Promise<number>
 export function getOverview(id: number, width: number, height: number): Promise<Buffer>

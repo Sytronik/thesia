@@ -17,11 +17,13 @@ function App() {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    specSetting,
     reloadTracks,
     refreshTracks,
     addTracks,
     removeTracks,
     ignoreError,
+    setSpecSetting,
   } = useTracks();
   const {selectedTrackIds, selectTrack, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks} =
     useSelectedTracks();
