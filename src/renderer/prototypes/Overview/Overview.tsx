@@ -34,7 +34,7 @@ enum OverviewMouseState {
 }
 
 type ArgsGetOverview = [trackId: number, width: number, height: number];
-type ArgsLens = [startSec: number, lensDurationSec: number];
+type ArgsLens = [durationSec: number, startSec: number, lensDurationSec: number];
 
 function calcX(e: React.MouseEvent | MouseEvent) {
   const elem = e.target as Element;
@@ -71,15 +71,15 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     return width / maxTrackSec;
   });
 
-  const drawLens = (startSec: number, lensDurationSec: number) => {
+  const drawLens = (trackDurationSec: number, startSec: number, lensDurationSec: number) => {
     const ctx = lensCtxRef.current;
     if (!lensElem.current || !ctx) return;
     const {clientWidth: width, clientHeight: height} = lensElem.current;
     const pxPerSec = calcPxPerSec();
     const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
-    const endSec = durationSec * pxPerSec;
+    const endSec = trackDurationSec * pxPerSec;
     ctx.clearRect(0, 0, width, height);
-    if (durationSec < maxTrackSec) {
+    if (trackDurationSec < maxTrackSec) {
       ctx.save();
       ctx.fillStyle = OUT_TRACK_FILL_STYLE;
       ctx.fillRect(endSec, 0, width, height);
@@ -93,7 +93,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       height - LINE_WIDTH,
     );
     if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
-    prevArgsLensRef.current = [startSec, lensDurationSec];
+    prevArgsLensRef.current = [trackDurationSec, startSec, lensDurationSec];
   };
 
   const draw = useEvent(async (startSec: number, lensDurationSec: number, forced = false) => {
@@ -116,13 +116,13 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       return;
     }
 
+    const argsLens: ArgsLens = [durationSec, startSec, lensDurationSec];
     if (
       forced ||
       prevArgsLensRef.current === null ||
-      prevArgsLensRef.current[0] !== startSec ||
-      prevArgsLensRef.current[1] !== lensDurationSec
+      prevArgsLensRef.current.some((v, i) => argsLens[i] !== v)
     ) {
-      drawLens(startSec, lensDurationSec);
+      drawLens(durationSec, startSec, lensDurationSec);
     }
 
     if (!backgroundCtx) return;
@@ -158,7 +158,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
         lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
         lensCtx.strokeStyle = LENS_STROKE_STYLE;
         if (prevArgsLensRef.current)
-          draw(prevArgsLensRef.current[0], prevArgsLensRef.current[1], true);
+          draw(prevArgsLensRef.current[1], prevArgsLensRef.current[2], true);
       }),
     );
   }, [draw, devicePixelRatio]);
@@ -180,7 +180,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     mouseStateRef.current = OverviewMouseState.OutLens;
     if (!prevArgsLensRef.current) return;
 
-    const [startSec, lensDuratoinSec] = prevArgsLensRef.current;
+    const [trackDurationSec, startSec, lensDuratoinSec] = prevArgsLensRef.current;
     const pxPerSec = calcPxPerSec();
     const lensStartX = Math.round(startSec * pxPerSec);
     const lensEndX = Math.round((startSec + lensDuratoinSec) * pxPerSec);
@@ -233,7 +233,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     if (prevArgsLensRef.current !== null && mouseStateRef.current === OverviewMouseState.InLens) {
       const ratioX = calcRatioX(e);
       const secOfX = ratioX * maxTrackSec;
-      const [startSec, lensDurationSec] = prevArgsLensRef.current;
+      const [trackDurationSec, startSec, lensDurationSec] = prevArgsLensRef.current;
       dragAnchorRatioRef.current = (secOfX - startSec) / lensDurationSec;
     } else {
       dragAnchorRatioRef.current = 0.5;
