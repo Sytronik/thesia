@@ -192,19 +192,22 @@ fn categorize_id_ch(
     let mut need_wav_parts_only = Vec::new();
     {
         let (mut i, mut j) = (0, 0);
-        while i < cat_by_spec.use_caches.len() && j < cat_by_wav.use_caches.len() {
-            if cat_by_spec.use_caches[i] == cat_by_wav.use_caches[j] {
+        while i < cat_by_spec.use_caches.len() {
+            if j < cat_by_wav.use_caches.len()
+                && cat_by_spec.use_caches[i] == cat_by_wav.use_caches[j]
+            {
                 i += 1;
                 j += 1;
             } else {
                 need_wav_parts_only.push(cat_by_spec.use_caches[i]);
-                i += 1;
-                let index = cat_by_wav
+                if let Some(index) = cat_by_wav
                     .need_parts
                     .iter()
                     .position(|x| *x == cat_by_spec.use_caches[i])
-                    .unwrap();
-                cat_by_wav.need_parts.remove(index);
+                {
+                    cat_by_wav.need_parts.remove(index);
+                }
+                i += 1;
             }
         }
     }
