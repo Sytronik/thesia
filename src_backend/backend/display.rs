@@ -181,6 +181,7 @@ impl TrackDrawer for TrackManager {
         result
     }
 
+    /// Draw part of images. if blend < 0, draw waveform with transparent background
     fn draw_part_imgs(
         &self,
         id_ch_tuples: &IdChArr,
@@ -582,7 +583,7 @@ fn draw_blended_spec_wav(
 
     if blend < 1. {
         // black
-        if blend < 0.5 {
+        if 0. <= blend && blend < 0.5 {
             let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
             let mut paint = Paint::default();
             paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);

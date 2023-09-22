@@ -310,7 +310,7 @@ async fn draw_imgs(
                 width,
                 option,
                 opt_for_wav,
-                0.,
+                -1.,
                 None,
             ));
         };
