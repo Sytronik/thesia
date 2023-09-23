@@ -17,11 +17,11 @@ export function getSpecSetting(): any
 export function setSpecSetting(specSetting: any): Promise<void>
 export function getImages(): Record<string, Buffer>
 export function findIDbyPath(path: string): Promise<number>
-export function getOverview(id: number, width: number, height: number): Promise<Buffer>
+export function getOverview(id: number, width: number, height: number, dpr: number): Promise<Buffer>
 export function getHzAt(y: number, height: number): Promise<number>
 export function getTimeAxis(width: number, startSec: number, pxPerSec: number, tickUnit: number, labelInterval: number): Promise<any>
 export function getFreqAxis(height: number, maxNumTicks: number, maxNumLabels: number): Promise<any>
-export function getAmpAxis(height: number, maxNumTicks: number, maxNumLabels: number, optForWav: any): Promise<any>
+export function getAmpAxis(height: number, maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
 export function getdBAxis(height: number, maxNumTicks: number, maxNumLabels: number): Promise<any>
 export function getMaxdB(): number
 export function getMindB(): number

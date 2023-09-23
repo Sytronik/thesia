@@ -144,12 +144,12 @@ async fn find_id_by_path(path: String) -> i32 {
 }
 
 #[napi]
-async fn get_overview(id: u32, width: u32, height: u32) -> Buffer {
+async fn get_overview(id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
     TM.read()
         .await
-        .draw_overview(id as usize, width, height)
+        .draw_overview(id as usize, width, height, dpr as f32)
         .into()
 }
 
@@ -196,17 +196,16 @@ async fn get_amp_axis(
     height: u32,
     max_num_ticks: u32,
     max_num_labels: u32,
-    opt_for_wav: serde_json::Value,
+    amp_range: (f64, f64),
 ) -> Result<serde_json::Value> {
-    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
     assert_axis_params(height, max_num_ticks, max_num_labels);
-    assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
+    assert!(amp_range.0 < amp_range.1);
 
     Ok(json!(TrackManager::create_amp_axis(
         height,
         max_num_ticks,
         max_num_labels,
-        opt_for_wav.amp_range
+        (amp_range.0 as f32, amp_range.1 as f32),
     )))
 }
 

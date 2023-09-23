@@ -388,6 +388,7 @@ mod tests {
         };
         let opt_for_wav = DrawOptionForWav {
             amp_range: (-1., 1.),
+            dpr: 1.,
         };
         let spec_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Spec);
         let mut wav_imgs =

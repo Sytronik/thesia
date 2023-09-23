@@ -71,6 +71,7 @@ impl Default for DrawParams {
             },
             opt_for_wav: DrawOptionForWav {
                 amp_range: (-1., 1.),
+                dpr: 1.,
             },
             blend: 1.,
         }

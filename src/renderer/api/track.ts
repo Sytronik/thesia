@@ -97,14 +97,14 @@ export async function getAmpAxisMarkers(
   maxNumLabels: number,
   markerDrawOptions: MarkerDrawOption,
 ): Promise<Markers> {
-  const {drawOptionForWav} = markerDrawOptions || {};
+  const {ampRange} = markerDrawOptions || {};
 
-  if (!drawOptionForWav) {
+  if (!ampRange) {
     console.error("no draw option for wav exist");
     return [];
   }
 
-  return backend.getAmpAxis(height, maxNumTicks, maxNumLabels, drawOptionForWav);
+  return backend.getAmpAxis(height, maxNumTicks, maxNumLabels, ampRange);
 }
 
 /* db axis */
@@ -133,8 +133,8 @@ export function getImages(): SpecWavImages {
   return backend.getImages();
 }
 
-export async function getOverview(trackId: number, width: number, height: number) {
-  return backend.getOverview(trackId, width, height);
+export async function getOverview(trackId: number, width: number, height: number, dpr: number) {
+  return backend.getOverview(trackId, width, height, dpr);
 }
 
 export async function setImageState(

@@ -34,6 +34,7 @@ import {
   MAX_PX_PER_SEC,
   FIT_TOLERANCE_SEC,
   TIME_CANVAS_HEIGHT,
+  DEFAULT_AMP_RANGE,
 } from "../constants";
 
 type MainViewerProps = {
@@ -88,7 +89,7 @@ function MainViewer(props: MainViewerProps) {
     [colorMapHeight],
   );
 
-  const drawOptionForWavRef = useRef<DrawOptionForWav>({amp_range: [-1, 1]});
+  const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
 
   const overviewElem = useRef<OverviewHandleElement>(null);
   const splitViewElem = useRef<SplitViewHandleElement>(null);
@@ -166,7 +167,7 @@ function MainViewer(props: MainViewerProps) {
           canvasWidth * devicePixelRatio,
           canvasHeight * devicePixelRatio,
           pxPerSecRef.current * devicePixelRatio,
-          drawOptionForWavRef.current,
+          {amp_range: ampRangeRef.current, dpr: devicePixelRatio},
           0.3,
         );
       }),
@@ -435,7 +436,7 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetAmpMarkers(imgHeight, imgHeight, {drawOptionForWav: drawOptionForWavRef.current});
+    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
   }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {

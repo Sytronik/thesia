@@ -172,3 +172,5 @@ export const HORIZONTAL_AXIS_PADDING = 0;
 
 export const MAX_PX_PER_SEC = 384000;
 export const FIT_TOLERANCE_SEC = 1e-6;
+
+export const DEFAULT_AMP_RANGE: [number, number] = [-1, 1];

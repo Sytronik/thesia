@@ -24,9 +24,6 @@ pub type ResizeType = resize::Type;
 
 const BLACK: [u8; 3] = [0; 3];
 const WHITE: [u8; 3] = [255; 3];
-const THR_LONG_HEIGHT: f32 = 2.;
-const THR_N_CONSEQ_LONG_H: usize = 5;
-const WAV_STROKE_WIDTH: f32 = 1.75;
 pub const COLORMAP: [[u8; 3]; 10] = [
     [0, 0, 4],
     [27, 12, 65],
@@ -42,6 +39,22 @@ pub const COLORMAP: [[u8; 3]; 10] = [
 pub const WAVECOLOR: [u8; 3] = [200, 21, 103];
 pub const RESAMPLE_TAIL: usize = 500;
 
+pub struct DprDependentConstants {
+    thr_long_height: f32,
+    thr_n_conseq_long_h: usize,
+    wav_stroke_width: f32,
+}
+
+impl DprDependentConstants {
+    fn calc(dpr: f32) -> Self {
+        DprDependentConstants {
+            thr_long_height: 2. * dpr,
+            thr_n_conseq_long_h: (20. * dpr).ceil() as usize,
+            wav_stroke_width: 1.75 * dpr,
+        }
+    }
+}
+
 #[napi(object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct DrawOption {
@@ -52,6 +65,7 @@ pub struct DrawOption {
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 pub struct DrawOptionForWav {
     pub amp_range: (f32, f32),
+    pub dpr: f32,
 }
 
 pub enum ImageKind {
@@ -135,7 +149,7 @@ pub trait TrackDrawer {
         fast_resize_vec: Option<Vec<bool>>,
     ) -> IdChMap<Vec<u8>>;
 
-    fn draw_overview(&self, id: usize, width: u32, height: u32) -> Vec<u8>;
+    fn draw_overview(&self, id: usize, width: u32, height: u32, dpr: f32) -> Vec<u8>;
 }
 
 impl TrackDrawer for TrackManager {
@@ -162,14 +176,14 @@ impl TrackDrawer for TrackManager {
                     );
                     Array3::from_shape_vec((height as usize, width as usize, 4), vec).unwrap()
                 }
-                ImageKind::Wav(option_for_wav) => {
+                ImageKind::Wav(opt_for_wav) => {
                     let mut arr = Array3::zeros((height as usize, width as usize, 4));
                     draw_wav_to(
                         arr.as_slice_mut().unwrap(),
                         ArrWithSliceInfo::entire(&track.get_wav(ch)),
                         width,
                         height,
-                        option_for_wav.amp_range,
+                        &opt_for_wav,
                         None,
                     );
                     arr
@@ -222,7 +236,7 @@ impl TrackDrawer for TrackManager {
                 wav_part,
                 drawing_width,
                 height,
-                opt_for_wav.amp_range,
+                &opt_for_wav,
                 blend,
                 fast_resize_vec.as_ref().map_or(false, |v| v[i]),
             );
@@ -244,7 +258,7 @@ impl TrackDrawer for TrackManager {
         result
     }
 
-    fn draw_overview(&self, id: usize, width: u32, height: u32) -> Vec<u8> {
+    fn draw_overview(&self, id: usize, width: u32, height: u32, dpr: f32) -> Vec<u8> {
         let track = &self.tracklist[id];
         let (pad_left, drawing_width, pad_right) =
             track.decompose_width_of(0., width, width as f64 / self.tracklist.max_sec);
@@ -261,7 +275,10 @@ impl TrackDrawer for TrackManager {
                     ArrWithSliceInfo::entire(&track.get_wav(ch)),
                     drawing_width,
                     ch_h,
-                    (-1., 1.),
+                    &DrawOptionForWav {
+                        amp_range: (-1., 1.),
+                        dpr,
+                    },
                     None,
                 )
             });
@@ -430,7 +447,7 @@ fn colorize_grey_with_size(
     // println!("drawing spec: {:?}", start.elapsed());
 }
 
-fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
+fn draw_wav_directly(wav: &[f32], stroke_width: f32, pixmap: &mut PixmapMut, paint: &Paint) {
     // println!("avg rendering. short height ratio: {}", n_short_height as f32 / width as f32);
     let path = {
         let mut pb = PathBuilder::new();
@@ -445,7 +462,7 @@ fn draw_wav_directly(wav_avg: &[f32], pixmap: &mut PixmapMut, paint: &Paint) {
     };
 
     let stroke = Stroke {
-        width: WAV_STROKE_WIDTH,
+        width: stroke_width,
         line_cap: LineCap::Round,
         ..Default::default()
     };
@@ -480,10 +497,16 @@ fn draw_wav_to(
     wav: ArrWithSliceInfo<f32, Ix1>,
     width: u32,
     height: u32,
-    amp_range: (f32, f32),
+    opt_for_wav: &DrawOptionForWav,
     alpha: Option<u8>,
 ) {
     // let start = Instant::now();
+    let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
+    let DprDependentConstants {
+        thr_long_height,
+        thr_n_conseq_long_h,
+        wav_stroke_width,
+    } = DprDependentConstants::calc(dpr);
     let amp_to_px = |x: f32, clamp: bool| {
         let x = (amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0);
         if clamp {
@@ -519,7 +542,12 @@ fn draw_wav_to(
         let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
         pixmap.fill_rect(rect, &paint, Transform::identity(), None);
     } else if need_upsampling {
-        draw_wav_directly(wav.as_slice().unwrap(), &mut pixmap, &paint);
+        draw_wav_directly(
+            wav.as_slice().unwrap(),
+            wav_stroke_width,
+            &mut pixmap,
+            &paint,
+        );
     } else {
         let mut wav_slices = Vec::with_capacity(width as usize);
         let mut top_envlop = Vec::with_capacity(width as usize);
@@ -532,7 +560,7 @@ fn draw_wav_to(
             let wav_slice = wav.slice(s![i_start..i_end]);
             let mut top = amp_to_px(*wav_slice.max_skipnan(), true);
             let mut bottom = amp_to_px(*wav_slice.min_skipnan(), true);
-            let diff = THR_LONG_HEIGHT + top - bottom;
+            let diff = thr_long_height + top - bottom;
             if diff < 0. {
                 n_conseq_long_h += 1;
             } else {
@@ -546,14 +574,14 @@ fn draw_wav_to(
             btm_envlop.push(bottom);
         }
         max_n_conseq = max_n_conseq.max(n_conseq_long_h);
-        if max_n_conseq > THR_N_CONSEQ_LONG_H {
+        if max_n_conseq > thr_n_conseq_long_h {
             draw_wav_topbottom(&top_envlop, &btm_envlop, &mut pixmap, &paint);
         } else {
             let wav_avg: Vec<f32> = wav_slices
                 .into_iter()
                 .map(|wav_slice| amp_to_px(wav_slice.mean().unwrap(), false))
                 .collect();
-            draw_wav_directly(&wav_avg, &mut pixmap, &paint);
+            draw_wav_directly(&wav_avg, wav_stroke_width, &mut pixmap, &paint);
         }
     }
 
@@ -565,7 +593,7 @@ fn draw_blended_spec_wav(
     wav: ArrWithSliceInfo<f32, Ix1>,
     width: u32,
     height: u32,
-    amp_range: (f32, f32),
+    opt_for_wav: &DrawOptionForWav,
     blend: f64,
     fast_resize: bool,
 ) -> Vec<u8> {
@@ -597,7 +625,7 @@ fn draw_blended_spec_wav(
             wav,
             width,
             height,
-            amp_range,
+            opt_for_wav,
             Some(alpha),
         );
     }

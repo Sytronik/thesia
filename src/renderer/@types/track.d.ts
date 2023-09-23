@@ -6,12 +6,13 @@ type IdChMap = Map<number, IdChArr>;
 // written in snake case for compatibility with native api
 type DrawOptionForWav = {
   amp_range: [number, number];
+  dpr: number;
 };
 
 type MarkerDrawOption = {
   startSec?: number;
   pxPerSec?: number;
-  drawOptionForWav?: DrawOptionForWav;
+  ampRange?: [number, number];
 };
 
 type SpecWavImages = {
