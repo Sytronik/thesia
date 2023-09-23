@@ -6,6 +6,10 @@
   background-color: $bg-main;
 }
 
+.ampAxisWrapper {
+  display: flex;
+}
+
 .ampAxis {
   flex: 0 0 auto;
   margin-right: $track-margin;

@@ -274,15 +274,25 @@ function MainViewer(props: MainViewerProps) {
       delta = e.deltaY;
       horizontal = e.shiftKey;
     }
+
+    if (!e.altKey && !horizontal) {
+      // vertical scroll (native)
+      updateVScrollAnchorInfo(e.clientY);
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    const anImgBoundngRect = imgCanvasesRef.current[getIdChArr()[0]].getBoundingClientRect();
+    if (e.clientX > (anImgBoundngRect?.right ?? 0) || e.clientX < (anImgBoundngRect?.x ?? 0))
+      return;
+
     if (e.altKey) {
       // zoom
-      e.preventDefault();
-      e.stopPropagation();
       if (horizontal) {
         // horizontal zoom
         const pxPerSec = normalizePxPerSec(pxPerSecRef.current * (1 + delta / 1000), 0);
-        const cursorX =
-          e.clientX - (imgCanvasesRef.current[getIdChArr()[0]].getBoundingClientRect()?.x ?? 0);
+        const cursorX = e.clientX - (anImgBoundngRect?.x ?? 0);
         const startSec = normalizeStartSec(
           startSecRef.current + cursorX / pxPerSecRef.current - cursorX / pxPerSec,
           pxPerSec,
@@ -313,12 +323,32 @@ function MainViewer(props: MainViewerProps) {
       }
     } else if (horizontal) {
       // horizontal scroll
+      updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
+    }
+  });
+
+  const handleWheelOnAmpAxis = useEvent((e: WheelEvent) => {
+    if (e.altKey) {
       e.preventDefault();
       e.stopPropagation();
-      updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
-    } else {
-      // vertical scroll (native)
-      updateVScrollAnchorInfo(e.clientY);
+      if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+      const interval = ampRangeRef.current[1] - ampRangeRef.current[0];
+      const zeroRatio = ampRangeRef.current[1] / interval;
+      const newInterval = interval * Math.max(1 - e.deltaY / 500, 0);
+      ampRangeRef.current[0] = Math.min(Math.max(newInterval * (zeroRatio - 1), -1), -1e-5);
+      ampRangeRef.current[1] = Math.min(Math.max(newInterval * zeroRatio, 1e-5), 1);
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+      throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
+    }
+  });
+
+  const handleClickOnAmpAxis = useEvent((e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.button === 0 && e.detail === 2) {
+      ampRangeRef.current = [...DEFAULT_AMP_RANGE];
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+      throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
     }
   });
 
@@ -422,7 +452,12 @@ function MainViewer(props: MainViewerProps) {
                   height={imgHeight}
                   maxTrackSec={maxTrackSec}
                 />
-                <AmpAxis ref={registerAmpCanvas(idChStr)} height={height} />
+                <AmpAxis
+                  ref={registerAmpCanvas(idChStr)}
+                  height={height}
+                  onWheel={handleWheelOnAmpAxis}
+                  onClick={handleClickOnAmpAxis}
+                />
                 <FreqAxis ref={registerFreqCanvas(idChStr)} height={height} />
               </div>
             );
