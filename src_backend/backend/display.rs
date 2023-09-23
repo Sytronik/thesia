@@ -38,10 +38,11 @@ pub const COLORMAP: [[u8; 3]; 10] = [
 ];
 pub const WAVECOLOR: [u8; 3] = [200, 21, 103];
 pub const RESAMPLE_TAIL: usize = 500;
+const THR_TOPBOTTOM_PERCENT: u32 = 70;
 
 pub struct DprDependentConstants {
     thr_long_height: f32,
-    thr_n_conseq_long_h: usize,
+    topbottom_context_size: f32,
     wav_stroke_width: f32,
 }
 
@@ -49,7 +50,7 @@ impl DprDependentConstants {
     fn calc(dpr: f32) -> Self {
         DprDependentConstants {
             thr_long_height: 2. * dpr,
-            thr_n_conseq_long_h: (20. * dpr).ceil() as usize,
+            topbottom_context_size: 2. * dpr,
             wav_stroke_width: 1.75 * dpr,
         }
     }
@@ -448,15 +449,14 @@ fn colorize_grey_with_size(
 }
 
 fn draw_wav_directly(wav: &[f32], stroke_width: f32, pixmap: &mut PixmapMut, paint: &Paint) {
-    // println!("avg rendering. short height ratio: {}", n_short_height as f32 / width as f32);
     let path = {
-        let mut pb = PathBuilder::new();
-        pb.move_to(0., wav_avg[0]);
-        for (x, &y) in wav_avg.iter().enumerate().skip(1) {
-            pb.line_to(x as f32, y);
+        let mut pb = PathBuilder::with_capacity(wav.len() + 1, wav.len() + 1);
+        pb.move_to(0., wav[0]);
+        for (i, &y) in wav.iter().enumerate().skip(1) {
+            pb.line_to((i * pixmap.width() as usize) as f32 / wav.len() as f32, y);
         }
-        if wav_avg.len() == 1 {
-            pb.line_to(0.999, wav_avg[0]);
+        if wav.len() == 1 {
+            pb.line_to((pixmap.width().min(2) - 1) as f32, wav[0]);
         }
         pb.finish().unwrap()
     };
@@ -475,7 +475,6 @@ fn draw_wav_topbottom(
     pixmap: &mut PixmapMut,
     paint: &Paint,
 ) {
-    // println!("top-bottom rendering. short height ratio: {}", n_short_height as f32 / width as f32);
     let path = {
         let mut pb = PathBuilder::new();
         pb.move_to(0., top_envlop[0]);
@@ -504,7 +503,7 @@ fn draw_wav_to(
     let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
     let DprDependentConstants {
         thr_long_height,
-        thr_n_conseq_long_h,
+        topbottom_context_size,
         wav_stroke_width,
     } = DprDependentConstants::calc(dpr);
     let amp_to_px = |x: f32, clamp: bool| {
@@ -516,17 +515,6 @@ fn draw_wav_to(
         }
     };
     let samples_per_px = wav.length as f32 / width as f32;
-    let over_zoomed = amp_range.1 - amp_range.0 < 1e-16;
-    let need_upsampling = !over_zoomed && samples_per_px < 2.;
-    let wav: CowArray<f32, Ix1> = if need_upsampling {
-        let wav_tail = wav.get_sliced_with_tail(RESAMPLE_TAIL);
-        let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
-        let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
-        let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x, false));
-        upsampled.slice_move(s![..width as usize]).into()
-    } else {
-        wav.get_sliced().into()
-    };
 
     let alpha = alpha.unwrap_or(u8::MAX);
     let mut paint = Paint::default();
@@ -538,50 +526,63 @@ fn draw_wav_to(
         ArrayViewMut3::from_shape((height as usize, width as usize, 4), output).unwrap();
     let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
 
-    if over_zoomed {
+    if amp_range.1 - amp_range.0 < 1e-16 {
+        // over-zoomed
         let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
         pixmap.fill_rect(rect, &paint, Transform::identity(), None);
-    } else if need_upsampling {
+    } else if samples_per_px < 2. {
+        // upsampling
+        let wav_tail = wav.get_sliced_with_tail(RESAMPLE_TAIL);
+        let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
+        let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
+        let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x, false));
+        let wav_px = upsampled.slice_move(s![..width as usize]);
         draw_wav_directly(
-            wav.as_slice().unwrap(),
+            wav_px.as_slice().unwrap(),
             wav_stroke_width,
             &mut pixmap,
             &paint,
         );
     } else {
-        let mut wav_slices = Vec::with_capacity(width as usize);
+        let wav = wav.get_sliced();
+        let half_context_size = topbottom_context_size / 2.;
+        let mean_px = amp_to_px(wav.mean().unwrap_or(0.), true);
         let mut top_envlop = Vec::with_capacity(width as usize);
         let mut btm_envlop = Vec::with_capacity(width as usize);
-        let mut n_conseq_long_h = 0usize;
-        let mut max_n_conseq = 0usize;
+        let mut n_mean_crossing = 0u32;
         for i_px in 0..width {
-            let i_start = ((i_px as f32 - 0.5) * samples_per_px).round().max(0.) as usize;
-            let i_end = (((i_px as f32 + 0.5) * samples_per_px).round() as usize).min(wav.len());
+            let i_start = ((i_px as f32 - half_context_size) * samples_per_px)
+                .round()
+                .max(0.) as usize;
+            let i_end = (((i_px as f32 + half_context_size) * samples_per_px).round() as usize)
+                .min(wav.len());
             let wav_slice = wav.slice(s![i_start..i_end]);
-            let mut top = amp_to_px(*wav_slice.max_skipnan(), true);
-            let mut bottom = amp_to_px(*wav_slice.min_skipnan(), true);
-            let diff = thr_long_height + top - bottom;
+            let mut top = amp_to_px(*wav_slice.max_skipnan(), false);
+            let mut bottom = amp_to_px(*wav_slice.min_skipnan(), false);
+            if top < mean_px + f32::EPSILON && bottom > mean_px - thr_long_height
+                || top < mean_px + thr_long_height && bottom > mean_px - f32::EPSILON
+            {
+                n_mean_crossing += 1;
+            }
+            let diff = bottom - top - thr_long_height;
             if diff < 0. {
-                n_conseq_long_h += 1;
-            } else {
-                max_n_conseq = max_n_conseq.max(n_conseq_long_h);
-                n_conseq_long_h = 0;
                 top -= diff / 2.;
                 bottom += diff / 2.;
             }
-            wav_slices.push(wav_slice);
             top_envlop.push(top);
             btm_envlop.push(bottom);
         }
-        max_n_conseq = max_n_conseq.max(n_conseq_long_h);
-        if max_n_conseq > thr_n_conseq_long_h {
+        let thr_topbottom = width * THR_TOPBOTTOM_PERCENT / 100;
+        if n_mean_crossing > thr_topbottom {
             draw_wav_topbottom(&top_envlop, &btm_envlop, &mut pixmap, &paint);
         } else {
-            let wav_avg: Vec<f32> = wav_slices
-                .into_iter()
-                .map(|wav_slice| amp_to_px(wav_slice.mean().unwrap(), false))
-                .collect();
-            draw_wav_directly(&wav_avg, wav_stroke_width, &mut pixmap, &paint);
+            let wav_px = wav.map(|&x| amp_to_px(x, false));
+            draw_wav_directly(
+                wav_px.as_slice().unwrap(),
+                wav_stroke_width,
+                &mut pixmap,
+                &paint,
+            );
         }
     }
 
