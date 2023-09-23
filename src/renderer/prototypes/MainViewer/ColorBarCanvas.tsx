@@ -32,12 +32,16 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
   }, [width, height, devicePixelRatio]);
 
   const draw = useCallback(() => {
-    if (!(colorBarGradientBuf.byteLength === COLORBAR_COLORS_COUNT * 3)) {
+    requestRef.current = null;
+    if (!(colorBarGradientBuf.byteLength === COLORBAR_COLORS_COUNT * 3)) return;
+
+    const ctx = ctxRef.current;
+    if (!ctx) {
+      prevHeightRef.current = 0;
       return;
     }
 
-    const ctx = ctxRef.current;
-    if (!ctx) return;
+    if (prevHeightRef.current === height) return;
 
     const gradientColors = new Uint8Array(colorBarGradientBuf);
     const gradientColorMap = chunk([...gradientColors], 3).reverse();
@@ -53,9 +57,17 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
 
     ctx.fillStyle = colorGradient;
     ctx.fillRect(0, 0, COLORBAR_CANVAS_WIDTH, height);
+    prevHeightRef.current = height;
+    requestRef.current = requestAnimationFrame(draw);
   }, [colorBarGradientBuf, height]);
 
-  useEffect(draw, [draw, devicePixelRatio]);
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+    };
+  }, [draw, devicePixelRatio]);
 
   return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />;
 }
