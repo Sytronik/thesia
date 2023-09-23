@@ -6,7 +6,13 @@ export const CHANNEL = [
 ];
 
 export const SUPPORTED_TYPES = ["flac", "mp3", "oga", "ogg", "wav"];
-export const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);
+export const SUPPORTED_MIME = [
+  "audio/x-flac",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/x-wav",
+];
 
 // axis
 const createBoundaries = (tickScaleTable: TickScaleTable) => {
