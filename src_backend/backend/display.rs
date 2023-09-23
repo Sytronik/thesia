@@ -36,7 +36,7 @@ pub const COLORMAP: [[u8; 3]; 10] = [
     [247, 209, 61],
     [252, 255, 164],
 ];
-pub const WAVECOLOR: [u8; 3] = [200, 21, 103];
+pub const WAVECOLOR: [u8; 3] = [120, 150, 210];
 pub const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: u32 = 70;
 

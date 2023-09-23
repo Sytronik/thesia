@@ -12,7 +12,7 @@ type ThrottledSetMarkersParams = {
   ) => Promise<Markers>;
 };
 
-const THRESHOLD = 1000 / 240;
+const THRESHOLD = 1000 / 120;
 
 const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
   const target = boundaries.find((boundary) => value >= boundary);

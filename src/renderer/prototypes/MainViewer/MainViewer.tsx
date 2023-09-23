@@ -158,7 +158,7 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetImgState = useMemo(
     () =>
-      throttle(1000 / 240, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
+      throttle(1000 / 120, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
         if (!idChArr.length) return;
 
         await NativeAPI.setImageState(

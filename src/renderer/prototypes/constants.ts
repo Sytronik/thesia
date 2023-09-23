@@ -114,6 +114,8 @@ export const AMP_TICK_NUM = {
   1165: [61, 61],
   1185: [63, 63],
   1210: [65, 65],
+  2000: [101, 101],
+  3500: [203, 203],
 };
 export const AMP_BOUNDARIES = createBoundaries(AMP_TICK_NUM);
 
@@ -128,18 +130,23 @@ export const FREQ_TICK_NUM = {
   // height: [max_number_of_ticks, max_number_of_labels]
   // TEMP
   80: [4, 2],
-  230: [9, 7],
-  305: [15, 10],
-  330: [15, 11],
-  375: [15, 12],
-  445: [15, 13],
-  515: [26, 18],
-  560: [26, 19],
-  620: [26, 20],
-  635: [26, 21],
-  690: [26, 22],
-  720: [26, 23],
-  765: [26, 24],
+  90: [6, 3],
+  100: [6, 4],
+  120: [9, 5],
+  150: [10, 6],
+  200: [11, 7],
+  240: [12, 8],
+  280: [14, 9],
+  320: [15, 10],
+  360: [18, 12],
+  400: [22, 14],
+  450: [25, 16],
+  500: [28, 18],
+  600: [30, 20],
+  700: [40, 25],
+  850: [50, 30],
+  1000: [60, 40],
+  1500: [100, 60],
 };
 export const FREQ_BOUNDARIES = createBoundaries(FREQ_TICK_NUM);
 
@@ -158,8 +165,11 @@ export const DB_MARKER_POS = {
   LABEL_LEFT_MARGIN: 3,
 };
 export const DB_TICK_NUM = {
-  80: [13, 13],
-  350: [25, 25],
+  80: [4, 4],
+  120: [6, 6],
+  250: [13, 13],
+  520: [25, 25],
+  1000: [60, 60],
 };
 export const DB_BOUNDARIES = createBoundaries(DB_TICK_NUM);
 
