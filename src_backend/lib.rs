@@ -155,7 +155,7 @@ async fn get_overview(id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
 
 #[napi]
 async fn get_hz_at(y: u32, height: u32) -> f64 {
-    assert!(height >= 1 && y < height);
+    assert!(height >= 1 && y <= height);
 
     TM.read().await.calc_hz_of(y, height) as f64
 }
