@@ -109,10 +109,7 @@ function MainViewer(props: MainViewerProps) {
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
-  const getIdChArr = useCallback(
-    () => Array.from(trackIdChMap.values()).flatMap((v) => v),
-    [trackIdChMap],
-  ); // TODO: return only viewport
+  const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
 
   const {markersRef: timeMarkersRef, throttledSetMarkers: throttledSetTimeMarkers} =
     useThrottledSetMarkers({
