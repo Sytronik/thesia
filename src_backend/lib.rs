@@ -102,7 +102,13 @@ async fn set_img_state(
     assert!(option.height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
-    let id_ch_tuples = parse_id_ch_tuples(id_ch_strs)?;
+    let id_ch_tuples = {
+        let tm = TM.read().await;
+        parse_id_ch_tuples(id_ch_strs)?
+            .into_iter()
+            .filter(|id_ch| tm.exists(&id_ch))
+            .collect()
+    };
     tokio::spawn(img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
         DrawParams::new(start_sec, width, option, opt_for_wav, blend),
@@ -144,12 +150,12 @@ async fn find_id_by_path(path: String) -> i32 {
 }
 
 #[napi]
-async fn get_overview(id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
+async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
     TM.read()
         .await
-        .draw_overview(id as usize, width, height, dpr as f32)
+        .draw_overview(track_id as usize, width, height, dpr as f32)
         .into()
 }
 
@@ -236,32 +242,37 @@ fn get_max_sec() -> f64 {
 
 #[napi(js_name = "getNumCh")]
 fn get_n_ch(track_id: u32) -> u32 {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].n_ch() as u32
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(0, |track| track.n_ch() as u32)
 }
 
 #[napi]
 fn get_sec(track_id: u32) -> f64 {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].sec()
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(0., |track| track.sec())
 }
 
 #[napi]
 fn get_sr(track_id: u32) -> u32 {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].sr
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(0, |track| track.sr)
 }
 
 #[napi]
 fn get_sample_format(track_id: u32) -> String {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].sample_format_str.to_owned()
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or_else(|| String::new(), |track| track.sample_format_str.to_owned())
 }
 
 #[napi]
 fn get_path(track_id: u32) -> String {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].path_string()
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or_else(|| String::new(), |track| track.path_string())
 }
 
 #[napi(js_name = "getFileName")]

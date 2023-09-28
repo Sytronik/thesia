@@ -17,7 +17,7 @@ export function getSpecSetting(): any
 export function setSpecSetting(specSetting: any): Promise<void>
 export function getImages(): Record<string, Buffer>
 export function findIDbyPath(path: string): Promise<number>
-export function getOverview(id: number, width: number, height: number, dpr: number): Promise<Buffer>
+export function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
 export function getHzAt(y: number, height: number): Promise<number>
 export function getTimeAxis(width: number, startSec: number, pxPerSec: number, tickUnit: number, labelInterval: number): Promise<any>
 export function getFreqAxis(height: number, maxNumTicks: number, maxNumLabels: number): Promise<any>

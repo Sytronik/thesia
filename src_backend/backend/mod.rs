@@ -28,6 +28,8 @@ pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
 pub use utils::{Pad, PadMode};
 
+use self::track::AudioTrack;
+
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
@@ -179,6 +181,7 @@ impl TrackManager {
     pub fn id_ch_tuples_from(&self, id_list: &[usize]) -> IdChVec {
         id_list
             .iter()
+            .filter(|&&id| self.has_id(id))
             .flat_map(|&id| {
                 let n_ch = self.tracklist[id].n_ch();
                 iter::repeat(id).zip(0..n_ch)
@@ -199,6 +202,16 @@ impl TrackManager {
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
         self.specs.contains_key(&(id, ch))
+    }
+
+    #[inline]
+    pub fn has_id(&self, id: usize) -> bool {
+        self.tracklist.has(id)
+    }
+
+    #[inline]
+    pub fn get_track(&self, id: usize) -> Option<&AudioTrack> {
+        self.tracklist.get(id)
     }
 
     #[inline]

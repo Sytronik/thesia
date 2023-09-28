@@ -294,6 +294,16 @@ impl TrackList {
     }
 
     #[inline]
+    pub fn has(&self, id: usize) -> bool {
+        id < self.tracks.len() && self.tracks[id].is_some()
+    }
+
+    #[inline]
+    pub fn get(&self, id: usize) -> Option<&AudioTrack> {
+        self.tracks[id].as_ref()
+    }
+
+    #[inline]
     pub fn find_id_by_path(&self, path: &str) -> Option<usize> {
         indexed_iter_filtered!(self.tracks).find_map(|(id, track)| {
             if track.is_path_same(path) {
