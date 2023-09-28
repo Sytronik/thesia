@@ -3,7 +3,7 @@ import useEvent from "react-use-event-hook";
 
 type DropzoneProps = {
   targetRef: React.RefObject<HTMLElement>;
-  handleDrop: (e: DragEvent) => void;
+  handleDrop: (e: DragEvent) => Promise<void>;
 };
 
 function useDropzone(props: DropzoneProps) {
@@ -39,8 +39,8 @@ function useDropzone(props: DropzoneProps) {
     return false;
   });
 
-  const onDrop = useEvent((e: DragEvent) => {
-    handleDrop(e);
+  const onDrop = useEvent(async (e: DragEvent) => {
+    await handleDrop(e);
     dragCounterRef.current = 0;
     setIsDragActive(false);
   });

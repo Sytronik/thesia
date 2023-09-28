@@ -58,18 +58,18 @@ function App() {
       showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
     }
     if (existingIds.length) {
-      reloadTracks(existingIds);
+      await reloadTracks(existingIds);
     }
-    refreshTracks();
+    await refreshTracks();
   });
 
-  const deleteSelectedTracks = useEvent((e: KeyboardEvent) => {
+  const deleteSelectedTracks = useEvent(async (e: KeyboardEvent) => {
     e.preventDefault();
 
     if (e.key === "Delete" || e.key === "Backspace") {
       if (selectedTrackIds.length) {
-        removeTracks(selectedTrackIds);
-        refreshTracks();
+        await removeTracks(selectedTrackIds);
+        await refreshTracks();
       }
     }
   });
@@ -87,9 +87,9 @@ function App() {
         }
 
         if (existingIds.length) {
-          reloadTracks(existingIds);
+          await reloadTracks(existingIds);
         }
-        refreshTracks();
+        await refreshTracks();
       } else {
         console.log("file canceled: ", file.canceled);
       }
@@ -101,9 +101,9 @@ function App() {
   }, [addTracks, reloadTracks, refreshTracks]);
 
   useEffect(() => {
-    ipcRenderer.on("delete-track", (_, targetTrackId) => {
-      removeTracks([targetTrackId]);
-      refreshTracks();
+    ipcRenderer.on("delete-track", async (_, targetTrackId) => {
+      await removeTracks([targetTrackId]);
+      await refreshTracks();
     });
     return () => {
       ipcRenderer.removeAllListeners("delete-track");

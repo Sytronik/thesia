@@ -44,11 +44,11 @@ type MainViewerProps = {
   trackIdChMap: IdChMap;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
-  addDroppedFile: (e: DragEvent) => void;
-  reloadTracks: (ids: number[]) => void;
-  refreshTracks: () => void;
+  addDroppedFile: (e: DragEvent) => Promise<void>;
+  reloadTracks: (ids: number[]) => Promise<void>;
+  refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
-  removeTracks: (ids: number[]) => void;
+  removeTracks: (ids: number[]) => Promise<void>;
   selectTrack: (e: React.MouseEvent, id: number) => void;
 };
 
@@ -375,13 +375,13 @@ function MainViewer(props: MainViewerProps) {
     requestRef.current = requestAnimationFrame(drawCanvas);
   });
 
-  const reloadAndRefreshTrack = useEvent((id: number) => {
-    reloadTracks([id]);
-    refreshTracks();
+  const reloadAndRefreshTrack = useEvent(async (id: number) => {
+    await reloadTracks([id]);
+    await refreshTracks();
   });
-  const removeAndRefreshTrack = useEvent((id: number) => {
-    removeTracks([id]);
-    refreshTracks();
+  const removeAndRefreshTrack = useEvent(async (id: number) => {
+    await removeTracks([id]);
+    await refreshTracks();
   });
 
   const trackSummaryArr = useMemo(
