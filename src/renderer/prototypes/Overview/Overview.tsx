@@ -133,11 +133,13 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       prevArgsRef.current === null ||
       prevArgsRef.current.some((v, i) => args[i] !== v)
     ) {
-      const buf = await NativeAPI.getOverview(selectedTrackId, width, height, devicePixelRatio);
       let imbmp = null;
-      if (buf.length === width * height * 4) {
-        const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
-        imbmp = await createImageBitmap(imdata);
+      if (width >= 1) {
+        const buf = await NativeAPI.getOverview(selectedTrackId, width, height, devicePixelRatio);
+        if (buf.length === width * height * 4) {
+          const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
+          imbmp = await createImageBitmap(imdata);
+        }
       }
       backgroundCtx.transferFromImageBitmap(imbmp);
       prevArgsRef.current = args;

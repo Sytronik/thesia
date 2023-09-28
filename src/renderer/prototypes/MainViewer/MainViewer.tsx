@@ -120,7 +120,7 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetTimeMarkersAndUnit = useEvent(
     (canvasWidth: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
-      if (canvasWidth === 0) {
+      if (canvasWidth <= 1) {
         throttledSetTimeMarkers(0, 0, {});
         setTimeUnitLabel("");
         return;

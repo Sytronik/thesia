@@ -1,6 +1,6 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
-import {AXIS_SPACE} from "renderer/prototypes/constants";
+import {AXIS_SPACE, TINY_MARGIN} from "renderer/prototypes/constants";
 import styles from "./SplitView.scss";
 
 const MARGIN = 2;
@@ -20,9 +20,25 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
   const [leftWidth, setLeftWidth] = useState<number>(MIN_WIDTH);
   const [separatorXPosition, setSeparatorXPosition] = useState<undefined | number>(undefined);
   const [dragging, setDragging] = useState(false);
+  const [rightVisibility, setRightVisibility] = useState<boolean>(true);
 
   const splitPaneElem = useRef<HTMLDivElement>(null);
   const rightPaneElem = useRef<HTMLDivElement>(null);
+
+  const setNormalizedLeftWidth = useEvent((value: number) => {
+    let newLeftWidth = Math.max(value, MIN_WIDTH);
+    if (splitPaneElem.current && newLeftWidth >= splitPaneElem.current.clientWidth - MARGIN) {
+      setLeftWidth(splitPaneElem.current.clientWidth - MARGIN);
+      return;
+    }
+    newLeftWidth = Math.min(
+      newLeftWidth,
+      MAX_WIDTH,
+      (splitPaneElem.current?.clientWidth ?? 0) * 0.7,
+    );
+
+    setLeftWidth(newLeftWidth);
+  });
 
   const onMouseDown = (e: React.MouseEvent) => {
     setSeparatorXPosition(e.clientX - leftWidth);
@@ -36,14 +52,7 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
 
   const onMove = useEvent((clientX: number) => {
     if (dragging && separatorXPosition) {
-      let newLeftWidth = Math.max(clientX - separatorXPosition, MIN_WIDTH);
-      if (splitPaneElem.current && newLeftWidth > splitPaneElem.current.clientWidth - MARGIN) {
-        setLeftWidth(splitPaneElem.current.clientWidth - MARGIN);
-        return;
-      }
-      newLeftWidth = Math.min(newLeftWidth, MAX_WIDTH);
-
-      setLeftWidth(newLeftWidth);
+      setNormalizedLeftWidth(clientX - separatorXPosition);
     }
   });
 
@@ -60,11 +69,24 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
     setDragging(false);
   });
 
+  const [rightResizeObserver, setRightResizeObserver] = useState(
+    new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      const {target} = entries[0];
+      if (target.clientWidth > AXIS_SPACE) {
+        setCanvasWidth(target.clientWidth - AXIS_SPACE);
+        setRightVisibility(true);
+      } else {
+        setCanvasWidth(AXIS_SPACE - TINY_MARGIN);
+        setRightVisibility(false);
+      }
+    }),
+  );
+
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const {target} = entries[0];
-      if (target.clientWidth >= 1) {
-        setCanvasWidth(target.clientWidth - AXIS_SPACE);
+      if ((rightPaneElem.current?.clientWidth ?? 0) === 0) {
+        setNormalizedLeftWidth(target.clientWidth - MARGIN);
       }
     }),
   );
@@ -91,7 +113,17 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
 
   useEffect(() => {
     if (rightPaneElem.current) {
-      resizeObserver.observe(rightPaneElem.current);
+      rightResizeObserver.observe(rightPaneElem.current);
+    }
+
+    return () => {
+      rightResizeObserver.disconnect();
+    };
+  }, [rightResizeObserver]);
+
+  useEffect(() => {
+    if (splitPaneElem.current) {
+      resizeObserver.observe(splitPaneElem.current);
     }
 
     return () => {
@@ -113,7 +145,7 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
         <div className={styles.dividerLine} />
       </div>
       <div className={styles.RightPane} ref={rightPaneElem}>
-        {right}
+        {rightVisibility ? right : null}
       </div>
     </div>
   );
