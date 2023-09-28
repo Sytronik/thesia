@@ -1,11 +1,18 @@
 // audio file
-export const CHANNEL = {
-  1: ["M"],
-  2: ["L", "R"],
-};
+export const CHANNEL = [
+  [], // Unreachable
+  ["M"], // mono
+  ["L", "R"], // stereo
+];
 
 export const SUPPORTED_TYPES = ["flac", "mp3", "oga", "ogg", "wav"];
-export const SUPPORTED_MIME = SUPPORTED_TYPES.map((subtype) => `audio/${subtype}`);
+export const SUPPORTED_MIME = [
+  "audio/x-flac",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/x-wav",
+];
 
 // axis
 const createBoundaries = (tickScaleTable: TickScaleTable) => {
@@ -19,6 +26,14 @@ export const AXIS_STYLE = {
   TICK_COLOR: "#fff",
   LABEL_COLOR: "#fff",
   LABEL_FONT: "11px sans-serif",
+};
+
+export const OVERVIEW_LENS_STYLE = {
+  OUT_LENS_FILL_STYLE: "rgba(0, 0, 0, 0.4)",
+  LENS_STROKE_STYLE: "rgba(255, 255, 255, 0.4)",
+  OUT_TRACK_FILL_STYLE: "rgba(0, 0, 0, 0.2)",
+  LINE_WIDTH: 1.6,
+  RESIZE_CURSOR: "col-resize",
 };
 
 export const TIME_CANVAS_HEIGHT = 16;
@@ -66,7 +81,7 @@ export const TIME_TICK_SIZE = {
 export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
 export const LABEL_HEIGHT_ADJUSTMENT = 4;
-export const AMP_CANVAS_WIDTH = 32;
+export const AMP_CANVAS_WIDTH = 45;
 export const AMP_MARKER_POS = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,
@@ -105,10 +120,12 @@ export const AMP_TICK_NUM = {
   1165: [61, 61],
   1185: [63, 63],
   1210: [65, 65],
+  2000: [101, 101],
+  3500: [203, 203],
 };
 export const AMP_BOUNDARIES = createBoundaries(AMP_TICK_NUM);
 
-export const FREQ_CANVAS_WIDTH = 32;
+export const FREQ_CANVAS_WIDTH = 45;
 export const FREQ_MARKER_POS = {
   MAJOR_TICK_POS: 4, // LENGTH: 4px
   MINOR_TICK_POS: 3, // LENGTH: 3px,
@@ -119,18 +136,23 @@ export const FREQ_TICK_NUM = {
   // height: [max_number_of_ticks, max_number_of_labels]
   // TEMP
   80: [4, 2],
-  230: [9, 7],
-  305: [15, 10],
-  330: [15, 11],
-  375: [15, 12],
-  445: [15, 13],
-  515: [26, 18],
-  560: [26, 19],
-  620: [26, 20],
-  635: [26, 21],
-  690: [26, 22],
-  720: [26, 23],
-  765: [26, 24],
+  90: [6, 3],
+  100: [6, 4],
+  120: [9, 5],
+  150: [10, 6],
+  200: [11, 7],
+  240: [12, 8],
+  280: [14, 9],
+  320: [15, 10],
+  360: [18, 12],
+  400: [22, 14],
+  450: [25, 16],
+  500: [28, 18],
+  600: [30, 20],
+  700: [40, 25],
+  850: [50, 30],
+  1000: [60, 40],
+  1500: [100, 60],
 };
 export const FREQ_BOUNDARIES = createBoundaries(FREQ_TICK_NUM);
 
@@ -149,14 +171,22 @@ export const DB_MARKER_POS = {
   LABEL_LEFT_MARGIN: 3,
 };
 export const DB_TICK_NUM = {
-  80: [13, 13],
-  350: [25, 25],
+  80: [4, 4],
+  120: [6, 6],
+  250: [13, 13],
+  520: [25, 25],
+  1000: [60, 60],
 };
 export const DB_BOUNDARIES = createBoundaries(DB_TICK_NUM);
 
 export const MIN_TICK_SCALE_BOUNDARY = 80;
-export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 10;
+export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 45;
 export const MAX_HEIGHT = 5000;
 
 export const VERTICAL_AXIS_PADDING = 5;
 export const HORIZONTAL_AXIS_PADDING = 0;
+
+export const MAX_PX_PER_SEC = 384000;
+export const FIT_TOLERANCE_SEC = 1e-6;
+
+export const DEFAULT_AMP_RANGE: [number, number] = [-1, 1];

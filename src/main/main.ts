@@ -85,7 +85,7 @@ ipcMain.on("show-track-context-menu", (event, trackId) => {
     },
   ];
   const menu = Menu.buildFromTemplate(template);
-  menu.popup({window: BrowserWindow.fromWebContents(event.sender)});
+  menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
 });
 
 if (process.env.NODE_ENV === "production") {
@@ -127,8 +127,8 @@ const createWindow = async () => {
 
   mainWindow = new BrowserWindow({
     show: false,
-    width: 1024,
-    height: 728,
+    width: 1280,
+    height: 720,
     minWidth: 480,
     minHeight: 320,
     icon: getAssetPath("icon.png"),

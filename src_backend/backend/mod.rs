@@ -5,6 +5,7 @@ use approx::abs_diff_ne;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 mod audio;
 mod decibel;
@@ -27,12 +28,14 @@ pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
 pub use utils::{Pad, PadMode};
 
+use self::track::AudioTrack;
+
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 type FramingParams = (usize, usize, usize);
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SpecSetting {
     pub win_ms: f32,
     pub t_overlap: usize,
@@ -178,6 +181,7 @@ impl TrackManager {
     pub fn id_ch_tuples_from(&self, id_list: &[usize]) -> IdChVec {
         id_list
             .iter()
+            .filter(|&&id| self.has_id(id))
             .flat_map(|&id| {
                 let n_ch = self.tracklist[id].n_ch();
                 iter::repeat(id).zip(0..n_ch)
@@ -198,6 +202,16 @@ impl TrackManager {
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
         self.specs.contains_key(&(id, ch))
+    }
+
+    #[inline]
+    pub fn has_id(&self, id: usize) -> bool {
+        self.tracklist.has(id)
+    }
+
+    #[inline]
+    pub fn get_track(&self, id: usize) -> Option<&AudioTrack> {
+        self.tracklist.get(id)
     }
 
     #[inline]
@@ -387,6 +401,7 @@ mod tests {
         };
         let opt_for_wav = DrawOptionForWav {
             amp_range: (-1., 1.),
+            dpr: 1.,
         };
         let spec_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Spec);
         let mut wav_imgs =

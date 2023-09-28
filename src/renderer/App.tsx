@@ -1,80 +1,78 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {useEffect, useRef} from "react";
+import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
-import Overview from "./prototypes/Overview/Overview";
-import SlideBar from "./prototypes/SlideBar/SlideBar";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
 import {SUPPORTED_MIME} from "./prototypes/constants";
 import "./App.global.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
+import {DevicePixelRatioProvider} from "./contexts";
 
 function App() {
   const {
     trackIds,
     erroredTrackIds,
-    needRefreshTrackIds,
+    trackIdChMap,
+    needRefreshTrackIdChArr,
+    maxTrackSec,
+    specSetting,
     reloadTracks,
     refreshTracks,
     addTracks,
     removeTracks,
     ignoreError,
+    setSpecSetting,
   } = useTracks();
   const {selectedTrackIds, selectTrack, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks} =
     useSelectedTracks();
 
   const prevTrackIds = useRef<number[]>([]);
 
-  const addDroppedFile = useCallback(
-    async (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+  const addDroppedFile = useEvent(async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-      const newPaths: string[] = [];
-      const unsupportedPaths: string[] = [];
+    const newPaths: string[] = [];
+    const unsupportedPaths: string[] = [];
 
-      if (!e?.dataTransfer?.files) {
-        console.error("no file exists in dropzone");
-        return;
+    if (!e?.dataTransfer?.files) {
+      console.error("no file exists in dropzone");
+      return;
+    }
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+
+    droppedFiles.forEach((file: File) => {
+      if (SUPPORTED_MIME.includes(file.type)) {
+        newPaths.push(file.path);
+      } else {
+        unsupportedPaths.push(file.path);
       }
+    });
 
-      const droppedFiles = Array.from(e.dataTransfer.files);
+    const {existingIds, invalidPaths} = await addTracks(newPaths);
 
-      droppedFiles.forEach((file: File) => {
-        if (SUPPORTED_MIME.includes(file.type)) {
-          newPaths.push(file.path);
-        } else {
-          unsupportedPaths.push(file.path);
-        }
-      });
+    if (unsupportedPaths.length || invalidPaths.length) {
+      showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+    }
+    if (existingIds.length) {
+      await reloadTracks(existingIds);
+    }
+    await refreshTracks();
+  });
 
-      const {existingIds, invalidPaths} = await addTracks(newPaths);
+  const deleteSelectedTracks = useEvent(async (e: KeyboardEvent) => {
+    e.preventDefault();
 
-      if (unsupportedPaths.length || invalidPaths.length) {
-        showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (selectedTrackIds.length) {
+        await removeTracks(selectedTrackIds);
+        await refreshTracks();
       }
-      if (existingIds.length) {
-        reloadTracks(existingIds);
-      }
-      refreshTracks();
-    },
-    [addTracks, reloadTracks, refreshTracks],
-  );
-
-  const deleteSelectedTracks = useCallback(
-    (e: KeyboardEvent) => {
-      e.preventDefault();
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedTrackIds.length) {
-          removeTracks(selectedTrackIds);
-          refreshTracks();
-        }
-      }
-    },
-    [selectedTrackIds, removeTracks, refreshTracks],
-  );
+    }
+  });
 
   useEffect(() => {
     ipcRenderer.on("open-dialog-closed", async (_, file) => {
@@ -89,9 +87,9 @@ function App() {
         }
 
         if (existingIds.length) {
-          reloadTracks(existingIds);
+          await reloadTracks(existingIds);
         }
-        refreshTracks();
+        await refreshTracks();
       } else {
         console.log("file canceled: ", file.canceled);
       }
@@ -103,9 +101,9 @@ function App() {
   }, [addTracks, reloadTracks, refreshTracks]);
 
   useEffect(() => {
-    ipcRenderer.on("delete-track", (_, targetTrackId) => {
-      removeTracks([targetTrackId]);
-      refreshTracks();
+    ipcRenderer.on("delete-track", async (_, targetTrackId) => {
+      await removeTracks([targetTrackId]);
+      await refreshTracks();
     });
     return () => {
       ipcRenderer.removeAllListeners("delete-track");
@@ -142,22 +140,22 @@ function App() {
       <div className="row-fixed control">
         <Control />
       </div>
-      <div className="row-fixed overview">
-        <Overview />
-        <SlideBar />
-      </div>
-      <MainViewer
-        trackIds={trackIds}
-        erroredTrackIds={erroredTrackIds}
-        needRefreshTrackIds={needRefreshTrackIds}
-        selectedTrackIds={selectedTrackIds}
-        addDroppedFile={addDroppedFile}
-        ignoreError={ignoreError}
-        refreshTracks={refreshTracks}
-        reloadTracks={reloadTracks}
-        removeTracks={removeTracks}
-        selectTrack={selectTrack}
-      />
+      <DevicePixelRatioProvider>
+        <MainViewer
+          trackIds={trackIds}
+          erroredTrackIds={erroredTrackIds}
+          selectedTrackIds={selectedTrackIds}
+          trackIdChMap={trackIdChMap}
+          needRefreshTrackIdChArr={needRefreshTrackIdChArr}
+          maxTrackSec={maxTrackSec}
+          addDroppedFile={addDroppedFile}
+          ignoreError={ignoreError}
+          refreshTracks={refreshTracks}
+          reloadTracks={reloadTracks}
+          removeTracks={removeTracks}
+          selectTrack={selectTrack}
+        />
+      </DevicePixelRatioProvider>
     </div>
   );
 }

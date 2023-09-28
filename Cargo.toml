@@ -49,5 +49,11 @@ napi-build = "2.0.1"
 [target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
 mimalloc = {version = "0.1.37"}
 
+[profile.dev]
+opt-level = 3
+lto = true
+
 [profile.release]
 lto = true
+panic = "abort"
+strip = "debuginfo"

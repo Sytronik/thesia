@@ -1,4 +1,4 @@
-import React, {useRef, useLayoutEffect, useState, useCallback} from "react";
+import React, {useRef, useEffect, useState, useContext} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.scss";
@@ -21,11 +21,6 @@ function ColorMap(props: ColorMapProps) {
   const {height, setHeight, colorBarHeight, dbAxisCanvasElem} = props;
 
   const colorMapElem = useRef<HTMLDivElement>(null);
-  const drawedColorBarElem = useCallback((ref: ColorBarCanvasHandleElement) => {
-    if (ref) {
-      ref.draw();
-    }
-  }, []);
 
   const [resizeObserver, setResizeObserver] = useState(
     new ResizeObserver((entries) => {
@@ -35,7 +30,7 @@ function ColorMap(props: ColorMapProps) {
     }),
   );
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (colorMapElem.current) {
       resizeObserver.observe(colorMapElem.current);
     }
@@ -43,17 +38,13 @@ function ColorMap(props: ColorMapProps) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [colorMapElem, resizeObserver]);
+  }, [resizeObserver]);
 
   return (
-    <div className={styles.colorBar} ref={colorMapElem}>
+    <div className={styles.colorMap} ref={colorMapElem}>
       <div className={styles.colorMapHeader}>dB</div>
-      <div style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
-        <ColorBarCanvas
-          ref={drawedColorBarElem}
-          width={COLORBAR_CANVAS_WIDTH}
-          height={colorBarHeight}
-        />
+      <div className={styles.colorMapBody}>
+        <ColorBarCanvas width={COLORBAR_CANVAS_WIDTH} height={colorBarHeight} />
         <AxisCanvas
           ref={dbAxisCanvasElem}
           width={DB_CANVAS_WIDTH}
@@ -68,4 +59,4 @@ function ColorMap(props: ColorMapProps) {
   );
 }
 
-export default ColorMap;
+export default React.memo(ColorMap);

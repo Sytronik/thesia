@@ -1,6 +1,4 @@
-import {isNil} from "../utils/arrayUtils";
-
-const backend = require("backend");
+import backend from "backend";
 
 backend.init();
 
@@ -32,7 +30,10 @@ export async function findIdByPath(path: string): Promise<number> {
 
 /* get each track file's information */
 export function getChannelCounts(trackId: number): 1 | 2 {
-  return backend.getNumCh(trackId);
+  const ch = backend.getNumCh(trackId);
+  if (!(ch === 1 || ch === 2)) console.error(`No. of channel ${ch} not supported!`);
+  if (ch >= 1.5) return 2;
+  return 1;
 }
 
 export function getLength(trackId: number): number {
@@ -70,7 +71,7 @@ export async function getTimeAxisMarkers(
 ): Promise<Markers> {
   const {startSec, pxPerSec} = markerDrawOptions || {};
 
-  if (isNil(startSec) || isNil(pxPerSec)) {
+  if (startSec === undefined || pxPerSec === undefined) {
     console.error("no start sec of px per sec value exist");
     return [];
   }
@@ -96,14 +97,14 @@ export async function getAmpAxisMarkers(
   maxNumLabels: number,
   markerDrawOptions: MarkerDrawOption,
 ): Promise<Markers> {
-  const {drawOptionForWav} = markerDrawOptions || {};
+  const {ampRange} = markerDrawOptions || {};
 
-  if (!drawOptionForWav) {
+  if (!ampRange) {
     console.error("no draw option for wav exist");
     return [];
   }
 
-  return backend.getAmpAxis(height, maxNumTicks, maxNumLabels, drawOptionForWav);
+  return backend.getAmpAxis(height, maxNumTicks, maxNumLabels, ampRange);
 }
 
 /* db axis */
@@ -115,7 +116,7 @@ export async function getMindB(): Promise<number> {
   return backend.getMindB();
 }
 
-export function getColorMap(): ArrayBuffer {
+export function getColorMap(): Buffer {
   return backend.getColormap();
 }
 
@@ -132,8 +133,8 @@ export function getImages(): SpecWavImages {
   return backend.getImages();
 }
 
-export async function getOverview(trackId: number, width: number, height: number) {
-  return backend.getOverview(trackId, width, height);
+export async function getOverview(trackId: number, width: number, height: number, dpr: number) {
+  return backend.getOverview(trackId, width, height, dpr);
 }
 
 export async function setImageState(
@@ -147,4 +148,12 @@ export async function setImageState(
 ) {
   const drawOption = {pxPerSec, height};
   return backend.setImgState(idChArr, startSec, width, drawOption, drawOptionForWav, blend);
+}
+
+export function getSpecSetting(): SpecSetting {
+  return backend.getSpecSetting();
+}
+
+export async function setSpecSetting(specSetting: SpecSetting) {
+  await backend.setSpecSetting(specSetting);
 }

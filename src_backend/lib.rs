@@ -102,12 +102,30 @@ async fn set_img_state(
     assert!(option.height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
 
-    let id_ch_tuples = parse_id_ch_tuples(id_ch_strs)?;
+    let id_ch_tuples = {
+        let tm = TM.read().await;
+        parse_id_ch_tuples(id_ch_strs)?
+            .into_iter()
+            .filter(|id_ch| tm.exists(&id_ch))
+            .collect()
+    };
     tokio::spawn(img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
         DrawParams::new(start_sec, width, option, opt_for_wav, blend),
     ))));
     Ok(())
+}
+
+#[napi]
+fn get_spec_setting() -> serde_json::Value {
+    json!(TM.blocking_read().get_setting())
+}
+
+#[napi]
+async fn set_spec_setting(spec_setting: serde_json::Value) {
+    let mut tm = TM.write().await;
+    tm.set_setting(serde_json::from_value(spec_setting).unwrap());
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
 }
 
 #[napi]
@@ -132,18 +150,18 @@ async fn find_id_by_path(path: String) -> i32 {
 }
 
 #[napi]
-async fn get_overview(id: u32, width: u32, height: u32) -> Buffer {
+async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
     TM.read()
         .await
-        .draw_overview(id as usize, width, height)
+        .draw_overview(track_id as usize, width, height, dpr as f32)
         .into()
 }
 
 #[napi]
 async fn get_hz_at(y: u32, height: u32) -> f64 {
-    assert!(height >= 1 && y < height);
+    assert!(height >= 1 && y <= height);
 
     TM.read().await.calc_hz_of(y, height) as f64
 }
@@ -184,17 +202,16 @@ async fn get_amp_axis(
     height: u32,
     max_num_ticks: u32,
     max_num_labels: u32,
-    opt_for_wav: serde_json::Value,
+    amp_range: (f64, f64),
 ) -> Result<serde_json::Value> {
-    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
     assert_axis_params(height, max_num_ticks, max_num_labels);
-    assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
+    assert!(amp_range.0 < amp_range.1);
 
     Ok(json!(TrackManager::create_amp_axis(
         height,
         max_num_ticks,
         max_num_labels,
-        opt_for_wav.amp_range
+        (amp_range.0 as f32, amp_range.1 as f32),
     )))
 }
 
@@ -225,32 +242,37 @@ fn get_max_sec() -> f64 {
 
 #[napi(js_name = "getNumCh")]
 fn get_n_ch(track_id: u32) -> u32 {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].n_ch() as u32
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(0, |track| track.n_ch() as u32)
 }
 
 #[napi]
 fn get_sec(track_id: u32) -> f64 {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].sec()
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(0., |track| track.sec())
 }
 
 #[napi]
 fn get_sr(track_id: u32) -> u32 {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].sr
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(0, |track| track.sr)
 }
 
 #[napi]
 fn get_sample_format(track_id: u32) -> String {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].sample_format_str.to_owned()
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or_else(|| String::new(), |track| track.sample_format_str.to_owned())
 }
 
 #[napi]
 fn get_path(track_id: u32) -> String {
-    let tm = TM.blocking_read();
-    tm.tracklist[track_id as usize].path_string()
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or_else(|| String::new(), |track| track.path_string())
 }
 
 #[napi(js_name = "getFileName")]

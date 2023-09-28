@@ -72,6 +72,7 @@ impl Default for DrawParams {
             },
             opt_for_wav: DrawOptionForWav {
                 amp_range: (-1., 1.),
+                dpr: 1.,
             },
             blend: 1.,
         }
@@ -193,19 +194,22 @@ fn categorize_id_ch(
     let mut need_wav_parts_only = Vec::new();
     {
         let (mut i, mut j) = (0, 0);
-        while i < cat_by_spec.use_caches.len() && j < cat_by_wav.use_caches.len() {
-            if cat_by_spec.use_caches[i] == cat_by_wav.use_caches[j] {
+        while i < cat_by_spec.use_caches.len() {
+            if j < cat_by_wav.use_caches.len()
+                && cat_by_spec.use_caches[i] == cat_by_wav.use_caches[j]
+            {
                 i += 1;
                 j += 1;
             } else {
                 need_wav_parts_only.push(cat_by_spec.use_caches[i]);
-                i += 1;
-                let index = cat_by_wav
+                if let Some(index) = cat_by_wav
                     .need_parts
                     .iter()
                     .position(|x| *x == cat_by_spec.use_caches[i])
-                    .unwrap();
-                cat_by_wav.need_parts.remove(index);
+                {
+                    cat_by_wav.need_parts.remove(index);
+                }
+                i += 1;
             }
         }
     }
@@ -270,7 +274,9 @@ async fn categorize_blend_caches(
     let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
     let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
     total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-        let width = tm.tracklist[id].calc_width(option.px_per_sec);
+        let width = tm
+            .get_track(id)
+            .map_or(0, |track| track.calc_width(option.px_per_sec));
         ((id, ch), width)
     }));
 
@@ -322,7 +328,7 @@ async fn categorize_blend_caches(
             width,
             option,
             opt_for_wav,
-            0.,
+            -1.,
             None,
         ));
     };

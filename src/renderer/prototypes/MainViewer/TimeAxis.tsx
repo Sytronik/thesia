@@ -2,8 +2,7 @@ import React, {forwardRef} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import {HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS} from "../constants";
 
-const TimeAxis = forwardRef((props: {width: number}, ref) => {
-  const {width} = props;
+const TimeAxis = forwardRef(({width}: {width: number}, ref) => {
   return (
     <AxisCanvas
       ref={ref}

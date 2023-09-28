@@ -1,8 +1,9 @@
-import React, {useRef, useCallback, useState, useEffect} from "react";
+import React, {useRef, useState, useEffect} from "react";
+import useEvent from "react-use-event-hook";
 
 type DropzoneProps = {
   targetRef: React.RefObject<HTMLElement>;
-  handleDrop: (e: DragEvent) => void;
+  handleDrop: (e: DragEvent) => Promise<void>;
 };
 
 function useDropzone(props: DropzoneProps) {
@@ -11,12 +12,12 @@ function useDropzone(props: DropzoneProps) {
   const dragCounterRef = useRef<number>(0);
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
 
-  const onDragOver = useCallback((e: DragEvent) => {
+  const onDragOver = useEvent((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+  });
 
-  const onDragEnter = useCallback((e: DragEvent) => {
+  const onDragEnter = useEvent((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -25,9 +26,9 @@ function useDropzone(props: DropzoneProps) {
       setIsDragActive(true);
     }
     return false;
-  }, []);
+  });
 
-  const onDragLeave = useCallback((e: DragEvent) => {
+  const onDragLeave = useEvent((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -36,16 +37,13 @@ function useDropzone(props: DropzoneProps) {
       setIsDragActive(false);
     }
     return false;
-  }, []);
+  });
 
-  const onDrop = useCallback(
-    (e: DragEvent) => {
-      handleDrop(e);
-      dragCounterRef.current = 0;
-      setIsDragActive(false);
-    },
-    [handleDrop],
-  );
+  const onDrop = useEvent(async (e: DragEvent) => {
+    await handleDrop(e);
+    dragCounterRef.current = 0;
+    setIsDragActive(false);
+  });
 
   useEffect(() => {
     const target = targetRef.current;

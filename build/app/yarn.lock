@@ -2,5 +2,6 @@
 # yarn lockfile v1
 
 
-"backend@file:../../target_node":
+"backend@link:../backend":
   version "0.0.0"
+  uid ""

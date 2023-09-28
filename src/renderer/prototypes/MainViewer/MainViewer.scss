@@ -1,4 +1,4 @@
-@import "../../styles/index.scss";
+@import '../../styles/index.scss';
 
 .MainViewer {
   position: relative;
@@ -23,12 +23,29 @@
   display: flex;
 }
 
+.stickyHeader {
+  position: absolute;
+  z-index: 1;
+  background-color: $bg-main;
+  height: $time-ruler-height + $track-margin;
+  min-width: 1px;
+  display: flex;
+}
+
+.dummyBoxForStickyHeader {
+  height: $time-ruler-height;
+  margin-bottom: $track-margin;
+}
+
 .axisLabelSection {
   @include body-label;
 
   flex: 0 0 auto;
-  width: 32px;
-  text-align: center;
+  width: 45px;
+  padding-left: 7px;
+  &:not(:nth-last-of-type(1)) {
+    margin-right: 2px;
+  }
 }
 
 .trackRight {

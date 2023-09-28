@@ -48,7 +48,7 @@ export default merge(baseConfig, {
     rules: [
       {
         // CSS/SCSS
-        test: /\.s?css$/,
+        test: /\.global\.s?css$/,
         use: [
           {
             loader: MiniCssExtractPlugin.loader,
@@ -58,6 +58,25 @@ export default merge(baseConfig, {
             },
           },
           "css-loader",
+          "sass-loader",
+        ],
+      },
+      {
+        test: /^((?!\.global).)*\.s?css$/,
+        use: [
+          {
+            loader: "style-loader",
+          },
+          {
+            loader: "css-loader",
+            options: {
+              modules: {
+                localIdentName: "[name]__[local]__[hash:base64:5]",
+              },
+              sourceMap: true,
+              importLoaders: 1,
+            },
+          },
           "sass-loader",
         ],
       },

@@ -21,5 +21,8 @@
     "yarn.lock": true,
     "*.{css,sass,scss}.d.ts": true
   },
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "rust-analyzer.linkedProjects": [
+    "./Cargo.toml"
+  ]
 }

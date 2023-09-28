@@ -1,9 +1,14 @@
 @import '../../styles/index.scss';
 
 .Overview {
-  // temporary guide
-  border: $border;
-
   flex: 1 1 auto;
   margin: $component-gap / 2;
+  position: relative;
+  cursor: text;
+
+  canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
 }

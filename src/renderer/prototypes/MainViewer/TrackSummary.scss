@@ -14,6 +14,18 @@
   }
 }
 
+.pathNameTooltip {
+  @include body-title;
+  position: fixed;
+  pointer-events: none;
+  background-color: $bg-primary;
+  border: $border;
+  padding: 2px;
+  z-index: 256;
+  font-size: $body-font-size;
+  box-shadow: 1px 1px 4px black;
+}
+
 $path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
 .path {
   min-width: $path-min;
