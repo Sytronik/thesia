@@ -6,10 +6,21 @@ This project is in a very early stage.
 
 ![design_draft](https://user-images.githubusercontent.com/61383377/102886103-d806b200-4497-11eb-91b2-2e752df089e5.png)
 
-## Run
+## Run in Dev Mode
 
 ```
+yarn global add @napi-rs/cli
+yarn build:backend
+yarn install
 yarn start
+```
+
+## packaging into an executable binary
+```
+yarn global add @napi-rs/cli
+yarn build:backend
+yarn install
+yarn package
 ```
 
 ## Plan
