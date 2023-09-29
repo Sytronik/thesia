@@ -58,6 +58,9 @@
     "start": "yarn build:backend && node -r @babel/register ./.erb/scripts/check-port-in-use.js && yarn start:renderer",
     "start:main": "cross-env NODE_ENV=development electron -r ./.erb/scripts/babel-register ./src/main/main.ts",
     "start:renderer": "cross-env NODE_ENV=development webpack serve --config ./.erb/configs/webpack.config.renderer.dev.babel.js",
+    "clean:backend": "cargo clean",
+    "clean": "rm -rf node_modules build/app/node_modules src/node_modules .erb/dll build/backend/*.node",
+    "clean:all": "npm run clean:backend && npm run clean",
     "test": "jest"
   },
   "devDependencies": {
