@@ -7,6 +7,7 @@ use creak::DecoderError;
 use ndarray::prelude::*;
 
 use super::audio;
+use super::display::{IdxLen, PartGreyInfo};
 use super::spectrogram::SrWinNfft;
 use super::utils::unique_filenames;
 use super::{IdChVec, SpecSetting};
@@ -100,22 +101,27 @@ impl AudioTrack {
         start_sec: f64,
         target_width: u32,
         px_per_sec: f64,
-    ) -> (isize, usize) {
+    ) -> PartGreyInfo {
         let wavlen = self.wavs.shape()[1] as f64;
         let sr = self.sr as u64;
-        let i_w = ((grey_width * sr) as f64 * start_sec / wavlen).round() as isize;
-        let width = (((grey_width * target_width as u64 * sr) as f64 / wavlen / px_per_sec).round()
-            as usize)
-            .max(1);
-        (i_w, width)
+        let grey_px_per_sec = (grey_width * sr) as f64 / wavlen;
+        let i_w = start_sec * grey_px_per_sec;
+        let i_w_floor = i_w.floor();
+        let i_w_floor_isize = i_w_floor as isize;
+        let width = target_width as f64 * grey_px_per_sec / px_per_sec;
+        let right_ceil_isize = (i_w + width).ceil() as isize;
+        let width_ceil = (right_ceil_isize - i_w_floor_isize).max(1) as usize;
+        let start_sec_with_margin = i_w_floor / grey_px_per_sec;
+        let target_width_with_margin =
+            (width_ceil as f64 / grey_px_per_sec * px_per_sec).round() as u32;
+        PartGreyInfo {
+            i_w_and_width: (i_w_floor_isize, width_ceil),
+            start_sec_with_margin,
+            width_with_margin: target_width_with_margin,
+        }
     }
 
-    pub fn calc_part_wav_info(
-        &self,
-        start_sec: f64,
-        width: u32,
-        px_per_sec: f64,
-    ) -> (isize, usize) {
+    pub fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen {
         let i = (start_sec * self.sr as f64).round() as isize;
         let length = ((self.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
         (i, length)

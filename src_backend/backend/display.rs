@@ -74,6 +74,14 @@ pub enum ImageKind {
     Wav(DrawOptionForWav),
 }
 
+pub struct PartGreyInfo {
+    pub i_w_and_width: IdxLen,
+    pub start_sec_with_margin: f64,
+    pub width_with_margin: u32,
+}
+
+pub type IdxLen = (isize, usize);
+
 pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
     arr: ArrayView<'a, A, D>,
     index: usize,
@@ -81,13 +89,13 @@ pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
 }
 
 impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
-    pub fn from(arr: ArrayView<'a, A, D>, (index, length): (isize, usize)) -> Self {
+    pub fn from(arr: ArrayView<'a, A, D>, (index, length): IdxLen) -> Self {
         let (index, length) =
             calc_effective_slice(index, length, arr.shape()[arr.ndim() - 1]).unwrap_or((0, 0));
         ArrWithSliceInfo { arr, index, length }
     }
 
-    pub fn from_ref<S>(arr: &'a ArrayBase<S, D>, (index, length): (isize, usize)) -> Self
+    pub fn from_ref<S>(arr: &'a ArrayBase<S, D>, (index, length): IdxLen) -> Self
     where
         S: Data<Elem = A>,
     {
@@ -221,44 +229,57 @@ impl TrackDrawer for TrackManager {
                 return ((id, ch), Vec::new());
             };
             let spec_grey = self.spec_greys.get(&(id, ch)).unwrap();
-            let (pad_left, drawing_width, pad_right) =
-                track.decompose_width_of(start_sec, width, px_per_sec);
+            let PartGreyInfo {
+                i_w_and_width,
+                start_sec_with_margin,
+                width_with_margin,
+            } = track.calc_part_grey_info(
+                spec_grey.shape()[1] as u64,
+                start_sec,
+                width,
+                px_per_sec,
+            );
 
-            if drawing_width == 0 {
+            let (pad_left, drawing_width_with_margin, pad_right) =
+                track.decompose_width_of(start_sec_with_margin, width_with_margin, px_per_sec);
+            if drawing_width_with_margin == 0 {
                 return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
             }
-            let spec_grey_part = ArrWithSliceInfo::from_ref(
-                &spec_grey,
-                track.calc_part_grey_info(
-                    spec_grey.shape()[1] as u64,
-                    start_sec,
-                    width,
-                    px_per_sec,
-                ),
-            );
+
+            let spec_grey_part = ArrWithSliceInfo::from_ref(&spec_grey, i_w_and_width);
             let wav_part = ArrWithSliceInfo::from(
                 track.get_wav(ch),
-                track.calc_part_wav_info(start_sec, width, px_per_sec),
+                track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
             );
             let vec = draw_blended_spec_wav(
                 spec_grey_part,
                 wav_part,
-                drawing_width,
+                drawing_width_with_margin,
                 height,
                 &opt_for_wav,
                 blend,
                 fast_resize_vec.as_ref().map_or(false, |v| v[i]),
             );
-            let mut arr =
-                Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
+            let mut arr = Array3::from_shape_vec(
+                (height as usize, drawing_width_with_margin as usize, 4),
+                vec,
+            )
+            .unwrap();
 
-            if width != drawing_width {
+            if width_with_margin != drawing_width_with_margin {
                 arr = arr.pad(
                     (pad_left as usize, pad_right as usize),
                     Axis(1),
                     PadMode::Constant(0),
                 );
             }
+            let margin_l = ((start_sec - start_sec_with_margin) * px_per_sec).round() as isize;
+            arr.slice_collapse(s![.., margin_l..(margin_l + width as isize), ..]);
+            let arr = if arr.is_standard_layout() {
+                arr
+            } else {
+                arr.as_standard_layout().into_owned()
+            };
             ((id, ch), arr.into_raw_vec())
         });
         result.par_extend(par_iter);
