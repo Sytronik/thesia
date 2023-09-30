@@ -56,9 +56,9 @@
 .chCanvases {
   display: flex;
   align-items: center;
+  margin-bottom: $track-margin;
 
   canvas {
     display: block;
-    margin-bottom: $track-margin;
   }
 }
