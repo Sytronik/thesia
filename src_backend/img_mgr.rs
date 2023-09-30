@@ -291,8 +291,6 @@ async fn categorize_blend_caches(
     );
 
     // crop image cache
-    // let mut eff_l_w_map = None;
-    // let spec_imgs;
     let (spec_imgs, eff_l_w_map) = if !cat_by_spec.use_caches.is_empty() {
         let (imgs, eff_l_w_map_by_spec) = crop_caches(
             &spec_caches_lock,
@@ -319,7 +317,7 @@ async fn categorize_blend_caches(
             (imgs, eff_l_w_map)
         }
     } else {
-        (IdChMap::new(), None)
+        (IdChMap::new(), eff_l_w_map)
     };
     if !need_wav_parts_only.is_empty() {
         wav_imgs.extend(tm.draw_part_imgs(
@@ -434,7 +432,7 @@ async fn draw_new_caches(
             (img, eff_l_w_map)
         }
     } else {
-        (IdChMap::new(), None)
+        (IdChMap::new(), eff_l_w_map)
     };
     blend_imgs(
         spec_imgs,
