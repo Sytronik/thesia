@@ -25,7 +25,7 @@ const getTickScale = (table: TickScaleTable, boundaries: number[], value: number
 };
 
 function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
-  const markersRef = useRef<Markers>([]);
+  const markersAndLengthRef = useRef<[Markers, number]>([[], 1]);
   const {scaleTable, boundaries, getMarkers} = params;
 
   const throttledSetMarkers = useMemo(
@@ -35,7 +35,7 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
         async (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
           // TODO: block execution when no trackIds exist
           if (!canvasLength) {
-            markersRef.current = [];
+            markersAndLengthRef.current = [[], 1];
             return;
           }
 
@@ -45,19 +45,15 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
           // time axis returns [size of minor unit, number of minor tick]
           // instead of tick and lable count
           const [maxTickCount, maxLabelCount] = tickScale;
-          markersRef.current = await getMarkers(
-            canvasLength,
-            maxTickCount,
-            maxLabelCount,
-            drawOptions,
-          );
+          const markers = await getMarkers(canvasLength, maxTickCount, maxLabelCount, drawOptions);
+          markersAndLengthRef.current = [markers, canvasLength];
         },
       ),
     [boundaries, getMarkers, scaleTable],
   );
 
   return {
-    markersRef,
+    markersAndLengthRef,
     throttledSetMarkers,
   };
 }

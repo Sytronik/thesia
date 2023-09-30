@@ -48,7 +48,7 @@ type TickScaleTable = {
 };
 
 type AxisCanvasHandleElement = {
-  draw: (markers: Markers) => void;
+  draw: (markersAndLength: [Markers, number]) => void;
 };
 
 type OverviewHandleElement = {

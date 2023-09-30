@@ -34,7 +34,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const prevMarkersRef = useRef<Markers>([]);
+  const prevMarkersAndLengthRef = useRef<[Markers, number]>([[], 1]);
   const bgColor = useRef<string>("");
 
   const canvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
@@ -51,10 +51,10 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     (x: number) => Math.round(x * (1 - LINE_WIDTH / (height - 2 * axisPadding))) + LINE_WIDTH / 2,
   );
 
-  const draw = useEvent((markers: Markers, forced = false) => {
-    if (prevMarkersRef.current === markers && !forced) return;
-    const ctx = ctxRef.current;
+  const draw = useEvent((markersAndLength: [Markers, number], forced = false) => {
+    if (prevMarkersAndLengthRef.current === markersAndLength && !forced) return;
 
+    const ctx = ctxRef.current;
     if (!ctx) return;
 
     ctx.save();
@@ -62,11 +62,13 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
 
-    if (!markers?.length) return;
+    const [markers, lenForMarkers] = markersAndLength;
+    if (markers.length === 0) return;
 
     const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
     if (direction === "H") {
+      const ratio = (width - 2 * axisPadding) / lenForMarkers;
       ctx.beginPath();
       ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
       ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
@@ -74,7 +76,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
       markers.forEach((marker) => {
         const [axisPosition, label] = marker;
-        const pxPosition = correctHMarkerPos(axisPosition + axisPadding);
+        const pxPosition = correctHMarkerPos(axisPosition * ratio + axisPadding);
 
         ctx.beginPath();
         if (label) {
@@ -88,6 +90,8 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         ctx.stroke();
       });
     } else {
+      const ratio = (height - 2 * axisPadding) / lenForMarkers;
+
       ctx.beginPath();
       ctx.moveTo(LINE_WIDTH / 2, axisPadding);
       ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
@@ -95,7 +99,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
       markers.forEach((marker) => {
         const [axisPosition, label] = marker;
-        const pxPosition = correctVMarkerPos(axisPosition + axisPadding);
+        const pxPosition = correctVMarkerPos(axisPosition * ratio + axisPadding);
 
         ctx.beginPath();
         if (label) {
@@ -109,7 +113,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         ctx.stroke();
       });
     }
-    prevMarkersRef.current = markers;
+    prevMarkersAndLengthRef.current = markersAndLength;
   });
 
   useEffect(() => {
@@ -128,7 +132,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     ctx.font = LABEL_FONT;
     ctx.textBaseline = "hanging";
 
-    draw(prevMarkersRef.current, true);
+    draw(prevMarkersAndLengthRef.current, true);
   }, [width, height, devicePixelRatio, draw]);
 
   const imperativeInstanceRef = useRef<AxisCanvasHandleElement>({draw});

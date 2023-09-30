@@ -111,12 +111,14 @@ function MainViewer(props: MainViewerProps) {
 
   const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
 
-  const {markersRef: timeMarkersRef, throttledSetMarkers: throttledSetTimeMarkers} =
-    useThrottledSetMarkers({
-      scaleTable: TIME_TICK_SIZE,
-      boundaries: TIME_BOUNDARIES,
-      getMarkers: NativeAPI.getTimeAxisMarkers,
-    });
+  const {
+    markersAndLengthRef: timeMarkersAndLengthRef,
+    throttledSetMarkers: throttledSetTimeMarkers,
+  } = useThrottledSetMarkers({
+    scaleTable: TIME_TICK_SIZE,
+    boundaries: TIME_BOUNDARIES,
+    getMarkers: NativeAPI.getTimeAxisMarkers,
+  });
 
   const throttledSetTimeMarkersAndUnit = useEvent(
     (canvasWidth: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
@@ -126,27 +128,30 @@ function MainViewer(props: MainViewerProps) {
         return;
       }
       throttledSetTimeMarkers(canvasWidth, pxPerSec, drawOptions);
-      if (!timeMarkersRef.current.length) return;
-      const timeUnit = timeMarkersRef.current[timeMarkersRef.current.length - 1][1];
+      const [markers] = timeMarkersAndLengthRef.current;
+      if (markers.length === 0) return;
+      const timeUnit = markers[markers.length - 1][1];
       setTimeUnitLabel(timeUnit);
     },
   );
 
-  const {markersRef: ampMarkersRef, throttledSetMarkers: throttledSetAmpMarkers} =
+  const {markersAndLengthRef: ampMarkersAndLengthRef, throttledSetMarkers: throttledSetAmpMarkers} =
     useThrottledSetMarkers({
       scaleTable: AMP_TICK_NUM,
       boundaries: AMP_BOUNDARIES,
       getMarkers: NativeAPI.getAmpAxisMarkers,
     });
 
-  const {markersRef: freqMarkersRef, throttledSetMarkers: throttledSetFreqMarkers} =
-    useThrottledSetMarkers({
-      scaleTable: FREQ_TICK_NUM,
-      boundaries: FREQ_BOUNDARIES,
-      getMarkers: NativeAPI.getFreqAxisMarkers,
-    });
+  const {
+    markersAndLengthRef: freqMarkersAndLengthRef,
+    throttledSetMarkers: throttledSetFreqMarkers,
+  } = useThrottledSetMarkers({
+    scaleTable: FREQ_TICK_NUM,
+    boundaries: FREQ_BOUNDARIES,
+    getMarkers: NativeAPI.getFreqAxisMarkers,
+  });
 
-  const {markersRef: dbMarkersRef, throttledSetMarkers: throttledSetDbMarkers} =
+  const {markersAndLengthRef: dbMarkersAndLengthRef, throttledSetMarkers: throttledSetDbMarkers} =
     useThrottledSetMarkers({
       scaleTable: DB_TICK_NUM,
       boundaries: DB_BOUNDARIES,
@@ -358,11 +363,11 @@ function MainViewer(props: MainViewerProps) {
     getIdChArr().forEach((idChStr) => {
       const ampCanvasRef = ampCanvasesRef.current[idChStr];
       const freqCanvasRef = freqCanvasesRef.current[idChStr];
-      ampCanvasRef?.draw(ampMarkersRef.current);
-      freqCanvasRef?.draw(freqMarkersRef.current);
+      ampCanvasRef?.draw(ampMarkersAndLengthRef.current);
+      freqCanvasRef?.draw(freqMarkersAndLengthRef.current);
     });
-    timeCanvasElem.current?.draw(timeMarkersRef.current);
-    dbCanvasElem.current?.draw(dbMarkersRef.current);
+    timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
+    dbCanvasElem.current?.draw(dbMarkersAndLengthRef.current);
     if (overviewElem.current)
       promises.push(overviewElem.current.draw(startSecRef.current, width / pxPerSecRef.current));
 
