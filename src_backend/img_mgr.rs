@@ -396,52 +396,54 @@ async fn draw_new_caches(
 
     let mut spec_caches_lock = spec_caches.lock();
     let mut wav_caches_lock = wav_caches.lock();
-    let (spec_imgs, eff_l_w_map) = if !cat_by_spec.need_new_caches.is_empty() {
+    if !cat_by_spec.need_new_caches.is_empty() {
         spec_caches_lock.extend(tm.draw_entire_imgs(
             &cat_by_spec.need_new_caches,
             option,
             ImageKind::Spec,
         ));
-        let (img, eff_l_w_map_by_spec) = crop_caches(
-            &spec_caches_lock,
-            &cat_by_spec.need_new_caches,
-            start_sec,
-            width,
-            &option,
-        );
-        (img, Some(eff_l_w_map_by_spec))
-    } else {
-        (Images::new(), None)
     };
-    let (wav_imgs, eff_l_w_map) = if !cat_by_wav.need_new_caches.is_empty() {
+    if !cat_by_wav.need_new_caches.is_empty() {
         wav_caches_lock.extend(tm.draw_entire_imgs(
             &cat_by_wav.need_new_caches,
             option,
             ImageKind::Wav(opt_for_wav),
         ));
-        let (img, eff_l_w_map_by_wav) = crop_caches(
-            &wav_caches_lock,
-            &cat_by_wav.need_new_caches,
+    }
+    let mut id_ch_vec_for_blend: IdChVec = cat_by_spec.need_new_caches.clone();
+    for id_ch in cat_by_wav.need_new_caches.iter() {
+        if !id_ch_vec_for_blend.contains(id_ch) {
+            id_ch_vec_for_blend.push(id_ch.clone());
+        }
+    }
+    if !id_ch_vec_for_blend.is_empty() {
+        let (spec_imgs, _) = crop_caches(
+            &spec_caches_lock,
+            &id_ch_vec_for_blend,
             start_sec,
             width,
             &option,
         );
-        if eff_l_w_map.is_none() {
-            (img, Some(eff_l_w_map_by_wav))
-        } else {
-            (img, eff_l_w_map)
-        }
+
+        let id_ch_vec_for_blend: IdChVec = spec_imgs.keys().cloned().collect();
+        let (wav_imgs, eff_l_w_map) = crop_caches(
+            &wav_caches_lock,
+            &id_ch_vec_for_blend,
+            start_sec,
+            width,
+            &option,
+        );
+        blend_imgs(
+            spec_imgs,
+            wav_imgs,
+            eff_l_w_map,
+            width,
+            option.height,
+            blend,
+        )
     } else {
-        (IdChMap::new(), eff_l_w_map)
-    };
-    blend_imgs(
-        spec_imgs,
-        wav_imgs,
-        eff_l_w_map.unwrap_or_default(),
-        width,
-        option.height,
-        blend,
-    )
+        Images::new()
+    }
 }
 
 async fn draw_imgs(
