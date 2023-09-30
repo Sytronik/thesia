@@ -119,14 +119,13 @@ fn crop_caches(
     option: &DrawOption,
 ) -> (Images, IdChMap<(u32, u32)>) {
     // let start = Instant::now();
-    let mut imgs = Images::new();
-    let mut eff_l_w_map = IdChMap::new();
+    let i_w = (start_sec * option.px_per_sec).round() as isize;
+    let pad_left = (-i_w.min(0)) as usize;
     let vec: Vec<_> = id_ch_tuples
         .par_iter()
         .filter_map(|tup| {
             let image = images.get(&tup)?;
             let total_width = image.len() / 4 / option.height as usize;
-            let i_w = (start_sec * option.px_per_sec) as isize;
             let (i_w_eff, width_eff) = match calc_effective_slice(i_w, width as usize, total_width)
             {
                 Some((i, w)) => (i as isize, w as isize),
@@ -137,7 +136,6 @@ fn crop_caches(
             };
             let img_slice = image.slice_axis(Axis(1), Slice::from(i_w_eff..i_w_eff + width_eff));
 
-            let pad_left = (-i_w.min(0)) as usize;
             let pad_right = width as usize - width_eff as usize - pad_left;
             if pad_left + pad_right == 0 {
                 Some((*tup, (img_slice.to_owned().into_raw_vec(), (0, width))))
@@ -150,8 +148,8 @@ fn crop_caches(
             }
         })
         .collect();
-    eff_l_w_map.extend(vec.iter().map(|(k, (_, eff_l_w))| (*k, *eff_l_w)));
-    imgs.extend(vec.into_iter().map(|(k, (img, _))| (k, img)));
+    let eff_l_w_map = vec.iter().map(|(k, (_, eff_l_w))| (*k, *eff_l_w)).collect();
+    let imgs = vec.into_iter().map(|(k, (img, _))| (k, img)).collect();
     // println!("crop: {:?}", start.elapsed());
     (imgs, eff_l_w_map)
 }
