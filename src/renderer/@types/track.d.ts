@@ -25,7 +25,7 @@ type SplitViewHandleElement = {
 };
 
 type ImgCanvasHandleElement = {
-  draw: (buf: Buffer) => void;
+  draw: (buf: Buffer) => Promise<void>;
   updateLensParams: (params: OptionalLensParams) => void;
   getBoundingClientRect: () => DOMRect;
 };
@@ -52,7 +52,7 @@ type AxisCanvasHandleElement = {
 };
 
 type OverviewHandleElement = {
-  draw: (startSec: number, lensDurationSec: number) => void;
+  draw: (startSec: number, lensDurationSec: number) => Promise<void>;
 };
 
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
