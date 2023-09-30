@@ -347,18 +347,18 @@ async fn categorize_blend_caches(
 
 async fn draw_part_imgs(
     total_widths: &IdChMap<u32>,
-    cat_by_spec: &CategorizedIdChVec,
-    cat_by_wav: &CategorizedIdChVec,
+    need_parts_spec: &IdChArr,
+    need_parts_wav: &IdChArr,
     params: &DrawParams,
 ) -> Images {
     let tm = TM.read().await;
-    if cat_by_spec.need_parts.is_empty() && cat_by_wav.need_parts.is_empty() {
+    if need_parts_spec.is_empty() && need_parts_wav.is_empty() {
         return IdChMap::new();
     }
-    let need_parts = if !cat_by_spec.need_parts.is_empty() {
-        &cat_by_spec.need_parts
+    let need_parts = if !need_parts_spec.is_empty() {
+        need_parts_spec
     } else {
-        &cat_by_wav.need_parts
+        need_parts_wav
     };
     let fast_resize_vec = Some(
         need_parts
@@ -381,8 +381,8 @@ async fn draw_part_imgs(
 async fn draw_new_caches(
     spec_caches: ArcImgCaches,
     wav_caches: ArcImgCaches,
-    cat_by_spec: &CategorizedIdChVec,
-    cat_by_wav: &CategorizedIdChVec,
+    need_new_spec_caches: IdChVec,
+    need_new_wav_caches: IdChVec,
     params: &DrawParams,
 ) -> Images {
     let &DrawParams {
@@ -396,54 +396,54 @@ async fn draw_new_caches(
 
     let mut spec_caches_lock = spec_caches.lock();
     let mut wav_caches_lock = wav_caches.lock();
-    if !cat_by_spec.need_new_caches.is_empty() {
-        spec_caches_lock.extend(tm.draw_entire_imgs(
-            &cat_by_spec.need_new_caches,
-            option,
-            ImageKind::Spec,
-        ));
-    };
-    if !cat_by_wav.need_new_caches.is_empty() {
-        wav_caches_lock.extend(tm.draw_entire_imgs(
-            &cat_by_wav.need_new_caches,
-            option,
-            ImageKind::Wav(opt_for_wav),
-        ));
-    }
-    let mut id_ch_vec_for_blend: IdChVec = cat_by_spec.need_new_caches.clone();
-    for id_ch in cat_by_wav.need_new_caches.iter() {
-        if !id_ch_vec_for_blend.contains(id_ch) {
-            id_ch_vec_for_blend.push(id_ch.clone());
-        }
-    }
-    if !id_ch_vec_for_blend.is_empty() {
-        let (spec_imgs, _) = crop_caches(
-            &spec_caches_lock,
-            &id_ch_vec_for_blend,
-            start_sec,
-            width,
-            &option,
-        );
 
-        let id_ch_vec_for_blend: IdChVec = spec_imgs.keys().cloned().collect();
-        let (wav_imgs, eff_l_w_map) = crop_caches(
-            &wav_caches_lock,
-            &id_ch_vec_for_blend,
-            start_sec,
-            width,
-            &option,
-        );
-        blend_imgs(
-            spec_imgs,
-            wav_imgs,
-            eff_l_w_map,
-            width,
-            option.height,
-            blend,
-        )
-    } else {
-        Images::new()
+    // draw new caches
+    spec_caches_lock.extend(tm.draw_entire_imgs(&need_new_spec_caches, option, ImageKind::Spec));
+    wav_caches_lock.extend(tm.draw_entire_imgs(
+        &need_new_wav_caches,
+        option,
+        ImageKind::Wav(opt_for_wav),
+    ));
+
+    // blend new caches (and existing caches if needed)
+    let id_ch_vec_for_blend = {
+        let mut vec = need_new_spec_caches;
+        for id_ch in need_new_wav_caches.into_iter() {
+            if !vec.contains(&id_ch) {
+                vec.push(id_ch);
+            }
+        }
+        vec
+    };
+    if id_ch_vec_for_blend.is_empty() {
+        return Images::new();
     }
+    let (spec_imgs, _) = crop_caches(
+        &spec_caches_lock,
+        &id_ch_vec_for_blend,
+        start_sec,
+        width,
+        &option,
+    );
+    let id_ch_vec_for_blend: IdChVec = spec_imgs.keys().cloned().collect();
+    if id_ch_vec_for_blend.is_empty() {
+        return Images::new();
+    }
+    let (wav_imgs, eff_l_w_map) = crop_caches(
+        &wav_caches_lock,
+        &id_ch_vec_for_blend,
+        start_sec,
+        width,
+        &option,
+    );
+    blend_imgs(
+        spec_imgs,
+        wav_imgs,
+        eff_l_w_map,
+        width,
+        option.height,
+        blend,
+    )
 }
 
 async fn draw_imgs(
@@ -470,8 +470,13 @@ async fn draw_imgs(
     }
 
     // draw part
-    let blended_imgs =
-        draw_part_imgs(&total_widths, &cat_by_spec, &cat_by_wav, &params_backup).await;
+    let blended_imgs = draw_part_imgs(
+        &total_widths,
+        &cat_by_spec.need_parts,
+        &cat_by_wav.need_parts,
+        &params_backup,
+    )
+    .await;
     if !blended_imgs.is_empty() {
         // println!("send part images");
         img_tx.send(blended_imgs).await.unwrap();
@@ -483,8 +488,8 @@ async fn draw_imgs(
     let blended_imgs = draw_new_caches(
         spec_caches.clone(),
         wav_caches.clone(),
-        &cat_by_spec,
-        &cat_by_wav,
+        cat_by_spec.need_new_caches,
+        cat_by_wav.need_new_caches,
         &params_backup,
     )
     .await;
