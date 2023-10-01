@@ -27,10 +27,13 @@ type AxisCanvasProps = {
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
   className: "timeRuler" | "ampAxis" | "freqAxis" | "dbAxis";
+
+  // after resized and before new markers are calculated, old markers should be shifted or zoomed?
+  shiftWhenResize?: boolean;
 };
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
-  const {width, height, axisPadding, markerPos, direction, className} = props;
+  const {width, height, axisPadding, markerPos, direction, className, shiftWhenResize} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -70,7 +73,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
     const axisLength = (direction === "H" ? width : height) - 2 * axisPadding;
-    const ratio = axisLength / lenForMarkers;
+    const ratio = shiftWhenResize ? 1 : axisLength / lenForMarkers;
     if (direction === "H") {
       ctx.beginPath();
       ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
@@ -148,5 +151,8 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   );
 });
 AxisCanvas.displayName = "AxisCanvas";
+AxisCanvas.defaultProps = {
+  shiftWhenResize: false,
+};
 
 export default React.memo(AxisCanvas);

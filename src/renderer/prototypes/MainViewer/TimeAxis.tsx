@@ -12,6 +12,7 @@ const TimeAxis = forwardRef(({width}: {width: number}, ref) => {
       markerPos={TIME_MARKER_POS}
       direction="H"
       className="timeRuler"
+      shiftWhenResize
     />
   );
 });
