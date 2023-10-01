@@ -73,7 +73,7 @@ function MainViewer(props: MainViewerProps) {
 
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(100);
-  const canvasIsFitRef = useRef<boolean>(false);
+  const canvasIsFitRef = useRef<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
   const requestRef = useRef<number>(0);
@@ -513,12 +513,15 @@ function MainViewer(props: MainViewerProps) {
 
   // set LensParams when track changes
   useEffect(() => {
-    if (!trackIds.length) return;
-    if (prevTrackCountRef.current === 0 || canvasIsFitRef.current) {
-      updateLensParams({startSec: 0, pxPerSec: width / maxTrackSec});
-    } else {
-      const startSec = normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
-      updateLensParams({startSec, pxPerSec: pxPerSecRef.current});
+    if (trackIds.length > 0) {
+      const startSec =
+        prevTrackCountRef.current === 0
+          ? 0
+          : normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
+      const pxPerSec = canvasIsFitRef.current
+        ? width / maxTrackSec
+        : normalizePxPerSec(pxPerSecRef.current, startSec);
+      updateLensParams({startSec, pxPerSec});
     }
 
     prevTrackCountRef.current = trackIds.length;
