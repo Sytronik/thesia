@@ -3,7 +3,7 @@
   "productName": "thesia",
   "version": "0.1.0",
   "description": "Multi-track Spectrogram / Waveform Viewer. This project uses electron-react-boilerplate (https://github.com/electron-react-boilerplate/electron-react-boilerplate)",
-  "main": "./dist/main/main.js",
+  "license": "MIT",
   "author": {
     "name": "Sytronik",
     "email": "sytronik210@gmail.com",
@@ -16,13 +16,13 @@
       "url": "https://github.com/crackyachae"
     }
   ],
-  "dependencies": {
-    "backend": "link:../backend"
-  },
+  "main": "./dist/main/main.js",
   "scripts": {
-    "electron-rebuild": "node -r ../../.erb/scripts/babel-register.js ../../.erb/scripts/electron-rebuild.js",
-    "link-modules": "node -r ../../.erb/scripts/babel-register.js ../../.erb/scripts/link-modules.js",
-    "postinstall": "yarn electron-rebuild && yarn link-modules"
+    "electron-rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
+    "postinstall": "npm run electron-rebuild && npm run link-modules",
+    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
-  "license": "MIT"
+  "dependencies": {
+    "backend": "file:../backend"
+  }
 }

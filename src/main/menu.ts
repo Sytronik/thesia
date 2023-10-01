@@ -155,6 +155,12 @@ export default class MenuBuilder {
             shell.openExternal("https://github.com/Sytronik/thesia");
           },
         }, */
+        /* {
+          label: "Community Discussions",
+          click() {
+            shell.openExternal("https://www.electronjs.org/community");
+          },
+        }, */
         {
           label: "Search Issues",
           click() {
@@ -239,7 +245,13 @@ export default class MenuBuilder {
           /* {
             label: "Documentation",
             click() {
-              shell.openExternal("https://github.com/electron/electron/tree/main/docs#readme");
+              shell.openExternal("https://github.com/Sytronik/thesia");
+            },
+          }, */
+          /* {
+            label: "Community Discussions",
+            click() {
+              shell.openExternal("https://www.electronjs.org/community");
             },
           }, */
           {

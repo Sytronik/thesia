@@ -1,11 +1,11 @@
-const rimraf = require("rimraf");
-const webpackPaths = require("../configs/webpack.paths.js");
-const process = require("process");
+import rimraf from "rimraf";
+import process from "process";
+import webpackPaths from "../configs/webpack.paths";
 
 const args = process.argv.slice(2);
 const commandMap = {
-  dist: webpackPaths.releasePath,
-  release: webpackPaths.distPath,
+  dist: webpackPaths.distPath,
+  release: webpackPaths.releasePath,
   dll: webpackPaths.dllPath,
 };
 

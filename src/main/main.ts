@@ -1,15 +1,13 @@
-/* eslint global-require: off, no-console: off */
+/* eslint global-require: off, no-console: off, promise/always-return: off */
 
 /**
  * This module executes inside of electron's main process. You can start
  * electron renderer process from here and communicate with the other processes
  * through IPC.
  *
- * When running `yarn build` or `yarn build:main`, this file is compiled to
+ * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import "core-js/stable";
-import "regenerator-runtime/runtime";
 import path from "path";
 import {app, BrowserWindow, shell, ipcMain, dialog, Menu} from "electron";
 import {autoUpdater} from "electron-updater";
@@ -93,9 +91,9 @@ if (process.env.NODE_ENV === "production") {
   sourceMapSupport.install();
 }
 
-const isDevelopment = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true";
+const isDebug = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true";
 
-if (isDevelopment) {
+if (isDebug) {
   require("electron-debug")();
 }
 
@@ -113,7 +111,7 @@ const installExtensions = async () => {
 };
 
 const createWindow = async () => {
-  if (process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true") {
+  if (isDebug) {
     await installExtensions();
   }
 
@@ -133,7 +131,10 @@ const createWindow = async () => {
     minHeight: 320,
     icon: getAssetPath("icon.png"),
     webPreferences: {
-      // preload: path.join(__dirname, "preload.js"),
+      /* preload: app.isPackaged
+        ? path.join(__dirname, "preload.js")
+        : path.join(__dirname, "../../.erb/dll/preload.js"), */
+      sandbox: false,
       nodeIntegration: true,
       contextIsolation: false,
     },
@@ -141,9 +142,7 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath("index.html"));
 
-  // @TODO: Use 'ready-to-show' event
-  //        https://github.com/electron/electron/blob/main/docs/api/browser-window.md#using-ready-to-show-event
-  mainWindow.webContents.on("did-finish-load", () => {
+  mainWindow.on("ready-to-show", () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
     }
@@ -151,7 +150,6 @@ const createWindow = async () => {
       mainWindow.minimize();
     } else {
       mainWindow.show();
-      mainWindow.focus();
     }
   });
 
@@ -163,9 +161,9 @@ const createWindow = async () => {
   menuBuilder.buildMenu();
 
   // Open urls in the user's browser
-  mainWindow.webContents.on("new-window", (event, url) => {
-    event.preventDefault();
-    shell.openExternal(url);
+  mainWindow.webContents.setWindowOpenHandler((edata) => {
+    shell.openExternal(edata.url);
+    return {action: "deny"};
   });
 
   // Remove this if your app does not use auto updates
@@ -185,10 +183,14 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.whenReady().then(createWindow).catch(console.log);
-
-app.on("activate", () => {
-  // On macOS it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  if (mainWindow === null) createWindow();
-});
+app
+  .whenReady()
+  .then(() => {
+    createWindow();
+    app.on("activate", () => {
+      // On macOS it's common to re-create a window in the app when the
+      // dock icon is clicked and there are no other windows open.
+      if (mainWindow === null) createWindow();
+    });
+  })
+  .catch(console.log);

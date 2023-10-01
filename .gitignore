@@ -18,9 +18,8 @@ node_modules
 # OSX
 .DS_Store
 
-build/app/dist
-build/release
-build/backend/*.node
+release/app/dist
+release/build
 .erb/dll
 
 .idea
@@ -32,7 +31,7 @@ npm-debug.log.*
 # Rust backend
 target
 Cargo.lock
-**/index*.node
+**/*.node
 
 # Samples
 **/*.wav

@@ -1,3 +1,4 @@
+import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
 import React, {useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
@@ -5,12 +6,12 @@ import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
 import {SUPPORTED_MIME} from "./prototypes/constants";
-import "./App.global.scss";
+import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 
-function App() {
+function MyApp() {
   const {
     trackIds,
     erroredTrackIds,
@@ -158,4 +159,12 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<MyApp />} />
+      </Routes>
+    </Router>
+  );
+}
