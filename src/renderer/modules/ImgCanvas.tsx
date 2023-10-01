@@ -1,11 +1,4 @@
-import React, {
-  forwardRef,
-  useRef,
-  useImperativeHandle,
-  useEffect,
-  useState,
-  useContext,
-} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useState, useContext} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
@@ -28,13 +21,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const [tooltipText, setTooltipText] = useState<string>(" sec\n Hz");
   const [tooltipPosition, setTooltipPosition] = useState<[number, number]>([0, 0]);
 
-  useEffect(() => {
-    if (!canvasElem.current) return;
-
-    canvasElem.current.width = width * devicePixelRatio;
-    canvasElem.current.height = height * devicePixelRatio;
-  }, [width, height, devicePixelRatio]);
-
   const draw = useEvent(async (buf: Buffer) => {
     const bitmapWidth = width * devicePixelRatio;
     const bitmapHeight = height * devicePixelRatio;
@@ -46,8 +32,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     if (!ctx) return;
 
     const imdata = new ImageData(new Uint8ClampedArray(buf), bitmapWidth, bitmapHeight);
-    const imbmp = await createImageBitmap(imdata);
-    ctx.transferFromImageBitmap(imbmp);
+    createImageBitmap(imdata)
+      .then((imbmp) => ctx.transferFromImageBitmap(imbmp))
+      .catch(() => {});
   });
 
   const updateLensParams = useEvent((params: OptionalLensParams) => {
@@ -84,7 +71,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
 
   return (
-    <div style={{width, height}}>
+    <div>
       {showTooltip ? (
         <span
           className={styles.tooltip}

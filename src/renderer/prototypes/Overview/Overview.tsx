@@ -149,12 +149,9 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   useEffect(() => {
     setResizeObserver(
       new ResizeObserver((entries) => {
-        const backgroundElemTarget = entries[0].target as HTMLCanvasElement;
-        backgroundElemTarget.width = backgroundElemTarget.clientWidth * devicePixelRatio;
-        backgroundElemTarget.height = backgroundElemTarget.clientHeight * devicePixelRatio;
         if (!lensElem.current) return;
-        lensElem.current.width = backgroundElemTarget.width;
-        lensElem.current.height = backgroundElemTarget.height;
+        lensElem.current.width = lensElem.current.clientWidth * devicePixelRatio;
+        lensElem.current.height = lensElem.current.clientHeight * devicePixelRatio;
         const lensCtx = lensElem.current.getContext("2d", {desynchronized: true});
         lensCtxRef.current = lensCtx;
         if (!lensCtx) return;

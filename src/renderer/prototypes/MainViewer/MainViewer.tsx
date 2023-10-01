@@ -359,27 +359,18 @@ function MainViewer(props: MainViewerProps) {
   }, [scrollTop]);
 
   const drawCanvas = useEvent(async () => {
-    const promises: Promise<void>[] = [];
     getIdChArr().forEach((idChStr) => {
-      const ampCanvasRef = ampCanvasesRef.current[idChStr];
-      const freqCanvasRef = freqCanvasesRef.current[idChStr];
-      ampCanvasRef?.draw(ampMarkersAndLengthRef.current);
-      freqCanvasRef?.draw(freqMarkersAndLengthRef.current);
+      ampCanvasesRef.current[idChStr]?.draw(ampMarkersAndLengthRef.current);
+      freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);
     });
     timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
     dbCanvasElem.current?.draw(dbMarkersAndLengthRef.current);
-    if (overviewElem.current)
-      promises.push(overviewElem.current.draw(startSecRef.current, width / pxPerSecRef.current));
 
     const images = NativeAPI.getImages();
-    Object.entries(images).forEach((image) => {
-      const [idChStr, buf] = image;
-      const imgCanvasRef = imgCanvasesRef.current[idChStr];
-      if (imgCanvasRef) {
-        promises.push(imgCanvasRef.draw(buf));
-      }
+    Object.entries(images).forEach(([idChStr, buf]) => {
+      imgCanvasesRef.current[idChStr]?.draw(buf);
     });
-    await Promise.all(promises);
+    await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
   });
 
