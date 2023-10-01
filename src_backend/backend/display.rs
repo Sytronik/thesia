@@ -515,7 +515,8 @@ fn draw_wav_topbottom(
     paint: &Paint,
 ) {
     let path = {
-        let mut pb = PathBuilder::new();
+        let len = top_envlop.len() + btm_envlop.len() + 2;
+        let mut pb = PathBuilder::with_capacity(len, len);
         pb.move_to(0., top_envlop[0]);
         for (x, &y) in top_envlop.iter().enumerate().skip(1) {
             pb.line_to(x as f32, y);
