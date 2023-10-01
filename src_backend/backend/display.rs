@@ -596,17 +596,12 @@ fn draw_wav_to(
             let i_end = (((i_px as f32 + half_context_size) * samples_per_px).round() as usize)
                 .min(wav.len());
             let wav_slice = wav.slice(s![i_start..i_end]);
-            let mut top = amp_to_px(*wav_slice.max_skipnan(), false);
-            let mut bottom = amp_to_px(*wav_slice.min_skipnan(), false);
+            let top = amp_to_px(*wav_slice.max_skipnan(), false) - wav_stroke_width / 2.;
+            let bottom = amp_to_px(*wav_slice.min_skipnan(), false) + wav_stroke_width / 2.;
             if top < mean_px + f32::EPSILON && bottom > mean_px - thr_long_height
                 || top < mean_px + thr_long_height && bottom > mean_px - f32::EPSILON
             {
                 n_mean_crossing += 1;
-            }
-            let diff = bottom - top - thr_long_height;
-            if diff < 0. {
-                top -= diff / 2.;
-                bottom += diff / 2.;
             }
             top_envlop.push(top);
             btm_envlop.push(bottom);
