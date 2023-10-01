@@ -1,7 +1,6 @@
 import React, {
   useRef,
   useEffect,
-  useState,
   useMemo,
   forwardRef,
   useImperativeHandle,
@@ -51,7 +50,6 @@ function calcRatioX(e: React.MouseEvent) {
 const Overview = forwardRef((props: OverviewProps, ref) => {
   const {selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
-  const [resizeObserver, setResizeObserver] = useState(new ResizeObserver(() => {}));
   const durationSec = useMemo(
     () => (selectedTrackId !== null ? NativeAPI.getLength(selectedTrackId) : 0),
     [selectedTrackId],
@@ -59,6 +57,8 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
 
   const backgroundElem = useRef<HTMLCanvasElement>(null);
   const lensElem = useRef<HTMLCanvasElement>(null);
+
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const lensCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const prevArgsRef = useRef<ArgsGetOverview | null>(null);
   const prevArgsLensRef = useRef<ArgsLens | null>(null);
@@ -147,33 +147,23 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   });
 
   useEffect(() => {
-    setResizeObserver(
-      new ResizeObserver((entries) => {
-        if (!lensElem.current) return;
-        lensElem.current.width = lensElem.current.clientWidth * devicePixelRatio;
-        lensElem.current.height = lensElem.current.clientHeight * devicePixelRatio;
-        const lensCtx = lensElem.current.getContext("2d", {desynchronized: true});
-        lensCtxRef.current = lensCtx;
-        if (!lensCtx) return;
-        lensCtx.scale(devicePixelRatio, devicePixelRatio);
-        lensCtx.lineWidth = LINE_WIDTH;
-        lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
-        lensCtx.strokeStyle = LENS_STROKE_STYLE;
-        if (prevArgsLensRef.current)
-          draw(prevArgsLensRef.current[1], prevArgsLensRef.current[2], true);
-      }),
-    );
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = new ResizeObserver(() => {
+      if (!lensElem.current) return;
+      lensElem.current.width = lensElem.current.clientWidth * devicePixelRatio;
+      lensElem.current.height = lensElem.current.clientHeight * devicePixelRatio;
+      const lensCtx = lensElem.current.getContext("2d", {desynchronized: true});
+      lensCtxRef.current = lensCtx;
+      if (!lensCtx) return;
+      lensCtx.scale(devicePixelRatio, devicePixelRatio);
+      lensCtx.lineWidth = LINE_WIDTH;
+      lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
+      lensCtx.strokeStyle = LENS_STROKE_STYLE;
+      if (prevArgsLensRef.current)
+        draw(prevArgsLensRef.current[1], prevArgsLensRef.current[2], true);
+    });
+    if (lensElem.current) resizeObserverRef.current.observe(lensElem.current);
   }, [draw, devicePixelRatio]);
-
-  useEffect(() => {
-    if (backgroundElem.current) {
-      resizeObserver.observe(backgroundElem.current);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [resizeObserver]);
 
   const imperativeInstanceRef = useRef<OverviewHandleElement>({draw});
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
