@@ -39,6 +39,7 @@ pub const COLORMAP: [[u8; 3]; 10] = [
 pub const WAVECOLOR: [u8; 3] = [120, 150, 210];
 pub const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: u32 = 70;
+const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
 
 pub struct DprDependentConstants {
     thr_long_height: f32,
@@ -296,19 +297,31 @@ impl TrackDrawer for TrackManager {
         };
         let (pad_left, drawing_width, pad_right) =
             track.decompose_width_of(0., width, width as f64 / self.tracklist.max_sec);
-        let ch_h = height / track.n_ch() as u32;
-        let i_start = (height % track.n_ch() as u32 / 2 * drawing_width * 4) as usize;
-        let i_end = i_start + (track.n_ch() as u32 * ch_h * drawing_width * 4) as usize;
-        let mut vec = vec![0u8; drawing_width as usize * height as usize * 4];
-        vec[i_start..i_end]
-            .par_chunks_exact_mut(ch_h as usize * drawing_width as usize * 4)
+        let (pad_left, drawing_width_usize, pad_right) = (
+            pad_left as usize,
+            drawing_width as usize,
+            pad_right as usize,
+        );
+        let height = height as usize;
+        let gap_h = (OVERVIEW_CH_GAP_HEIGHT * dpr).round() as usize;
+        let height_without_gap = height - gap_h * (track.n_ch() - 1);
+        let ch_h = height_without_gap / track.n_ch();
+        let ch_h_u32 = ch_h as u32;
+        let margin_top = height_without_gap % track.n_ch() / 2;
+        let len_per_height = drawing_width_usize * 4; // RGBA
+        let i_start = margin_top * len_per_height;
+        let ch_vec_len = ch_h * len_per_height;
+        let gap_vec_len = gap_h * len_per_height;
+        let mut vec = vec![0u8; height * len_per_height];
+        vec[i_start..]
+            .par_chunks_mut(ch_vec_len + gap_vec_len)
             .enumerate()
             .for_each(|(ch, x)| {
                 draw_wav_to(
-                    x,
+                    &mut x[..ch_vec_len],
                     ArrWithSliceInfo::entire(&track.get_wav(ch)),
                     drawing_width,
-                    ch_h,
+                    ch_h_u32,
                     &DrawOptionForWav {
                         amp_range: (-1., 1.),
                         dpr,
@@ -318,13 +331,8 @@ impl TrackDrawer for TrackManager {
             });
 
         if width != drawing_width {
-            let mut arr =
-                Array3::from_shape_vec((height as usize, drawing_width as usize, 4), vec).unwrap();
-            arr = arr.pad(
-                (pad_left as usize, pad_right as usize),
-                Axis(1),
-                PadMode::Constant(0),
-            );
+            let mut arr = Array3::from_shape_vec((height, drawing_width_usize, 4), vec).unwrap();
+            arr = arr.pad((pad_left, pad_right), Axis(1), PadMode::Constant(0));
             arr.into_raw_vec()
         } else {
             vec
