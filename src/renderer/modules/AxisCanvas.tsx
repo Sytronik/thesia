@@ -46,9 +46,11 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     canvasElem.current = elem;
   }, []);
 
-  const correctHMarkerPos = useEvent((x: number) => x + LINE_WIDTH / 2);
-  const correctVMarkerPos = useEvent(
-    (x: number) => Math.round(x * (1 - LINE_WIDTH / (height - 2 * axisPadding))) + LINE_WIDTH / 2,
+  const correctMarkerPos = useEvent(
+    (x: number, axisLength: number) =>
+      Math.round(((x * (axisLength - LINE_WIDTH)) / axisLength) * devicePixelRatio) /
+        devicePixelRatio +
+      LINE_WIDTH / 2,
   );
 
   const draw = useEvent((markersAndLength: [Markers, number], forced = false) => {
@@ -67,8 +69,9 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
     const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
+    const axisLength = (direction === "H" ? width : height) - 2 * axisPadding;
+    const ratio = axisLength / lenForMarkers;
     if (direction === "H") {
-      const ratio = (width - 2 * axisPadding) / lenForMarkers;
       ctx.beginPath();
       ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
       ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
@@ -76,7 +79,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
       markers.forEach((marker) => {
         const [axisPosition, label] = marker;
-        const pxPosition = correctHMarkerPos(axisPosition * ratio + axisPadding);
+        const pxPosition = correctMarkerPos(axisPosition * ratio + axisPadding, axisLength);
 
         ctx.beginPath();
         if (label) {
@@ -90,8 +93,6 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
         ctx.stroke();
       });
     } else {
-      const ratio = (height - 2 * axisPadding) / lenForMarkers;
-
       ctx.beginPath();
       ctx.moveTo(LINE_WIDTH / 2, axisPadding);
       ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
@@ -99,7 +100,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
 
       markers.forEach((marker) => {
         const [axisPosition, label] = marker;
-        const pxPosition = correctVMarkerPos(axisPosition * ratio + axisPadding);
+        const pxPosition = correctMarkerPos(axisPosition * ratio + axisPadding, axisLength);
 
         ctx.beginPath();
         if (label) {
