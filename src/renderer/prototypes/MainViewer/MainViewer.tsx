@@ -73,7 +73,7 @@ function MainViewer(props: MainViewerProps) {
 
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(100);
-  const canvasIsFitRef = useRef<boolean>(true);
+  const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
   const requestRef = useRef<number>(0);
@@ -194,8 +194,9 @@ function MainViewer(props: MainViewerProps) {
 
     startSecRef.current = startSec;
     pxPerSecRef.current = pxPerSec;
-    canvasIsFitRef.current =
-      startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec;
+    setCanvasIsFit(
+      startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec,
+    );
 
     Object.values(imgCanvasesRef.current).forEach((value) =>
       value?.updateLensParams({startSec, pxPerSec}),
@@ -447,6 +448,7 @@ function MainViewer(props: MainViewerProps) {
                   width={width}
                   height={imgHeight}
                   maxTrackSec={maxTrackSec}
+                  canvasIsFit={canvasIsFit}
                 />
                 <AmpAxis
                   ref={registerAmpCanvas(idChStr)}
@@ -509,14 +511,22 @@ function MainViewer(props: MainViewerProps) {
         prevTrackCountRef.current === 0
           ? 0
           : normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
-      const pxPerSec = canvasIsFitRef.current
+      const pxPerSec = canvasIsFit
         ? width / maxTrackSec
         : normalizePxPerSec(pxPerSecRef.current, startSec);
       updateLensParams({startSec, pxPerSec});
     }
 
     prevTrackCountRef.current = trackIds.length;
-  }, [trackIds, width, maxTrackSec, updateLensParams, normalizeStartSec, normalizePxPerSec]);
+  }, [
+    trackIds,
+    width,
+    maxTrackSec,
+    canvasIsFit,
+    updateLensParams,
+    normalizeStartSec,
+    normalizePxPerSec,
+  ]);
 
   useEffect(() => {
     const currentIdChArr = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();

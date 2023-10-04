@@ -9,10 +9,11 @@ type ImgCanvasProps = {
   width: number;
   height: number;
   maxTrackSec: number;
+  canvasIsFit: boolean;
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, maxTrackSec} = props;
+  const {width, height, maxTrackSec, canvasIsFit} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const startSecRef = useRef<number>(0);
@@ -24,16 +25,21 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const draw = useEvent(async (buf: Buffer) => {
     const bitmapWidth = width * devicePixelRatio;
     const bitmapHeight = height * devicePixelRatio;
-    if (!(buf && buf.byteLength === 4 * bitmapWidth * bitmapHeight)) {
-      return;
-    }
+    if (buf.byteLength !== 4 * bitmapWidth * bitmapHeight) return;
 
     const ctx = canvasElem.current?.getContext("bitmaprenderer");
     if (!ctx) return;
 
     const imdata = new ImageData(new Uint8ClampedArray(buf), bitmapWidth, bitmapHeight);
     createImageBitmap(imdata)
-      .then((imbmp) => ctx.transferFromImageBitmap(imbmp))
+      .then((imbmp) => {
+        // to make the size of canvas the same as that of imdata
+        if (!canvasIsFit && canvasElem.current) {
+          canvasElem.current.style.width = `${bitmapWidth / devicePixelRatio}px`;
+          // height is set in JSX
+        }
+        ctx.transferFromImageBitmap(imbmp);
+      })
       .catch(() => {});
   });
 
@@ -71,7 +77,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
 
   return (
-    <div>
+    <div
+      // this is needed for consistent layout
+      // because changing width of canvas elem can occur in different time (in draw function)
+      style={{width, height}}
+    >
       {showTooltip ? (
         <span
           className={styles.tooltip}
@@ -88,7 +98,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       <canvas
         className={styles.ImgCanvas}
         ref={canvasElem}
-        style={{width, height}}
+        // code for setting width is in draw function.
+        // different height between image and canvas can be allowed.
+        // the same for width only if canvasIsFit
+        style={canvasIsFit ? {width, height} : {height}}
         onMouseEnter={(e) => {
           if (e.buttons !== 0) return;
           setShowTooltip(true);
