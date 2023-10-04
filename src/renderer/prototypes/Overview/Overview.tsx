@@ -165,6 +165,11 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     if (lensElem.current) resizeObserverRef.current.observe(lensElem.current);
   }, [draw, devicePixelRatio]);
 
+  useEffect(() => {
+    if (!prevArgsLensRef.current) return;
+    draw(prevArgsLensRef.current[1], prevArgsLensRef.current[2], true);
+  }, [maxTrackSec]);
+
   const imperativeInstanceRef = useRef<OverviewHandleElement>({draw});
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
