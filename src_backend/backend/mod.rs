@@ -243,7 +243,7 @@ impl TrackManager {
 
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
         let track = &self.tracklist[id];
-        let (hop_length, win_length, n_fft) = self.setting.calc_framing_params(track.sr);
+        let (hop_length, win_length, n_fft) = self.setting.calc_framing_params(track.sr());
         let window = self.analysis_mgr.get_window(win_length, n_fft);
         let fft_module = self.analysis_mgr.get_fft_module(n_fft);
         let stft = perform_stft(
@@ -262,7 +262,7 @@ impl TrackManager {
                 linspec
             }
             FreqScale::Mel => {
-                let mut melspec = linspec.dot(&self.analysis_mgr.get_mel_fb(track.sr, n_fft));
+                let mut melspec = linspec.dot(&self.analysis_mgr.get_mel_fb(track.sr(), n_fft));
                 melspec.amp_to_db_default();
                 melspec
             }
@@ -339,8 +339,11 @@ impl TrackManager {
             let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
             new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                 if ids_need_update.contains(&id) {
-                    let up_ratio =
-                        calc_up_ratio(self.tracklist[id].sr, self.max_sr, self.setting.freq_scale);
+                    let up_ratio = calc_up_ratio(
+                        self.tracklist[id].sr(),
+                        self.max_sr,
+                        self.setting.freq_scale,
+                    );
                     let grey = display::convert_spec_to_grey(
                         spec.view(),
                         up_ratio,

@@ -258,7 +258,7 @@ fn get_sec(track_id: u32) -> f64 {
 fn get_sr(track_id: u32) -> u32 {
     TM.blocking_read()
         .get_track(track_id as usize)
-        .map_or(0, |track| track.sr)
+        .map_or(0, |track| track.sr())
 }
 
 #[napi]

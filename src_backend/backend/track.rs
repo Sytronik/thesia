@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use creak::DecoderError;
 use ndarray::prelude::*;
 
-use super::audio;
-use super::display::{IdxLen, PartGreyInfo};
+use super::audio::{open_audio_file, Audio};
+use super::display::{CalcWidth, IdxLen, PartGreyInfo};
 use super::spectrogram::SrWinNfft;
 use super::utils::unique_filenames;
 use super::{IdChVec, SpecSetting};
@@ -34,38 +34,34 @@ macro_rules! indexed_iter_filtered {
 
 #[readonly::make]
 pub struct AudioTrack {
-    pub sr: u32,
     pub sample_format_str: String,
     path: PathBuf,
-    wavs: Array2<f32>,
+    audio: Audio,
 }
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, DecoderError> {
-        let (wavs, sr, sample_format_str) = audio::open_audio_file(path.as_str())?;
+        let (audio, sample_format_str) = open_audio_file(path.as_str())?;
         Ok(AudioTrack {
-            sr,
             sample_format_str,
             path: PathBuf::from(path).canonicalize().unwrap(),
-            wavs,
+            audio,
         })
     }
 
     pub fn reload(&mut self) -> Result<bool, DecoderError> {
-        let (wavs, sr, sample_format_str) =
-            audio::open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if sr == self.sr && sample_format_str == self.sample_format_str && wavs == self.wavs {
+        let (audio, sample_format_str) = open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if audio == self.audio && sample_format_str == self.sample_format_str {
             return Ok(false);
         }
-        self.sr = sr;
+        self.audio = audio;
         self.sample_format_str = sample_format_str;
-        self.wavs = wavs;
         Ok(true)
     }
 
     #[inline]
     pub fn get_wav(&self, ch: usize) -> ArrayView1<f32> {
-        self.wavs.index_axis(Axis(0), ch)
+        self.audio.get_ch(ch)
     }
 
     #[inline]
@@ -74,18 +70,18 @@ impl AudioTrack {
     }
 
     #[inline]
+    pub fn sr(&self) -> u32 {
+        self.audio.sr
+    }
+
+    #[inline]
     pub fn n_ch(&self) -> usize {
-        self.wavs.shape()[0]
+        self.audio.n_ch()
     }
 
     #[inline]
     pub fn sec(&self) -> f64 {
-        self.wavs.shape()[1] as f64 / self.sr as f64
-    }
-
-    #[inline]
-    pub fn calc_width(&self, px_per_sec: f64) -> u32 {
-        ((px_per_sec * self.wavs.shape()[1] as f64 / self.sr as f64).round() as u32).max(1)
+        self.audio.sec()
     }
 
     #[inline]
@@ -94,53 +90,30 @@ impl AudioTrack {
             .canonicalize()
             .map_or(false, |x| x == self.path)
     }
+}
 
-    pub fn calc_part_grey_info(
+impl CalcWidth for AudioTrack {
+    fn calc_width(&self, px_per_sec: f64) -> u32 {
+        self.audio.calc_width(px_per_sec)
+    }
+
+    fn calc_part_grey_info(
         &self,
         grey_width: u64,
         start_sec: f64,
         target_width: u32,
         px_per_sec: f64,
     ) -> PartGreyInfo {
-        let wavlen = self.wavs.shape()[1] as f64;
-        let sr = self.sr as u64;
-        let grey_px_per_sec = (grey_width * sr) as f64 / wavlen;
-        let i_w = start_sec * grey_px_per_sec;
-        let i_w_floor = i_w.floor();
-        let i_w_floor_isize = i_w_floor as isize;
-        let width = target_width as f64 * grey_px_per_sec / px_per_sec;
-        let right_ceil_isize = (i_w + width).ceil() as isize;
-        let width_ceil = (right_ceil_isize - i_w_floor_isize).max(1) as usize;
-        let start_sec_with_margin = i_w_floor / grey_px_per_sec;
-        let target_width_with_margin =
-            (width_ceil as f64 / grey_px_per_sec * px_per_sec).round() as u32;
-        PartGreyInfo {
-            i_w_and_width: (i_w_floor_isize, width_ceil),
-            start_sec_with_margin,
-            width_with_margin: target_width_with_margin,
-        }
+        self.audio
+            .calc_part_grey_info(grey_width, start_sec, target_width, px_per_sec)
     }
 
-    pub fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen {
-        let i = (start_sec * self.sr as f64).round() as isize;
-        let length = ((self.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
-        (i, length)
+    fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen {
+        self.audio.calc_part_wav_info(start_sec, width, px_per_sec)
     }
 
-    pub fn decompose_width_of(
-        &self,
-        start_sec: f64,
-        width: u32,
-        px_per_sec: f64,
-    ) -> (u32, u32, u32) {
-        let total_width = (px_per_sec * self.wavs.shape()[1] as f64 / self.sr as f64).max(1.);
-        let pad_left = ((-start_sec * px_per_sec).max(0.).round() as u32).min(width);
-        let pad_right = ((start_sec * px_per_sec + width as f64 - total_width)
-            .max(0.)
-            .round() as u32)
-            .min(width - pad_left);
-
-        (pad_left, width - pad_left - pad_right, pad_right)
+    fn decompose_width_of(&self, start_sec: f64, width: u32, px_per_sec: f64) -> (u32, u32, u32) {
+        self.audio.decompose_width_of(start_sec, width, px_per_sec)
     }
 }
 
@@ -152,9 +125,9 @@ impl fmt::Debug for AudioTrack {
                 path: {},\n sr: {} Hz, n_ch: {}, length: {}, sec: {}\n\
             }}",
             self.path.to_str().unwrap_or("err on path-to-str"),
-            self.sr,
+            self.sr(),
             self.n_ch(),
-            self.wavs.shape()[1],
+            self.audio.len(),
             self.sec(),
         )
     }
@@ -279,7 +252,7 @@ impl TrackList {
     #[inline]
     pub fn max_sr(&self) -> u32 {
         iter_filtered!(self.tracks)
-            .map(|track| track.sr)
+            .map(|track| track.sr())
             .fold(0u32, |max, x| max.max(x))
     }
 
@@ -290,7 +263,7 @@ impl TrackList {
         setting: &SpecSetting,
     ) -> HashSet<SrWinNfft> {
         ids.iter()
-            .map(|&id| setting.calc_sr_win_nfft(self[id].sr))
+            .map(|&id| setting.calc_sr_win_nfft(self[id].sr()))
             .collect()
     }
 
