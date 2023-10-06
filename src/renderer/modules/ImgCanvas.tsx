@@ -78,8 +78,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   return (
     <div
-      // this is needed for consistent layout
-      // because changing width of canvas elem can occur in different time (in draw function)
+      className={styles.imgCanvasWrapper}
+      /* this is needed for consistent layout
+         because changing width of canvas elem can occur in different time (in draw function) */
       style={{width, height}}
     >
       {showTooltip ? (
@@ -98,9 +99,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       <canvas
         className={styles.ImgCanvas}
         ref={canvasElem}
-        // code for setting width is in draw function.
-        // different height between image and canvas can be allowed.
-        // the same for width only if canvasIsFit
+        /* code for setting width is in draw function.
+           different height between image and canvas can be allowed.
+           the same for width only if canvasIsFit */
         style={canvasIsFit ? {width, height} : {height}}
         onMouseEnter={(e) => {
           if (e.buttons !== 0) return;
