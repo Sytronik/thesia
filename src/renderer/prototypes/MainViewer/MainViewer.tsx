@@ -1,4 +1,12 @@
-import React, {useRef, useCallback, useEffect, useMemo, useState, useContext} from "react";
+import React, {
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useContext,
+  useLayoutEffect,
+} from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
 import useRefs from "renderer/hooks/useRefs";
@@ -425,7 +433,12 @@ function MainViewer(props: MainViewerProps) {
   const rightPane = (
     <>
       <div className={`${styles.trackRightHeader}  ${styles.stickyHeader}`}>
-        <TimeAxis key="time_axis" ref={timeCanvasElem} width={width} />
+        <TimeAxis
+          key="time_axis"
+          ref={timeCanvasElem}
+          width={width}
+          shiftWhenResize={!canvasIsFit}
+        />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
@@ -504,11 +517,11 @@ function MainViewer(props: MainViewerProps) {
     return () => cancelAnimationFrame(requestRef.current);
   }, [drawCanvas]);
 
-  // set LensParams when track changes
-  useEffect(() => {
+  // set LensParams when track list or width change
+  useLayoutEffect(() => {
     if (trackIds.length > 0) {
       const startSec =
-        prevTrackCountRef.current === 0
+        prevTrackCountRef.current === 0 || canvasIsFit
           ? 0
           : normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
       const pxPerSec = canvasIsFit
