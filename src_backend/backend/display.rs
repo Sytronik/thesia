@@ -237,25 +237,31 @@ impl TrackDrawer for TrackManager {
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
+            let out_for_not_exist = || ((id, ch), Array::zeros((0, 0, 0)));
             let track = if let Some(track) = self.get_track(id) {
                 track
             } else {
-                return ((id, ch), Array::zeros((0, 0, 0)));
+                return out_for_not_exist();
             };
             let width = track.calc_width(px_per_sec);
+            let shape = (height as usize, width as usize, 4);
             let arr = match kind {
                 ImageKind::Spec => {
-                    let grey = self.spec_greys.get(&(id, ch)).unwrap().view();
+                    let grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
+                        grey.view()
+                    } else {
+                        return out_for_not_exist();
+                    };
                     let vec = colorize_grey_with_size(
                         ArrWithSliceInfo::entire(&grey),
                         width,
                         height,
                         false,
                     );
-                    Array3::from_shape_vec((height as usize, width as usize, 4), vec).unwrap()
+                    Array3::from_shape_vec(shape, vec).unwrap()
                 }
                 ImageKind::Wav(opt_for_wav) => {
-                    let mut arr = Array3::zeros((height as usize, width as usize, 4));
+                    let mut arr = Array3::zeros(shape);
                     draw_wav_to(
                         arr.as_slice_mut().unwrap(),
                         ArrWithSliceInfo::entire(&track.get_wav(ch)),
@@ -288,12 +294,17 @@ impl TrackDrawer for TrackManager {
         let DrawOption { px_per_sec, height } = option;
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
+            let out_for_not_exist = || ((id, ch), Vec::new());
             let track = if let Some(track) = self.get_track(id) {
                 track
             } else {
-                return ((id, ch), Vec::new());
+                return out_for_not_exist();
             };
-            let spec_grey = self.spec_greys.get(&(id, ch)).unwrap();
+            let spec_grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
+                grey
+            } else {
+                return out_for_not_exist();
+            };
             let PartGreyInfo {
                 i_w_and_width,
                 start_sec_with_margin,
