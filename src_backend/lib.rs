@@ -265,7 +265,7 @@ fn get_sr(track_id: u32) -> u32 {
 fn get_sample_format(track_id: u32) -> String {
     TM.blocking_read()
         .get_track(track_id as usize)
-        .map_or_else(|| String::new(), |track| track.sample_format_str.to_owned())
+        .map_or_else(|| String::new(), |track| track.format_desc.to_owned())
 }
 
 #[napi]

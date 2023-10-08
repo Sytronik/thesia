@@ -3,8 +3,8 @@ use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
 
-use creak::DecoderError;
 use ndarray::prelude::*;
+use symphonia::core::errors::Error as SymphoniaError;
 
 use super::audio::{open_audio_file, Audio};
 use super::display::{CalcWidth, IdxLen, PartGreyInfo};
@@ -34,28 +34,28 @@ macro_rules! indexed_iter_filtered {
 
 #[readonly::make]
 pub struct AudioTrack {
-    pub sample_format_str: String,
+    pub format_desc: String,
     path: PathBuf,
     audio: Audio,
 }
 
 impl AudioTrack {
-    pub fn new(path: String) -> Result<Self, DecoderError> {
-        let (audio, sample_format_str) = open_audio_file(path.as_str())?;
+    pub fn new(path: String) -> Result<Self, SymphoniaError> {
+        let (audio, format_desc) = open_audio_file(path.as_str())?;
         Ok(AudioTrack {
-            sample_format_str,
+            format_desc,
             path: PathBuf::from(path).canonicalize().unwrap(),
             audio,
         })
     }
 
-    pub fn reload(&mut self) -> Result<bool, DecoderError> {
-        let (audio, sample_format_str) = open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if audio == self.audio && sample_format_str == self.sample_format_str {
+    pub fn reload(&mut self) -> Result<bool, SymphoniaError> {
+        let (audio, format_desc) = open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if audio == self.audio && format_desc == self.format_desc {
             return Ok(false);
         }
         self.audio = audio;
-        self.sample_format_str = sample_format_str;
+        self.format_desc = format_desc;
         Ok(true)
     }
 
