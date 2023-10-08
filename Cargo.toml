@@ -1,6 +1,6 @@
 [package]
 authors = ["Sytronik <sytronik210@gmail.com>", "crackyachae <crackyache@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 name = "thesia-native-backend"
 version = "0.1.0"
