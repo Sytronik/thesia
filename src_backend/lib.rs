@@ -314,7 +314,7 @@ pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
             _ => {
                 return Err(Error::new(
                     Status::Unknown,
-                    String::from("The array element should be \"{unsigned_int}_{unsigned_int}\"."),
+                    "The array element should be \"{unsigned_int}_{unsigned_int}\".",
                 ));
             }
         }

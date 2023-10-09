@@ -26,7 +26,7 @@ where
     A: FftNum + Float + FloatConst + DivAssign + ScalarOperand,
 {
     let window = window.map_or_else(
-        || CowArray::from(calc_normalized_win(WindowType::Hann, win_length, n_fft)),
+        || calc_normalized_win(WindowType::Hann, win_length, n_fft).into(),
         |w| {
             assert_eq!(w.len(), win_length);
             w

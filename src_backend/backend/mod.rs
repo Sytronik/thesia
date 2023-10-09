@@ -382,7 +382,7 @@ mod tests {
             .take(6)
             .map(|x| format!("samples/sample_{}.wav", x))
             .collect();
-        path_list.push(String::from("samples/stereo/sample_48k.wav"));
+        path_list.push("samples/stereo/sample_48k.wav".into());
         let mut tm = TrackManager::new();
         let added_ids = tm.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
         assert_eq!(&added_ids, &id_list[0..3]);

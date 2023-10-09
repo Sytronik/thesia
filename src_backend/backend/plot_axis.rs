@@ -357,7 +357,7 @@ fn freq_to_str(freq: f32) -> String {
 
 fn format_ticklabel(value: f32, unit_exponent: Option<i32>) -> String {
     if value.is_zero() {
-        return String::from("0");
+        return "0".into();
     }
     let exponent = value.abs().log10().floor() as i32;
     match unit_exponent {

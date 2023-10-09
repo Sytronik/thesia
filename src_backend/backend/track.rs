@@ -44,7 +44,7 @@ pub struct AudioTrack {
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
-        let (audio, format_desc) = open_audio_file(path.as_str())?;
+        let (audio, format_desc) = open_audio_file(&path)?;
 
         let mut loudness_analyzer =
             EbuR128::new(audio.n_ch() as u32, audio.sr, LoudnessMode::all()).unwrap();
@@ -192,7 +192,7 @@ impl TrackList {
         for &id in id_list {
             let track = self.tracks[id]
                 .as_mut()
-                .expect(format!("[reload_tracks] Wrong Track ID {}!", id).as_str());
+                .expect(&format!("[reload_tracks] Wrong Track ID {}!", id));
             match track.reload() {
                 Ok(true) => {
                     let sec = track.sec();
@@ -310,7 +310,7 @@ impl TrackList {
     pub fn get_filename(&self, id: usize) -> &str {
         self.filenames[id]
             .as_ref()
-            .expect(format!("[get_filename] Wrong ID {}!", id).as_str())
+            .expect(&format!("[get_filename] Wrong ID {}!", id))
     }
 
     fn update_filenames(&mut self) {
@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn calc_loudness_works() {
-        let track = AudioTrack::new(String::from("samples/sample_48k.wav")).unwrap();
+        let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
         assert_abs_diff_eq!(track.global_lufs, -26.20331705029079);
     }
 }
