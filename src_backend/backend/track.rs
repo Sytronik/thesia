@@ -341,6 +341,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn calc_width_works() {
+        let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
+        assert_eq!(track.calc_width(1.), 44);
+        assert_eq!(
+            track.calc_part_grey_info(44, 1., 22, 2.),
+            PartGreyInfo {
+                i_w_and_width: (0, 12),
+                start_sec_with_margin: 0.,
+                width_with_margin: 24,
+            }
+        );
+        assert_eq!(
+            track.calc_part_wav_info(1., 43, 1.),
+            (track.sr() as isize, (track.sr() * 43) as usize)
+        );
+    }
+
+    #[test]
     fn calc_loudness_works() {
         let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
         assert_abs_diff_eq!(track.global_lufs, -26.20331705029079);

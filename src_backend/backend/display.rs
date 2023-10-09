@@ -76,6 +76,7 @@ pub enum ImageKind {
     Wav(DrawOptionForWav),
 }
 
+#[derive(PartialEq, Debug)]
 pub struct PartGreyInfo {
     pub i_w_and_width: IdxLen,
     pub start_sec_with_margin: f64,
