@@ -327,7 +327,7 @@ fn omit_labels_from_linear_axis<Y>(
     len: usize,
     max_num_labels: u32,
 ) -> impl DoubleEndedIterator<Item = (Y, String)> + ExactSizeIterator {
-    let n_mod = (len as f32 / max_num_labels as f32).ceil() as usize;
+    let n_mod = len.div_ceil(max_num_labels as usize);
     iter.enumerate().map(move |(i, (y, s))| -> (Y, String) {
         if i % n_mod == 0 && (len - 1 - i) >= n_mod || i == len - 1 {
             (y, s)
