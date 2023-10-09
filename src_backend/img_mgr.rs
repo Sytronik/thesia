@@ -26,6 +26,7 @@ const MAX_IMG_CACHE_WIDTH: u32 = 16384;
 lazy_static! {
     static ref RUNTIME: Runtime = Builder::new_multi_thread()
         .worker_threads(2)
+        .enable_time()
         .thread_name("thesia-tokio")
         .build()
         .unwrap();
@@ -482,6 +483,7 @@ async fn draw_imgs(
     if *params.read() != params_backup {
         return;
     }
+    tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
 
     let blended_imgs = draw_new_caches(
         spec_caches.clone(),
