@@ -10,6 +10,8 @@ use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
+const FORMAT_DESC_DELIMITER: &str = "|";
+
 #[readonly::make]
 #[derive(PartialEq)]
 pub struct Audio {
@@ -181,21 +183,18 @@ pub fn open_audio_file(path: &str) -> Result<(Audio, String), SymphoniaError> {
     let sr = codec_params.sample_rate.unwrap_or_default();
 
     // TODO: format & codec description https://github.com/pdeljanov/Symphonia/issues/94
-    let get_bit_depth_str = || {
-        format!(
-            "{} bit",
-            codec_params
-                .bits_per_sample
-                .map_or(String::from("?"), |x| x.to_string())
-        )
+    let sample_format_str = match (codec_params.sample_format, codec_params.bits_per_sample) {
+        (Some(sample_format), _) => {
+            format!("{:?}", sample_format)
+        }
+        (None, Some(bits_per_sample)) => {
+            format!("{} bit", bits_per_sample.to_string())
+        }
+        (None, None) => {
+            format!("? bit")
+        }
     };
-    let format_desc = format!(
-        "{} / {}",
-        ext,
-        codec_params
-            .sample_format
-            .map_or_else(get_bit_depth_str, |x| format!("{:?}", x))
-    );
+    let format_desc = format!("{} {} {}", ext, FORMAT_DESC_DELIMITER, sample_format_str);
     Ok((Audio::new(wav, sr), format_desc))
 }
 
@@ -210,7 +209,10 @@ mod tests {
             "samples/sample_48k.wav",
             "samples/sample_48k_wav_no_extension",
         ];
-        let format_descs = ["wav / 16 bit", "unknown / 16 bit"];
+        let format_descs = [
+            format!("wav {} 16 bit", FORMAT_DESC_DELIMITER),
+            format!("unknown {} 16 bit", FORMAT_DESC_DELIMITER),
+        ];
         for (path, format_desc_answer) in paths.into_iter().zip(format_descs.into_iter()) {
             let (audio, format_desc) = open_audio_file(path).unwrap();
             let arr = arr1(&[
