@@ -252,7 +252,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImgState, getSpecSetting, setSpecSetting, getImages, findIDbyPath, getOverview, getHzAt, getTimeAxis, getFreqAxis, getAmpAxis, getdBAxis, getMaxdB, getMindB, getMaxSec, getNumCh, getSec, getSr, getSampleFormat, getPath, getFileName, getColormap } = nativeBinding
+const { init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImgState, getSpecSetting, setSpecSetting, getImages, findIDbyPath, getOverview, getHzAt, getTimeAxis, getFreqAxis, getAmpAxis, getdBAxis, getMaxdB, getMindB, getMaxSec, getNumCh, getSec, getSr, getSampleFormat, getGlobalLUFS, getPath, getFileName, getColormap } = nativeBinding
 
 module.exports.init = init
 module.exports.addTracks = addTracks
@@ -277,6 +277,7 @@ module.exports.getNumCh = getNumCh
 module.exports.getSec = getSec
 module.exports.getSr = getSr
 module.exports.getSampleFormat = getSampleFormat
+module.exports.getGlobalLUFS = getGlobalLUFS
 module.exports.getPath = getPath
 module.exports.getFileName = getFileName
 module.exports.getColormap = getColormap

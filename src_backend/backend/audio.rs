@@ -22,8 +22,15 @@ impl Audio {
         Self { wavs, sr }
     }
 
-    pub fn get_entire(&self) -> ArrayView2<f32> {
+    pub fn view(&self) -> ArrayView2<f32> {
         self.wavs.view()
+    }
+
+    pub fn planes(&self) -> Vec<&[f32]> {
+        self.wavs
+            .axis_iter(Axis(0))
+            .map(|x| x.to_slice().unwrap())
+            .collect()
     }
 
     #[inline]

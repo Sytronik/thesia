@@ -3,6 +3,7 @@ use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
 
+use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
@@ -35,17 +36,29 @@ macro_rules! indexed_iter_filtered {
 #[readonly::make]
 pub struct AudioTrack {
     pub format_desc: String,
+    pub global_lufs: f64,
     path: PathBuf,
     audio: Audio,
+    loudness_analyzer: EbuR128,
 }
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
         let (audio, format_desc) = open_audio_file(path.as_str())?;
+
+        let mut loudness_analyzer =
+            EbuR128::new(audio.n_ch() as u32, audio.sr, LoudnessMode::all()).unwrap();
+        loudness_analyzer
+            .add_frames_planar_f32(&audio.planes())
+            .unwrap();
+        let global_lufs = loudness_analyzer.loudness_global().unwrap();
+
         Ok(AudioTrack {
             format_desc,
+            global_lufs,
             path: PathBuf::from(path).canonicalize().unwrap(),
             audio,
+            loudness_analyzer,
         })
     }
 
@@ -318,5 +331,18 @@ impl Index<usize> for TrackList {
         self.tracks[i]
             .as_ref()
             .expect("[get_track] Wrong Track ID!")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_abs_diff_eq;
+
+    use super::*;
+
+    #[test]
+    fn calc_loudness_works() {
+        let track = AudioTrack::new(String::from("samples/sample_48k.wav")).unwrap();
+        assert_abs_diff_eq!(track.global_lufs, -26.20331705029079);
     }
 }

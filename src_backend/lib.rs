@@ -268,6 +268,13 @@ fn get_sample_format(track_id: u32) -> String {
         .map_or_else(|| String::new(), |track| track.format_desc.to_owned())
 }
 
+#[napi(js_name = "getGlobalLUFS")]
+fn get_global_lufs(track_id: u32) -> f64 {
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(f64::NEG_INFINITY, |track| track.global_lufs)
+}
+
 #[napi]
 fn get_path(track_id: u32) -> String {
     TM.blocking_read()
