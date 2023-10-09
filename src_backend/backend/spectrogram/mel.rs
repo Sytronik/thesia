@@ -113,21 +113,28 @@ mod tests {
 
     #[test]
     fn mel_works() {
-        let answer = [
-            0.000000000000000000e+00f64,
-            6.613916251808404922e-03,
-            1.322783250361680984e-02,
-            1.984174735844135284e-02,
-            2.105801925063133240e-02,
-            1.444410253316164017e-02,
-            7.830185815691947937e-03,
-            1.216269447468221188e-03,
+        let (sr, n_fft, n_mel) = (24000, 2048, 80);
+        let mel0_answer = [
+            0.0f64,
+            0.07852016499598029,
+            0.15704032999196058,
+            0.23556049498794085,
+            0.25,
+            0.17147983500401973,
+            0.09295967000803942,
+            0.014439505012059144,
+            0.0,
         ];
-        let mel_fb = calc_mel_fb(24000, 2048, 80, 0f64, None, true);
+        let mel_fb = calc_mel_fb(sr, n_fft, n_mel, 0f64, None, true);
         let mel_fb = mel_fb.t();
+        assert_eq!(mel_fb.shape(), &[n_mel, n_fft / 2 + 1]);
+
+        let mel0_answer_iter = mel0_answer
+            .into_iter()
+            .chain(std::iter::repeat(0.).take(mel_fb.shape()[1] - mel0_answer.len()));
         mel_fb
             .iter()
-            .zip(&answer)
+            .zip(mel0_answer_iter)
             .for_each(|(&x, y)| assert_abs_diff_eq!(x, y, epsilon = 1e-8));
     }
 
