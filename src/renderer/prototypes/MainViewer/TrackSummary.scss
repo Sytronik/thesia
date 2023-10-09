@@ -1,4 +1,4 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .pathName {
   display: flex;
@@ -40,13 +40,14 @@ $path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
     max-width: calc(100% - #{$path-min});
 
     &::before {
-      content: '/';
+      content: "/";
     }
   }
 }
 
 .time,
-.sampleFormatRate {
+.sampleFormatRate,
+.loudness {
   margin-bottom: $spacer;
 
   @include body-assist;

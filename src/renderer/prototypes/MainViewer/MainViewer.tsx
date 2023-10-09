@@ -400,6 +400,7 @@ function MainViewer(props: MainViewerProps) {
           time: new Date(NativeAPI.getLength(trackId) * 1000).toISOString().substring(11, 23),
           sampleFormat: NativeAPI.getSampleFormat(trackId),
           sampleRate: `${NativeAPI.getSampleRate(trackId)} Hz`,
+          globalLUFS: `${NativeAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
     [trackIds],

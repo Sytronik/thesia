@@ -36,6 +36,7 @@ type TrackSummary = {
   time: string;
   sampleFormat: string;
   sampleRate: string;
+  globalLUFS: string;
 };
 
 // Axis Tick

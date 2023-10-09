@@ -56,6 +56,8 @@ export function getFileName(trackId: number): string {
   return backend.getFileName(trackId);
 }
 
+export const {getGlobalLUFS} = backend;
+
 /* draw tracks */
 /* time axis */
 export function getLongestTrackLength(): number {
