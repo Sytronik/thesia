@@ -2,7 +2,7 @@ import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react"
 import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH, COLORBAR_COLORS_COUNT} from "renderer/prototypes/constants";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import NativeAPI from "../../api";
+import BackendAPI from "../../api";
 import styles from "./ColorBarCanvas.scss";
 
 type ColorBarCanvasProps = {
@@ -20,7 +20,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
   const requestRef = useRef<number | null>(null);
   const prevHeightRef = useRef<number>(0);
 
-  const colorBarGradientBuf = useMemo(() => NativeAPI.getColorMap(), []);
+  const colorBarGradientBuf = useMemo(() => BackendAPI.getColorMap(), []);
 
   useEffect(() => {
     if (!canvasElem.current) return;

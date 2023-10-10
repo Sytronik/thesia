@@ -3,7 +3,7 @@ import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./ImgCanvas.scss";
-import NativeAPI from "../api";
+import BackendAPI from "../api";
 
 type ImgCanvasProps = {
   width: number;
@@ -71,7 +71,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       height,
     );
     const time = Math.min(Math.max(startSecRef.current + x / pxPerSecRef.current, 0), maxTrackSec);
-    const hz = await NativeAPI.getHzAt(y, height);
+    const hz = await BackendAPI.getHzAt(y, height);
     setTooltipText(`${time.toFixed(3)} sec\n${hz.toFixed(0)} Hz`); // TODO: need better formatting (from backend?)
     setTooltipPositionByCursorPos(e);
   });

@@ -26,7 +26,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import NativeAPI from "../../api";
+import BackendAPI from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
@@ -125,7 +125,7 @@ function MainViewer(props: MainViewerProps) {
   } = useThrottledSetMarkers({
     scaleTable: TIME_TICK_SIZE,
     boundaries: TIME_BOUNDARIES,
-    getMarkers: NativeAPI.getTimeAxisMarkers,
+    getMarkers: BackendAPI.getTimeAxisMarkers,
   });
 
   const throttledSetTimeMarkersAndUnit = useEvent(
@@ -147,7 +147,7 @@ function MainViewer(props: MainViewerProps) {
     useThrottledSetMarkers({
       scaleTable: AMP_TICK_NUM,
       boundaries: AMP_BOUNDARIES,
-      getMarkers: NativeAPI.getAmpAxisMarkers,
+      getMarkers: BackendAPI.getAmpAxisMarkers,
     });
 
   const {
@@ -156,14 +156,14 @@ function MainViewer(props: MainViewerProps) {
   } = useThrottledSetMarkers({
     scaleTable: FREQ_TICK_NUM,
     boundaries: FREQ_BOUNDARIES,
-    getMarkers: NativeAPI.getFreqAxisMarkers,
+    getMarkers: BackendAPI.getFreqAxisMarkers,
   });
 
   const {markersAndLengthRef: dbMarkersAndLengthRef, throttledSetMarkers: throttledSetDbMarkers} =
     useThrottledSetMarkers({
       scaleTable: DB_TICK_NUM,
       boundaries: DB_BOUNDARIES,
-      getMarkers: NativeAPI.getdBAxisMarkers,
+      getMarkers: BackendAPI.getdBAxisMarkers,
     });
 
   const throttledSetImgState = useMemo(
@@ -171,7 +171,7 @@ function MainViewer(props: MainViewerProps) {
       throttle(1000 / 120, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
         if (!idChArr.length) return;
 
-        await NativeAPI.setImageState(
+        await BackendAPI.setImageState(
           idChArr,
           startSecRef.current,
           canvasWidth * devicePixelRatio,
@@ -375,7 +375,7 @@ function MainViewer(props: MainViewerProps) {
     timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
     dbCanvasElem.current?.draw(dbMarkersAndLengthRef.current);
 
-    const images = NativeAPI.getImages();
+    const images = BackendAPI.getImages();
     Object.entries(images).forEach(([idChStr, buf]) => {
       imgCanvasesRef.current[idChStr]?.draw(buf);
     });
@@ -396,11 +396,11 @@ function MainViewer(props: MainViewerProps) {
     () =>
       trackIds.map((trackId) => {
         return {
-          fileName: NativeAPI.getFileName(trackId),
-          time: new Date(NativeAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
-          sampleFormat: NativeAPI.getSampleFormat(trackId),
-          sampleRate: `${NativeAPI.getSampleRate(trackId)} Hz`,
-          globalLUFS: `${NativeAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
+          fileName: BackendAPI.getFileName(trackId),
+          time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
+          sampleFormat: BackendAPI.getSampleFormat(trackId),
+          sampleRate: `${BackendAPI.getSampleRate(trackId)} Hz`,
+          globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
     [trackIds],

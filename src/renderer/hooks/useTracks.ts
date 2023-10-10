@@ -1,7 +1,7 @@
 import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
-import NativeAPI from "../api";
+import BackendAPI from "../api";
 
 type AddTracksResultType = {
   existingIds: number[];
@@ -13,7 +13,7 @@ function useTracks() {
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
   const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
-    NativeAPI.getSpecSetting(),
+    BackendAPI.getSpecSetting(),
   );
 
   const waitingIdsRef = useRef<number[]>([]);
@@ -25,13 +25,13 @@ function useTracks() {
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const maxTrackSec = useMemo(() => NativeAPI.getLongestTrackLengthSec(), [trackIds]);
+  const maxTrackSec = useMemo(() => BackendAPI.getLongestTrackLengthSec(), [trackIds]);
   const trackIdChMap: IdChMap = useMemo(
     () =>
       new Map(
         trackIds.map((id) => [
           id,
-          [...Array(NativeAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
+          [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
         ]),
       ),
     [trackIds],
@@ -39,7 +39,7 @@ function useTracks() {
 
   const reloadTracks = useEvent(async (ids: number[]) => {
     try {
-      const reloadedIds = await NativeAPI.reloadTracks(ids);
+      const reloadedIds = await BackendAPI.reloadTracks(ids);
       const erroredIds = difference(ids, reloadedIds);
 
       if (erroredIds && erroredIds.length) {
@@ -52,7 +52,7 @@ function useTracks() {
 
   const refreshTracks = useEvent(async () => {
     try {
-      const needRefreshIdChArr = await NativeAPI.applyTrackListChanges();
+      const needRefreshIdChArr = await BackendAPI.applyTrackListChanges();
       if (needRefreshIdChArr) {
         setNeedRefreshTrackIdChArr(needRefreshIdChArr);
       }
@@ -63,10 +63,10 @@ function useTracks() {
 
   const addTracks = useEvent(async (paths: string[]): Promise<AddTracksResultType> => {
     try {
-      const newPaths = paths.filter(async (path) => (await NativeAPI.findIdByPath(path)) === -1);
+      const newPaths = paths.filter(async (path) => (await BackendAPI.findIdByPath(path)) === -1);
       const existingPaths = difference(paths, newPaths);
       const existingIds = await Promise.all(
-        existingPaths.map(async (path) => NativeAPI.findIdByPath(path)),
+        existingPaths.map(async (path) => BackendAPI.findIdByPath(path)),
       );
 
       if (!newPaths.length) {
@@ -80,7 +80,7 @@ function useTracks() {
         return trackIds.length + i;
       });
 
-      const addedIds = await NativeAPI.addTracks(newIds, newPaths);
+      const addedIds = await BackendAPI.addTracks(newIds, newPaths);
       if (addedIds.length) {
         setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
       }
@@ -108,7 +108,7 @@ function useTracks() {
 
   const removeTracks = useEvent(async (ids: number[]) => {
     try {
-      await NativeAPI.removeTracks(ids);
+      await BackendAPI.removeTracks(ids);
       setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
       setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 
@@ -120,8 +120,8 @@ function useTracks() {
   });
 
   const setSpecSetting = useEvent(async (specSetting: SpecSetting) => {
-    await NativeAPI.setSpecSetting(specSetting);
-    setCurrentSpecSetting(NativeAPI.getSpecSetting());
+    await BackendAPI.setSpecSetting(specSetting);
+    setCurrentSpecSetting(BackendAPI.getSpecSetting());
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 

@@ -9,7 +9,7 @@ import React, {
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.scss";
-import NativeAPI from "../../api";
+import BackendAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants";
 
 const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
@@ -51,7 +51,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   const {selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSec = useMemo(
-    () => (selectedTrackId !== null ? NativeAPI.getLengthSec(selectedTrackId) : 0),
+    () => (selectedTrackId !== null ? BackendAPI.getLengthSec(selectedTrackId) : 0),
     [selectedTrackId],
   );
 
@@ -135,7 +135,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     ) {
       let imbmp = null;
       if (width >= 1) {
-        const buf = await NativeAPI.getOverview(selectedTrackId, width, height, devicePixelRatio);
+        const buf = await BackendAPI.getOverview(selectedTrackId, width, height, devicePixelRatio);
         if (buf.length === width * height * 4) {
           const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
           imbmp = await createImageBitmap(imdata);
