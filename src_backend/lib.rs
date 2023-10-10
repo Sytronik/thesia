@@ -290,8 +290,8 @@ fn get_path(track_id: u32) -> String {
         .map_or_else(|| String::new(), |track| track.path_string())
 }
 
-#[napi(js_name = "getFileName")]
-fn get_filename(track_id: u32) -> String {
+#[napi]
+fn get_file_name(track_id: u32) -> String {
     TM.blocking_read()
         .tracklist
         .get_filename(track_id as usize)
@@ -299,7 +299,7 @@ fn get_filename(track_id: u32) -> String {
 }
 
 #[napi]
-fn get_colormap() -> Buffer {
+fn get_color_map() -> Buffer {
     display::get_colormap_rgb().into()
 }
 

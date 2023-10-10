@@ -33,4 +33,4 @@ export function getSampleFormat(trackId: number): string
 export function getGlobalLUFS(trackId: number): number
 export function getPath(trackId: number): string
 export function getFileName(trackId: number): string
-export function getColormap(): Buffer
+export function getColorMap(): Buffer

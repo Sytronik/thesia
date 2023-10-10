@@ -111,6 +111,6 @@ export const {
   getHzAt,
   getMaxdB,
   getMindB,
-  getColormap,
+  getColorMap,
   getOverview,
 } = backend;
