@@ -9,6 +9,7 @@ module.exports = {
     "jsx-a11y/no-static-element-interactions": "warn",
     "react/prop-types": "warn",
     "@typescript-eslint/no-shadow": "warn",
+    "promise/always-return": "off",
   },
   parserOptions: {
     ecmaVersion: 2020,
