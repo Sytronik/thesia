@@ -102,7 +102,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         /* code for setting width is in draw function.
            different height between image and canvas can be allowed.
            the same for width only if canvasIsFit */
-        style={canvasIsFit ? {width, height} : {height}}
+        style={canvasIsFit ? {width, height} : {width: canvasElem.current?.style.width, height}}
         onMouseEnter={(e) => {
           if (e.buttons !== 0) return;
           setShowTooltip(true);
