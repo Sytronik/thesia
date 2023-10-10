@@ -22,7 +22,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const [tooltipText, setTooltipText] = useState<string>(" sec\n Hz");
   const [tooltipPosition, setTooltipPosition] = useState<[number, number]>([0, 0]);
 
-  const draw = useEvent(async (buf: Buffer) => {
+  const draw = useEvent((buf: Buffer) => {
     const bitmapWidth = width * devicePixelRatio;
     const bitmapHeight = height * devicePixelRatio;
     if (buf.byteLength !== 4 * bitmapWidth * bitmapHeight) return;
