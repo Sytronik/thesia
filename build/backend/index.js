@@ -252,30 +252,30 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImgState, getSpecSetting, setSpecSetting, getImages, findIDbyPath, getOverview, getHzAt, getTimeAxis, getFreqAxis, getAmpAxis, getdBAxis, getMaxdB, getMindB, getMaxSec, getNumCh, getSec, getSr, getSampleFormat, getGlobalLUFS, getPath, getFileName, getColormap } = nativeBinding
+const { init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getSpecSetting, setSpecSetting, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getPath, getFileName, getColormap } = nativeBinding
 
 module.exports.init = init
 module.exports.addTracks = addTracks
 module.exports.reloadTracks = reloadTracks
 module.exports.removeTracks = removeTracks
 module.exports.applyTrackListChanges = applyTrackListChanges
-module.exports.setImgState = setImgState
+module.exports.setImageState = setImageState
 module.exports.getSpecSetting = getSpecSetting
 module.exports.setSpecSetting = setSpecSetting
 module.exports.getImages = getImages
-module.exports.findIDbyPath = findIDbyPath
+module.exports.findIdByPath = findIdByPath
 module.exports.getOverview = getOverview
 module.exports.getHzAt = getHzAt
-module.exports.getTimeAxis = getTimeAxis
-module.exports.getFreqAxis = getFreqAxis
-module.exports.getAmpAxis = getAmpAxis
-module.exports.getdBAxis = getdBAxis
+module.exports.getTimeAxisMarkers = getTimeAxisMarkers
+module.exports.getFreqAxisMarkers = getFreqAxisMarkers
+module.exports.getAmpAxisMarkers = getAmpAxisMarkers
+module.exports.getdBAxisMarkers = getdBAxisMarkers
 module.exports.getMaxdB = getMaxdB
 module.exports.getMindB = getMindB
-module.exports.getMaxSec = getMaxSec
-module.exports.getNumCh = getNumCh
-module.exports.getSec = getSec
-module.exports.getSr = getSr
+module.exports.getLongestTrackLengthSec = getLongestTrackLengthSec
+module.exports.getChannelCounts = getChannelCounts
+module.exports.getLengthSec = getLengthSec
+module.exports.getSampleRate = getSampleRate
 module.exports.getSampleFormat = getSampleFormat
 module.exports.getGlobalLUFS = getGlobalLUFS
 module.exports.getPath = getPath

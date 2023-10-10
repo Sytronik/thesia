@@ -163,7 +163,7 @@ function MainViewer(props: MainViewerProps) {
     useThrottledSetMarkers({
       scaleTable: DB_TICK_NUM,
       boundaries: DB_BOUNDARIES,
-      getMarkers: NativeAPI.getDbAxisMarkers,
+      getMarkers: NativeAPI.getdBAxisMarkers,
     });
 
   const throttledSetImgState = useMemo(
@@ -397,7 +397,7 @@ function MainViewer(props: MainViewerProps) {
       trackIds.map((trackId) => {
         return {
           fileName: NativeAPI.getFileName(trackId),
-          time: new Date(NativeAPI.getLength(trackId) * 1000).toISOString().substring(11, 23),
+          time: new Date(NativeAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
           sampleFormat: NativeAPI.getSampleFormat(trackId),
           sampleRate: `${NativeAPI.getSampleRate(trackId)} Hz`,
           globalLUFS: `${NativeAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,

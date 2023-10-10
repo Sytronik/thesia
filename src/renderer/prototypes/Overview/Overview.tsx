@@ -51,7 +51,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   const {selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSec = useMemo(
-    () => (selectedTrackId !== null ? NativeAPI.getLength(selectedTrackId) : 0),
+    () => (selectedTrackId !== null ? NativeAPI.getLengthSec(selectedTrackId) : 0),
     [selectedTrackId],
   );
 

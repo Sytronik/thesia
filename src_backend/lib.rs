@@ -85,7 +85,7 @@ async fn apply_track_list_changes() -> Vec<String> {
 }
 
 #[napi]
-async fn set_img_state(
+async fn set_image_state(
     id_ch_strs: Vec<String>,
     start_sec: f64,
     width: u32,
@@ -140,7 +140,7 @@ fn get_images() -> HashMap<String, Buffer> {
     }
 }
 
-#[napi(js_name = "findIDbyPath")]
+#[napi]
 async fn find_id_by_path(path: String) -> i32 {
     TM.read()
         .await
@@ -167,7 +167,7 @@ async fn get_hz_at(y: u32, height: u32) -> f64 {
 }
 
 #[napi]
-async fn get_time_axis(
+async fn get_time_axis_markers(
     width: u32,
     start_sec: f64,
     px_per_sec: f64,
@@ -188,7 +188,11 @@ async fn get_time_axis(
 }
 
 #[napi]
-async fn get_freq_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+async fn get_freq_axis_markers(
+    height: u32,
+    max_num_ticks: u32,
+    max_num_labels: u32,
+) -> serde_json::Value {
     assert_axis_params(height, max_num_ticks, max_num_labels);
 
     json!(TM
@@ -198,7 +202,7 @@ async fn get_freq_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> 
 }
 
 #[napi]
-async fn get_amp_axis(
+async fn get_amp_axis_markers(
     height: u32,
     max_num_ticks: u32,
     max_num_labels: u32,
@@ -215,8 +219,12 @@ async fn get_amp_axis(
     )))
 }
 
-#[napi(js_name = "getdBAxis")]
-async fn get_db_axis(height: u32, max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+#[napi(js_name = "getdBAxisMarkers")]
+async fn get_db_axis_markers(
+    height: u32,
+    max_num_ticks: u32,
+    max_num_labels: u32,
+) -> serde_json::Value {
     assert_axis_params(height, max_num_ticks, max_num_labels);
 
     json!(TM
@@ -236,26 +244,26 @@ fn get_min_db() -> f64 {
 }
 
 #[napi]
-fn get_max_sec() -> f64 {
+fn get_longest_track_length_sec() -> f64 {
     TM.blocking_read().tracklist.max_sec as f64
 }
 
-#[napi(js_name = "getNumCh")]
-fn get_n_ch(track_id: u32) -> u32 {
+#[napi]
+fn get_channel_counts(track_id: u32) -> u32 {
     TM.blocking_read()
         .get_track(track_id as usize)
         .map_or(0, |track| track.n_ch() as u32)
 }
 
 #[napi]
-fn get_sec(track_id: u32) -> f64 {
+fn get_length_sec(track_id: u32) -> f64 {
     TM.blocking_read()
         .get_track(track_id as usize)
         .map_or(0., |track| track.sec())
 }
 
 #[napi]
-fn get_sr(track_id: u32) -> u32 {
+fn get_sample_rate(track_id: u32) -> u32 {
     TM.blocking_read()
         .get_track(track_id as usize)
         .map_or(0, |track| track.sr())

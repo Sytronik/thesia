@@ -25,7 +25,7 @@ function useTracks() {
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const maxTrackSec = useMemo(() => NativeAPI.getLongestTrackLength(), [trackIds]);
+  const maxTrackSec = useMemo(() => NativeAPI.getLongestTrackLengthSec(), [trackIds]);
   const trackIdChMap: IdChMap = useMemo(
     () =>
       new Map(
