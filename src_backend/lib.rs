@@ -168,51 +168,39 @@ async fn get_hz_at(y: u32, height: u32) -> f64 {
 
 #[napi]
 async fn get_time_axis_markers(
-    width: u32,
     start_sec: f64,
-    px_per_sec: f64,
+    end_sec: f64,
     tick_unit: f64,
     label_interval: u32,
 ) -> serde_json::Value {
-    assert!(width >= 1);
-    assert!(px_per_sec.is_finite());
-    assert!(px_per_sec >= 0.);
+    assert!(start_sec <= end_sec);
     assert!(label_interval > 0);
-    json!(&TM.read().await.create_time_axis(
-        width,
-        start_sec,
-        px_per_sec,
-        tick_unit,
-        label_interval,
-    ))
+    json!(&TM
+        .read()
+        .await
+        .create_time_axis(start_sec, end_sec, tick_unit, label_interval,))
 }
 
 #[napi]
-async fn get_freq_axis_markers(
-    height: u32,
-    max_num_ticks: u32,
-    max_num_labels: u32,
-) -> serde_json::Value {
-    assert_axis_params(height, max_num_ticks, max_num_labels);
+async fn get_freq_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+    assert_axis_params(max_num_ticks, max_num_labels);
 
     json!(TM
         .read()
         .await
-        .create_freq_axis(height, max_num_ticks, max_num_labels))
+        .create_freq_axis(max_num_ticks, max_num_labels))
 }
 
 #[napi]
 async fn get_amp_axis_markers(
-    height: u32,
     max_num_ticks: u32,
     max_num_labels: u32,
     amp_range: (f64, f64),
 ) -> Result<serde_json::Value> {
-    assert_axis_params(height, max_num_ticks, max_num_labels);
+    assert_axis_params(max_num_ticks, max_num_labels);
     assert!(amp_range.0 < amp_range.1);
 
     Ok(json!(TrackManager::create_amp_axis(
-        height,
         max_num_ticks,
         max_num_labels,
         (amp_range.0 as f32, amp_range.1 as f32),
@@ -220,17 +208,13 @@ async fn get_amp_axis_markers(
 }
 
 #[napi(js_name = "getdBAxisMarkers")]
-async fn get_db_axis_markers(
-    height: u32,
-    max_num_ticks: u32,
-    max_num_labels: u32,
-) -> serde_json::Value {
-    assert_axis_params(height, max_num_ticks, max_num_labels);
+async fn get_db_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+    assert_axis_params(max_num_ticks, max_num_labels);
 
     json!(TM
         .read()
         .await
-        .create_db_axis(height, max_num_ticks, max_num_labels))
+        .create_db_axis(max_num_ticks, max_num_labels))
 }
 
 #[napi(js_name = "getMaxdB")]
@@ -304,8 +288,7 @@ fn get_color_map() -> Buffer {
 }
 
 #[inline]
-pub fn assert_axis_params(height: u32, max_num_ticks: u32, max_num_labels: u32) {
-    assert!(height >= 1);
+pub fn assert_axis_params(max_num_ticks: u32, max_num_labels: u32) {
     assert!(max_num_ticks >= 2);
     assert!(max_num_labels >= 2);
     assert!(max_num_ticks >= max_num_labels);

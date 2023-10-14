@@ -11,7 +11,7 @@ type DrawOptionForWav = {
 
 type MarkerDrawOption = {
   startSec?: number;
-  pxPerSec?: number;
+  endSec?: number;
   ampRange?: [number, number];
 };
 

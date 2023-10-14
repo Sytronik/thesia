@@ -19,10 +19,10 @@ export function getImages(): Record<string, Buffer>
 export function findIdByPath(path: string): Promise<number>
 export function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
 export function getHzAt(y: number, height: number): Promise<number>
-export function getTimeAxisMarkers(width: number, startSec: number, pxPerSec: number, tickUnit: number, labelInterval: number): Promise<any>
-export function getFreqAxisMarkers(height: number, maxNumTicks: number, maxNumLabels: number): Promise<any>
-export function getAmpAxisMarkers(height: number, maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
-export function getdBAxisMarkers(height: number, maxNumTicks: number, maxNumLabels: number): Promise<any>
+export function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
+export function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
+export function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
+export function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
 export function getMaxdB(): number
 export function getMindB(): number
 export function getLongestTrackLengthSec(): number

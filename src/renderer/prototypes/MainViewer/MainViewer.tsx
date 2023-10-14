@@ -102,7 +102,7 @@ function MainViewer(props: MainViewerProps) {
   const overviewElem = useRef<OverviewHandleElement>(null);
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const dbCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
@@ -122,26 +122,28 @@ function MainViewer(props: MainViewerProps) {
   const {
     markersAndLengthRef: timeMarkersAndLengthRef,
     throttledSetMarkers: throttledSetTimeMarkers,
+    resetMarkers: resetTimeMarkers,
   } = useThrottledSetMarkers({
     scaleTable: TIME_TICK_SIZE,
     boundaries: TIME_BOUNDARIES,
     getMarkers: BackendAPI.getTimeAxisMarkers,
   });
 
-  const throttledSetTimeMarkersAndUnit = useEvent(
-    (canvasWidth: number, pxPerSec: number, drawOptions: MarkerDrawOption) => {
-      if (canvasWidth <= 1) {
-        throttledSetTimeMarkers(0, 0, {});
-        setTimeUnitLabel("");
-        return;
-      }
-      throttledSetTimeMarkers(canvasWidth, pxPerSec, drawOptions);
-      const [markers] = timeMarkersAndLengthRef.current;
-      if (markers.length === 0) return;
-      const timeUnit = markers[markers.length - 1][1];
-      setTimeUnitLabel(timeUnit);
-    },
-  );
+  const throttledSetTimeMarkersAndUnit = useCallback(() => {
+    throttledSetTimeMarkers(width, pxPerSecRef.current, {
+      startSec: startSecRef.current,
+      endSec: startSecRef.current + width / pxPerSecRef.current,
+    });
+    const [markers] = timeMarkersAndLengthRef.current;
+    if (markers.length === 0) return;
+    const timeUnit = markers[markers.length - 1][1];
+    setTimeUnitLabel(timeUnit);
+  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef]);
+
+  const unsetTimeMarkersAndUnit = useEvent(() => {
+    resetTimeMarkers();
+    setTimeUnitLabel("");
+  });
 
   const {markersAndLengthRef: ampMarkersAndLengthRef, throttledSetMarkers: throttledSetAmpMarkers} =
     useThrottledSetMarkers({
@@ -159,12 +161,15 @@ function MainViewer(props: MainViewerProps) {
     getMarkers: BackendAPI.getFreqAxisMarkers,
   });
 
-  const {markersAndLengthRef: dbMarkersAndLengthRef, throttledSetMarkers: throttledSetDbMarkers} =
-    useThrottledSetMarkers({
-      scaleTable: DB_TICK_NUM,
-      boundaries: DB_BOUNDARIES,
-      getMarkers: BackendAPI.getdBAxisMarkers,
-    });
+  const {
+    markersAndLengthRef: dBMarkersAndLengthRef,
+    throttledSetMarkers: throttledSetdBMarkers,
+    resetMarkers: resetdBMarkers,
+  } = useThrottledSetMarkers({
+    scaleTable: DB_TICK_NUM,
+    boundaries: DB_BOUNDARIES,
+    getMarkers: BackendAPI.getdBAxisMarkers,
+  });
 
   const throttledSetImgState = useMemo(
     () =>
@@ -210,10 +215,7 @@ function MainViewer(props: MainViewerProps) {
       value?.updateLensParams({startSec, pxPerSec}),
     );
     throttledSetImgState(getIdChArr(), width, imgHeight);
-    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-      startSec: startSecRef.current,
-      pxPerSec: pxPerSecRef.current,
-    });
+    throttledSetTimeMarkersAndUnit();
   });
 
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
@@ -373,7 +375,7 @@ function MainViewer(props: MainViewerProps) {
       freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);
     });
     timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
-    dbCanvasElem.current?.draw(dbMarkersAndLengthRef.current);
+    dBCanvasElem.current?.draw(dBMarkersAndLengthRef.current);
 
     const images = BackendAPI.getImages();
     Object.entries(images).forEach(([idChStr, buf]) => {
@@ -494,24 +496,21 @@ function MainViewer(props: MainViewerProps) {
 
   useEffect(() => {
     if (!trackIds.length) {
-      throttledSetDbMarkers(0, 0, {});
+      resetdBMarkers();
       return;
     }
 
-    throttledSetDbMarkers(colorBarHeight, colorBarHeight, {});
-  }, [throttledSetDbMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
+    throttledSetdBMarkers(colorBarHeight, colorBarHeight, {});
+  }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) {
-      throttledSetTimeMarkersAndUnit(0, 0, {});
+      unsetTimeMarkersAndUnit();
       return;
     }
 
-    throttledSetTimeMarkersAndUnit(width, pxPerSecRef.current, {
-      startSec: startSecRef.current,
-      pxPerSec: pxPerSecRef.current,
-    });
-  }, [throttledSetTimeMarkersAndUnit, width, trackIds, needRefreshTrackIdChArr]);
+    throttledSetTimeMarkersAndUnit();
+  }, [unsetTimeMarkersAndUnit, throttledSetTimeMarkersAndUnit, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -593,7 +592,7 @@ function MainViewer(props: MainViewerProps) {
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
           setHeight={setColorMapHeight}
-          dbAxisCanvasElem={dbCanvasElem}
+          dbAxisCanvasElem={dBCanvasElem}
         />
       </div>
     </>

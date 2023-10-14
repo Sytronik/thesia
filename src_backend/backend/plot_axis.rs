@@ -8,83 +8,62 @@ use num_traits::Zero;
 use super::spectrogram::FreqScale;
 use super::{mel, TrackManager};
 
-pub type PlotAxis = Vec<(i32, String)>;
-pub type RelativeAxis = Vec<(f32, String)>;
+pub type PlotAxis = Vec<(f32, String)>;
 
 const POSSIBLE_TEN_UNITS: [u32; 4] = [10, 20, 50, 100];
 
 pub trait PlotAxisCreator {
     fn create_time_axis(
         &self,
-        width: u32,
         start_sec: f64,
-        px_per_sec: f64,
+        end_sec: f64,
         tick_unit: f64,
         label_interval: u32,
     ) -> PlotAxis;
 
-    fn create_freq_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
+    fn create_freq_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
 
-    fn create_db_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
+    fn create_db_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
 
-    fn create_amp_axis(
-        height: u32,
-        max_num_ticks: u32,
-        max_num_labels: u32,
-        amp_range: (f32, f32),
-    ) -> PlotAxis {
-        calc_amp_axis(height, max_num_ticks, max_num_labels, amp_range)
+    fn create_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32)) -> PlotAxis {
+        calc_amp_axis(max_num_ticks, max_num_labels, amp_range)
     }
 }
 
 impl PlotAxisCreator for TrackManager {
     fn create_time_axis(
         &self,
-        width: u32,
         start_sec: f64,
-        px_per_sec: f64,
+        end_sec: f64,
         tick_unit: f64,
         label_interval: u32,
     ) -> PlotAxis {
-        create_time_axis(
-            width,
+        calc_time_axis(
             start_sec,
-            px_per_sec,
+            end_sec,
             tick_unit,
             label_interval,
             self.tracklist.max_sec,
         )
     }
 
-    fn create_freq_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        create_freq_axis(
+    fn create_freq_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
+        calc_freq_axis(
             self.setting.freq_scale,
             self.max_sr,
             max_num_ticks,
             max_num_labels,
         )
-        .into_iter()
-        .map(|(relative_y, s)| {
-            let y = (relative_y * (height as f32)).round() as i32;
-            (y, s)
-        })
-        .collect()
     }
 
-    fn create_db_axis(&self, height: u32, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        calc_db_axis(
-            height,
-            max_num_ticks,
-            max_num_labels,
-            (self.min_db, self.max_db),
-        )
+    fn create_db_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
+        calc_db_axis(max_num_ticks, max_num_labels, (self.min_db, self.max_db))
     }
 }
 
-fn create_time_axis(
-    width: u32,
+fn calc_time_axis(
     start_sec: f64,
-    px_per_sec: f64,
+    end_sec: f64,
     tick_unit: f64,
     label_interval: u32,
     max_sec: f64,
@@ -96,7 +75,7 @@ fn create_time_axis(
     } else {
         0
     };
-    let last_unit = ((start_sec + width as f64 / px_per_sec) / tick_unit).ceil() as u32;
+    let last_unit = (end_sec / tick_unit).ceil() as u32;
     let label_unit = tick_unit * label_interval as f64;
     let (hms_format, hms_display) = if max_sec > 3599. {
         ("%H:%M:%S", "hh:mm:ss")
@@ -125,47 +104,45 @@ fn create_time_axis(
     }
 
     let time_format = format!("{}{}", hms_format, milli_format);
-    let elem_format_display = (i32::MIN, format!("{}{}", hms_display, milli_display));
+    let elem_format_display = (i32::MIN as f32, format!("{}{}", hms_display, milli_display));
     (first_unit..last_unit)
         .map(|unit| {
             let sec = unit as f64 * tick_unit;
-            let x = (((sec - start_sec) * px_per_sec).round() as i32).min(width as i32);
-            let s = if unit % label_interval == 0 {
-                let sec_u32 = sec.floor() as u32;
-                let nano = if milli_format.is_empty() {
-                    0
-                } else {
-                    let milli = ((sec - sec_u32 as f64) * 1000.).round() as u32 / n_mod * n_mod;
-                    milli * 1000_000
-                };
-                let mut result = NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
-                    .unwrap()
-                    .format(&time_format)
-                    .to_string();
-                if time_format.starts_with("%S") && sec_u32 < 10 {
-                    result = result.replacen("0", "", 1);
-                }
-                if milli_format.is_empty() {
-                    result
-                } else {
-                    result.trim_end_matches("0").trim_end_matches(".").into()
-                }
+            let x = ((sec - start_sec) / (end_sec - start_sec)) as f32;
+            if unit % label_interval > 0 {
+                return (x, String::new());
+            }
+            let sec_u32 = sec.floor() as u32;
+            let nano = if milli_format.is_empty() {
+                0
             } else {
-                String::new()
+                let milli = ((sec - sec_u32 as f64) * 1000.).round() as u32 / n_mod * n_mod;
+                milli * 1000_000
             };
-            (x, s)
+            let mut s = NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
+                .unwrap()
+                .format(&time_format)
+                .to_string();
+            if time_format.starts_with("%S") && sec_u32 < 10 {
+                s = s.replacen("0", "", 1);
+            }
+            if milli_format.is_empty() {
+                (x, s)
+            } else {
+                (x, s.trim_end_matches("0").trim_end_matches(".").into())
+            }
         })
         .chain(iter::once(elem_format_display))
         .collect()
 }
 
 #[cached(size = 3)]
-fn create_freq_axis(
+fn calc_freq_axis(
     freq_scale: FreqScale,
     sr: u32,
     max_num_ticks: u32,
-    max_num_labels: u32,
-) -> RelativeAxis {
+    _max_num_labels: u32,
+) -> PlotAxis {
     // TODO: max_num_labels
     fn coarse_band(fine_band: f32) -> f32 {
         if fine_band <= 100. {
@@ -231,12 +208,7 @@ fn create_freq_axis(
     result
 }
 
-fn calc_amp_axis(
-    height: u32,
-    max_num_ticks: u32,
-    max_num_labels: u32,
-    amp_range: (f32, f32),
-) -> PlotAxis {
+fn calc_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32)) -> PlotAxis {
     assert!(amp_range.1 > amp_range.0);
     assert!(max_num_ticks >= 3);
     if abs_diff_ne!(amp_range.0, -amp_range.1) {
@@ -246,48 +218,48 @@ fn calc_amp_axis(
         unimplemented!()
     }
     let n_ticks_half = (max_num_ticks - 1) / 2;
-    let half_axis = calc_linear_axis(0., amp_range.1, n_ticks_half + 1); // amp_range.1 ~ 0
-    let half_len = half_axis.len();
-    let half_axis: Vec<_> =
-        omit_labels_from_linear_axis(half_axis.into_iter().rev(), half_len, max_num_labels)
-            .collect(); // 0 ~ amp_range.1
-    let positive_half_axis = half_axis.iter().rev().map(|(y_ratio, s)| {
-        let y = (height as f32 * y_ratio / 2.).round() as i32;
-        (y, s.clone())
-    }); // 0 ~ amp_range.1
-    let negative_half_axis = half_axis.iter().skip(1).map(|(y_ratio, s)| {
-        let y = (height as f32 * (1. - y_ratio / 2.)).round() as i32;
+
+    // (0., str(amp_range.1)) ~ (1., str(0))
+    let half_axis_to_amp0 = calc_linear_axis(0., amp_range.1, n_ticks_half + 1); // amp_range.1 ~ 0
+    let half_len = half_axis_to_amp0.len();
+
+    // (1., str(0)) ~ (0., str(amp_range.1))
+    let half_axis_from_amp0: Vec<_> = omit_labels_from_linear_axis(
+        half_axis_to_amp0.into_iter().rev(),
+        half_len,
+        max_num_labels,
+    )
+    .collect();
+
+    // (0., str(amp_range.1)) ~ (0.5, str(0))
+    let positive_half_axis = half_axis_from_amp0
+        .iter()
+        .rev()
+        .map(|(y, s)| (y / 2., s.clone()));
+
+    // (0.5, str(0)) ~ (1., str(amp_range.0))
+    let negative_half_axis = half_axis_from_amp0.iter().skip(1).map(|(y, s)| {
+        let y = 1. - y / 2.;
         let s = if s.is_empty() {
             String::new()
         } else {
             format!("-{}", s)
         };
         (y, s)
-    }); // 0 ~ amp_range.0
+    });
 
     positive_half_axis.chain(negative_half_axis).collect()
 }
 
-fn calc_db_axis(
-    height: u32,
-    max_num_ticks: u32,
-    max_num_labels: u32,
-    db_range: (f32, f32),
-) -> PlotAxis {
+fn calc_db_axis(max_num_ticks: u32, max_num_labels: u32, db_range: (f32, f32)) -> PlotAxis {
     assert!(db_range.1 > db_range.0);
     assert!(max_num_ticks >= 2);
     let axis = calc_linear_axis(db_range.0, db_range.1, max_num_ticks);
     let len = axis.len();
-    omit_labels_from_linear_axis(
-        axis.into_iter()
-            .map(|(y_ratio, s)| ((height as f32 * y_ratio).round() as i32, s)),
-        len,
-        max_num_labels,
-    )
-    .collect()
+    omit_labels_from_linear_axis(axis.into_iter(), len, max_num_labels).collect()
 }
 
-fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> RelativeAxis {
+fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> PlotAxis {
     if max_num_ticks == 2 {
         return vec![
             (0., format_ticklabel(max, None)),
@@ -397,11 +369,11 @@ mod tests {
                 });
         };
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Linear, 24000, 2, 2),
+            &calc_freq_axis(FreqScale::Linear, 24000, 2, 2),
             &vec![(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Linear, 24000, 8, 8),
+            &calc_freq_axis(FreqScale::Linear, 24000, 8, 8),
             &vec![
                 (1., "0"),
                 (5. / 6., "2k"),
@@ -413,15 +385,15 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Linear, 24000, 24, 24)[..3],
+            &calc_freq_axis(FreqScale::Linear, 24000, 24, 24)[..3],
             &vec![(1., "0"), (11. / 12., "1k"), (10. / 12., "2k")],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Linear, 24000, 25, 25)[..3],
+            &calc_freq_axis(FreqScale::Linear, 24000, 25, 25)[..3],
             &vec![(1., "0"), (23. / 24., "500"), (22. / 24., "1k")],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Linear, 22050, 24, 24)[20..],
+            &calc_freq_axis(FreqScale::Linear, 22050, 24, 24)[20..],
             &vec![
                 (1. - 10000. / 11025., "10k"),
                 (1. - 10500. / 11025., "10.5k"),
@@ -429,11 +401,11 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Mel, 24000, 2, 2),
+            &calc_freq_axis(FreqScale::Mel, 24000, 2, 2),
             &vec![(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Mel, 24000, 3, 3),
+            &calc_freq_axis(FreqScale::Mel, 24000, 3, 3),
             &vec![
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
@@ -441,7 +413,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Mel, 3000, 4, 4),
+            &calc_freq_axis(FreqScale::Mel, 3000, 4, 4),
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(1500.), "500"),
@@ -450,7 +422,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Mel, 24000, 8, 8),
+            &calc_freq_axis(FreqScale::Mel, 24000, 8, 8),
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(12000.), "500"),
@@ -461,7 +433,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &create_freq_axis(FreqScale::Mel, 96000, 6, 6),
+            &calc_freq_axis(FreqScale::Mel, 96000, 6, 6),
             &vec![
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(48000.), "1k"),
@@ -474,7 +446,7 @@ mod tests {
 
     #[test]
     fn db_axis_works() {
-        let assert_axis_eq = |a: &[(i32, String)], b: &[(i32, &str)]| {
+        let assert_axis_eq = |a: &[(f32, String)], b: &[(f32, &str)]| {
             a.into_iter()
                 .zip(b.into_iter())
                 .for_each(|((y0, s0), (y1, s1))| {
@@ -483,16 +455,16 @@ mod tests {
                 });
         };
         assert_axis_eq(
-            &calc_db_axis(100, 2, 2, (-100., 0.)),
-            &vec![(0i32, "0"), (100, "-100")],
+            &calc_db_axis(2, 2, (-100., 0.)),
+            &vec![(0., "0"), (1., "-100")],
         );
         assert_axis_eq(
-            &calc_db_axis(12, 3, 3, (-12., 0.)),
-            &vec![(0i32, "0"), (5, "-5"), (10, "-10")],
+            &calc_db_axis(3, 3, (-12., 0.)),
+            &vec![(0., "0"), (-5. / -12., "-5"), (-10. / -12., "-10")],
         );
         assert_axis_eq(
-            &calc_db_axis(90, 3, 3, (-2., -1.1)),
-            &vec![(40i32, "-1.5"), (90, "-2.0")],
+            &calc_db_axis(3, 3, (-2., -1.1)),
+            &vec![((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
         );
     }
 }

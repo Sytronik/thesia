@@ -14,31 +14,28 @@ export function getChannelCounts(trackId: number): 1 | 2 {
 /* draw tracks */
 /* time axis */
 export async function getTimeAxisMarkers(
-  width: number,
   subTickSec: number,
   subTickUnitCount: number,
   markerDrawOptions: MarkerDrawOption,
 ): Promise<Markers> {
-  const {startSec, pxPerSec} = markerDrawOptions || {};
+  const {startSec, endSec} = markerDrawOptions || {};
 
-  if (startSec === undefined || pxPerSec === undefined) {
+  if (startSec === undefined || endSec === undefined) {
     console.error("no start sec of px per sec value exist");
     return [];
   }
-  return backend.getTimeAxisMarkers(width, startSec, pxPerSec, subTickSec, subTickUnitCount);
+  return backend.getTimeAxisMarkers(startSec, endSec, subTickSec, subTickUnitCount);
 }
 
 /* track axis */
 export async function getFreqAxisMarkers(
-  height: number,
   maxNumTicks: number,
   maxNumLabels: number,
 ): Promise<Markers> {
-  return backend.getFreqAxisMarkers(height, maxNumTicks, maxNumLabels);
+  return backend.getFreqAxisMarkers(maxNumTicks, maxNumLabels);
 }
 
 export async function getAmpAxisMarkers(
-  height: number,
   maxNumTicks: number,
   maxNumLabels: number,
   markerDrawOptions: MarkerDrawOption,
@@ -50,17 +47,16 @@ export async function getAmpAxisMarkers(
     return [];
   }
 
-  return backend.getAmpAxisMarkers(height, maxNumTicks, maxNumLabels, ampRange);
+  return backend.getAmpAxisMarkers(maxNumTicks, maxNumLabels, ampRange);
 }
 
 /* db axis */
 
 export async function getdBAxisMarkers(
-  height: number,
   maxNumTicks: number,
   maxNumLabels: number,
 ): Promise<Markers> {
-  return backend.getdBAxisMarkers(height, maxNumTicks, maxNumLabels);
+  return backend.getdBAxisMarkers(maxNumTicks, maxNumLabels);
 }
 
 /* images */

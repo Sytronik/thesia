@@ -73,7 +73,7 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
     const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
     const axisLength = (direction === "H" ? width : height) - 2 * axisPadding;
-    const ratio = shiftWhenResize ? 1 : axisLength / lenForMarkers;
+    const ratioToPx = shiftWhenResize ? lenForMarkers : axisLength;
     if (direction === "H") {
       ctx.beginPath();
       ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
@@ -81,8 +81,8 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
       ctx.stroke();
 
       markers.forEach((marker) => {
-        const [axisPosition, label] = marker;
-        const pxPosition = correctMarkerPos(axisPosition * ratio + axisPadding, axisLength);
+        const [posRatio, label] = marker;
+        const pxPosition = correctMarkerPos(posRatio * ratioToPx + axisPadding, axisLength);
 
         ctx.beginPath();
         if (label) {
@@ -102,8 +102,8 @@ const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
       ctx.stroke();
 
       markers.forEach((marker) => {
-        const [axisPosition, label] = marker;
-        const pxPosition = correctMarkerPos(axisPosition * ratio + axisPadding, axisLength);
+        const [posRatio, label] = marker;
+        const pxPosition = correctMarkerPos(posRatio * ratioToPx + axisPadding, axisLength);
 
         ctx.beginPath();
         if (label) {
