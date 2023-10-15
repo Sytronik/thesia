@@ -1,4 +1,4 @@
-@import '../styles/index.scss';
+@import "../styles/index.scss";
 
 .timeRuler {
   height: $spacer-3;
@@ -8,11 +8,11 @@
 
 .ampAxisWrapper {
   display: flex;
+  margin-right: $track-margin;
 }
 
 .ampAxis {
   flex: 0 0 auto;
-  margin-right: $track-margin;
   background-color: $bg-main;
 }
 
