@@ -71,8 +71,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       height,
     );
     const time = Math.min(Math.max(startSecRef.current + x / pxPerSecRef.current, 0), maxTrackSec);
+    const timeStr = time.toFixed(6).slice(0, -3);
     const hz = await BackendAPI.getHzAt(y, height);
-    setTooltipText(`${time.toFixed(3)} sec\n${hz.toFixed(0)} Hz`); // TODO: need better formatting (from backend?)
+    const hzStr = hz.toFixed(0);
+    setTooltipText(`${timeStr} sec\n${hzStr} Hz`); // TODO: need better formatting (from backend?)
     setTooltipPositionByCursorPos(e);
   });
 
