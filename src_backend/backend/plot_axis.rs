@@ -112,12 +112,13 @@ fn calc_time_axis(
             if unit % label_interval > 0 {
                 return (x, String::new());
             }
-            let sec_u32 = sec.floor() as u32;
+            let sec_floor = sec.floor() as u32;
+            let milli = ((sec - sec_floor as f64) * 1000.).round() as u32;
+            let sec_u32 = sec_floor + milli / 1000;
             let nano = if milli_format.is_empty() {
                 0
             } else {
-                let milli = ((sec - sec_u32 as f64) * 1000.).round() as u32 / n_mod * n_mod;
-                milli * 1000_000
+                milli / n_mod * n_mod * 1000_000
             };
             let mut s = NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
                 .unwrap()
