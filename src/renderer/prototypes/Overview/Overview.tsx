@@ -31,9 +31,6 @@ type ArgsGetOverview = [trackId: number, width: number, height: number];
 type ArgsLens = [durationSec: number, startSec: number, lensDurationSec: number];
 
 type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
-const calcCursorX = (e: MouseEvent | React.MouseEvent, rect: DOMRect) => {
-  return e.clientX - rect.left;
-};
 
 const Overview = forwardRef((props: OverviewProps, ref) => {
   const {selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight} = props;
@@ -167,34 +164,45 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     (resizeLensFunc: (sec: number) => void) => ({
       cursor: RESIZE_CURSOR,
       cursorClassNameForBody: "colResizeCursor",
-      handleDragging: (cursorX: number, _: number, rect: DOMRect) => {
+      handleDragging: (
+        _: OverviewCursorState,
+        cursorX: number,
+        anchorValue: number,
+        rect: DOMRect,
+      ) => {
         resizeLensFunc(calcSecFromX(cursorX, rect));
       },
     }),
     [calcSecFromX],
   );
 
-  const infoForInOutLens: CursorStateInfo = useMemo(
+  const infoForInOutLens: CursorStateInfo<OverviewCursorState, number> = useMemo(
     () => ({
       cursor: "text",
       cursorClassNameForBody: "textCursor",
-      handleDragging: (cursorX: number, anchorValue: number, rect: DOMRect) => {
+      handleDragging: (
+        _: OverviewCursorState,
+        cursorX: number,
+        anchorValue: number,
+        rect: DOMRect,
+      ) => {
         moveLens(calcSecFromX(cursorX, rect), anchorValue);
       },
     }),
     [moveLens, calcSecFromX],
   );
 
-  const cursorStateInfos: Map<OverviewCursorState, CursorStateInfo> = useMemo(
-    () =>
-      new Map([
-        ["left", getInfoForResize(resizeLensLeft)],
-        ["right", getInfoForResize(resizeLensRight)],
-        ["inlens", infoForInOutLens],
-        ["outlens", infoForInOutLens],
-      ]),
-    [resizeLensLeft, resizeLensRight, getInfoForResize, infoForInOutLens],
-  );
+  const cursorStateInfos: Map<OverviewCursorState, CursorStateInfo<OverviewCursorState, number>> =
+    useMemo(
+      () =>
+        new Map([
+          ["left", getInfoForResize(resizeLensLeft)],
+          ["right", getInfoForResize(resizeLensRight)],
+          ["inlens", infoForInOutLens],
+          ["outlens", infoForInOutLens],
+        ]),
+      [resizeLensLeft, resizeLensRight, getInfoForResize, infoForInOutLens],
+    );
 
   const determineCursorStates = useEvent((cursorX: number) => {
     if (!prevArgsLensRef.current) return "outlens";
@@ -216,9 +224,9 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   });
 
   const calcDragAnchor = useEvent(
-    (e: MouseEvent | React.MouseEvent, cursorState: OverviewCursorState, rect: DOMRect) => {
+    (cursorState: OverviewCursorState, cursorPos: number, rect: DOMRect) => {
       if (prevArgsLensRef.current !== null && cursorState === "inlens") {
-        const sec = calcSecFromX(calcCursorX(e, rect), rect);
+        const sec = calcSecFromX(cursorPos, rect);
         const [trackDurationSec, startSec, lensDurationSec] = prevArgsLensRef.current;
         return (sec - startSec) / lensDurationSec;
       }
@@ -231,7 +239,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       <canvas ref={backgroundElem} />
       <Draggable
         cursorStateInfos={cursorStateInfos}
-        calcCursorPos={calcCursorX}
+        calcCursorPos="x"
         determineCursorStates={determineCursorStates}
         calcDragAnchor={calcDragAnchor}
         dragAnchorDefault={0.5}

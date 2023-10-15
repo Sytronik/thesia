@@ -97,3 +97,11 @@ body.textCursor * {
 body.colResizeCursor * {
   cursor: col-resize !important;
 }
+
+body.nResizeCursor * {
+  cursor: n-resize !important;
+}
+
+body.sResizeCursor * {
+  cursor: s-resize !important;
+}

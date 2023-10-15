@@ -189,6 +189,12 @@ function MainViewer(props: MainViewerProps) {
     [devicePixelRatio],
   );
 
+  const setAmpRange = useEvent((newRange: [number, number]) => {
+    ampRangeRef.current = newRange;
+    throttledSetImgState(getIdChArr(), width, imgHeight);
+    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
+  });
+
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
     return Math.min(Math.max(startSec, 0), maxEndSec - width / pxPerSec);
   });
@@ -340,31 +346,6 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
-  const handleWheelOnAmpAxis = useEvent((e: WheelEvent) => {
-    if (e.altKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
-      const interval = ampRangeRef.current[1] - ampRangeRef.current[0];
-      const zeroRatio = ampRangeRef.current[1] / interval;
-      const newInterval = interval * Math.max(1 - e.deltaY / 500, 0);
-      ampRangeRef.current[0] = Math.min(Math.max(newInterval * (zeroRatio - 1), -1), -1e-5);
-      ampRangeRef.current[1] = Math.min(Math.max(newInterval * zeroRatio, 1e-5), 1);
-      throttledSetImgState(getIdChArr(), width, imgHeight);
-      throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-    }
-  });
-
-  const handleClickOnAmpAxis = useEvent((e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.button === 0 && e.detail === 2) {
-      ampRangeRef.current = [...DEFAULT_AMP_RANGE];
-      throttledSetImgState(getIdChArr(), width, imgHeight);
-      throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-    }
-  });
-
   useEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
   }, [scrollTop]);
@@ -469,8 +450,8 @@ function MainViewer(props: MainViewerProps) {
                 <AmpAxis
                   ref={registerAmpCanvas(idChStr)}
                   height={height}
-                  onWheel={handleWheelOnAmpAxis}
-                  onClick={handleClickOnAmpAxis}
+                  ampRangeRef={ampRangeRef}
+                  setAmpRange={setAmpRange}
                 />
                 <FreqAxis ref={registerFreqCanvas(idChStr)} height={height} />
               </div>
