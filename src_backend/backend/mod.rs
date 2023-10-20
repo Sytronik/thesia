@@ -10,10 +10,12 @@ use serde::{Deserialize, Serialize};
 mod audio;
 mod decibel;
 pub mod display;
+mod normalize;
 pub mod plot_axis;
 mod resample;
 mod sinc;
 mod spectrogram;
+mod stats;
 mod track;
 #[macro_use]
 pub mod utils;

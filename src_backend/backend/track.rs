@@ -3,13 +3,14 @@ use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
 
-use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
 use super::audio::{open_audio_file, Audio};
 use super::display::{CalcWidth, IdxLen, PartGreyInfo};
+use super::normalize::{GuardClippingMode, Normalize, NormalizeTarget};
 use super::spectrogram::SrWinNfft;
+use super::stats::{AudioStats, StatCalculator};
 use super::utils::unique_filenames;
 use super::{IdChVec, SpecSetting};
 
@@ -36,39 +37,42 @@ macro_rules! indexed_iter_filtered {
 #[readonly::make]
 pub struct AudioTrack {
     pub format_desc: String,
-    pub global_lufs: f64,
+    pub normalize_target: NormalizeTarget,
     path: PathBuf,
+    original: Audio,
     audio: Audio,
-    loudness_analyzer: EbuR128,
+    stat_calculator: StatCalculator,
+    guard_clipping_mode: GuardClippingMode,
 }
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
-        let (audio, format_desc) = open_audio_file(&path)?;
+        let (original, stat_calculator, format_desc) = open_audio_file(&path)?;
 
-        let mut loudness_analyzer =
-            EbuR128::new(audio.n_ch() as u32, audio.sr, LoudnessMode::all()).unwrap();
-        loudness_analyzer
-            .add_frames_planar_f32(&audio.planes())
-            .unwrap();
-        let global_lufs = loudness_analyzer.loudness_global().unwrap();
+        let audio = original.clone();
 
         Ok(AudioTrack {
             format_desc,
-            global_lufs,
             path: PathBuf::from(path).canonicalize().unwrap(),
+            original,
             audio,
-            loudness_analyzer,
+            stat_calculator,
+            normalize_target: Default::default(),
+            guard_clipping_mode: Default::default(),
         })
     }
 
     pub fn reload(&mut self) -> Result<bool, SymphoniaError> {
-        let (audio, format_desc) = open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if audio == self.audio && format_desc == self.format_desc {
+        let (original, stat_calculator, format_desc) =
+            open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if original == self.original && format_desc == self.format_desc {
             return Ok(false);
         }
-        self.audio = audio;
+        self.original = original.clone();
+        self.audio = original;
+        self.stat_calculator = stat_calculator;
         self.format_desc = format_desc;
+        self.normalize(self.normalize_target, self.guard_clipping_mode);
         Ok(true)
     }
 
@@ -103,6 +107,11 @@ impl AudioTrack {
             .canonicalize()
             .map_or(false, |x| x == self.path)
     }
+
+    #[inline]
+    pub fn stats(&self) -> &AudioStats {
+        &self.audio.stats
+    }
 }
 
 impl CalcWidth for AudioTrack {
@@ -127,6 +136,32 @@ impl CalcWidth for AudioTrack {
 
     fn decompose_width_of(&self, start_sec: f64, width: u32, px_per_sec: f64) -> (u32, u32, u32) {
         self.audio.decompose_width_of(start_sec, width, px_per_sec)
+    }
+}
+
+impl Normalize for AudioTrack {
+    #[inline]
+    fn normalize(&mut self, target: NormalizeTarget, guard_clipping_mode: GuardClippingMode) {
+        self.normalize_target = target;
+        self.guard_clipping_mode = guard_clipping_mode;
+        self.normalize_default(target, guard_clipping_mode);
+    }
+
+    fn stats_for_normalize(&self) -> &AudioStats {
+        &self.original.stats
+    }
+
+    fn apply_gain(&mut self, gain: f32, guard_clipping_mode: GuardClippingMode) {
+        if !gain.is_finite() {
+            return;
+        }
+        self.audio.mutate(
+            |wavs| {
+                azip!((y in wavs, x in self.original.view()) *y = gain * x);
+            },
+            &mut self.stat_calculator,
+            guard_clipping_mode,
+        );
     }
 }
 
@@ -361,6 +396,6 @@ mod tests {
     #[test]
     fn calc_loudness_works() {
         let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
-        assert_abs_diff_eq!(track.global_lufs, -26.20331705029079);
+        assert_abs_diff_eq!(track.stats().global_lufs, -26.20331705029079);
     }
 }

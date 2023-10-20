@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use std::path::{self, PathBuf};
 
-use ndarray::OwnedRepr;
-use ndarray::{prelude::*, Data, RemoveAxis, Slice, Zip};
+use ndarray::prelude::*;
+use ndarray::{Data, OwnedRepr, RemoveAxis, Slice, Zip};
 
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
@@ -130,6 +130,22 @@ where
             }
         }
         unsafe { result.assume_init() }
+    }
+}
+
+pub trait Planes<A> {
+    fn planes(&self) -> Vec<&[A]>;
+}
+
+impl<A, S, D> Planes<A> for ArrayBase<S, D>
+where
+    S: Data<Elem = A>,
+    D: Dimension + RemoveAxis,
+{
+    fn planes(&self) -> Vec<&[A]> {
+        self.axis_iter(Axis(0))
+            .map(|x| x.to_slice().unwrap())
+            .collect()
     }
 }
 

@@ -264,7 +264,7 @@ fn get_sample_format(track_id: u32) -> String {
 fn get_global_lufs(track_id: u32) -> f64 {
     TM.blocking_read()
         .get_track(track_id as usize)
-        .map_or(f64::NEG_INFINITY, |track| track.global_lufs)
+        .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
 }
 
 #[napi]

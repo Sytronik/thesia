@@ -10,29 +10,39 @@ use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
+use super::normalize::{GuardClipping, GuardClippingMode};
+use super::stats::{AudioStats, StatCalculator};
+
 const FORMAT_DESC_DELIMITER: &str = "|";
 
 #[readonly::make]
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Audio {
     wavs: Array2<f32>,
     pub sr: u32,
+    pub stats: AudioStats,
 }
 
 impl Audio {
-    pub fn new(wavs: Array2<f32>, sr: u32) -> Self {
-        Self { wavs, sr }
+    pub fn new(wavs: Array2<f32>, sr: u32, mut stat_calculator: &mut StatCalculator) -> Self {
+        let stats = stat_calculator.calc(wavs.view());
+        Self { wavs, sr, stats }
     }
 
     pub fn view(&self) -> ArrayView2<f32> {
         self.wavs.view()
     }
 
-    pub fn planes(&self) -> Vec<&[f32]> {
-        self.wavs
-            .axis_iter(Axis(0))
-            .map(|x| x.to_slice().unwrap())
-            .collect()
+    pub fn mutate<F>(
+        &mut self,
+        f: F,
+        stat_calculator: &mut StatCalculator,
+        guard_clipping_mode: GuardClippingMode,
+    ) where
+        F: Fn(&mut Array2<f32>),
+    {
+        self.wavs.mutate_with_guard_clipping(f, guard_clipping_mode);
+        self.update_stats(stat_calculator);
     }
 
     #[inline]
@@ -54,9 +64,13 @@ impl Audio {
     pub fn sec(&self) -> f64 {
         self.wavs.shape()[1] as f64 / self.sr as f64
     }
+
+    fn update_stats(&mut self, stat_calculator: &mut StatCalculator) {
+        self.stats = stat_calculator.calc(self.view());
+    }
 }
 
-pub fn open_audio_file(path: &str) -> Result<(Audio, String), SymphoniaError> {
+pub fn open_audio_file(path: &str) -> Result<(Audio, StatCalculator, String), SymphoniaError> {
     let src = std::fs::File::open(path)?;
 
     // Create the media source stream.
@@ -179,7 +193,7 @@ pub fn open_audio_file(path: &str) -> Result<(Audio, String), SymphoniaError> {
 
     let shape = (n_ch, vec.len() / n_ch);
     vec.truncate(shape.0 * shape.1); // defensive code
-    let wav = Array2::from_shape_vec(shape, vec).unwrap();
+    let wavs = Array2::from_shape_vec(shape, vec).unwrap();
     let sr = codec_params.sample_rate.unwrap_or_default();
 
     // TODO: format & codec description https://github.com/pdeljanov/Symphonia/issues/94
@@ -195,7 +209,12 @@ pub fn open_audio_file(path: &str) -> Result<(Audio, String), SymphoniaError> {
         }
     };
     let format_desc = format!("{} {} {}", ext, FORMAT_DESC_DELIMITER, sample_format_str);
-    Ok((Audio::new(wav, sr), format_desc))
+    let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, sr);
+    Ok((
+        Audio::new(wavs, sr, &mut stat_calculator),
+        stat_calculator,
+        format_desc,
+    ))
 }
 
 #[cfg(test)]
@@ -214,7 +233,7 @@ mod tests {
             format!("unknown {} 16 bit", FORMAT_DESC_DELIMITER),
         ];
         for (path, format_desc_answer) in paths.into_iter().zip(format_descs.into_iter()) {
-            let (audio, format_desc) = open_audio_file(path).unwrap();
+            let (audio, _, format_desc) = open_audio_file(path).unwrap();
             let arr = arr1(&[
                 0.00000000e+00f32,
                 0.00000000e+00,
