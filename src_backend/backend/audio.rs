@@ -24,7 +24,7 @@ pub struct Audio {
 }
 
 impl Audio {
-    pub fn new(wavs: Array2<f32>, sr: u32, mut stat_calculator: &mut StatCalculator) -> Self {
+    pub fn new(wavs: Array2<f32>, sr: u32, stat_calculator: &mut StatCalculator) -> Self {
         let stats = stat_calculator.calc(wavs.view());
         Self { wavs, sr, stats }
     }
@@ -70,7 +70,7 @@ impl Audio {
     }
 }
 
-pub fn open_audio_file(path: &str) -> Result<(Audio, StatCalculator, String), SymphoniaError> {
+pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), SymphoniaError> {
     let src = std::fs::File::open(path)?;
 
     // Create the media source stream.
@@ -209,12 +209,7 @@ pub fn open_audio_file(path: &str) -> Result<(Audio, StatCalculator, String), Sy
         }
     };
     let format_desc = format!("{} {} {}", ext, FORMAT_DESC_DELIMITER, sample_format_str);
-    let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, sr);
-    Ok((
-        Audio::new(wavs, sr, &mut stat_calculator),
-        stat_calculator,
-        format_desc,
-    ))
+    Ok((wavs, sr, format_desc))
 }
 
 #[cfg(test)]
@@ -233,7 +228,7 @@ mod tests {
             format!("unknown {} 16 bit", FORMAT_DESC_DELIMITER),
         ];
         for (path, format_desc_answer) in paths.into_iter().zip(format_descs.into_iter()) {
-            let (audio, _, format_desc) = open_audio_file(path).unwrap();
+            let (wavs, sr, format_desc) = open_audio_file(path).unwrap();
             let arr = arr1(&[
                 0.00000000e+00f32,
                 0.00000000e+00,
@@ -252,11 +247,11 @@ mod tests {
                 -3.05175781e-05,
                 0.00000000e+00,
             ]);
-            assert_eq!(audio.sr, 48000);
-            assert_eq!((audio.n_ch(), audio.len()), (1, 2113529));
-            assert_eq!(audio.get_ch(0).max().unwrap().clone(), 0.234344482421875);
-            assert_eq!(audio.get_ch(0).min().unwrap().clone(), -0.20355224609375);
-            assert_eq!(audio.get_ch(0).slice(s![..arr.len()]), arr);
+            assert_eq!(sr, 48000);
+            assert_eq!(wavs.shape(), &[1, 2113529]);
+            assert_eq!(wavs.max().unwrap().clone(), 0.234344482421875);
+            assert_eq!(wavs.min().unwrap().clone(), -0.20355224609375);
+            assert_eq!(wavs.slice(s![0, ..arr.len()]), arr);
             assert_eq!(format_desc, format_desc_answer);
         }
     }

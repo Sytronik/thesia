@@ -47,7 +47,9 @@ pub struct AudioTrack {
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
-        let (original, stat_calculator, format_desc) = open_audio_file(&path)?;
+        let (wavs, sr, format_desc) = open_audio_file(&path)?;
+        let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, sr);
+        let original = Audio::new(wavs, sr, &mut stat_calculator);
 
         let audio = original.clone();
 
@@ -63,14 +65,14 @@ impl AudioTrack {
     }
 
     pub fn reload(&mut self) -> Result<bool, SymphoniaError> {
-        let (original, stat_calculator, format_desc) =
-            open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if original == self.original && format_desc == self.format_desc {
+        let (wavs, sr, format_desc) = open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if wavs.view() == self.original.view() && sr == self.sr() && format_desc == self.format_desc
+        {
             return Ok(false);
         }
+        let original = Audio::new(wavs, sr, &mut self.stat_calculator);
         self.original = original.clone();
         self.audio = original;
-        self.stat_calculator = stat_calculator;
         self.format_desc = format_desc;
         self.normalize(self.normalize_target, self.guard_clipping_mode);
         Ok(true)
