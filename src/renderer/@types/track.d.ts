@@ -1,23 +1,7 @@
-// IdChannel is form of id#_ch#
-type IdChannel = string;
+type Markers = import("../api").Markers;
+type IdChannel = import("../api").IdChannel;
 type IdChArr = IdChannel[];
 type IdChMap = Map<number, IdChArr>;
-
-// written in snake case for compatibility with native api
-type DrawOptionForWav = {
-  amp_range: [number, number];
-  dpr: number;
-};
-
-type MarkerDrawOption = {
-  startSec?: number;
-  endSec?: number;
-  ampRange?: [number, number];
-};
-
-type SpecWavImages = {
-  [key: IdChannel]: Buffer;
-};
 
 type SplitViewHandleElement = {
   getBoundingClientY: () => number;
@@ -40,10 +24,6 @@ type TrackSummaryData = {
 };
 
 // Axis Tick
-type TickPxPosition = number;
-type TickLable = string;
-type Markers = [TickPxPosition, TickLable][];
-
 type TickScaleTable = {
   [key: number]: number[];
 };
@@ -59,12 +39,3 @@ type OverviewHandleElement = {
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
 
 type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
-
-type FreqScale = "Mel" | "Linear";
-
-type SpecSetting = {
-  win_ms: number;
-  t_overlap: number;
-  f_overlap: number;
-  freq_scale: FreqScale;
-};

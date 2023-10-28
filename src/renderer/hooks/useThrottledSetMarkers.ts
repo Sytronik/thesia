@@ -1,6 +1,7 @@
 import {useRef, useMemo} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
+import {MarkerDrawOption} from "../api";
 
 type ThrottledSetMarkersParams = {
   scaleTable: TickScaleTable;

@@ -1,8 +1,7 @@
 import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
-import {GuardClippingMode, NormalizeTarget} from "renderer/api/backend-wrapper";
-import BackendAPI from "../api";
+import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
 
 type AddTracksResultType = {
   existingIds: number[];

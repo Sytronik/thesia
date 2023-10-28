@@ -13,6 +13,15 @@ export function getChannelCounts(trackId: number): 1 | 2 {
   return 1;
 }
 
+export type TickPxPosition = number;
+export type TickLable = string;
+export type Markers = [TickPxPosition, TickLable][];
+export type MarkerDrawOption = {
+  startSec?: number;
+  endSec?: number;
+  ampRange?: [number, number];
+};
+
 /* draw tracks */
 /* time axis */
 export async function getTimeAxisMarkers(
@@ -61,10 +70,22 @@ export async function getdBAxisMarkers(
   return backend.getdBAxisMarkers(maxNumTicks, maxNumLabels);
 }
 
+// IdChannel is form of id#_ch#
+export type IdChannel = string;
+export type SpecWavImages = {
+  [key: IdChannel]: Buffer;
+};
+
 /* images */
 export function getImages(): SpecWavImages {
   return backend.getImages();
 }
+
+// written in snake case for compatibility with native api
+export type DrawOptionForWav = {
+  amp_range: [number, number];
+  dpr: number;
+};
 
 export async function setImageState(
   idChArr: string[],
@@ -84,6 +105,15 @@ export async function setImageState(
     blend,
   );
 }
+
+export type FreqScale = "Mel" | "Linear";
+
+export type SpecSetting = {
+  win_ms: number;
+  t_overlap: number;
+  f_overlap: number;
+  freq_scale: FreqScale;
+};
 
 export function getSpecSetting(): SpecSetting {
   return backend.getSpecSetting();
