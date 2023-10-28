@@ -1,5 +1,7 @@
 import backend from "backend";
 
+export {GuardClippingMode} from "backend";
+
 backend.init();
 
 // most api returns empty array for edge case
@@ -91,6 +93,14 @@ export async function setSpecSetting(specSetting: SpecSetting) {
   await backend.setSpecSetting(specSetting);
 }
 
+export function getCommonNormalize(): NormalizeTarget {
+  return backend.getCommonNormalize();
+}
+
+export async function setCommonNormalize(commonNormalize: NormalizeTarget): Promise<void> {
+  backend.setCommonNormalize(commonNormalize);
+}
+
 export const {
   addTracks,
   reloadTracks,
@@ -109,4 +119,6 @@ export const {
   getMindB,
   getColorMap,
   getOverview,
+  getCommonGuardClipping,
+  setCommonGuardClipping,
 } = backend;

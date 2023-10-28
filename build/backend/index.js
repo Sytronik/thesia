@@ -252,8 +252,9 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getSpecSetting, setSpecSetting, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getPath, getFileName, getColorMap } = nativeBinding
+const { GuardClippingMode, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getPath, getFileName, getColorMap } = nativeBinding
 
+module.exports.GuardClippingMode = GuardClippingMode
 module.exports.init = init
 module.exports.addTracks = addTracks
 module.exports.reloadTracks = reloadTracks
@@ -262,6 +263,10 @@ module.exports.applyTrackListChanges = applyTrackListChanges
 module.exports.setImageState = setImageState
 module.exports.getSpecSetting = getSpecSetting
 module.exports.setSpecSetting = setSpecSetting
+module.exports.getCommonGuardClipping = getCommonGuardClipping
+module.exports.setCommonGuardClipping = setCommonGuardClipping
+module.exports.getCommonNormalize = getCommonNormalize
+module.exports.setCommonNormalize = setCommonNormalize
 module.exports.getImages = getImages
 module.exports.findIdByPath = findIdByPath
 module.exports.getOverview = getOverview

@@ -1,9 +1,13 @@
+use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
+use napi_derive::napi;
 use ndarray::prelude::*;
 use ndarray::{Data, DataMut};
+use serde::{Deserialize, Serialize};
 
 use super::stats::AudioStats;
 
-#[derive(Copy, Clone, Default)]
+#[napi(string_enum)]
+#[derive(Default)]
 pub enum GuardClippingMode {
     #[default]
     None,
@@ -68,7 +72,8 @@ where
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(tag = "type", content = "target")]
 pub enum NormalizeTarget {
     #[default]
     None,

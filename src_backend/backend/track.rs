@@ -4,6 +4,7 @@ use std::ops::Index;
 use std::path::PathBuf;
 
 use ndarray::prelude::*;
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use symphonia::core::errors::Error as SymphoniaError;
 
 use super::audio::{open_audio_file, Audio};
@@ -20,9 +21,9 @@ macro_rules! iter_filtered {
     };
 }
 
-macro_rules! iter_mut_filtered {
+macro_rules! par_iter_mut_filtered {
     ($vec: expr) => {
-        $vec.iter_mut().filter_map(|x| x.as_mut())
+        $vec.par_iter_mut().filter_map(|x| x.as_mut())
     };
 }
 
@@ -37,12 +38,10 @@ macro_rules! indexed_iter_filtered {
 #[readonly::make]
 pub struct AudioTrack {
     pub format_desc: String,
-    pub normalize_target: NormalizeTarget,
     path: PathBuf,
     original: Audio,
     audio: Audio,
     stat_calculator: StatCalculator,
-    guard_clipping_mode: GuardClippingMode,
 }
 
 impl AudioTrack {
@@ -59,8 +58,6 @@ impl AudioTrack {
             original,
             audio,
             stat_calculator,
-            normalize_target: Default::default(),
-            guard_clipping_mode: Default::default(),
         })
     }
 
@@ -74,7 +71,6 @@ impl AudioTrack {
         self.original = original.clone();
         self.audio = original;
         self.format_desc = format_desc;
-        self.normalize(self.normalize_target, self.guard_clipping_mode);
         Ok(true)
     }
 
@@ -143,12 +139,6 @@ impl CalcWidth for AudioTrack {
 
 impl Normalize for AudioTrack {
     #[inline]
-    fn normalize(&mut self, target: NormalizeTarget, guard_clipping_mode: GuardClippingMode) {
-        self.normalize_target = target;
-        self.guard_clipping_mode = guard_clipping_mode;
-        self.normalize_default(target, guard_clipping_mode);
-    }
-
     fn stats_for_normalize(&self) -> &AudioStats {
         &self.original.stats
     }
@@ -186,6 +176,8 @@ impl fmt::Debug for AudioTrack {
 #[readonly::make]
 pub struct TrackList {
     pub max_sec: f64,
+    pub common_normalize: NormalizeTarget,
+    pub common_guard_clipping: GuardClippingMode,
     tracks: Vec<Option<AudioTrack>>,
     filenames: Vec<Option<String>>,
     id_max_sec: usize,
@@ -198,13 +190,16 @@ impl TrackList {
             tracks: Vec::new(),
             filenames: Vec::new(),
             id_max_sec: 0,
+            common_normalize: NormalizeTarget::None,
+            common_guard_clipping: GuardClippingMode::ReduceGlobalLevel,
         }
     }
 
     pub fn add_tracks(&mut self, id_list: Vec<usize>, path_list: Vec<String>) -> Vec<usize> {
         let mut added_ids = Vec::new();
         for (id, path) in id_list.into_iter().zip(path_list) {
-            if let Ok(track) = AudioTrack::new(path) {
+            if let Ok(mut track) = AudioTrack::new(path) {
+                track.normalize(self.common_normalize, self.common_guard_clipping);
                 let sec = track.sec();
                 if sec > self.max_sec {
                     self.max_sec = sec;
@@ -232,6 +227,7 @@ impl TrackList {
                 .expect(&format!("[reload_tracks] Wrong Track ID {}!", id));
             match track.reload() {
                 Ok(true) => {
+                    track.normalize(self.common_normalize, self.common_guard_clipping);
                     let sec = track.sec();
                     if sec > self.max_sec {
                         self.max_sec = sec;
@@ -283,6 +279,16 @@ impl TrackList {
         }
         self.update_filenames();
         removed_id_ch_tuples
+    }
+
+    pub fn set_common_normalize(&mut self, target: NormalizeTarget) {
+        self.common_normalize = target;
+        self.apply_normalize_guard_clipping();
+    }
+
+    pub fn set_common_guard_clipping(&mut self, guard_clipping_mode: GuardClippingMode) {
+        self.common_guard_clipping = guard_clipping_mode;
+        self.apply_normalize_guard_clipping();
     }
 
     #[inline]
@@ -359,6 +365,12 @@ impl TrackList {
         self.filenames = (0..self.tracks.len())
             .map(|i| filenames.remove(&i))
             .collect();
+    }
+
+    fn apply_normalize_guard_clipping(&mut self) {
+        par_iter_mut_filtered!(self.tracks).for_each(|track| {
+            track.normalize(self.common_normalize, self.common_guard_clipping);
+        });
     }
 }
 

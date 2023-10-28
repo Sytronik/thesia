@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 mod audio;
 mod decibel;
 pub mod display;
-mod normalize;
+pub mod normalize;
 pub mod plot_axis;
 mod resample;
 mod sinc;
@@ -30,6 +30,7 @@ pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
 pub use utils::{Pad, PadMode};
 
+use self::normalize::{GuardClippingMode, NormalizeTarget};
 use self::track::AudioTrack;
 
 pub type IdChVec = Vec<(usize, usize)>;
@@ -230,6 +231,28 @@ impl TrackManager {
         self.analysis_mgr
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
         self.update_specs(self.id_ch_tuples(), Some(&sr_win_nfft_set));
+        self.update_greys(true);
+    }
+
+    pub fn common_guard_clipping(&self) -> GuardClippingMode {
+        self.tracklist.common_guard_clipping
+    }
+
+    pub fn set_common_guard_clipping(&mut self, mode: GuardClippingMode) {
+        self.tracklist.set_common_guard_clipping(mode);
+
+        self.update_specs(self.id_ch_tuples(), None);
+        self.update_greys(true);
+    }
+
+    pub fn common_normalize(&self) -> NormalizeTarget {
+        self.tracklist.common_normalize
+    }
+
+    pub fn set_common_normalize(&mut self, target: NormalizeTarget) {
+        self.tracklist.set_common_normalize(target);
+
+        self.update_specs(self.id_ch_tuples(), None);
         self.update_greys(true);
     }
 

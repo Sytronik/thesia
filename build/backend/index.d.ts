@@ -7,6 +7,11 @@ export interface DrawOption {
   pxPerSec: number
   height: number
 }
+export const enum GuardClippingMode {
+  None = 'None',
+  ReduceGlobalLevel = 'ReduceGlobalLevel',
+  Limiter = 'Limiter'
+}
 export function init(): void
 export function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
@@ -15,6 +20,10 @@ export function applyTrackListChanges(): Promise<Array<string>>
 export function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
 export function getSpecSetting(): any
 export function setSpecSetting(specSetting: any): Promise<void>
+export function getCommonGuardClipping(): GuardClippingMode
+export function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
+export function getCommonNormalize(): any
+export function setCommonNormalize(target: any): Promise<void>
 export function getImages(): Record<string, Buffer>
 export function findIdByPath(path: string): Promise<number>
 export function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>

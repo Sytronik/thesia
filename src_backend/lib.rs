@@ -130,6 +130,32 @@ async fn set_spec_setting(spec_setting: serde_json::Value) -> Result<()> {
 }
 
 #[napi]
+fn get_common_guard_clipping() -> normalize::GuardClippingMode {
+    TM.blocking_read().common_guard_clipping()
+}
+
+#[napi]
+async fn set_common_guard_clipping(mode: normalize::GuardClippingMode) {
+    let mut tm = TM.write().await;
+    tm.set_common_guard_clipping(mode);
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+}
+
+#[napi]
+fn get_common_normalize() -> serde_json::Value {
+    serde_json::to_value(TM.blocking_read().common_normalize()).unwrap()
+}
+
+#[napi]
+async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
+    let mut tm = TM.write().await;
+    let target = serde_json::from_value(target)?;
+    tm.set_common_normalize(target);
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+    Ok(())
+}
+
+#[napi]
 fn get_images() -> HashMap<String, Buffer> {
     if let Some(images) = img_mgr::recv() {
         images
