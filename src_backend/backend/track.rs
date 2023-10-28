@@ -144,7 +144,8 @@ impl Normalize for AudioTrack {
     }
 
     fn apply_gain(&mut self, gain: f32, guard_clipping_mode: GuardClippingMode) {
-        if !gain.is_finite() {
+        if !gain.is_finite() || gain == 1. {
+            self.audio.clone_from(&self.original);
             return;
         }
         self.audio.mutate(

@@ -104,9 +104,7 @@ pub trait Normalize {
                 assert!(target_peak_db <= 0.);
                 10f32.powf((target_peak_db - self.stats_for_normalize().max_peak_db) / 20.)
             }
-            NormalizeTarget::None => {
-                return;
-            }
+            NormalizeTarget::None => 1.,
         };
         self.apply_gain(gain, guard_clipping_mode);
     }
