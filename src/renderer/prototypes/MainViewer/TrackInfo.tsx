@@ -9,7 +9,7 @@ const MemoizedTrackSummary = React.memo(TrackSummary);
 type TrackInfoProps = {
   trackId: number;
   trackIdChArr: IdChArr;
-  trackSummary: TrackSummary;
+  trackSummary: TrackSummaryData;
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;

@@ -5,7 +5,7 @@ import useEvent from "react-use-event-hook";
 import styles from "./TrackSummary.scss";
 
 type TrackSummaryProps = {
-  data: TrackSummary;
+  data: TrackSummaryData;
   className: string;
 };
 

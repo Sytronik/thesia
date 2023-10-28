@@ -31,7 +31,7 @@ type ImgCanvasHandleElement = {
 };
 
 // Track Summary
-type TrackSummary = {
+type TrackSummaryData = {
   fileName: string;
   time: string;
   sampleFormat: string;
