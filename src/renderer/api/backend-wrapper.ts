@@ -89,7 +89,7 @@ export function getSpecSetting(): SpecSetting {
   return backend.getSpecSetting();
 }
 
-export async function setSpecSetting(specSetting: SpecSetting) {
+export async function setSpecSetting(specSetting: SpecSetting): Promise<void> {
   await backend.setSpecSetting(specSetting);
 }
 
