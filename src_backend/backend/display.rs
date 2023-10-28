@@ -447,11 +447,7 @@ pub fn calc_effective_slice(
         None
     } else if index < 0 {
         let i_right = length as isize + index;
-        if i_right <= 0 {
-            None
-        } else {
-            Some((0, (i_right as usize).min(total_length)))
-        }
+        (i_right > 0).then_some((0, (i_right as usize).min(total_length)))
     } else {
         Some((index as usize, length.min(total_length - index as usize)))
     }

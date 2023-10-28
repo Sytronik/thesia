@@ -275,11 +275,7 @@ fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> PlotAxis {
             let unit = x as f32 * 10f32.powi(unit_exponent - 1);
             let min_i = (min / unit).ceil() as i32;
             let max_i = (max / unit).floor() as i32;
-            if max_i + 1 - min_i <= max_num_ticks as i32 {
-                Some((x, unit, min_i, max_i))
-            } else {
-                None
-            }
+            (max_i + 1 - min_i <= max_num_ticks as i32).then_some((x, unit, min_i, max_i))
         })
         .unwrap();
     if ten_unit == 100 {
