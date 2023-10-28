@@ -93,6 +93,13 @@ export async function setSpecSetting(specSetting: SpecSetting): Promise<void> {
   await backend.setSpecSetting(specSetting);
 }
 
+export type NormalizeTarget =
+  | {type: "Off"}
+  | {
+      type: "LUFS" | "RMSdB" | "PeakdB";
+      target: number;
+    };
+
 export function getCommonNormalize(): NormalizeTarget {
   return backend.getCommonNormalize();
 }

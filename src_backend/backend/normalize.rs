@@ -10,9 +10,19 @@ use super::stats::AudioStats;
 #[derive(Default)]
 pub enum GuardClippingMode {
     #[default]
-    None,
+    Clip,
     ReduceGlobalLevel,
     Limiter,
+}
+
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(tag = "type", content = "target")]
+pub enum NormalizeTarget {
+    #[default]
+    Off,
+    LUFS(f32),
+    RMSdB(f32),
+    PeakdB(f32),
 }
 
 pub trait MaxPeak {
@@ -48,7 +58,7 @@ where
 {
     fn guard_clipping(&mut self, mode: GuardClippingMode) {
         match mode {
-            GuardClippingMode::None => {
+            GuardClippingMode::Clip => {
                 self.mapv_inplace(|x| x.clamp(-1., 1.));
             }
             GuardClippingMode::ReduceGlobalLevel => {
@@ -70,16 +80,6 @@ where
         f(self);
         self.guard_clipping(mode);
     }
-}
-
-#[derive(Clone, Copy, Default, Serialize, Deserialize)]
-#[serde(tag = "type", content = "target")]
-pub enum NormalizeTarget {
-    #[default]
-    None,
-    LUFS(f32),
-    RMSdB(f32),
-    PeakdB(f32),
 }
 
 pub trait Normalize {
@@ -104,7 +104,7 @@ pub trait Normalize {
                 assert!(target_peak_db <= 0.);
                 10f32.powf((target_peak_db - self.stats_for_normalize().max_peak_db) / 20.)
             }
-            NormalizeTarget::None => 1.,
+            NormalizeTarget::Off => 1.,
         };
         self.apply_gain(gain, guard_clipping_mode);
     }

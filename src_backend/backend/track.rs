@@ -191,7 +191,7 @@ impl TrackList {
             tracks: Vec::new(),
             filenames: Vec::new(),
             id_max_sec: 0,
-            common_normalize: NormalizeTarget::None,
+            common_normalize: NormalizeTarget::Off,
             common_guard_clipping: GuardClippingMode::ReduceGlobalLevel,
         }
     }

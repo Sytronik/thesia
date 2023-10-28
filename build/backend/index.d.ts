@@ -8,7 +8,7 @@ export interface DrawOption {
   height: number
 }
 export const enum GuardClippingMode {
-  None = 'None',
+  Clip = 'Clip',
   ReduceGlobalLevel = 'ReduceGlobalLevel',
   Limiter = 'Limiter'
 }

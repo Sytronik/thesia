@@ -68,10 +68,3 @@ type SpecSetting = {
   f_overlap: number;
   freq_scale: FreqScale;
 };
-
-type NormalizeTarget =
-  | {type: "None"}
-  | {
-      type: "LUFS" | "RMSdB" | "PeakdB";
-      target: number;
-    };

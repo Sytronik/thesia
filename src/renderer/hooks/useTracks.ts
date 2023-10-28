@@ -1,7 +1,7 @@
 import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
-import {GuardClippingMode} from "renderer/api/backend-wrapper";
+import {GuardClippingMode, NormalizeTarget} from "renderer/api/backend-wrapper";
 import BackendAPI from "../api";
 
 type AddTracksResultType = {
