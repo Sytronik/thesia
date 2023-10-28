@@ -18,12 +18,16 @@ function App() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting,
+    commonNormalize,
+    commonGuardClipping,
     reloadTracks,
     refreshTracks,
     addTracks,
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setCommonNormalize,
+    setCommonGuardClipping,
   } = useTracks();
   const {selectedTrackIds, selectTrack, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks} =
     useSelectedTracks();

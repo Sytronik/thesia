@@ -1,6 +1,7 @@
 import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
+import {GuardClippingMode} from "renderer/api/backend-wrapper";
 import BackendAPI from "../api";
 
 type AddTracksResultType = {
@@ -14,6 +15,13 @@ function useTracks() {
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
   const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
     BackendAPI.getSpecSetting(),
+  );
+
+  const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
+    BackendAPI.getCommonGuardClipping(),
+  );
+  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>(
+    BackendAPI.getCommonNormalize(),
   );
 
   const waitingIdsRef = useRef<number[]>([]);
@@ -125,6 +133,18 @@ function useTracks() {
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
+  const setCommonGuardClipping = useEvent(async (commonGuardClipping: GuardClippingMode) => {
+    await BackendAPI.setCommonGuardClipping(commonGuardClipping);
+    setCurrentCommonGuardClipping(BackendAPI.getCommonGuardClipping());
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+  });
+
+  const setCommonNormalize = useEvent(async (commonNormalize: NormalizeTarget) => {
+    await BackendAPI.setCommonNormalize(commonNormalize);
+    setCurrentCommonNormalize(BackendAPI.getCommonNormalize());
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+  });
+
   return {
     trackIds,
     erroredTrackIds,
@@ -132,12 +152,16 @@ function useTracks() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting: currentSpecSetting,
+    commonNormalize: currentCommonNormalize,
+    commonGuardClipping: currentCommonGuardClipping,
     reloadTracks,
     refreshTracks,
     addTracks,
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setCommonNormalize,
+    setCommonGuardClipping,
   };
 }
 
