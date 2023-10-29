@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
+use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use realfft::{RealFftPlanner, RealToComplex};
@@ -14,8 +16,8 @@ pub use stft::perform_stft;
 
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;
 
-#[allow(dead_code)]
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq, Serialize, Deserialize)]
+#[napi(string_enum)]
+#[derive(Debug, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub enum FreqScale {
     Linear,
     Mel,

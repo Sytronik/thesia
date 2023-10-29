@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::iter;
 
 use approx::abs_diff_ne;
+use napi_derive::napi;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
@@ -24,7 +25,6 @@ mod windows;
 use decibel::DeciBelInplace;
 use spectrogram::{calc_up_ratio, mel, perform_stft, AnalysisParamManager, FreqScale, SrWinNfft};
 use track::TrackList;
-use utils::calc_proper_n_fft;
 
 pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
@@ -38,28 +38,30 @@ pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 type FramingParams = (usize, usize, usize);
 
+#[napi(object)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SpecSetting {
-    pub win_ms: f32,
-    pub t_overlap: usize,
-    pub f_overlap: usize,
+    #[napi(js_name = "winMillisec")]
+    pub win_ms: f64,
+    pub t_overlap: u32,
+    pub f_overlap: u32,
     pub freq_scale: FreqScale,
 }
 
 impl SpecSetting {
     #[inline]
     pub fn calc_win_length(&self, sr: u32) -> usize {
-        self.calc_hop_length(sr) * self.t_overlap
+        self.calc_hop_length(sr) * self.t_overlap as usize
     }
 
     #[inline]
     pub fn calc_hop_length(&self, sr: u32) -> usize {
-        (self.calc_win_length_float(sr) / self.t_overlap as f32).round() as usize
+        (self.calc_win_length_float(sr) / self.t_overlap as f64).round() as usize
     }
 
     #[inline]
     pub fn calc_n_fft(&self, sr: u32) -> usize {
-        calc_proper_n_fft(self.calc_win_length(sr)) * self.f_overlap
+        self.calc_win_length(sr).next_power_of_two() * self.f_overlap as usize
     }
 
     #[inline]
@@ -83,17 +85,17 @@ impl SpecSetting {
 
     #[inline]
     fn calc_win_length_from_hop_length(&self, hop_length: usize) -> usize {
-        hop_length * self.t_overlap
+        hop_length * self.t_overlap as usize
     }
 
     #[inline]
-    fn calc_win_length_float(&self, sr: u32) -> f32 {
-        self.win_ms * sr as f32 / 1000.
+    fn calc_win_length_float(&self, sr: u32) -> f64 {
+        self.win_ms * sr as f64 / 1000.
     }
 
     #[inline]
     fn calc_n_fft_from_win_length(&self, win_length: usize) -> usize {
-        calc_proper_n_fft(win_length) * self.f_overlap
+        win_length.next_power_of_two() * self.f_overlap as usize
     }
 }
 

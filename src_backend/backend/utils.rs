@@ -48,11 +48,6 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
     result
 }
 
-#[inline]
-pub fn calc_proper_n_fft(win_length: usize) -> usize {
-    win_length.next_power_of_two()
-}
-
 pub enum PadMode<T> {
     Constant(T),
     Reflect,

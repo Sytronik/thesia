@@ -117,16 +117,15 @@ async fn set_image_state(
 }
 
 #[napi]
-fn get_spec_setting() -> serde_json::Value {
-    json!(TM.blocking_read().get_setting())
+fn get_spec_setting() -> SpecSetting {
+    TM.blocking_read().get_setting().clone()
 }
 
 #[napi]
-async fn set_spec_setting(spec_setting: serde_json::Value) -> Result<()> {
+async fn set_spec_setting(spec_setting: SpecSetting) {
     let mut tm = TM.write().await;
-    tm.set_setting(serde_json::from_value(spec_setting)?);
+    tm.set_setting(spec_setting);
     tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
-    Ok(())
 }
 
 #[napi]

@@ -1,6 +1,6 @@
 import backend from "backend";
 
-export {GuardClippingMode} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting} from "backend";
 
 backend.init();
 
@@ -106,23 +106,6 @@ export async function setImageState(
   );
 }
 
-export type FreqScale = "Mel" | "Linear";
-
-export type SpecSetting = {
-  win_ms: number;
-  t_overlap: number;
-  f_overlap: number;
-  freq_scale: FreqScale;
-};
-
-export function getSpecSetting(): SpecSetting {
-  return backend.getSpecSetting();
-}
-
-export async function setSpecSetting(specSetting: SpecSetting): Promise<void> {
-  await backend.setSpecSetting(specSetting);
-}
-
 export type NormalizeTarget =
   | {type: "Off"}
   | {
@@ -156,6 +139,8 @@ export const {
   getMindB,
   getColorMap,
   getOverview,
+  getSpecSetting,
+  setSpecSetting,
   getCommonGuardClipping,
   setCommonGuardClipping,
 } = backend;
