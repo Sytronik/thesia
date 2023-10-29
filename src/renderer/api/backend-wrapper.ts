@@ -118,7 +118,7 @@ export function getCommonNormalize(): NormalizeTarget {
 }
 
 export async function setCommonNormalize(commonNormalize: NormalizeTarget): Promise<void> {
-  backend.setCommonNormalize(commonNormalize);
+  return backend.setCommonNormalize(commonNormalize);
 }
 
 export const {
