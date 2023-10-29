@@ -14,8 +14,8 @@ export function getChannelCounts(trackId: number): 1 | 2 {
 }
 
 export type TickPxPosition = number;
-export type TickLable = string;
-export type Markers = [TickPxPosition, TickLable][];
+export type TickLabel = string;
+export type Markers = [TickPxPosition, TickLabel][];
 export type MarkerDrawOption = {
   startSec?: number;
   endSec?: number;
