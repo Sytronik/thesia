@@ -123,6 +123,9 @@ fn get_spec_setting() -> SpecSetting {
 
 #[napi]
 async fn set_spec_setting(spec_setting: SpecSetting) {
+    assert!(spec_setting.win_ms > 0.);
+    assert!(spec_setting.t_overlap >= 1);
+    assert!(spec_setting.f_overlap >= 1);
     let mut tm = TM.write().await;
     tm.set_setting(spec_setting);
     tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
