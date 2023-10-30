@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use lazy_static::{initialize, lazy_static};
 
@@ -76,12 +78,12 @@ async fn apply_track_list_changes() -> Vec<String> {
         let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
         tm.id_ch_tuples_from(&updated_ids)
     };
-
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(id_ch_tuples.clone())));
-    id_ch_tuples
-        .into_iter()
-        .map(|(id, ch)| format!("{}_{}", id, ch))
-        .collect()
+    let id_ch_strs = id_ch_tuples
+        .iter()
+        .map(|&(id, ch)| format_id_ch(id, ch))
+        .collect();
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(id_ch_tuples)));
+    id_ch_strs
 }
 
 #[napi]
@@ -92,7 +94,7 @@ async fn set_image_state(
     option: DrawOption,
     opt_for_wav: serde_json::Value,
     blend: f64,
-) -> Result<Undefined> {
+) -> Result<()> {
     // let start = Instant::now();
     let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
     assert!(!id_ch_strs.is_empty());
@@ -128,7 +130,7 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.f_overlap >= 1);
     let mut tm = TM.write().await;
     tm.set_setting(spec_setting);
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+    remove_all_imgs(tm);
 }
 
 #[napi]
@@ -140,7 +142,7 @@ fn get_common_guard_clipping() -> normalize::GuardClippingMode {
 async fn set_common_guard_clipping(mode: normalize::GuardClippingMode) {
     let mut tm = TM.write().await;
     tm.set_common_guard_clipping(mode);
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+    remove_all_imgs(tm);
 }
 
 #[napi]
@@ -153,7 +155,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let mut tm = TM.write().await;
     let target = serde_json::from_value(target)?;
     tm.set_common_normalize(target);
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+    remove_all_imgs(tm);
     Ok(())
 }
 
@@ -162,7 +164,7 @@ fn get_images() -> HashMap<String, Buffer> {
     if let Some(images) = img_mgr::recv() {
         images
             .into_iter()
-            .map(|((id, ch), img)| (format!("{}_{}", id, ch), img.into()))
+            .map(|((id, ch), img)| (format_id_ch(id, ch), img.into()))
             .collect()
     } else {
         HashMap::new()
@@ -207,7 +209,7 @@ async fn get_time_axis_markers(
     json!(&TM
         .read()
         .await
-        .create_time_axis(start_sec, end_sec, tick_unit, label_interval,))
+        .create_time_axis(start_sec, end_sec, tick_unit, label_interval))
 }
 
 #[napi]
@@ -323,6 +325,11 @@ pub fn assert_axis_params(max_num_ticks: u32, max_num_labels: u32) {
     assert!(max_num_ticks >= max_num_labels);
 }
 
+#[inline]
+fn format_id_ch(id: usize, ch: usize) -> String {
+    format!("{}_{}", id, ch)
+}
+
 pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
     let mut result = IdChVec::with_capacity(id_ch_strs.len());
     for s in id_ch_strs {
@@ -340,4 +347,9 @@ pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
         }
     }
     Ok(result)
+}
+
+#[inline]
+fn remove_all_imgs(tm: impl Deref<Target = TrackManager>) {
+    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
 }
