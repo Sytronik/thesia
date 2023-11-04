@@ -63,7 +63,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     setTooltipPosition([e.clientX + 10, e.clientY + 15]);
   });
 
-  const onMouseMove = throttle(1000 / 120, async (e: React.MouseEvent) => {
+  const onMouseMove = throttle(1000 / 70, async (e: React.MouseEvent) => {
     if (!showTooltip || !canvasElem.current) return;
     const x = e.clientX - canvasElem.current.getBoundingClientRect().left;
     const y = Math.min(
