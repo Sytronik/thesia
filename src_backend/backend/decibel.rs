@@ -1,4 +1,6 @@
 // reference: https://librosa.org/doc/0.8.0/_modules/librosa/core/spectrum.html
+#![allow(non_snake_case)]
+
 use ndarray::prelude::*;
 use ndarray::DataMut;
 use ndarray_stats::{MaybeNan, QuantileExt};
@@ -20,15 +22,15 @@ impl<A: Float> Default for DeciBelRef<A> {
 }
 
 pub trait DeciBelInplace<A: Float> {
-    fn log_for_db(&mut self, reference: DeciBelRef<A>, amin: A);
-    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A);
-    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A);
-    fn amp_to_db_default(&mut self);
-    fn power_to_db_default(&mut self);
-    fn db_to_amp(&mut self, ref_value: A);
-    fn db_to_power(&mut self, ref_value: A);
-    fn db_to_amp_default(&mut self);
-    fn db_to_power_default(&mut self);
+    fn into_log_for_dB(&mut self, reference: DeciBelRef<A>, amin: A);
+    fn into_dB_from_amp(&mut self, reference: DeciBelRef<A>, amin: A);
+    fn into_dB_from_power(&mut self, reference: DeciBelRef<A>, amin: A);
+    fn into_dB_from_amp_default(&mut self);
+    fn into_dB_from_power_default(&mut self);
+    fn into_amp_from_dB(&mut self, ref_value: A);
+    fn into_power_from_dB(&mut self, ref_value: A);
+    fn into_amp_from_dB_default(&mut self);
+    fn into_power_from_dB_default(&mut self);
 }
 
 impl<A, S, D> DeciBelInplace<A> for ArrayBase<S, D>
@@ -38,7 +40,7 @@ where
     S: DataMut<Elem = A>,
     D: Dimension,
 {
-    fn log_for_db(&mut self, reference: DeciBelRef<A>, amin: A) {
+    fn into_log_for_dB(&mut self, reference: DeciBelRef<A>, amin: A) {
         assert!(self.iter().all(|&x| x >= A::zero()));
         assert!(amin >= A::zero());
         let ref_value = match reference {
@@ -63,51 +65,51 @@ where
         });
     }
 
-    fn power_to_db(&mut self, reference: DeciBelRef<A>, amin: A) {
+    fn into_dB_from_power(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = A::from(10.).unwrap();
-        self.log_for_db(reference, amin);
+        self.into_log_for_dB(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
-    fn amp_to_db(&mut self, reference: DeciBelRef<A>, amin: A) {
+    fn into_dB_from_amp(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = A::from(20.).unwrap();
-        self.log_for_db(reference, amin);
+        self.into_log_for_dB(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
     #[inline]
-    fn amp_to_db_default(&mut self) {
-        self.amp_to_db(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap());
+    fn into_dB_from_amp_default(&mut self) {
+        self.into_dB_from_amp(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap());
     }
 
     #[inline]
-    fn power_to_db_default(&mut self) {
-        self.power_to_db(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap());
+    fn into_dB_from_power_default(&mut self) {
+        self.into_dB_from_power(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap());
     }
 
-    fn db_to_amp(&mut self, ref_value: A) {
+    fn into_amp_from_dB(&mut self, ref_value: A) {
         self.mapv_inplace(|x| ref_value * A::from(10.).unwrap().powf(A::from(0.05).unwrap() * x));
     }
 
-    fn db_to_power(&mut self, ref_value: A) {
+    fn into_power_from_dB(&mut self, ref_value: A) {
         self.mapv_inplace(|x| ref_value * A::from(10.).unwrap().powf(A::from(0.1).unwrap() * x));
     }
 
     #[inline]
-    fn db_to_amp_default(&mut self) {
+    fn into_amp_from_dB_default(&mut self) {
         if let DeciBelRef::Value(ref_value) = Default::default() {
-            self.db_to_amp(ref_value);
+            self.into_amp_from_dB(ref_value);
         } else {
-            self.db_to_amp(A::one());
+            self.into_amp_from_dB(A::one());
         }
     }
 
     #[inline]
-    fn db_to_power_default(&mut self) {
+    fn into_power_from_dB_default(&mut self) {
         if let DeciBelRef::Value(ref_value) = Default::default() {
-            self.db_to_power(ref_value);
+            self.into_power_from_dB(ref_value);
         } else {
-            self.db_to_power(A::one());
+            self.into_power_from_dB(A::one());
         }
     }
 }
