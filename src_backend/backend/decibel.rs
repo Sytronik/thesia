@@ -21,25 +21,30 @@ impl<A: Float> Default for DeciBelRef<A> {
     }
 }
 
-pub trait DeciBelInplace<A: Float> {
-    fn into_log_for_dB(&mut self, reference: DeciBelRef<A>, amin: A);
-    fn into_dB_from_amp(&mut self, reference: DeciBelRef<A>, amin: A);
-    fn into_dB_from_power(&mut self, reference: DeciBelRef<A>, amin: A);
+pub trait DeciBelInplace
+where
+    Self::A: Float,
+{
+    type A;
+    fn into_log_for_dB(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
+    fn into_dB_from_amp(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
+    fn into_dB_from_power(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
     fn into_dB_from_amp_default(&mut self);
     fn into_dB_from_power_default(&mut self);
-    fn into_amp_from_dB(&mut self, ref_value: A);
-    fn into_power_from_dB(&mut self, ref_value: A);
+    fn into_amp_from_dB(&mut self, ref_value: Self::A);
+    fn into_power_from_dB(&mut self, ref_value: Self::A);
     fn into_amp_from_dB_default(&mut self);
     fn into_power_from_dB_default(&mut self);
 }
 
-impl<A, S, D> DeciBelInplace<A> for ArrayBase<S, D>
+impl<A, S, D> DeciBelInplace for ArrayBase<S, D>
 where
     A: Float + MaybeNan,
     <A as MaybeNan>::NotNan: Ord,
     S: DataMut<Elem = A>,
     D: Dimension,
 {
+    type A = A;
     fn into_log_for_dB(&mut self, reference: DeciBelRef<A>, amin: A) {
         assert!(self.iter().all(|&x| x >= A::zero()));
         assert!(amin >= A::zero());
