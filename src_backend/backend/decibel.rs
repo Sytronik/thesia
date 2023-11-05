@@ -1,9 +1,9 @@
 // reference: https://librosa.org/doc/0.8.0/_modules/librosa/core/spectrum.html
-use ndarray::{prelude::*, DataMut};
+use ndarray::prelude::*;
+use ndarray::DataMut;
 use ndarray_stats::{MaybeNan, QuantileExt};
 use rustfft::num_traits::Float;
 
-const REF_DEFAULT: f32 = 1.0;
 const AMIN_AMP_DEFAULT: f32 = 1e-18;
 const AMIN_POWER_DEFAULT: f32 = 1e-36;
 
@@ -11,6 +11,12 @@ const AMIN_POWER_DEFAULT: f32 = 1e-36;
 pub enum DeciBelRef<A: Float> {
     Value(A),
     Max,
+}
+
+impl<A: Float> Default for DeciBelRef<A> {
+    fn default() -> Self {
+        DeciBelRef::Value(A::one())
+    }
 }
 
 pub trait DeciBelInplace<A: Float> {
@@ -71,18 +77,12 @@ where
 
     #[inline]
     fn amp_to_db_default(&mut self) {
-        self.amp_to_db(
-            DeciBelRef::Value(A::from(REF_DEFAULT).unwrap()),
-            A::from(AMIN_AMP_DEFAULT).unwrap(),
-        );
+        self.amp_to_db(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap());
     }
 
     #[inline]
     fn power_to_db_default(&mut self) {
-        self.power_to_db(
-            DeciBelRef::Value(A::from(REF_DEFAULT).unwrap()),
-            A::from(AMIN_POWER_DEFAULT).unwrap(),
-        );
+        self.power_to_db(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap());
     }
 
     fn db_to_amp(&mut self, ref_value: A) {
@@ -95,11 +95,19 @@ where
 
     #[inline]
     fn db_to_amp_default(&mut self) {
-        self.db_to_amp(A::from(REF_DEFAULT).unwrap());
+        if let DeciBelRef::Value(ref_value) = Default::default() {
+            self.db_to_amp(ref_value);
+        } else {
+            self.db_to_amp(A::one());
+        }
     }
 
     #[inline]
     fn db_to_power_default(&mut self) {
-        self.db_to_power(A::from(REF_DEFAULT).unwrap());
+        if let DeciBelRef::Value(ref_value) = Default::default() {
+            self.db_to_power(ref_value);
+        } else {
+            self.db_to_power(A::one());
+        }
     }
 }
