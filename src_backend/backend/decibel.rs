@@ -21,6 +21,22 @@ impl<A: Float> Default for DeciBelRef<A> {
     }
 }
 
+impl<A> DeciBelRef<A>
+where
+    A: Float + MaybeNan,
+    <A as MaybeNan>::NotNan: Ord,
+{
+    fn into_value<D: Dimension>(&self, data_for_max: ArrayView<A, D>) -> A {
+        match self {
+            &DeciBelRef::Value(v) => {
+                assert!(v >= A::zero());
+                v
+            }
+            &DeciBelRef::Max => *data_for_max.max_skipnan(),
+        }
+    }
+}
+
 pub trait DeciBelInplace
 where
     Self::A: Float,
@@ -46,26 +62,28 @@ where
 {
     type A = A;
     fn into_log_for_dB(&mut self, reference: DeciBelRef<A>, amin: A) {
-        assert!(self.iter().all(|&x| x >= A::zero()));
         assert!(amin >= A::zero());
-        let ref_value = match reference {
-            DeciBelRef::Value(v) => {
-                assert!(v >= A::zero());
-                v.abs()
-            }
-            DeciBelRef::Max => *self.view().max_skipnan(),
-        };
+        let ref_value = reference.into_value(self.view());
+        if ref_value.is_nan() {
+            return;
+        } else if ref_value.is_sign_negative() {
+            self.fill(A::nan());
+            return;
+        }
         let log_amin = amin.log10();
         let log_ref = if ref_value > amin {
             ref_value.log10()
         } else {
             log_amin
         };
+        let out_for_small = log_amin - log_ref;
         self.mapv_inplace(|x| {
-            if x > amin {
+            if x.is_nan() || x.is_sign_negative() {
+                A::nan()
+            } else if x > amin {
                 x.log10() - log_ref
             } else {
-                log_amin - log_ref
+                out_for_small
             }
         });
     }
