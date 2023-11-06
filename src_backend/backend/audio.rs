@@ -46,7 +46,7 @@ impl Audio {
     }
 
     #[inline]
-    pub fn get_ch(&self, ch: usize) -> ArrayView1<f32> {
+    pub fn channel(&self, ch: usize) -> ArrayView1<f32> {
         self.wavs.index_axis(Axis(0), ch)
     }
 

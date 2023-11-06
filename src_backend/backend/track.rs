@@ -75,8 +75,8 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn get_wav(&self, ch: usize) -> ArrayView1<f32> {
-        self.audio.get_ch(ch)
+    pub fn channel(&self, ch: usize) -> ArrayView1<f32> {
+        self.audio.channel(ch)
     }
 
     #[inline]
@@ -346,7 +346,7 @@ impl TrackList {
     }
 
     #[inline]
-    pub fn get_filename(&self, id: usize) -> &str {
+    pub fn filename(&self, id: usize) -> &str {
         self.filenames[id]
             .as_ref()
             .unwrap_or_else(|| panic!("[get_filename] Wrong ID {}!", id))

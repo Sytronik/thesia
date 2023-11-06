@@ -106,8 +106,8 @@ pub struct TrackManager {
     pub min_db: f32,
     pub max_sr: u32,
     pub spec_greys: IdChMap<Array2<f32>>,
-    setting: SpecSetting,
-    db_range: f32,
+    pub setting: SpecSetting,
+    pub db_range: f32,
     analysis_mgr: AnalysisParamManager,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
@@ -214,13 +214,8 @@ impl TrackManager {
     }
 
     #[inline]
-    pub fn get_track(&self, id: usize) -> Option<&AudioTrack> {
+    pub fn track(&self, id: usize) -> Option<&AudioTrack> {
         self.tracklist.get(id)
-    }
-
-    #[inline]
-    pub fn get_setting(&self) -> &SpecSetting {
-        &self.setting
     }
 
     pub fn set_setting(&mut self, setting: SpecSetting) {
@@ -257,11 +252,6 @@ impl TrackManager {
         self.update_greys(true);
     }
 
-    #[inline]
-    pub fn get_db_range(&self) -> f32 {
-        self.db_range
-    }
-
     pub fn set_db_range(&mut self, db_range: f32) {
         self.db_range = db_range;
         self.update_greys(true);
@@ -270,10 +260,10 @@ impl TrackManager {
     fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
         let track = &self.tracklist[id];
         let (hop_length, win_length, n_fft) = self.setting.calc_framing_params(track.sr());
-        let window = self.analysis_mgr.get_window(win_length, n_fft);
-        let fft_module = self.analysis_mgr.get_fft_module(n_fft);
+        let window = self.analysis_mgr.window(win_length, n_fft);
+        let fft_module = self.analysis_mgr.fft_module(n_fft);
         let stft = perform_stft(
-            track.get_wav(ch),
+            track.channel(ch),
             win_length,
             hop_length,
             n_fft,
@@ -288,7 +278,7 @@ impl TrackManager {
                 linspec
             }
             FreqScale::Mel => {
-                let mut melspec = linspec.dot(&self.analysis_mgr.get_mel_fb(track.sr(), n_fft));
+                let mut melspec = linspec.dot(&self.analysis_mgr.mel_fb(track.sr(), n_fft));
                 melspec.dB_from_amp_inplace_default();
                 melspec
             }
@@ -422,8 +412,8 @@ mod tests {
         assert_eq!(updated_ids, id_list);
 
         dbg!(&tm.tracklist[0]);
-        dbg!(tm.tracklist.get_filename(5));
-        dbg!(tm.tracklist.get_filename(6));
+        dbg!(tm.tracklist.filename(5));
+        dbg!(tm.tracklist.filename(6));
         let option = DrawOption {
             px_per_sec: 200.,
             height: 500,

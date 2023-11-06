@@ -120,7 +120,7 @@ async fn set_image_state(
 
 #[napi]
 fn get_spec_setting() -> SpecSetting {
-    TM.blocking_read().get_setting().clone()
+    TM.blocking_read().setting.clone()
 }
 
 #[napi]
@@ -266,56 +266,56 @@ fn get_longest_track_length_sec() -> f64 {
 #[napi]
 fn get_channel_counts(track_id: u32) -> u32 {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or(0, |track| track.n_ch() as u32)
 }
 
 #[napi]
 fn get_length_sec(track_id: u32) -> f64 {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or(0., |track| track.sec())
 }
 
 #[napi]
 fn get_sample_rate(track_id: u32) -> u32 {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or(0, |track| track.sr())
 }
 
 #[napi]
 fn get_sample_format(track_id: u32) -> String {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or_else(String::new, |track| track.format_desc.to_owned())
 }
 
 #[napi(js_name = "getGlobalLUFS")]
 fn get_global_lufs(track_id: u32) -> f64 {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
 }
 
 #[napi(js_name = "getRMSdB")]
 fn get_rms_db(track_id: u32) -> f64 {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().rms_db as f64)
 }
 
 #[napi(js_name = "getMaxPeakdB")]
 fn get_max_peak_db(track_id: u32) -> f64 {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_db as f64)
 }
 
 #[napi]
 fn get_path(track_id: u32) -> String {
     TM.blocking_read()
-        .get_track(track_id as usize)
+        .track(track_id as usize)
         .map_or_else(String::new, |track| track.path_string())
 }
 
@@ -323,7 +323,7 @@ fn get_path(track_id: u32) -> String {
 fn get_file_name(track_id: u32) -> String {
     TM.blocking_read()
         .tracklist
-        .get_filename(track_id as usize)
+        .filename(track_id as usize)
         .to_owned()
 }
 

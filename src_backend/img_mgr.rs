@@ -274,7 +274,7 @@ async fn categorize_blend_caches(
     let mut total_widths = IdChMap::<u32>::with_capacity(id_ch_tuples.len());
     total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
         let width = tm
-            .get_track(id)
+            .track(id)
             .map_or(0, |track| track.calc_width(option.px_per_sec));
         ((id, ch), width)
     }));

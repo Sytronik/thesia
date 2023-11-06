@@ -111,7 +111,7 @@ impl AnalysisParamManager {
         }
     }
 
-    pub fn get_window(&self, win_length: usize, n_fft: usize) -> CowArray<f32, Ix1> {
+    pub fn window(&self, win_length: usize, n_fft: usize) -> CowArray<f32, Ix1> {
         self.windows.get(&(win_length, n_fft)).map_or_else(
             || {
                 eprintln!(
@@ -124,7 +124,7 @@ impl AnalysisParamManager {
         )
     }
 
-    pub fn get_fft_module(&self, n_fft: usize) -> Arc<dyn RealToComplex<f32>> {
+    pub fn fft_module(&self, n_fft: usize) -> Arc<dyn RealToComplex<f32>> {
         self.fft_modules.get(&n_fft).map_or_else(
             || {
                 eprintln!(
@@ -138,7 +138,7 @@ impl AnalysisParamManager {
         )
     }
 
-    pub fn get_mel_fb(&self, sr: u32, n_fft: usize) -> CowArray<f32, Ix2> {
+    pub fn mel_fb(&self, sr: u32, n_fft: usize) -> CowArray<f32, Ix2> {
         self.mel_fbs.get(&(sr, n_fft)).map_or_else(
             || {
                 eprintln!(

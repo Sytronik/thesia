@@ -122,7 +122,7 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
         }
     }
 
-    pub fn get_sliced(&self) -> ArrayView<A, D> {
+    pub fn as_sliced(&self) -> ArrayView<A, D> {
         self.arr.slice_axis(
             Axis(self.arr.ndim() - 1),
             Slice::new(
@@ -133,7 +133,7 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
         )
     }
 
-    pub fn get_sliced_with_tail(&self, tail: usize) -> ArrayView<A, D> {
+    pub fn as_sliced_with_tail(&self, tail: usize) -> ArrayView<A, D> {
         let end = (self.index + self.length + tail).min(self.arr.shape()[self.arr.ndim() - 1]);
         self.arr.slice_axis(
             Axis(self.arr.ndim() - 1),
@@ -239,7 +239,7 @@ impl TrackDrawer for TrackManager {
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
             let out_for_not_exist = || ((id, ch), Array::zeros((0, 0, 0)));
-            let track = if let Some(track) = self.get_track(id) {
+            let track = if let Some(track) = self.track(id) {
                 track
             } else {
                 return out_for_not_exist();
@@ -265,7 +265,7 @@ impl TrackDrawer for TrackManager {
                     let mut arr = Array3::zeros(shape);
                     draw_wav_to(
                         arr.as_slice_mut().unwrap(),
-                        ArrWithSliceInfo::entire(&track.get_wav(ch)),
+                        ArrWithSliceInfo::entire(&track.channel(ch)),
                         width,
                         height,
                         &opt_for_wav,
@@ -296,7 +296,7 @@ impl TrackDrawer for TrackManager {
         let mut result = IdChMap::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
             let out_for_not_exist = || ((id, ch), Vec::new());
-            let track = if let Some(track) = self.get_track(id) {
+            let track = if let Some(track) = self.track(id) {
                 track
             } else {
                 return out_for_not_exist();
@@ -325,7 +325,7 @@ impl TrackDrawer for TrackManager {
 
             let spec_grey_part = ArrWithSliceInfo::from_ref(spec_grey, i_w_and_width);
             let wav_part = ArrWithSliceInfo::from(
-                track.get_wav(ch),
+                track.channel(ch),
                 track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
             );
             let vec = draw_blended_spec_wav(
@@ -366,7 +366,7 @@ impl TrackDrawer for TrackManager {
     }
 
     fn draw_overview(&self, id: usize, width: u32, height: u32, dpr: f32) -> Vec<u8> {
-        let track = if let Some(track) = self.get_track(id) {
+        let track = if let Some(track) = self.track(id) {
             track
         } else {
             return Vec::new();
@@ -395,7 +395,7 @@ impl TrackDrawer for TrackManager {
             .for_each(|(ch, x)| {
                 draw_wav_to(
                     &mut x[..ch_vec_len],
-                    ArrWithSliceInfo::entire(&track.get_wav(ch)),
+                    ArrWithSliceInfo::entire(&track.channel(ch)),
                     drawing_width,
                     ch_h_u32,
                     &DrawOptionForWav {
@@ -652,7 +652,7 @@ fn draw_wav_to(
         pixmap.fill_rect(rect, &paint, Transform::identity(), None);
     } else if samples_per_px < 2. {
         // upsampling
-        let wav_tail = wav.get_sliced_with_tail(RESAMPLE_TAIL);
+        let wav_tail = wav.as_sliced_with_tail(RESAMPLE_TAIL);
         let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
         let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
         let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x, false));
@@ -664,7 +664,7 @@ fn draw_wav_to(
             &paint,
         );
     } else {
-        let wav = wav.get_sliced();
+        let wav = wav.as_sliced();
         let half_context_size = topbottom_context_size / 2.;
         let mean_px = amp_to_px(wav.mean().unwrap_or(0.), true);
         let mut top_envlop = Vec::with_capacity(width as usize);
