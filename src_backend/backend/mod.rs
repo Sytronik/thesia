@@ -176,7 +176,6 @@ impl TrackManager {
         self.update_greys(false)
     }
 
-    #[allow(dead_code)]
     #[inline]
     pub fn id_ch_tuples(&self) -> IdChVec {
         self.id_ch_tuples_from(&self.tracklist.all_ids())

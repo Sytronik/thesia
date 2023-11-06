@@ -125,7 +125,7 @@ fn crop_caches(
     let vec: Vec<_> = id_ch_tuples
         .par_iter()
         .filter_map(|tup| {
-            let image = images.get(&tup)?;
+            let image = images.get(tup)?;
             let total_width = image.len() / 4 / option.height as usize;
             let (i_w_eff, width_eff) = match calc_effective_slice(i_w, width as usize, total_width)
             {

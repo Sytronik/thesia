@@ -46,7 +46,7 @@ impl Audio {
     }
 
     #[inline]
-    pub fn get_ch<'a>(&'a self, ch: usize) -> ArrayView1<'a, f32> {
+    pub fn get_ch(&self, ch: usize) -> ArrayView1<f32> {
         self.wavs.index_axis(Axis(0), ch)
     }
 
@@ -167,8 +167,8 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
                 };
                 let buf_ref = temp_buf.as_mut().unwrap();
                 _decoded.convert(buf_ref);
-                for ch in 0..n_ch {
-                    vec_channels[ch].extend(buf_ref.chan(ch));
+                for (ch, vec) in vec_channels.iter_mut().enumerate() {
+                    vec.extend(buf_ref.chan(ch));
                 }
             }
             Err(SymphoniaError::DecodeError(err)) => {
@@ -188,7 +188,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
 
     let mut vec: Vec<_> = vec_channels.into_iter().flatten().collect();
     if vec.len() < n_ch {
-        (vec.len()..n_ch).into_iter().for_each(|_| vec.push(0.));
+        (vec.len()..n_ch).for_each(|_| vec.push(0.));
     }
 
     let shape = (n_ch, vec.len() / n_ch);
@@ -202,11 +202,9 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
             format!("{:?}", sample_format)
         }
         (None, Some(bits_per_sample)) => {
-            format!("{} bit", bits_per_sample.to_string())
+            format!("{} bit", bits_per_sample)
         }
-        (None, None) => {
-            format!("? bit")
-        }
+        (None, None) => String::from("? bit"),
     };
     let format_desc = format!("{} {} {}", ext, FORMAT_DESC_DELIMITER, sample_format_str);
     Ok((wavs, sr, format_desc))

@@ -225,7 +225,7 @@ impl TrackList {
         for &id in id_list {
             let track = self.tracks[id]
                 .as_mut()
-                .expect(&format!("[reload_tracks] Wrong Track ID {}!", id));
+                .unwrap_or_else(|| panic!("[reload_tracks] Wrong Track ID {}!", id));
             match track.reload() {
                 Ok(true) => {
                     track.normalize(self.common_normalize, self.common_guard_clipping);
@@ -326,7 +326,7 @@ impl TrackList {
 
     #[inline]
     pub fn construct_all_sr_win_nfft_set(&self, setting: &SpecSetting) -> HashSet<SrWinNfft> {
-        self.construct_sr_win_nfft_set(&self.all_ids(), &setting)
+        self.construct_sr_win_nfft_set(&self.all_ids(), setting)
     }
 
     #[inline]
@@ -349,7 +349,7 @@ impl TrackList {
     pub fn get_filename(&self, id: usize) -> &str {
         self.filenames[id]
             .as_ref()
-            .expect(&format!("[get_filename] Wrong ID {}!", id))
+            .unwrap_or_else(|| panic!("[get_filename] Wrong ID {}!", id))
     }
 
     fn update_filenames(&mut self) {

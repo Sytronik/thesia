@@ -323,7 +323,7 @@ impl TrackDrawer for TrackManager {
                 return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
             }
 
-            let spec_grey_part = ArrWithSliceInfo::from_ref(&spec_grey, i_w_and_width);
+            let spec_grey_part = ArrWithSliceInfo::from_ref(spec_grey, i_w_and_width);
             let wav_part = ArrWithSliceInfo::from(
                 track.get_wav(ch),
                 track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
@@ -551,9 +551,9 @@ fn colorize_grey_with_size(
     let mut resized = vec![0f32; width as usize * height as usize];
     resizer
         .resize_stride(
-            &grey.as_slice().unwrap()[trim_left..].as_gray(),
+            grey.as_slice().unwrap()[trim_left..].as_gray(),
             grey.shape()[1],
-            &mut resized.as_gray_mut(),
+            resized.as_gray_mut(),
         )
         .unwrap();
     resized
@@ -727,7 +727,7 @@ fn draw_blended_spec_wav(
 
     if blend < 1. {
         // black
-        if 0. <= blend && blend < 0.5 {
+        if (0.0..0.5).contains(&blend) {
             let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
             let mut paint = Paint::default();
             let alpha = (u8::MAX as f64 * (1. - 2. * blend)).round() as u8;

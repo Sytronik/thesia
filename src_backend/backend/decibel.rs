@@ -25,13 +25,13 @@ where
     A: Float + MaybeNan,
     <A as MaybeNan>::NotNan: Ord,
 {
-    fn into_value<D: Dimension>(&self, data_for_max: ArrayView<A, D>) -> A {
+    fn into_value<D: Dimension>(self, data_for_max: ArrayView<A, D>) -> A {
         match self {
-            &DeciBelRef::Value(v) => {
+            DeciBelRef::Value(v) => {
                 assert!(v >= A::zero());
                 v
             }
-            &DeciBelRef::Max => *data_for_max.max_skipnan(),
+            DeciBelRef::Max => *data_for_max.max_skipnan(),
         }
     }
 }
@@ -60,7 +60,7 @@ where
     type A = A;
     fn log_for_dB(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
         assert!(amin >= A::zero());
-        let temp = [self.clone()];
+        let temp = [*self];
         let ref_value = reference.into_value(temp[..].into());
         if ref_value.is_nan() || ref_value.is_sign_negative() {
             return A::nan();

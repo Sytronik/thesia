@@ -1,6 +1,5 @@
 use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
-use readonly;
 
 use super::decibel::DeciBel;
 use super::normalize::MaxPeak;
@@ -19,7 +18,7 @@ pub struct StatCalculator(EbuR128);
 
 impl StatCalculator {
     pub fn new(n_ch: u32, sr: u32) -> Self {
-        let loudness_analyzer = EbuR128::new(n_ch as u32, sr, LoudnessMode::all()).unwrap();
+        let loudness_analyzer = EbuR128::new(n_ch, sr, LoudnessMode::all()).unwrap();
         StatCalculator(loudness_analyzer)
     }
 

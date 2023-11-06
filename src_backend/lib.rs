@@ -108,7 +108,7 @@ async fn set_image_state(
         let tm = TM.read().await;
         parse_id_ch_tuples(id_ch_strs)?
             .into_iter()
-            .filter(|id_ch| tm.exists(&id_ch))
+            .filter(|id_ch| tm.exists(id_ch))
             .collect()
     };
     tokio::spawn(img_mgr::send(ImgMsg::Draw((
@@ -177,7 +177,7 @@ async fn find_id_by_path(path: String) -> i32 {
         .await
         .tracklist
         .find_id_by_path(&path)
-        .map_or_else(|| -1, |id| id as i32)
+        .map_or(-1, |id| id as i32)
 }
 
 #[napi]
@@ -260,7 +260,7 @@ fn get_min_db() -> f64 {
 
 #[napi]
 fn get_longest_track_length_sec() -> f64 {
-    TM.blocking_read().tracklist.max_sec as f64
+    TM.blocking_read().tracklist.max_sec
 }
 
 #[napi]
@@ -288,7 +288,7 @@ fn get_sample_rate(track_id: u32) -> u32 {
 fn get_sample_format(track_id: u32) -> String {
     TM.blocking_read()
         .get_track(track_id as usize)
-        .map_or_else(|| String::new(), |track| track.format_desc.to_owned())
+        .map_or_else(String::new, |track| track.format_desc.to_owned())
 }
 
 #[napi(js_name = "getGlobalLUFS")]
@@ -316,7 +316,7 @@ fn get_max_peak_db(track_id: u32) -> f64 {
 fn get_path(track_id: u32) -> String {
     TM.blocking_read()
         .get_track(track_id as usize)
-        .map_or_else(|| String::new(), |track| track.path_string())
+        .map_or_else(String::new, |track| track.path_string())
 }
 
 #[napi]

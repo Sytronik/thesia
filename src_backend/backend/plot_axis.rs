@@ -118,19 +118,19 @@ fn calc_time_axis(
             let nano = if milli_format.is_empty() {
                 0
             } else {
-                milli / n_mod * n_mod * 1000_000
+                milli / n_mod * n_mod * 1_000_000
             };
             let mut s = NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
                 .unwrap()
                 .format(&time_format)
                 .to_string();
             if time_format.starts_with("%S") && sec_u32 < 10 {
-                s = s.replacen("0", "", 1);
+                s = s.replacen('0', "", 1);
             }
             if milli_format.is_empty() {
                 (x, s)
             } else {
-                (x, s.trim_end_matches("0").trim_end_matches(".").into())
+                (x, s.trim_end_matches('0').trim_end_matches('.').into())
             }
         })
         .chain(iter::once(elem_format_display))

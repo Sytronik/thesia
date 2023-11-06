@@ -17,6 +17,7 @@ pub enum GuardClippingMode {
 
 #[derive(Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(tag = "type", content = "target")]
+#[allow(clippy::upper_case_acronyms)]
 pub enum NormalizeTarget {
     #[default]
     Off,
@@ -39,7 +40,7 @@ where
         // f32::max(self.max_skipnan().abs(), self.min_skipnan().abs())
         self.iter()
             .map(|x| x.abs())
-            .reduce(|max, x| f32::max(max, x))
+            .reduce(f32::max)
             .unwrap_or_default()
     }
 }

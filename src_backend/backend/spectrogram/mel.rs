@@ -5,6 +5,7 @@ use std::ops::*;
 use ndarray::{prelude::*, ScalarOperand, Zip};
 use rustfft::num_traits::Float;
 
+#[allow(clippy::excessive_precision)]
 pub const MEL_DIFF_2K_1K: f32 = 10.081880157308321; // from_hz(2000) - from_hz(1000)
 pub const MIN_LOG_MEL: usize = 15;
 const MIN_LOG_HZ: f64 = 1000.;
