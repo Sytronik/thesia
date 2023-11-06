@@ -284,12 +284,12 @@ impl TrackManager {
         let mut linspec = stft.mapv(|x| x.norm());
         match self.setting.freq_scale {
             FreqScale::Linear => {
-                linspec.into_dB_from_amp_default();
+                linspec.dB_from_amp_inplace_default();
                 linspec
             }
             FreqScale::Mel => {
                 let mut melspec = linspec.dot(&self.analysis_mgr.get_mel_fb(track.sr(), n_fft));
-                melspec.into_dB_from_amp_default();
+                melspec.dB_from_amp_inplace_default();
                 melspec
             }
         }

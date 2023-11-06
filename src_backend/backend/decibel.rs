@@ -135,15 +135,15 @@ where
     Self::A: Float,
 {
     type A;
-    fn into_log_for_dB(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
-    fn into_dB_from_amp(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
-    fn into_dB_from_power(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
-    fn into_dB_from_amp_default(&mut self);
-    fn into_dB_from_power_default(&mut self);
-    fn into_amp_from_dB(&mut self, ref_value: Self::A);
-    fn into_power_from_dB(&mut self, ref_value: Self::A);
-    fn into_amp_from_dB_default(&mut self);
-    fn into_power_from_dB_default(&mut self);
+    fn log_for_dB_inplace(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
+    fn dB_from_amp_inplace(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
+    fn dB_from_power_inplace(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
+    fn dB_from_amp_inplace_default(&mut self);
+    fn dB_from_power_inplace_default(&mut self);
+    fn amp_from_dB_inplace(&mut self, ref_value: Self::A);
+    fn power_from_dB_inplace(&mut self, ref_value: Self::A);
+    fn amp_from_dB_inplace_default(&mut self);
+    fn power_from_dB_inplace_default(&mut self);
 }
 
 impl<A, S, D> DeciBelInplace for ArrayBase<S, D>
@@ -154,7 +154,7 @@ where
     D: Dimension,
 {
     type A = A;
-    fn into_log_for_dB(&mut self, reference: DeciBelRef<A>, amin: A) {
+    fn log_for_dB_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
         assert!(amin >= A::zero());
         let ref_value = reference.into_value(self.view());
         if ref_value.is_nan() {
@@ -182,54 +182,54 @@ where
     }
 
     #[inline]
-    fn into_dB_from_amp(&mut self, reference: DeciBelRef<A>, amin: A) {
+    fn dB_from_amp_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = A::from(20.).unwrap();
-        self.into_log_for_dB(reference, amin);
+        self.log_for_dB_inplace(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
     #[inline]
-    fn into_dB_from_power(&mut self, reference: DeciBelRef<A>, amin: A) {
+    fn dB_from_power_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = A::from(10.).unwrap();
-        self.into_log_for_dB(reference, amin);
+        self.log_for_dB_inplace(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
     #[inline]
-    fn into_dB_from_amp_default(&mut self) {
-        self.into_dB_from_amp(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap());
+    fn dB_from_amp_inplace_default(&mut self) {
+        self.dB_from_amp_inplace(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap());
     }
 
     #[inline]
-    fn into_dB_from_power_default(&mut self) {
-        self.into_dB_from_power(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap());
+    fn dB_from_power_inplace_default(&mut self) {
+        self.dB_from_power_inplace(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap());
     }
 
     #[inline]
-    fn into_amp_from_dB(&mut self, ref_value: A) {
+    fn amp_from_dB_inplace(&mut self, ref_value: A) {
         self.mapv_inplace(|x| ref_value * A::from(10.).unwrap().powf(A::from(0.05).unwrap() * x));
     }
 
     #[inline]
-    fn into_power_from_dB(&mut self, ref_value: A) {
+    fn power_from_dB_inplace(&mut self, ref_value: A) {
         self.mapv_inplace(|x| ref_value * A::from(10.).unwrap().powf(A::from(0.1).unwrap() * x));
     }
 
     #[inline]
-    fn into_amp_from_dB_default(&mut self) {
+    fn amp_from_dB_inplace_default(&mut self) {
         if let DeciBelRef::Value(ref_value) = Default::default() {
-            self.into_amp_from_dB(ref_value);
+            self.amp_from_dB_inplace(ref_value);
         } else {
-            self.into_amp_from_dB(A::one());
+            self.amp_from_dB_inplace(A::one());
         }
     }
 
     #[inline]
-    fn into_power_from_dB_default(&mut self) {
+    fn power_from_dB_inplace_default(&mut self) {
         if let DeciBelRef::Value(ref_value) = Default::default() {
-            self.into_power_from_dB(ref_value);
+            self.power_from_dB_inplace(ref_value);
         } else {
-            self.into_power_from_dB(A::one());
+            self.power_from_dB_inplace(A::one());
         }
     }
 }
