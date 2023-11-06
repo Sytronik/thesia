@@ -298,6 +298,20 @@ fn get_global_lufs(track_id: u32) -> f64 {
         .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
 }
 
+#[napi(js_name = "getRMSdB")]
+fn get_rms_db(track_id: u32) -> f64 {
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(f64::NEG_INFINITY, |track| track.stats().rms_db as f64)
+}
+
+#[napi(js_name = "getMaxPeakdB")]
+fn get_max_peak_db(track_id: u32) -> f64 {
+    TM.blocking_read()
+        .get_track(track_id as usize)
+        .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_db as f64)
+}
+
 #[napi]
 fn get_path(track_id: u32) -> String {
     TM.blocking_read()

@@ -133,6 +133,8 @@ export const {
   getSampleRate,
   getSampleFormat,
   getGlobalLUFS,
+  getRMSdB,
+  getMaxPeakdB,
   getLongestTrackLengthSec,
   getHzAt,
   getMaxdB,

@@ -252,7 +252,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getPath, getFileName, getColorMap } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getPath, getFileName, getColorMap } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -284,6 +284,8 @@ module.exports.getLengthSec = getLengthSec
 module.exports.getSampleRate = getSampleRate
 module.exports.getSampleFormat = getSampleFormat
 module.exports.getGlobalLUFS = getGlobalLUFS
+module.exports.getRMSdB = getRMSdB
+module.exports.getMaxPeakdB = getMaxPeakdB
 module.exports.getPath = getPath
 module.exports.getFileName = getFileName
 module.exports.getColorMap = getColorMap
