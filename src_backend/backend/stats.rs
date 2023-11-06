@@ -2,6 +2,7 @@ use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use readonly;
 
+use super::decibel::DeciBel;
 use super::normalize::MaxPeak;
 use super::utils::Planes;
 
@@ -29,9 +30,9 @@ impl StatCalculator {
 
         let n_elem = wavs.len();
         let mean_squared = wavs.iter().map(|x| x.powi(2)).sum::<f32>() / n_elem as f32;
-        let rms_db = 10. * mean_squared.log10(); // TODO: numerical stability
+        let rms_db = mean_squared.dB_from_power_default();
         let max_peak = wavs.max_peak();
-        let max_peak_db = 20. * max_peak.log10();
+        let max_peak_db = max_peak.dB_from_amp_default();
 
         AudioStats {
             global_lufs,
