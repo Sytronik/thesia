@@ -10,7 +10,7 @@ use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
-use super::normalize::{GuardClipping, GuardClippingMode};
+use super::normalize::{GuardClipping, GuardClippingMode, MaxPeak};
 use super::stats::{AudioStats, StatCalculator};
 
 const FORMAT_DESC_DELIMITER: &str = "|";
@@ -39,9 +39,10 @@ impl Audio {
         stat_calculator: &mut StatCalculator,
         guard_clipping_mode: GuardClippingMode,
     ) where
-        F: Fn(&mut Array2<f32>),
+        F: Fn(ArrayViewMut2<f32>),
     {
-        self.wavs.mutate_with_guard_clipping(f, guard_clipping_mode);
+        f(self.wavs.view_mut());
+        self.guard_clipping(guard_clipping_mode);
         self.update_stats(stat_calculator);
     }
 
@@ -67,6 +68,30 @@ impl Audio {
 
     fn update_stats(&mut self, stat_calculator: &mut StatCalculator) {
         self.stats = stat_calculator.calc(self.view());
+    }
+}
+
+impl MaxPeak for Audio {
+    #[inline]
+    fn max_peak(&self) -> f32 {
+        self.wavs.max_peak()
+    }
+}
+
+impl GuardClipping for Audio {
+    fn clip(&mut self) {
+        self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
+    }
+
+    fn reduce_global_level(&mut self) {
+        let peak = self.max_peak();
+        if peak > 1. {
+            self.wavs.mapv_inplace(|x| (x / peak).clamp(-1., 1.));
+        }
+    }
+
+    fn limit(&mut self) {
+        unimplemented!();
     }
 }
 

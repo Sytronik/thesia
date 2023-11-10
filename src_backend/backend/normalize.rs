@@ -1,7 +1,7 @@
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 use napi_derive::napi;
 use ndarray::prelude::*;
-use ndarray::{Data, DataMut};
+use ndarray::Data;
 use serde::{Deserialize, Serialize};
 
 use super::stats::AudioStats;
@@ -46,41 +46,23 @@ where
 }
 
 pub trait GuardClipping: MaxPeak + Sized {
-    fn guard_clipping(&mut self, mode: GuardClippingMode);
-    fn mutate_with_guard_clipping<F>(&mut self, f: F, mode: GuardClippingMode)
-    where
-        F: Fn(&mut Self);
-}
-
-impl<S, D> GuardClipping for ArrayBase<S, D>
-where
-    S: DataMut<Elem = f32>,
-    D: Dimension,
-{
     fn guard_clipping(&mut self, mode: GuardClippingMode) {
         match mode {
             GuardClippingMode::Clip => {
-                self.mapv_inplace(|x| x.clamp(-1., 1.));
+                self.clip();
             }
             GuardClippingMode::ReduceGlobalLevel => {
-                let peak = self.max_peak();
-                if peak > 1. {
-                    self.mapv_inplace(|x| (x / peak).clamp(-1., 1.));
-                }
+                self.reduce_global_level();
             }
             GuardClippingMode::Limiter => {
-                unimplemented!();
+                self.limit();
             }
         }
     }
 
-    fn mutate_with_guard_clipping<F>(&mut self, f: F, mode: GuardClippingMode)
-    where
-        F: Fn(&mut Self),
-    {
-        f(self);
-        self.guard_clipping(mode);
-    }
+    fn clip(&mut self);
+    fn reduce_global_level(&mut self);
+    fn limit(&mut self);
 }
 
 pub trait Normalize {
