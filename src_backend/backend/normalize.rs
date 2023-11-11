@@ -1,10 +1,8 @@
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 use napi_derive::napi;
-use ndarray::prelude::*;
-use ndarray::Data;
 use serde::{Deserialize, Serialize};
 
-use super::stats::AudioStats;
+use super::stats::{AudioStats, MaxPeak};
 
 #[napi(string_enum)]
 #[derive(Default)]
@@ -24,25 +22,6 @@ pub enum NormalizeTarget {
     LUFS(f32),
     RMSdB(f32),
     PeakdB(f32),
-}
-
-pub trait MaxPeak {
-    fn max_peak(&self) -> f32;
-}
-
-impl<S, D> MaxPeak for ArrayBase<S, D>
-where
-    S: Data<Elem = f32>,
-    D: Dimension,
-{
-    fn max_peak(&self) -> f32 {
-        // TODO: better one?
-        // f32::max(self.max_skipnan().abs(), self.min_skipnan().abs())
-        self.iter()
-            .map(|x| x.abs())
-            .reduce(f32::max)
-            .unwrap_or_default()
-    }
 }
 
 pub trait GuardClipping: MaxPeak + Sized {
@@ -75,7 +54,7 @@ pub trait Normalize {
         target: NormalizeTarget,
         guard_clipping_mode: GuardClippingMode,
     ) {
-        // TODO: guard clipping can make rms different from target_db
+        // TODO: guard clipping can make lufs/rms different from target_db
         let gain = match target {
             NormalizeTarget::LUFS(target_lufs) => {
                 10f32.powf((target_lufs - self.stats_for_normalize().global_lufs as f32) / 20.)

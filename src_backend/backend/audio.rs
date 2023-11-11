@@ -10,8 +10,8 @@ use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
-use super::normalize::{GuardClipping, GuardClippingMode, MaxPeak};
-use super::stats::{AudioStats, StatCalculator};
+use super::normalize::{GuardClipping, GuardClippingMode};
+use super::stats::{AudioStats, MaxPeak, StatCalculator};
 
 const FORMAT_DESC_DELIMITER: &str = "|";
 

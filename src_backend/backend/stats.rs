@@ -1,8 +1,8 @@
 use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
+use ndarray::Data;
 
 use super::decibel::DeciBel;
-use super::normalize::MaxPeak;
 use super::utils::Planes;
 
 #[readonly::make]
@@ -39,5 +39,22 @@ impl StatCalculator {
             max_peak,
             max_peak_db,
         }
+    }
+}
+
+pub trait MaxPeak {
+    fn max_peak(&self) -> f32;
+}
+
+impl<S, D> MaxPeak for ArrayBase<S, D>
+where
+    S: Data<Elem = f32>,
+    D: Dimension,
+{
+    fn max_peak(&self) -> f32 {
+        self.iter()
+            .map(|x| x.abs())
+            .reduce(f32::max)
+            .unwrap_or_default()
     }
 }
