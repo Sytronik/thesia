@@ -55,6 +55,10 @@ mimalloc = {version = "0.1.39"}
 opt-level = 3
 lto = true
 
+[profile.test]
+opt-level = 0
+lto = false
+
 [profile.release]
 lto = true
 panic = "abort"
