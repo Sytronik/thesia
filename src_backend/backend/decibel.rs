@@ -4,6 +4,7 @@
 use ndarray::prelude::*;
 use ndarray::DataMut;
 use ndarray_stats::{MaybeNan, QuantileExt};
+use num_traits::AsPrimitive;
 use rustfft::num_traits::Float;
 
 const AMIN_AMP_DEFAULT: f32 = 1e-18;
@@ -54,8 +55,9 @@ where
 
 impl<A> DeciBel for A
 where
-    A: Float + MaybeNan,
+    A: Float + MaybeNan + 'static,
     <A as MaybeNan>::NotNan: Ord,
+    f32: AsPrimitive<A>,
 {
     type A = A;
     fn log_for_dB(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
@@ -83,32 +85,32 @@ where
 
     #[inline]
     fn dB_from_amp(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
-        A::from(20.).unwrap() * self.log_for_dB(reference, amin)
+        20.0.as_() * self.log_for_dB(reference, amin)
     }
 
     #[inline]
     fn dB_from_power(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
-        A::from(10.).unwrap() * self.log_for_dB(reference, amin)
+        10.0.as_() * self.log_for_dB(reference, amin)
     }
 
     #[inline]
     fn dB_from_amp_default(&self) -> Self {
-        self.dB_from_amp(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap())
+        self.dB_from_amp(Default::default(), AMIN_AMP_DEFAULT.as_())
     }
 
     #[inline]
     fn dB_from_power_default(&self) -> Self {
-        self.dB_from_power(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap())
+        self.dB_from_power(Default::default(), AMIN_POWER_DEFAULT.as_())
     }
 
     #[inline]
     fn amp_from_dB(&self, ref_value: Self::A) -> Self {
-        ref_value * A::from(10.).unwrap().powf(A::from(0.05).unwrap() * *self)
+        ref_value * 10.0.as_().powf(0.05.as_() * *self)
     }
 
     #[inline]
     fn power_from_dB(&self, ref_value: Self::A) -> Self {
-        ref_value * A::from(10.).unwrap().powf(A::from(0.05).unwrap() * *self)
+        ref_value * 10.0.as_().powf(0.05.as_() * *self)
     }
 
     #[inline]
@@ -148,8 +150,9 @@ where
 
 impl<A, S, D> DeciBelInplace for ArrayBase<S, D>
 where
-    A: Float + MaybeNan,
+    A: Float + MaybeNan + 'static,
     <A as MaybeNan>::NotNan: Ord,
+    f32: AsPrimitive<A>,
     S: DataMut<Elem = A>,
     D: Dimension,
 {
@@ -183,36 +186,36 @@ where
 
     #[inline]
     fn dB_from_amp_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
-        let factor = A::from(20.).unwrap();
+        let factor = 20.0.as_();
         self.log_for_dB_inplace(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
     #[inline]
     fn dB_from_power_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
-        let factor = A::from(10.).unwrap();
+        let factor = 10.0.as_();
         self.log_for_dB_inplace(reference, amin);
         self.mapv_inplace(|x| factor * x);
     }
 
     #[inline]
     fn dB_from_amp_inplace_default(&mut self) {
-        self.dB_from_amp_inplace(Default::default(), A::from(AMIN_AMP_DEFAULT).unwrap());
+        self.dB_from_amp_inplace(Default::default(), AMIN_AMP_DEFAULT.as_());
     }
 
     #[inline]
     fn dB_from_power_inplace_default(&mut self) {
-        self.dB_from_power_inplace(Default::default(), A::from(AMIN_POWER_DEFAULT).unwrap());
+        self.dB_from_power_inplace(Default::default(), AMIN_POWER_DEFAULT.as_());
     }
 
     #[inline]
     fn amp_from_dB_inplace(&mut self, ref_value: A) {
-        self.mapv_inplace(|x| ref_value * A::from(10.).unwrap().powf(A::from(0.05).unwrap() * x));
+        self.mapv_inplace(|x| ref_value * 10.0.as_().powf(0.05.as_() * x));
     }
 
     #[inline]
     fn power_from_dB_inplace(&mut self, ref_value: A) {
-        self.mapv_inplace(|x| ref_value * A::from(10.).unwrap().powf(A::from(0.1).unwrap() * x));
+        self.mapv_inplace(|x| ref_value * 10.0.as_().powf(0.1.as_() * x));
     }
 
     #[inline]

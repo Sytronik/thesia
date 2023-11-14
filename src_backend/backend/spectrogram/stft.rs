@@ -2,6 +2,7 @@ use std::ops::*;
 use std::sync::Arc;
 
 use ndarray::{prelude::*, ScalarOperand};
+use num_traits::AsPrimitive;
 use rayon::prelude::*;
 use rustfft::{
     num_complex::Complex,
@@ -24,6 +25,8 @@ pub fn perform_stft<A>(
 ) -> Array2<Complex<A>>
 where
     A: FftNum + Float + FloatConst + DivAssign + ScalarOperand,
+    f32: AsPrimitive<A>,
+    usize: AsPrimitive<A>,
 {
     let window = window.map_or_else(
         || calc_normalized_win(WindowType::Hann, win_length, n_fft).into(),

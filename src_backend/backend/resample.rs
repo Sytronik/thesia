@@ -1,11 +1,11 @@
 // from rubato crate
-use std::ops::{AddAssign, Div, DivAssign, MulAssign};
 use std::sync::Arc;
 
 use ndarray::{prelude::*, ScalarOperand};
 use ndarray_stats::QuantileExt;
+use num_traits::{AsPrimitive, NumAssignOps, NumOps};
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};
-use rustfft::num_traits::{Float, FloatConst, FromPrimitive, NumAssign};
+use rustfft::num_traits::{Float, FloatConst};
 
 use crate::backend::utils::{Pad, PadMode};
 
@@ -30,16 +30,9 @@ pub struct FftResampler<A> {
 
 impl<A> FftResampler<A>
 where
-    A: Float
-        + FloatConst
-        + FromPrimitive
-        + ScalarOperand
-        + FftNum
-        + AddAssign
-        + DivAssign
-        + MulAssign
-        + Div
-        + NumAssign,
+    A: Float + FloatConst + ScalarOperand + FftNum + NumOps + NumAssignOps,
+    f32: AsPrimitive<A>,
+    usize: AsPrimitive<A>,
 {
     pub fn new(input_size: usize, output_size: usize) -> Self {
         // calculate antialiasing cutoff
@@ -59,7 +52,7 @@ where
         let ifft = planner.plan_fft_inverse(2 * output_size);
 
         let mut filter_t = {
-            let x = &sinc / A::from(2 * input_size).unwrap();
+            let x = &sinc / (2 * input_size).as_();
             x.pad((0, input_size), Axis(0), PadMode::Constant(A::zero()))
         };
         let mut filter_f = Array1::zeros(input_size + 1);

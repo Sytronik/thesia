@@ -1,8 +1,7 @@
 // https://librosa.org/doc/0.8.0/_modules/librosa/filters.html#mel
 
-use std::ops::*;
-
 use ndarray::{prelude::*, ScalarOperand, Zip};
+use num_traits::{AsPrimitive, NumAssignOps};
 use rustfft::num_traits::Float;
 
 #[allow(clippy::excessive_precision)]
@@ -13,22 +12,30 @@ const LOGSTEP: f64 = 0.06875177742094912; // 6.4.ln() / 27.
 const LINEARSCALE: f64 = 200. / 3.;
 
 #[inline]
-pub fn to_hz<A: Float>(mel: A) -> A {
-    let min_log_mel = A::from(MIN_LOG_MEL).unwrap();
+pub fn to_hz<A: Float + 'static>(mel: A) -> A
+where
+    f64: AsPrimitive<A>,
+    usize: AsPrimitive<A>,
+{
+    let min_log_mel = MIN_LOG_MEL.as_();
     if mel < min_log_mel {
-        A::from(LINEARSCALE).unwrap() * mel
+        LINEARSCALE.as_() * mel
     } else {
-        A::from(MIN_LOG_HZ).unwrap() * (A::from(LOGSTEP).unwrap() * (mel - min_log_mel)).exp()
+        MIN_LOG_HZ.as_() * (LOGSTEP.as_() * (mel - min_log_mel)).exp()
     }
 }
 
 #[inline]
-pub fn from_hz<A: Float>(freq: A) -> A {
-    let min_log_hz = A::from(MIN_LOG_HZ).unwrap();
+pub fn from_hz<A: Float + 'static>(freq: A) -> A
+where
+    f64: AsPrimitive<A>,
+    usize: AsPrimitive<A>,
+{
+    let min_log_hz = MIN_LOG_HZ.as_();
     if freq < min_log_hz {
-        freq / A::from(LINEARSCALE).unwrap()
+        freq / LINEARSCALE.as_()
     } else {
-        A::from(MIN_LOG_MEL).unwrap() + (freq / min_log_hz).ln() / A::from(LOGSTEP).unwrap()
+        MIN_LOG_MEL.as_() + (freq / min_log_hz).ln() / LOGSTEP.as_()
     }
 }
 
@@ -42,19 +49,13 @@ pub fn calc_mel_fb<A>(
     do_norm: bool,
 ) -> Array2<A>
 where
-    A: Float
-        + ScalarOperand
-        + AddAssign
-        + SubAssign
-        + MulAssign
-        + DivAssign
-        + Sync
-        + Send
-        + std::fmt::Debug,
+    A: Float + ScalarOperand + NumAssignOps + Sync + Send + std::fmt::Debug,
+    f64: AsPrimitive<A>,
+    usize: AsPrimitive<A>,
 {
     assert_eq!(n_fft % 2, 0);
     assert_ne!(n_mel, 0);
-    let f_nyquist = A::from((sr as f32) / 2.).unwrap();
+    let f_nyquist = ((sr as f64) / 2.).as_();
     let fmax = if let Some(f) = fmax { f } else { f_nyquist };
     let n_freq = n_fft / 2 + 1;
 

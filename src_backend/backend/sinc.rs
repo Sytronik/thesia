@@ -1,48 +1,46 @@
 use std::mem::MaybeUninit;
-use std::ops::{AddAssign, DivAssign};
 
 use ndarray::{prelude::*, ScalarOperand};
-use rustfft::num_traits::{Float, FloatConst, FromPrimitive};
+use num_traits::{AsPrimitive, NumAssignOps};
+use rustfft::num_traits::{Float, FloatConst};
 
 use super::windows::{calc_normalized_win, WindowType};
 
 /// Helper function: sinc(x) = sin(pi*x)/(pi*x)
-pub fn sinc<T>(value: T) -> T
+pub fn sinc<A>(value: A) -> A
 where
-    T: Float + FloatConst,
+    A: Float + FloatConst,
 {
-    if value == T::zero() {
-        T::one()
+    if value == A::zero() {
+        A::one()
     } else {
-        (value * T::PI()).sin() / (value * T::PI())
+        (value * A::PI()).sin() / (value * A::PI())
     }
 }
 
 /// Helper function. Make a set of windowed sincs.
-pub fn calc_windowed_sincs<T>(
+pub fn calc_windowed_sincs<A>(
     npoints: usize,
     factor: usize,
     f_cutoff: f32,
     win_type: WindowType,
-) -> Array2<T>
+) -> Array2<A>
 where
-    T: Float + FloatConst + FromPrimitive + ScalarOperand + AddAssign + DivAssign,
+    A: Float + FloatConst + ScalarOperand + NumAssignOps,
+    f32: AsPrimitive<A>,
+    usize: AsPrimitive<A>,
 {
     let totpoints = npoints * factor;
     let mut y = Vec::with_capacity(totpoints);
-    let window: Array1<T> = calc_normalized_win(win_type, totpoints, 1);
-    let mut sum = T::zero();
+    let window: Array1<A> = calc_normalized_win(win_type, totpoints, 1);
+    let mut sum = A::zero();
     for (x, w) in window.iter().enumerate().take(totpoints) {
-        let val = *w
-            * sinc(
-                (T::from(x).unwrap() - T::from(totpoints / 2).unwrap())
-                    * T::from(f_cutoff).unwrap()
-                    / T::from(factor).unwrap(),
-            );
+        let val =
+            *w * sinc(((x).as_() - (totpoints / 2).as_()) * (f_cutoff).as_() / (factor).as_());
         sum += val;
         y.push(val);
     }
-    sum /= T::from(factor).unwrap();
+    sum /= factor.as_();
     let mut sincs = Array2::uninit((factor, npoints));
     for p in 0..npoints {
         for n in 0..factor {
