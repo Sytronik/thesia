@@ -42,6 +42,7 @@ rev = "bce89c58e3f3348686f469f72718bdcae1a3c07a"
 default-features = false
 
 [dev-dependencies]
+hound = "3.5.1"
 image = "0.24.7"
 
 [build-dependencies]

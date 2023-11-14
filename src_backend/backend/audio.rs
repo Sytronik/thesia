@@ -10,6 +10,7 @@ use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
+use super::limiter::get_cached_limiter;
 use super::normalize::{GuardClipping, GuardClippingMode};
 use super::stats::{AudioStats, MaxPeak, StatCalculator};
 
@@ -91,7 +92,10 @@ impl GuardClipping for Audio {
     }
 
     fn limit(&mut self) {
-        unimplemented!();
+        let mut limiter = get_cached_limiter(self.sr);
+        for wav in self.wavs.axis_iter_mut(Axis(0)) {
+            limiter.process_inplace(wav);
+        }
     }
 }
 

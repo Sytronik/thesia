@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 mod audio;
 mod decibel;
 pub mod display;
+mod envelope;
+mod limiter;
 pub mod normalize;
 pub mod plot_axis;
 mod resample;
