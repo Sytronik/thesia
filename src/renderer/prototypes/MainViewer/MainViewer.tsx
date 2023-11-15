@@ -498,6 +498,13 @@ function MainViewer(props: MainViewerProps) {
     return () => cancelAnimationFrame(requestRef.current);
   }, [drawCanvas]);
 
+  useEffect(() => {
+    if (selectedTrackIds.length === 0) return;
+    const selectedIdUnderscore = `${selectedTrackIds[selectedTrackIds.length - 1]}_`;
+    if (needRefreshTrackIdChArr.some((idCh: string) => idCh.startsWith(selectedIdUnderscore)))
+      overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
+  }, [needRefreshTrackIdChArr]);
+
   // set LensParams when track list or width change
   useLayoutEffect(() => {
     if (trackIds.length > 0) {

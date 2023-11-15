@@ -33,7 +33,7 @@ type AxisCanvasHandleElement = {
 };
 
 type OverviewHandleElement = {
-  draw: (startSec: number, lensDurationSec: number) => Promise<void>;
+  draw: (startSec: number, lensDurationSec: number, forced?: boolean) => Promise<void>;
 };
 
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
