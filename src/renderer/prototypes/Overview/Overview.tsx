@@ -108,7 +108,9 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     }
 
     if (!backgroundCtx) return;
-    const {width, height} = backgroundElem.current;
+    const rect = backgroundElem.current.getBoundingClientRect();
+    const width = rect.width * devicePixelRatio;
+    const height = rect.height * devicePixelRatio;
     const args: ArgsGetOverview = [selectedTrackId, width, height];
     if (
       forced ||
