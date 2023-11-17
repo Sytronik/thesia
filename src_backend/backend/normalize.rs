@@ -2,7 +2,7 @@ use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 use napi_derive::napi;
 use serde::{Deserialize, Serialize};
 
-use super::stats::{AudioStats, MaxPeak};
+use super::stats::AudioStats;
 
 #[napi(string_enum)]
 #[derive(Default)]
@@ -24,24 +24,20 @@ pub enum NormalizeTarget {
     PeakdB(f32),
 }
 
-pub trait GuardClipping: MaxPeak + Sized {
-    fn guard_clipping(&mut self, mode: GuardClippingMode) {
+pub trait GuardClipping {
+    type GainArray;
+
+    fn guard_clipping(&mut self, mode: GuardClippingMode) -> Self::GainArray {
         match mode {
-            GuardClippingMode::Clip => {
-                self.clip();
-            }
-            GuardClippingMode::ReduceGlobalLevel => {
-                self.reduce_global_level();
-            }
-            GuardClippingMode::Limiter => {
-                self.limit();
-            }
+            GuardClippingMode::Clip => self.clip(),
+            GuardClippingMode::ReduceGlobalLevel => self.reduce_global_level(),
+            GuardClippingMode::Limiter => self.limit(),
         }
     }
 
-    fn clip(&mut self);
-    fn reduce_global_level(&mut self);
-    fn limit(&mut self);
+    fn clip(&mut self) -> Self::GainArray;
+    fn reduce_global_level(&mut self) -> Self::GainArray;
+    fn limit(&mut self) -> Self::GainArray;
 }
 
 pub trait Normalize {

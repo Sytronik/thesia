@@ -1,6 +1,8 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::mem::MaybeUninit;
+use std::sync::Arc;
 
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
@@ -87,7 +89,8 @@ impl PerfectLimiter {
         self.buffer.fill(0.);
     }
 
-    pub fn step(&mut self, value: f32) -> f32 {
+    /// process one sample, and returns (delayed_output, gain)
+    pub fn step(&mut self, value: f32) -> (f32, f32) {
         let delayed = self.buffer[self.i_buf] as f64;
         let gain = self.calc_gain(value);
         self.buffer[self.i_buf] = value;
@@ -95,25 +98,31 @@ impl PerfectLimiter {
         // println!("i={} d={} g={}", value, delayed, gain);
         let out = (delayed * gain) as f32;
         debug_assert!(-1. - f32::EPSILON < out && out < 1. + f32::EPSILON);
-        out.clamp(-1., 1.)
+        (out.clamp(-1., 1.), gain as f32)
     }
 
-    pub fn process_inplace(&mut self, mut wav: ArrayViewMut1<f32>) {
+    /// apply limiter to wav inplace, return gain array
+    pub fn process_inplace(&mut self, mut wav: ArrayViewMut1<f32>) -> Array1<f32> {
         self.reset();
+        let mut gain_arr = Array1::uninit(wav.raw_dim());
         for i in 0..(wav.len() + self.buffer.len()) {
             let input = if i < wav.len() { wav[i] } else { 0. };
-            let output = self.step(input);
+            let (output, gain) = self.step(input);
             if i >= self.buffer.len() {
-                wav[i - self.buffer.len()] = output;
+                let j = i - self.buffer.len();
+                wav[j] = output;
+                gain_arr[j] = MaybeUninit::new(gain);
             }
         }
+        unsafe { gain_arr.assume_init() }
     }
 
+    /// apply limiter to wav, return (output, gain array)
     #[inline]
-    pub fn process(&mut self, wav: ArrayView1<f32>) -> Array1<f32> {
+    pub fn process(&mut self, wav: ArrayView1<f32>) -> (Array1<f32>, Array1<f32>) {
         let mut out = wav.to_owned();
-        self.process_inplace(out.view_mut());
-        out
+        let gain_arr = self.process_inplace(out.view_mut());
+        (out, gain_arr)
     }
 
     fn calc_gain(&mut self, value: f32) -> f64 {

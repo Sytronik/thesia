@@ -72,30 +72,45 @@ impl Audio {
     }
 }
 
-impl MaxPeak for Audio {
-    #[inline]
-    fn max_peak(&self) -> f32 {
-        self.wavs.max_peak()
-    }
-}
-
 impl GuardClipping for Audio {
-    fn clip(&mut self) {
-        self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
+    type GainArray = Array2<f32>;
+
+    fn clip(&mut self) -> Self::GainArray {
+        // self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
+        let mut gain_arr = Array2::ones(self.wavs.raw_dim());
+        self.wavs.indexed_iter_mut().for_each(|(index, x)| {
+            *x = x.clamp(-1., 1.);
+            if *x > 1. {
+                gain_arr[index] = 1. / *x;
+                *x = 1.;
+            } else if *x < -1. {
+                gain_arr[index] = -1. / *x;
+                *x = -1.;
+            }
+        });
+        gain_arr
     }
 
-    fn reduce_global_level(&mut self) {
-        let peak = self.max_peak();
+    fn reduce_global_level(&mut self) -> Self::GainArray {
+        let peak = self.wavs.max_peak() as f64;
         if peak > 1. {
-            self.wavs.mapv_inplace(|x| (x / peak).clamp(-1., 1.));
+            let gain = 1. / peak;
+            self.wavs
+                .mapv_inplace(|x| ((x as f64 * gain) as f32).clamp(-1., 1.));
+            Array2::from_elem(self.wavs.raw_dim(), gain as f32)
+        } else {
+            Array2::ones(self.wavs.raw_dim())
         }
     }
 
-    fn limit(&mut self) {
+    fn limit(&mut self) -> Array2<f32> {
         let mut limiter = get_cached_limiter(self.sr);
+        let mut gain_arrs = Vec::with_capacity(self.n_ch());
         for wav in self.wavs.axis_iter_mut(Axis(0)) {
-            limiter.process_inplace(wav);
+            gain_arrs.push(limiter.process_inplace(wav));
         }
+        let gain_arr_views: Vec<_> = gain_arrs.iter().map(ArrayBase::view).collect();
+        ndarray::stack(Axis(0), &gain_arr_views).unwrap_or_default()
     }
 }
 
