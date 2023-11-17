@@ -5,7 +5,7 @@ use rustfft::num_traits::{Float, FloatConst};
 pub enum WindowType {
     Hann,
     Blackman,
-    BoxCar,
+    _BoxCar,
 }
 
 #[inline]
@@ -23,7 +23,7 @@ where
     match win_type {
         WindowType::Hann => hann(size, false) / norm_factor,
         WindowType::Blackman => blackman(size, false) / norm_factor,
-        WindowType::BoxCar => Array1::from_elem(size, A::one() / norm_factor),
+        WindowType::_BoxCar => Array1::from_elem(size, A::one() / norm_factor),
     }
 }
 

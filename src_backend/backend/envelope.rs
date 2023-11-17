@@ -133,10 +133,6 @@ where
         self.box_sum.reset(fill);
     }
 
-    pub fn reset_default(&mut self) {
-        self.box_sum.reset_default();
-    }
-
     pub fn step(&mut self, value: A) -> A {
         self.box_sum.step(value, self.length) * self.multiplier
     }
@@ -213,10 +209,6 @@ where
         0.0961938290157, 0.0880639725438, 0.0738389766046, 0.0746781936619, 0.06965449036820,
         */
     ];
-
-    pub fn new(max_size: usize) -> Self {
-        BoxStackFilter::with_num_layers(max_size, 4)
-    }
 
     pub fn with_num_layers(max_size: usize, num_layers: usize) -> Self {
         let mut out = BoxStackFilter {
@@ -327,13 +319,13 @@ where
     }
 
     /// Approximate (optimal) bandwidth for a given number of layers
-    fn layers_to_bandwidth(num_layers: usize) -> f64 {
+    fn _layers_to_bandwidth(num_layers: usize) -> f64 {
         1.58 * (num_layers as f64 + 0.1)
     }
 
     /// Approximate (optimal) peak in the stop-band
     #[allow(non_snake_case)]
-    fn layers_to_peak_dB(num_layers: usize) -> f64 {
+    fn _layers_to_peak_dB(num_layers: usize) -> f64 {
         (5 - (num_layers as isize) * 18) as f64
     }
 }

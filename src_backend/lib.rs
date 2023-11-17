@@ -11,7 +11,9 @@ use napi_derive::napi;
 use serde_json::json;
 use tokio::sync::RwLock;
 
+#[warn(dead_code)]
 mod backend;
+#[warn(dead_code)]
 mod img_mgr;
 
 use backend::*;

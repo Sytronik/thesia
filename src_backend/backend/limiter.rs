@@ -119,7 +119,7 @@ impl PerfectLimiter {
 
     /// apply limiter to wav, return (output, gain array)
     #[inline]
-    pub fn process(&mut self, wav: ArrayView1<f32>) -> (Array1<f32>, Array1<f32>) {
+    pub fn _process(&mut self, wav: ArrayView1<f32>) -> (Array1<f32>, Array1<f32>) {
         let mut out = wav.to_owned();
         let gain_arr = self.process_inplace(out.view_mut());
         (out, gain_arr)
@@ -138,23 +138,24 @@ impl PerfectLimiter {
     }
 
     #[inline]
-    pub fn latency(&self) -> usize {
+    pub fn _latency_samples(&self) -> usize {
         self.attack
     }
 
     #[inline]
-    pub fn hold_length(&self) -> usize {
+    pub fn _hold_samples(&self) -> usize {
         self.peakhold.hold_length() - self.attack
     }
 
     #[inline]
-    pub fn release_samples(&self) -> f64 {
+    pub fn _release_samples(&self) -> f64 {
         self.release.release_samples
     }
 }
 
 /// Limiter with imperfect anticipation.
 /// This is a rust version of cylimiter https://github.com/pzelasko/cylimiter
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct SimpleLimiter {
     attack: f64,
@@ -164,6 +165,7 @@ pub struct SimpleLimiter {
     lookahead_buf: Vec<f32>,
 }
 
+#[allow(dead_code)]
 impl SimpleLimiter {
     pub fn new(
         sr: u32,

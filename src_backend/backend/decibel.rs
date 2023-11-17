@@ -12,7 +12,7 @@ const AMIN_POWER_DEFAULT: f32 = 1e-36;
 
 pub enum DeciBelRef<A: Float> {
     Value(A),
-    Max,
+    _Max,
 }
 
 impl<A: Float> Default for DeciBelRef<A> {
@@ -32,7 +32,7 @@ where
                 assert!(v >= A::zero());
                 v
             }
-            DeciBelRef::Max => *data_for_max.max_skipnan(),
+            DeciBelRef::_Max => *data_for_max.max_skipnan(),
         }
     }
 }

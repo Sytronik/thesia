@@ -62,11 +62,6 @@ impl SpecSetting {
     }
 
     #[inline]
-    pub fn calc_n_fft(&self, sr: u32) -> usize {
-        self.calc_win_length(sr).next_power_of_two() * self.f_overlap as usize
-    }
-
-    #[inline]
     pub fn calc_framing_params(&self, sr: u32) -> FramingParams {
         let hop_length = self.calc_hop_length(sr);
         let win_length = self.calc_win_length_from_hop_length(hop_length);
