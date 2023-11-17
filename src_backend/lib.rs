@@ -121,16 +121,17 @@ async fn set_image_state(
 }
 
 #[napi(js_name = "getdBRange")]
-fn get_db_range() -> f64 {
-    TM.blocking_read().db_range as f64
+#[allow(non_snake_case)]
+fn get_dB_range() -> f64 {
+    TM.blocking_read().dB_range as f64
 }
 
 #[napi(js_name = "setdBRange")]
 #[allow(non_snake_case)]
-fn set_db_range(dB_range: f64) {
+fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
     let mut tm = TM.blocking_write();
-    tm.set_db_range(dB_range as f32);
+    tm.set_dB_range(dB_range as f32);
     remove_all_imgs(tm);
 }
 
@@ -255,23 +256,26 @@ async fn get_amp_axis_markers(
 }
 
 #[napi(js_name = "getdBAxisMarkers")]
-async fn get_db_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+#[allow(non_snake_case)]
+async fn get_dB_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
     assert_axis_params(max_num_ticks, max_num_labels);
 
     json!(TM
         .read()
         .await
-        .create_db_axis(max_num_ticks, max_num_labels))
+        .create_dB_axis(max_num_ticks, max_num_labels))
 }
 
 #[napi(js_name = "getMaxdB")]
-fn get_max_db() -> f64 {
-    TM.blocking_read().max_db as f64
+#[allow(non_snake_case)]
+fn get_max_dB() -> f64 {
+    TM.blocking_read().max_dB as f64
 }
 
 #[napi(js_name = "getMindB")]
-fn get_min_db() -> f64 {
-    TM.blocking_read().min_db as f64
+#[allow(non_snake_case)]
+fn get_min_dB() -> f64 {
+    TM.blocking_read().min_dB as f64
 }
 
 #[napi]
@@ -315,17 +319,19 @@ fn get_global_lufs(track_id: u32) -> f64 {
 }
 
 #[napi(js_name = "getRMSdB")]
-fn get_rms_db(track_id: u32) -> f64 {
+#[allow(non_snake_case)]
+fn get_rms_dB(track_id: u32) -> f64 {
     TM.blocking_read()
         .track(track_id as usize)
-        .map_or(f64::NEG_INFINITY, |track| track.stats().rms_db as f64)
+        .map_or(f64::NEG_INFINITY, |track| track.stats().rms_dB as f64)
 }
 
 #[napi(js_name = "getMaxPeakdB")]
-fn get_max_peak_db(track_id: u32) -> f64 {
+#[allow(non_snake_case)]
+fn get_max_peak_dB(track_id: u32) -> f64 {
     TM.blocking_read()
         .track(track_id as usize)
-        .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_db as f64)
+        .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_dB as f64)
 }
 
 #[napi]

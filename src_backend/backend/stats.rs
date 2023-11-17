@@ -7,11 +7,12 @@ use super::utils::Planes;
 
 #[readonly::make]
 #[derive(Clone, PartialEq)]
+#[allow(non_snake_case)]
 pub struct AudioStats {
     pub global_lufs: f64,
-    pub rms_db: f32,
+    pub rms_dB: f32,
     pub max_peak: f32,
-    pub max_peak_db: f32,
+    pub max_peak_dB: f32,
 }
 
 pub struct StatCalculator(EbuR128);
@@ -29,15 +30,17 @@ impl StatCalculator {
 
         let n_elem = wavs.len();
         let mean_squared = wavs.iter().map(|x| x.powi(2)).sum::<f32>() / n_elem as f32;
-        let rms_db = mean_squared.dB_from_power_default();
+        #[allow(non_snake_case)]
+        let rms_dB = mean_squared.dB_from_power_default();
         let max_peak = wavs.max_peak();
-        let max_peak_db = max_peak.dB_from_amp_default();
+        #[allow(non_snake_case)]
+        let max_peak_dB = max_peak.dB_from_amp_default();
 
         AudioStats {
             global_lufs,
-            rms_db,
+            rms_dB,
             max_peak,
-            max_peak_db,
+            max_peak_dB,
         }
     }
 }

@@ -97,14 +97,15 @@ impl SpecSetting {
 }
 
 #[readonly::make]
+#[allow(non_snake_case)]
 pub struct TrackManager {
     pub tracklist: TrackList,
-    pub max_db: f32,
-    pub min_db: f32,
+    pub max_dB: f32,
+    pub min_dB: f32,
     pub max_sr: u32,
     pub spec_greys: IdChMap<Array2<f32>>,
     pub setting: SpecSetting,
-    pub db_range: f32,
+    pub dB_range: f32,
     analysis_mgr: AnalysisParamManager,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
@@ -113,8 +114,8 @@ pub struct TrackManager {
 impl TrackManager {
     pub fn new() -> Self {
         TrackManager {
-            max_db: -f32::INFINITY,
-            min_db: f32::INFINITY,
+            max_dB: -f32::INFINITY,
+            min_dB: f32::INFINITY,
             max_sr: 0,
             spec_greys: HashMap::new(),
             tracklist: TrackList::new(),
@@ -124,7 +125,7 @@ impl TrackManager {
                 f_overlap: 1,
                 freq_scale: FreqScale::Mel,
             },
-            db_range: 120.,
+            dB_range: 120.,
             analysis_mgr: AnalysisParamManager::new(),
             specs: HashMap::new(),
             no_grey_ids: Vec::new(),
@@ -249,8 +250,9 @@ impl TrackManager {
         self.update_greys(true);
     }
 
-    pub fn set_db_range(&mut self, db_range: f32) {
-        self.db_range = db_range;
+    #[allow(non_snake_case)]
+    pub fn set_dB_range(&mut self, dB_range: f32) {
+        self.dB_range = dB_range;
         self.update_greys(true);
     }
 
@@ -302,7 +304,7 @@ impl TrackManager {
         self.specs.extend(specs);
     }
 
-    /// update spec_greys, max_db, min_db, max_sr
+    /// update spec_greys, max_dB, min_dB, max_sr
     /// clear no_grey_ids
     fn update_greys(&mut self, force_update_all: bool) -> HashSet<usize> {
         let (mut max, mut min) = self
@@ -320,17 +322,17 @@ impl TrackManager {
                 },
             );
         max = max.min(0.);
-        min = min.max(max - self.db_range);
+        min = min.max(max - self.dB_range);
         let mut has_changed_all = if force_update_all {
             true
         } else {
             let mut has_changed_all = false;
-            if abs_diff_ne!(self.max_db, max, epsilon = 1e-3) {
-                self.max_db = max;
+            if abs_diff_ne!(self.max_dB, max, epsilon = 1e-3) {
+                self.max_dB = max;
                 has_changed_all = true;
             }
-            if abs_diff_ne!(self.min_db, min, epsilon = 1e-3) {
-                self.min_db = min;
+            if abs_diff_ne!(self.min_dB, min, epsilon = 1e-3) {
+                self.min_dB = min;
                 has_changed_all = true;
             }
             has_changed_all
@@ -360,8 +362,8 @@ impl TrackManager {
                     let grey = display::convert_spec_to_grey(
                         spec.view(),
                         up_ratio,
-                        self.max_db,
-                        self.min_db,
+                        self.max_dB,
+                        self.min_dB,
                     );
                     Some(((id, ch), grey))
                 } else {

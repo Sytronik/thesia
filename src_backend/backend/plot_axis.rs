@@ -23,7 +23,8 @@ pub trait PlotAxisCreator {
 
     fn create_freq_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
 
-    fn create_db_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
+    #[allow(non_snake_case)]
+    fn create_dB_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
 
     fn create_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32)) -> PlotAxis {
         calc_amp_axis(max_num_ticks, max_num_labels, amp_range)
@@ -56,8 +57,9 @@ impl PlotAxisCreator for TrackManager {
         )
     }
 
-    fn create_db_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        calc_db_axis(max_num_ticks, max_num_labels, (self.min_db, self.max_db))
+    #[allow(non_snake_case)]
+    fn create_dB_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
+        calc_dB_axis(max_num_ticks, max_num_labels, (self.min_dB, self.max_dB))
     }
 }
 
@@ -252,10 +254,11 @@ fn calc_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32))
     positive_half_axis.chain(negative_half_axis).collect()
 }
 
-fn calc_db_axis(max_num_ticks: u32, max_num_labels: u32, db_range: (f32, f32)) -> PlotAxis {
-    assert!(db_range.1 > db_range.0);
+#[allow(non_snake_case)]
+fn calc_dB_axis(max_num_ticks: u32, max_num_labels: u32, dB_range: (f32, f32)) -> PlotAxis {
+    assert!(dB_range.1 > dB_range.0);
     assert!(max_num_ticks >= 2);
-    let axis = calc_linear_axis(db_range.0, db_range.1, max_num_ticks);
+    let axis = calc_linear_axis(dB_range.0, dB_range.1, max_num_ticks);
     let len = axis.len();
     omit_labels_from_linear_axis(axis.into_iter(), len, max_num_labels).collect()
 }
@@ -442,7 +445,8 @@ mod tests {
     }
 
     #[test]
-    fn db_axis_works() {
+    #[allow(non_snake_case)]
+    fn dB_axis_works() {
         let assert_axis_eq = |a: &[(f32, String)], b: &[(f32, &str)]| {
             a.into_iter()
                 .zip(b.into_iter())
@@ -452,15 +456,15 @@ mod tests {
                 });
         };
         assert_axis_eq(
-            &calc_db_axis(2, 2, (-100., 0.)),
+            &calc_dB_axis(2, 2, (-100., 0.)),
             &vec![(0., "0"), (1., "-100")],
         );
         assert_axis_eq(
-            &calc_db_axis(3, 3, (-12., 0.)),
+            &calc_dB_axis(3, 3, (-12., 0.)),
             &vec![(0., "0"), (-5. / -12., "-5"), (-10. / -12., "-10")],
         );
         assert_axis_eq(
-            &calc_db_axis(3, 3, (-2., -1.1)),
+            &calc_dB_axis(3, 3, (-2., -1.1)),
             &vec![((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
         );
     }

@@ -50,17 +50,19 @@ pub trait Normalize {
         target: NormalizeTarget,
         guard_clipping_mode: GuardClippingMode,
     ) {
-        // TODO: guard clipping can make lufs/rms different from target_db
+        // TODO: guard clipping can make lufs/rms different from target
         let gain = match target {
             NormalizeTarget::LUFS(target_lufs) => {
                 10f32.powf((target_lufs - self.stats_for_normalize().global_lufs as f32) / 20.)
             }
-            NormalizeTarget::RMSdB(target_db) => {
-                10f32.powf((target_db - self.stats_for_normalize().rms_db) / 20.)
+            #[allow(non_snake_case)]
+            NormalizeTarget::RMSdB(target_dB) => {
+                10f32.powf((target_dB - self.stats_for_normalize().rms_dB) / 20.)
             }
-            NormalizeTarget::PeakdB(target_peak_db) => {
-                assert!(target_peak_db <= 0.);
-                10f32.powf((target_peak_db - self.stats_for_normalize().max_peak_db) / 20.)
+            #[allow(non_snake_case)]
+            NormalizeTarget::PeakdB(target_peak_dB) => {
+                assert!(target_peak_dB <= 0.);
+                10f32.powf((target_peak_dB - self.stats_for_normalize().max_peak_dB) / 20.)
             }
             NormalizeTarget::Off => 1.,
         };
