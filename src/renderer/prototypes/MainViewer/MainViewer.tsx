@@ -580,7 +580,7 @@ function MainViewer(props: MainViewerProps) {
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
           setHeight={setColorMapHeight}
-          dbAxisCanvasElem={dBCanvasElem}
+          dBAxisCanvasElem={dBCanvasElem}
         />
       </div>
     </>

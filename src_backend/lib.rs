@@ -126,10 +126,11 @@ fn get_db_range() -> f64 {
 }
 
 #[napi(js_name = "setdBRange")]
-fn set_db_range(db_range: f64) {
-    assert!(db_range > 0.);
+#[allow(non_snake_case)]
+fn set_db_range(dB_range: f64) {
+    assert!(dB_range > 0.);
     let mut tm = TM.blocking_write();
-    tm.set_db_range(db_range as f32);
+    tm.set_db_range(dB_range as f32);
     remove_all_imgs(tm);
 }
 

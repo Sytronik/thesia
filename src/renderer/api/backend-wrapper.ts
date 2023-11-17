@@ -61,7 +61,7 @@ export async function getAmpAxisMarkers(
   return backend.getAmpAxisMarkers(maxNumTicks, maxNumLabels, ampRange);
 }
 
-/* db axis */
+/* dB Axis */
 
 export async function getdBAxisMarkers(
   maxNumTicks: number,

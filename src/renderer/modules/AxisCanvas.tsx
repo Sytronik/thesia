@@ -26,7 +26,7 @@ type AxisCanvasProps = {
   axisPadding: number;
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
-  className: "timeRuler" | "ampAxis" | "freqAxis" | "dbAxis";
+  className: "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
 
   // after resized and before new markers are calculated, old markers should be shifted or zoomed?
   shiftWhenResize?: boolean;
