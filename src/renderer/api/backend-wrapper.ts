@@ -141,6 +141,8 @@ export const {
   getMindB,
   getColorMap,
   getOverview,
+  getdBRange,
+  setdBRange,
   getSpecSetting,
   setSpecSetting,
   getCommonGuardClipping,

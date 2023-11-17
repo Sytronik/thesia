@@ -120,6 +120,19 @@ async fn set_image_state(
     Ok(())
 }
 
+#[napi(js_name = "getdBRange")]
+fn get_db_range() -> f64 {
+    TM.blocking_read().db_range as f64
+}
+
+#[napi(js_name = "setdBRange")]
+fn set_db_range(db_range: f64) {
+    assert!(db_range > 0.);
+    let mut tm = TM.blocking_write();
+    tm.set_db_range(db_range as f32);
+    remove_all_imgs(tm);
+}
+
 #[napi]
 fn get_spec_setting() -> SpecSetting {
     TM.blocking_read().setting.clone()

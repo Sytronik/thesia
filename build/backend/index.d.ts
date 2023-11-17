@@ -28,6 +28,8 @@ export function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
 export function removeTracks(trackIds: Array<number>): Promise<void>
 export function applyTrackListChanges(): Promise<Array<string>>
 export function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
+export function getdBRange(): number
+export function setdBRange(dbRange: number): void
 export function getSpecSetting(): SpecSetting
 export function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export function getCommonGuardClipping(): GuardClippingMode
