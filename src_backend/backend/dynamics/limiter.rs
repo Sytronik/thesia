@@ -257,8 +257,8 @@ pub fn get_cached_limiter(sr: u32) -> PerfectLimiter {
 }
 #[cfg(test)]
 mod tests {
-    use super::super::audio::open_audio_file;
     use super::*;
+    use crate::backend::audio::open_audio_file;
 
     #[test]
     fn limiter_works() {

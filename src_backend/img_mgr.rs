@@ -14,7 +14,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::backend::display::*;
+use crate::display::*;
 use crate::{IdChArr, IdChMap, IdChVec, Pad, PadMode, TM};
 
 type Images = IdChMap<Vec<u8>>;

@@ -2,8 +2,8 @@ use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use ndarray::Data;
 
-use super::decibel::DeciBel;
-use super::utils::Planes;
+use crate::backend::decibel::DeciBel;
+use crate::backend::utils::Planes;
 
 #[readonly::make]
 #[derive(Clone, PartialEq)]

@@ -11,14 +11,11 @@ use serde::{Deserialize, Serialize};
 mod audio;
 mod decibel;
 pub mod display;
-mod envelope;
-mod limiter;
-pub mod normalize;
+pub mod dynamics;
 pub mod plot_axis;
 mod resample;
 mod sinc;
 mod spectrogram;
-mod stats;
 mod track;
 #[macro_use]
 pub mod utils;
@@ -29,11 +26,10 @@ use spectrogram::{calc_up_ratio, mel, perform_stft, AnalysisParamManager, FreqSc
 use track::TrackList;
 
 pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
+use dynamics::{GuardClippingMode, NormalizeTarget};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
+use track::AudioTrack;
 pub use utils::{Pad, PadMode};
-
-use self::normalize::{GuardClippingMode, NormalizeTarget};
-use self::track::AudioTrack;
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];

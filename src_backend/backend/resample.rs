@@ -7,7 +7,7 @@ use num_traits::{AsPrimitive, NumAssignOps, NumOps};
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};
 use rustfft::num_traits::{Float, FloatConst};
 
-use crate::backend::utils::{Pad, PadMode};
+use super::utils::{Pad, PadMode};
 
 use super::sinc::calc_windowed_sincs;
 use super::windows::WindowType;

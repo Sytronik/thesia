@@ -9,9 +9,8 @@ use symphonia::core::errors::Error as SymphoniaError;
 
 use super::audio::{open_audio_file, Audio};
 use super::display::{CalcWidth, IdxLen, PartGreyInfo};
-use super::normalize::{GuardClippingMode, Normalize, NormalizeTarget};
+use super::dynamics::{AudioStats, GuardClippingMode, Normalize, NormalizeTarget, StatCalculator};
 use super::spectrogram::SrWinNfft;
-use super::stats::{AudioStats, StatCalculator};
 use super::utils::unique_filenames;
 use super::{IdChVec, SpecSetting};
 
