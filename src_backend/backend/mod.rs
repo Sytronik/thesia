@@ -19,7 +19,7 @@ mod windows;
 
 pub use spectrogram::SpecSetting;
 pub use utils::{Pad, PadMode};
-pub use visualize::{DrawOption, DrawOptionForWav, PlotAxis, PlotAxisCreator, TrackDrawer};
+pub use visualize::{AxisMarkers, CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];

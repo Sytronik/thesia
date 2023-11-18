@@ -8,38 +8,42 @@ use num_traits::Zero;
 use crate::backend::spectrogram::{mel, FreqScale};
 use crate::backend::TrackManager;
 
-pub type PlotAxis = Vec<(f32, String)>;
+pub type AxisMarkers = Vec<(f32, String)>;
 
 const POSSIBLE_TEN_UNITS: [u32; 4] = [10, 20, 50, 100];
 
-pub trait PlotAxisCreator {
-    fn create_time_axis(
+pub trait CalcAxisMarkers {
+    fn time_axis_markers(
         &self,
         start_sec: f64,
         end_sec: f64,
         tick_unit: f64,
         label_interval: u32,
-    ) -> PlotAxis;
+    ) -> AxisMarkers;
 
-    fn create_freq_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
+    fn freq_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers;
 
     #[allow(non_snake_case)]
-    fn create_dB_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis;
+    fn dB_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers;
 
-    fn create_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32)) -> PlotAxis {
-        calc_amp_axis(max_num_ticks, max_num_labels, amp_range)
+    fn amp_axis_markers(
+        max_num_ticks: u32,
+        max_num_labels: u32,
+        amp_range: (f32, f32),
+    ) -> AxisMarkers {
+        calc_amp_axis_markers(max_num_ticks, max_num_labels, amp_range)
     }
 }
 
-impl PlotAxisCreator for TrackManager {
-    fn create_time_axis(
+impl CalcAxisMarkers for TrackManager {
+    fn time_axis_markers(
         &self,
         start_sec: f64,
         end_sec: f64,
         tick_unit: f64,
         label_interval: u32,
-    ) -> PlotAxis {
-        calc_time_axis(
+    ) -> AxisMarkers {
+        calc_time_axis_markers(
             start_sec,
             end_sec,
             tick_unit,
@@ -48,8 +52,8 @@ impl PlotAxisCreator for TrackManager {
         )
     }
 
-    fn create_freq_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        calc_freq_axis(
+    fn freq_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers {
+        calc_freq_axis_markers(
             self.setting.freq_scale,
             self.max_sr,
             max_num_ticks,
@@ -58,18 +62,18 @@ impl PlotAxisCreator for TrackManager {
     }
 
     #[allow(non_snake_case)]
-    fn create_dB_axis(&self, max_num_ticks: u32, max_num_labels: u32) -> PlotAxis {
-        calc_dB_axis(max_num_ticks, max_num_labels, (self.min_dB, self.max_dB))
+    fn dB_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers {
+        calc_dB_axis_markers(max_num_ticks, max_num_labels, (self.min_dB, self.max_dB))
     }
 }
 
-fn calc_time_axis(
+fn calc_time_axis_markers(
     start_sec: f64,
     end_sec: f64,
     tick_unit: f64,
     label_interval: u32,
     max_sec: f64,
-) -> PlotAxis {
+) -> AxisMarkers {
     let first_unit = (start_sec / tick_unit).ceil() as u32;
     // The label just before start_sec (at negative coordinate) should be drawn.
     let first_unit = if first_unit > label_interval {
@@ -140,12 +144,12 @@ fn calc_time_axis(
 }
 
 #[cached(size = 3)]
-fn calc_freq_axis(
+fn calc_freq_axis_markers(
     freq_scale: FreqScale,
     sr: u32,
     max_num_ticks: u32,
     _max_num_labels: u32,
-) -> PlotAxis {
+) -> AxisMarkers {
     // TODO: max_num_labels
     fn coarse_band(fine_band: f32) -> f32 {
         if fine_band <= 100. {
@@ -211,7 +215,11 @@ fn calc_freq_axis(
     result
 }
 
-fn calc_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32)) -> PlotAxis {
+fn calc_amp_axis_markers(
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    amp_range: (f32, f32),
+) -> AxisMarkers {
     assert!(amp_range.1 > amp_range.0);
     assert!(max_num_ticks >= 3);
     if abs_diff_ne!(amp_range.0, -amp_range.1) {
@@ -255,7 +263,11 @@ fn calc_amp_axis(max_num_ticks: u32, max_num_labels: u32, amp_range: (f32, f32))
 }
 
 #[allow(non_snake_case)]
-fn calc_dB_axis(max_num_ticks: u32, max_num_labels: u32, dB_range: (f32, f32)) -> PlotAxis {
+fn calc_dB_axis_markers(
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    dB_range: (f32, f32),
+) -> AxisMarkers {
     assert!(dB_range.1 > dB_range.0);
     assert!(max_num_ticks >= 2);
     let axis = calc_linear_axis(dB_range.0, dB_range.1, max_num_ticks);
@@ -263,7 +275,7 @@ fn calc_dB_axis(max_num_ticks: u32, max_num_labels: u32, dB_range: (f32, f32)) -
     omit_labels_from_linear_axis(axis.into_iter(), len, max_num_labels).collect()
 }
 
-fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> PlotAxis {
+fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> AxisMarkers {
     if max_num_ticks == 2 {
         return vec![
             (0., format_ticklabel(max, None)),
@@ -369,11 +381,11 @@ mod tests {
                 });
         };
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Linear, 24000, 2, 2),
+            &calc_freq_axis_markers(FreqScale::Linear, 24000, 2, 2),
             &vec![(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Linear, 24000, 8, 8),
+            &calc_freq_axis_markers(FreqScale::Linear, 24000, 8, 8),
             &vec![
                 (1., "0"),
                 (5. / 6., "2k"),
@@ -385,15 +397,15 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Linear, 24000, 24, 24)[..3],
+            &calc_freq_axis_markers(FreqScale::Linear, 24000, 24, 24)[..3],
             &vec![(1., "0"), (11. / 12., "1k"), (10. / 12., "2k")],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Linear, 24000, 25, 25)[..3],
+            &calc_freq_axis_markers(FreqScale::Linear, 24000, 25, 25)[..3],
             &vec![(1., "0"), (23. / 24., "500"), (22. / 24., "1k")],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Linear, 22050, 24, 24)[20..],
+            &calc_freq_axis_markers(FreqScale::Linear, 22050, 24, 24)[20..],
             &vec![
                 (1. - 10000. / 11025., "10k"),
                 (1. - 10500. / 11025., "10.5k"),
@@ -401,11 +413,11 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Mel, 24000, 2, 2),
+            &calc_freq_axis_markers(FreqScale::Mel, 24000, 2, 2),
             &vec![(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Mel, 24000, 3, 3),
+            &calc_freq_axis_markers(FreqScale::Mel, 24000, 3, 3),
             &vec![
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
@@ -413,7 +425,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Mel, 3000, 4, 4),
+            &calc_freq_axis_markers(FreqScale::Mel, 3000, 4, 4),
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(1500.), "500"),
@@ -422,7 +434,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Mel, 24000, 8, 8),
+            &calc_freq_axis_markers(FreqScale::Mel, 24000, 8, 8),
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(12000.), "500"),
@@ -433,7 +445,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis(FreqScale::Mel, 96000, 6, 6),
+            &calc_freq_axis_markers(FreqScale::Mel, 96000, 6, 6),
             &vec![
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(48000.), "1k"),
@@ -456,15 +468,15 @@ mod tests {
                 });
         };
         assert_axis_eq(
-            &calc_dB_axis(2, 2, (-100., 0.)),
+            &calc_dB_axis_markers(2, 2, (-100., 0.)),
             &vec![(0., "0"), (1., "-100")],
         );
         assert_axis_eq(
-            &calc_dB_axis(3, 3, (-12., 0.)),
+            &calc_dB_axis_markers(3, 3, (-12., 0.)),
             &vec![(0., "0"), (-5. / -12., "-5"), (-10. / -12., "-10")],
         );
         assert_axis_eq(
-            &calc_dB_axis(3, 3, (-2., -1.1)),
+            &calc_dB_axis_markers(3, 3, (-2., -1.1)),
             &vec![((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
         );
     }

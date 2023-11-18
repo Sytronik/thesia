@@ -226,7 +226,7 @@ async fn get_time_axis_markers(
     json!(&TM
         .read()
         .await
-        .create_time_axis(start_sec, end_sec, tick_unit, label_interval))
+        .time_axis_markers(start_sec, end_sec, tick_unit, label_interval))
 }
 
 #[napi]
@@ -236,7 +236,7 @@ async fn get_freq_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde
     json!(TM
         .read()
         .await
-        .create_freq_axis(max_num_ticks, max_num_labels))
+        .freq_axis_markers(max_num_ticks, max_num_labels))
 }
 
 #[napi]
@@ -248,7 +248,7 @@ async fn get_amp_axis_markers(
     assert_axis_params(max_num_ticks, max_num_labels);
     assert!(amp_range.0 < amp_range.1);
 
-    Ok(json!(TrackManager::create_amp_axis(
+    Ok(json!(TrackManager::amp_axis_markers(
         max_num_ticks,
         max_num_labels,
         (amp_range.0 as f32, amp_range.1 as f32),
@@ -263,7 +263,7 @@ async fn get_dB_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_j
     json!(TM
         .read()
         .await
-        .create_dB_axis(max_num_ticks, max_num_labels))
+        .dB_axis_markers(max_num_ticks, max_num_labels))
 }
 
 #[napi(js_name = "getMaxdB")]
