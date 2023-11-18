@@ -8,21 +8,18 @@ use rayon::prelude::*;
 
 mod audio;
 mod decibel;
-pub mod display;
 pub mod dynamics;
-pub mod plot_axis;
-mod resample;
 mod sinc;
 mod spectrogram;
 mod track;
+pub mod visualize;
 #[macro_use]
 pub mod utils;
 mod windows;
 
-pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
-pub use plot_axis::{PlotAxis, PlotAxisCreator};
 pub use spectrogram::SpecSetting;
 pub use utils::{Pad, PadMode};
+pub use visualize::{DrawOption, DrawOptionForWav, PlotAxis, PlotAxisCreator, TrackDrawer};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
@@ -268,7 +265,7 @@ impl TrackManager {
                         .setting
                         .freq_scale
                         .spec_height_ratio(self.tracklist[id].sr(), self.max_sr);
-                    let grey = display::convert_spec_to_grey(
+                    let grey = visualize::convert_spec_to_grey(
                         spec.view(),
                         up_ratio,
                         self.max_dB,
@@ -294,7 +291,7 @@ impl TrackManager {
 mod tests {
     use image::RgbaImage;
 
-    use super::display::{DrawOption, DrawOptionForWav, ImageKind};
+    use super::visualize::ImageKind;
     use super::*;
 
     #[test]

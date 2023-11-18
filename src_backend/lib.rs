@@ -351,7 +351,7 @@ fn get_file_name(track_id: u32) -> String {
 
 #[napi]
 fn get_color_map() -> Buffer {
-    display::get_colormap_rgb().into()
+    visualize::get_colormap_rgb().into()
 }
 
 #[inline]

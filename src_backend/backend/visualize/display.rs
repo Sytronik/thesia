@@ -16,10 +16,10 @@ use tiny_skia::{
     Stroke, Transform,
 };
 
-use super::audio::Audio;
 use super::resample::FftResampler;
-use super::utils::{Pad, PadMode};
-use super::{IdChArr, IdChMap, TrackManager};
+use crate::backend::audio::Audio;
+use crate::backend::utils::{Pad, PadMode};
+use crate::backend::{IdChArr, IdChMap, TrackManager};
 
 pub type ResizeType = resize::Type;
 

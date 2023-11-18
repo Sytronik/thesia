@@ -5,8 +5,8 @@ use cached::proc_macro::cached;
 use chrono::naive::NaiveTime;
 use num_traits::Zero;
 
-use super::spectrogram::{mel, FreqScale};
-use super::TrackManager;
+use crate::backend::spectrogram::{mel, FreqScale};
+use crate::backend::TrackManager;
 
 pub type PlotAxis = Vec<(f32, String)>;
 

@@ -7,10 +7,9 @@ use num_traits::{AsPrimitive, NumAssignOps, NumOps};
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};
 use rustfft::num_traits::{Float, FloatConst};
 
-use super::utils::{Pad, PadMode};
-
-use super::sinc::calc_windowed_sincs;
-use super::windows::WindowType;
+use crate::backend::sinc::calc_windowed_sincs;
+use crate::backend::utils::{Pad, PadMode};
+use crate::backend::windows::WindowType;
 
 #[derive(Clone)]
 pub struct FftResampler<A> {
