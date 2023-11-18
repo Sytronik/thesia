@@ -7,7 +7,6 @@ use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
 mod audio;
-mod decibel;
 mod dynamics;
 mod sinc;
 mod spectrogram;

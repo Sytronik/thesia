@@ -2,7 +2,7 @@ use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use ndarray::Data;
 
-use crate::backend::decibel::DeciBel;
+use super::decibel::DeciBel;
 use crate::backend::utils::Planes;
 
 #[readonly::make]

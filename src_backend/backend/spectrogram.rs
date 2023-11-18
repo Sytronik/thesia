@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 pub mod mel;
 mod stft;
 
-use super::decibel::DeciBelInplace;
 use super::windows::{calc_normalized_win, WindowType};
+use crate::backend::dynamics::decibel::DeciBelInplace;
 use stft::perform_stft;
 
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;

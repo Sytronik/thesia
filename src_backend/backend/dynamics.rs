@@ -1,3 +1,4 @@
+pub mod decibel;
 mod envelope;
 mod limiter;
 mod normalize;
