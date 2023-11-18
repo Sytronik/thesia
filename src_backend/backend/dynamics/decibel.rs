@@ -42,6 +42,7 @@ where
     Self::A: Float,
 {
     type A;
+
     fn log_for_dB(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self;
     fn dB_from_amp(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self;
     fn dB_from_power(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self;
@@ -60,6 +61,7 @@ where
     f32: AsPrimitive<A>,
 {
     type A = A;
+
     fn log_for_dB(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
         assert!(amin >= A::zero());
         let temp = [*self];

@@ -27,6 +27,7 @@ pub enum NormalizeTarget {
 pub trait GuardClipping {
     type GainArray;
 
+    #[inline]
     fn guard_clipping(&mut self, mode: GuardClippingMode) -> Self::GainArray {
         match mode {
             GuardClippingMode::Clip => self.clip(),
@@ -41,6 +42,7 @@ pub trait GuardClipping {
 }
 
 pub trait Normalize {
+    #[inline]
     fn normalize(&mut self, target: NormalizeTarget, guard_clipping_mode: GuardClippingMode) {
         self.normalize_default(target, guard_clipping_mode);
     }

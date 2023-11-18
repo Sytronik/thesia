@@ -34,6 +34,7 @@ impl<A: Float + NumOps + NumAssignOps> ExponentialRelease<A> {
         }
     }
 
+    #[inline]
     pub fn reset(&mut self) {
         self.output = self.initial_value;
     }
@@ -78,6 +79,7 @@ impl PerfectLimiter {
         }
     }
 
+    #[inline]
     pub fn with_default(sr: u32) -> Self {
         Self::new(sr, 1., 5., 15., 40.)
     }

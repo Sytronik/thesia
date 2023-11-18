@@ -58,6 +58,7 @@ where
             });
     }
 
+    #[inline]
     pub fn reset_default(&mut self) {
         self.reset(A::zero());
     }
@@ -129,10 +130,12 @@ where
         }
     }
 
+    #[inline]
     pub fn reset(&mut self, fill: A) {
         self.box_sum.reset(fill);
     }
 
+    #[inline]
     pub fn step(&mut self, value: A) -> A {
         self.box_sum.step(value, self.length) * self.multiplier
     }
@@ -273,6 +276,7 @@ where
             .for_each(|layer| layer.filter.reset(fill));
     }
 
+    #[inline]
     pub fn reset_default(&mut self) {
         self.reset(A::zero());
     }
@@ -447,6 +451,7 @@ where
             .max(self.front_max)
     }
 
+    #[inline]
     pub fn hold_length(&self) -> usize {
         (self.i_front - self.i_back) as usize
     }

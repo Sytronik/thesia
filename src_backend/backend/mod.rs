@@ -157,6 +157,7 @@ impl TrackManager {
         self.update_greys(true);
     }
 
+    #[inline]
     pub fn common_guard_clipping(&self) -> GuardClippingMode {
         self.tracklist.common_guard_clipping
     }
@@ -168,6 +169,7 @@ impl TrackManager {
         self.update_greys(true);
     }
 
+    #[inline]
     pub fn common_normalize(&self) -> NormalizeTarget {
         self.tracklist.common_normalize
     }
