@@ -8,15 +8,16 @@ use rayon::prelude::*;
 
 mod audio;
 mod decibel;
-pub mod dynamics;
+mod dynamics;
 mod sinc;
 mod spectrogram;
 mod track;
 pub mod visualize;
 #[macro_use]
-pub mod utils;
+mod utils;
 mod windows;
 
+pub use dynamics::{GuardClippingMode, NormalizeTarget};
 pub use spectrogram::SpecSetting;
 pub use utils::{Pad, PadMode};
 pub use visualize::{AxisMarkers, CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer};
@@ -25,7 +26,6 @@ pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 
-use dynamics::{GuardClippingMode, NormalizeTarget};
 use spectrogram::{FreqScale, SpectrogramAnalyzer, SrWinNfft};
 use track::{AudioTrack, TrackList};
 

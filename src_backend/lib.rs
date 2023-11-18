@@ -151,12 +151,12 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
 }
 
 #[napi]
-fn get_common_guard_clipping() -> dynamics::GuardClippingMode {
+fn get_common_guard_clipping() -> GuardClippingMode {
     TM.blocking_read().common_guard_clipping()
 }
 
 #[napi]
-async fn set_common_guard_clipping(mode: dynamics::GuardClippingMode) {
+async fn set_common_guard_clipping(mode: GuardClippingMode) {
     let mut tm = TM.write().await;
     tm.set_common_guard_clipping(mode);
     remove_all_imgs(tm);
