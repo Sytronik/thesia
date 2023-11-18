@@ -2,11 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::iter;
 
 use approx::abs_diff_ne;
-use napi_derive::napi;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 
 mod audio;
 mod decibel;
@@ -21,76 +19,18 @@ mod track;
 pub mod utils;
 mod windows;
 
-use decibel::DeciBelInplace;
-use spectrogram::{calc_up_ratio, mel, perform_stft, AnalysisParamManager, FreqScale, SrWinNfft};
-use track::TrackList;
-
 pub use display::{DrawOption, DrawOptionForWav, TrackDrawer};
-use dynamics::{GuardClippingMode, NormalizeTarget};
 pub use plot_axis::{PlotAxis, PlotAxisCreator};
-use track::AudioTrack;
+pub use spectrogram::SpecSetting;
 pub use utils::{Pad, PadMode};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
-type FramingParams = (usize, usize, usize);
 
-#[napi(object)]
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SpecSetting {
-    #[napi(js_name = "winMillisec")]
-    pub win_ms: f64,
-    pub t_overlap: u32,
-    pub f_overlap: u32,
-    pub freq_scale: FreqScale,
-}
-
-impl SpecSetting {
-    #[inline]
-    pub fn calc_win_length(&self, sr: u32) -> usize {
-        self.calc_hop_length(sr) * self.t_overlap as usize
-    }
-
-    #[inline]
-    pub fn calc_hop_length(&self, sr: u32) -> usize {
-        (self.calc_win_length_float(sr) / self.t_overlap as f64).round() as usize
-    }
-
-    #[inline]
-    pub fn calc_framing_params(&self, sr: u32) -> FramingParams {
-        let hop_length = self.calc_hop_length(sr);
-        let win_length = self.calc_win_length_from_hop_length(hop_length);
-        let n_fft = self.calc_n_fft_from_win_length(win_length);
-        (hop_length, win_length, n_fft)
-    }
-
-    #[inline]
-    pub fn calc_sr_win_nfft(&self, sr: u32) -> SrWinNfft {
-        let win_length = self.calc_win_length(sr);
-        let n_fft = self.calc_n_fft_from_win_length(win_length);
-        SrWinNfft {
-            sr,
-            win_length,
-            n_fft,
-        }
-    }
-
-    #[inline]
-    fn calc_win_length_from_hop_length(&self, hop_length: usize) -> usize {
-        hop_length * self.t_overlap as usize
-    }
-
-    #[inline]
-    fn calc_win_length_float(&self, sr: u32) -> f64 {
-        self.win_ms * sr as f64 / 1000.
-    }
-
-    #[inline]
-    fn calc_n_fft_from_win_length(&self, win_length: usize) -> usize {
-        win_length.next_power_of_two() * self.f_overlap as usize
-    }
-}
+use dynamics::{GuardClippingMode, NormalizeTarget};
+use spectrogram::{calc_spec_height_ratio, mel, FreqScale, SpectrogramAnalyzer, SrWinNfft};
+use track::{AudioTrack, TrackList};
 
 #[readonly::make]
 #[allow(non_snake_case)]
@@ -102,7 +42,7 @@ pub struct TrackManager {
     pub spec_greys: IdChMap<Array2<f32>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
-    analysis_mgr: AnalysisParamManager,
+    spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
 }
@@ -122,7 +62,7 @@ impl TrackManager {
                 freq_scale: FreqScale::Mel,
             },
             dB_range: 120.,
-            analysis_mgr: AnalysisParamManager::new(),
+            spec_analyzer: SpectrogramAnalyzer::new(),
             specs: HashMap::new(),
             no_grey_ids: Vec::new(),
         }
@@ -160,7 +100,7 @@ impl TrackManager {
             self.spec_greys.remove(&tup);
         }
 
-        self.analysis_mgr.retain(
+        self.spec_analyzer.retain(
             &self.tracklist.construct_all_sr_win_nfft_set(&self.setting),
             self.setting.freq_scale,
         );
@@ -218,7 +158,7 @@ impl TrackManager {
             .construct_sr_win_nfft_set(&self.tracklist.all_ids(), &setting);
 
         self.setting = setting;
-        self.analysis_mgr
+        self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
         self.update_specs(self.id_ch_tuples(), Some(&sr_win_nfft_set));
         self.update_greys(true);
@@ -252,51 +192,28 @@ impl TrackManager {
         self.update_greys(true);
     }
 
-    fn calc_spec_of(&self, id: usize, ch: usize, parallel: bool) -> Array2<f32> {
-        let track = &self.tracklist[id];
-        let (hop_length, win_length, n_fft) = self.setting.calc_framing_params(track.sr());
-        let window = self.analysis_mgr.window(win_length, n_fft);
-        let fft_module = self.analysis_mgr.fft_module(n_fft);
-        let stft = perform_stft(
-            track.channel(ch),
-            win_length,
-            hop_length,
-            n_fft,
-            Some(window),
-            Some(fft_module),
-            parallel,
-        );
-        let mut linspec = stft.mapv(|x| x.norm());
-        match self.setting.freq_scale {
-            FreqScale::Linear => {
-                linspec.dB_from_amp_inplace_default();
-                linspec
-            }
-            FreqScale::Mel => {
-                let mut melspec = linspec.dot(&self.analysis_mgr.mel_fb(track.sr(), n_fft));
-                melspec.dB_from_amp_inplace_default();
-                melspec
-            }
-        }
-    }
-
     fn update_specs(&mut self, id_ch_tuples: IdChVec, framing_params: Option<&HashSet<SrWinNfft>>) {
         match framing_params {
             Some(p) => {
-                self.analysis_mgr.prepare(p, self.setting.freq_scale);
+                self.spec_analyzer.prepare(p, self.setting.freq_scale);
             }
             None => {
                 let p = self.tracklist.construct_all_sr_win_nfft_set(&self.setting);
-                self.analysis_mgr.prepare(&p, self.setting.freq_scale);
+                self.spec_analyzer.prepare(&p, self.setting.freq_scale);
             }
         }
         let len = id_ch_tuples.len();
         let mut specs = IdChMap::with_capacity(len);
-        specs.par_extend(
-            id_ch_tuples
-                .into_par_iter()
-                .map(|(id, ch)| ((id, ch), self.calc_spec_of(id, ch, len == 1))),
-        );
+        specs.par_extend(id_ch_tuples.into_par_iter().map(|(id, ch)| {
+            let track = &self.tracklist[id];
+            let spec = self.spec_analyzer.calc_spec(
+                track.channel(ch),
+                track.sr(),
+                &self.setting,
+                len == 1,
+            );
+            ((id, ch), spec)
+        }));
         self.specs.extend(specs);
     }
 
@@ -350,7 +267,7 @@ impl TrackManager {
             let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
             new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                 if ids_need_update.contains(&id) {
-                    let up_ratio = calc_up_ratio(
+                    let up_ratio = calc_spec_height_ratio(
                         self.tracklist[id].sr(),
                         self.max_sr,
                         self.setting.freq_scale,
