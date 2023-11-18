@@ -26,11 +26,21 @@ pub enum FreqScale {
     Mel,
 }
 
-#[inline]
-pub fn calc_spec_height_ratio(sr: u32, target_sr: u32, freq_scale: FreqScale) -> f32 {
-    match freq_scale {
-        FreqScale::Linear => target_sr as f32 / sr as f32,
-        FreqScale::Mel => mel::from_hz(target_sr as f32 / 2.) / mel::from_hz(sr as f32 / 2.),
+impl FreqScale {
+    #[inline]
+    pub fn spec_height_ratio(&self, sr: u32, target_sr: u32) -> f32 {
+        match self {
+            &FreqScale::Linear => target_sr as f32 / sr as f32,
+            &FreqScale::Mel => mel::from_hz(target_sr as f32 / 2.) / mel::from_hz(sr as f32 / 2.),
+        }
+    }
+
+    pub fn relative_freq_to_hz(&self, relative_freq: f32, sr: u32) -> f32 {
+        let half_sr = sr as f32 / 2.;
+        match self {
+            &FreqScale::Linear => half_sr * relative_freq,
+            &FreqScale::Mel => mel::to_hz(mel::from_hz(half_sr) * relative_freq),
+        }
     }
 }
 

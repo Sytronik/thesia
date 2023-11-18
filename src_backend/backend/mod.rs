@@ -29,7 +29,7 @@ pub type IdChArr = [(usize, usize)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 
 use dynamics::{GuardClippingMode, NormalizeTarget};
-use spectrogram::{calc_spec_height_ratio, mel, FreqScale, SpectrogramAnalyzer, SrWinNfft};
+use spectrogram::{FreqScale, SpectrogramAnalyzer, SrWinNfft};
 use track::{AudioTrack, TrackList};
 
 #[readonly::make]
@@ -127,14 +127,11 @@ impl TrackManager {
             .collect()
     }
 
+    #[inline]
     pub fn calc_hz_of(&self, y: u32, height: u32) -> f32 {
-        let half_sr = self.max_sr as f32 / 2.;
-        let relative_freq = 1. - y as f32 / height as f32;
-
-        match self.setting.freq_scale {
-            FreqScale::Linear => half_sr * relative_freq,
-            FreqScale::Mel => mel::to_hz(mel::from_hz(half_sr) * relative_freq),
-        }
+        self.setting
+            .freq_scale
+            .relative_freq_to_hz(1. - y as f32 / height as f32, self.max_sr)
     }
 
     #[inline]
@@ -267,11 +264,10 @@ impl TrackManager {
             let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
             new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                 if ids_need_update.contains(&id) {
-                    let up_ratio = calc_spec_height_ratio(
-                        self.tracklist[id].sr(),
-                        self.max_sr,
-                        self.setting.freq_scale,
-                    );
+                    let up_ratio = self
+                        .setting
+                        .freq_scale
+                        .spec_height_ratio(self.tracklist[id].sr(), self.max_sr);
                     let grey = display::convert_spec_to_grey(
                         spec.view(),
                         up_ratio,
