@@ -9,7 +9,7 @@ use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealT
 use rustfft::num_traits::{Float, FloatConst};
 
 use crate::backend::sinc::calc_windowed_sincs;
-use crate::backend::utils::{Pad, PadMode};
+use crate::backend::utils::Pad;
 use crate::backend::windows::WindowType;
 
 #[derive(Clone)]
@@ -53,7 +53,7 @@ where
 
         let mut filter_t = {
             let x = &sinc / (2 * input_size).as_();
-            x.pad((0, input_size), Axis(0), PadMode::Constant(A::zero()))
+            x.pad((0, input_size), Axis(0), Default::default())
         };
         let mut filter_f = Array1::zeros(input_size + 1);
         fft.process(

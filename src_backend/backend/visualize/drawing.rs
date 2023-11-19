@@ -17,7 +17,7 @@ use tiny_skia::{
 
 use super::img_slice::{ArrWithSliceInfo, CalcWidth, PartGreyInfo};
 use super::resample::FftResampler;
-use crate::backend::utils::{Pad, PadMode};
+use crate::backend::utils::Pad;
 use crate::backend::{IdChArr, IdChMap, TrackManager};
 
 pub type ResizeType = resize::Type;
@@ -217,7 +217,7 @@ impl TrackDrawer for TrackManager {
                 arr = arr.pad(
                     (pad_left as usize, pad_right as usize),
                     Axis(1),
-                    PadMode::Constant(0),
+                    Default::default(),
                 );
             }
             let margin_l = ((start_sec - start_sec_with_margin) * px_per_sec).round() as isize;
@@ -278,7 +278,7 @@ impl TrackDrawer for TrackManager {
 
         if width != drawing_width {
             let mut arr = Array3::from_shape_vec((height, drawing_width_usize, 4), vec).unwrap();
-            arr = arr.pad((pad_left, pad_right), Axis(1), PadMode::Constant(0));
+            arr = arr.pad((pad_left, pad_right), Axis(1), Default::default());
             arr.into_raw_vec()
         } else {
             vec

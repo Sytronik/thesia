@@ -4,6 +4,7 @@ use std::path::{self, PathBuf};
 
 use ndarray::prelude::*;
 use ndarray::{Data, OwnedRepr, RemoveAxis};
+use num_traits::Num;
 
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
@@ -48,9 +49,15 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
     result
 }
 
-pub enum PadMode<T> {
-    Constant(T),
+pub enum PadMode<A> {
+    Constant(A),
     Reflect,
+}
+
+impl<A: Num> Default for PadMode<A> {
+    fn default() -> Self {
+        PadMode::Constant(A::zero())
+    }
 }
 
 pub trait Pad<A> {
