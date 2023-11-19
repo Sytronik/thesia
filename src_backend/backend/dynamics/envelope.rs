@@ -50,6 +50,7 @@ where
         self.index = 0;
         self.sum = A::zero();
         let buf_length = self.buffer.capacity();
+        self.buffer.truncate(0);
         self.wrap_jump = std::iter::repeat(value)
             .take(buf_length)
             .fold(A::zero(), |sum, x| {
