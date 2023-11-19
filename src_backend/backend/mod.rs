@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::iter;
 
-use approx::abs_diff_ne;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
@@ -231,27 +230,22 @@ impl TrackManager {
             );
         max = max.min(0.);
         min = min.max(max - self.dB_range);
-        let mut has_changed_all = if force_update_all {
-            true
-        } else {
-            let mut has_changed_all = false;
-            if abs_diff_ne!(self.max_dB, max, epsilon = 1e-3) {
-                self.max_dB = max;
-                has_changed_all = true;
-            }
-            if abs_diff_ne!(self.min_dB, min, epsilon = 1e-3) {
-                self.min_dB = min;
-                has_changed_all = true;
-            }
-            has_changed_all
-        };
+        let mut need_update_all = force_update_all;
+        if self.max_dB != max {
+            self.max_dB = max;
+            need_update_all = true;
+        }
+        if self.min_dB != min {
+            self.min_dB = min;
+            need_update_all = true;
+        }
 
         let max_sr = self.tracklist.max_sr();
         if self.max_sr != max_sr {
             self.max_sr = max_sr;
-            has_changed_all = true;
+            need_update_all = true;
         }
-        let ids_need_update: HashSet<usize> = if has_changed_all {
+        let ids_need_update: HashSet<usize> = if need_update_all {
             self.no_grey_ids.clear();
             self.tracklist.all_id_set()
         } else {
@@ -278,7 +272,7 @@ impl TrackManager {
                 }
             }));
 
-            if has_changed_all {
+            if need_update_all {
                 self.spec_greys = new_spec_greys;
             } else {
                 self.spec_greys.extend(new_spec_greys)
