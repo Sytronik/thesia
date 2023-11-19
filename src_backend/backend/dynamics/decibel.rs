@@ -10,7 +10,7 @@ use rustfft::num_traits::Float;
 const AMIN_AMP_DEFAULT: f32 = 1e-18;
 const AMIN_POWER_DEFAULT: f32 = 1e-36;
 
-pub enum DeciBelRef<A: Float> {
+pub enum DeciBelRef<A> {
     Value(A),
     _Max,
 }

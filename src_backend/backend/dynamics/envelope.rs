@@ -4,22 +4,19 @@
 //! - https://signalsmith-audio.co.uk/writing/2022/constant-time-peak-hold/
 
 use ndarray::prelude::*;
-use num_traits::{AsPrimitive, Float, FromPrimitive, NumAssignOps, NumOps};
+use num_traits::{AsPrimitive, Float, NumAssignOps, NumOps};
 
 #[derive(Clone)]
-pub struct BoxSum<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>>
-where
-    f64: AsPrimitive<A>,
-    usize: AsPrimitive<A>,
-{
+pub struct BoxSum<A> {
     buffer: Vec<A>,
     index: usize,
     sum: A,
     wrap_jump: A,
 }
 
-impl<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>> BoxSum<A>
+impl<A> BoxSum<A>
 where
+    A: Float + NumOps + NumAssignOps + AsPrimitive<f64>,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
@@ -92,19 +89,16 @@ where
 }
 
 #[derive(Clone)]
-pub struct BoxFilter<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>>
-where
-    f64: AsPrimitive<A>,
-    usize: AsPrimitive<A>,
-{
+pub struct BoxFilter<A> {
     box_sum: BoxSum<A>,
     length: usize,
     max_length: usize,
     multiplier: A,
 }
 
-impl<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>> BoxFilter<A>
+impl<A> BoxFilter<A>
 where
+    A: Float + NumOps + NumAssignOps + AsPrimitive<f64>,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
@@ -146,19 +140,16 @@ where
 }
 
 #[derive(Clone)]
-struct BoxFilterLayer<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>>
-where
-    f64: AsPrimitive<A>,
-    usize: AsPrimitive<A>,
-{
+struct BoxFilterLayer<A> {
     filter: BoxFilter<A>,
     length: usize,
     ratio: f64,
     length_err: f64,
 }
 
-impl<A: Float + NumOps + NumAssignOps + AsPrimitive<f64> + FromPrimitive> BoxFilterLayer<A>
+impl<A> BoxFilterLayer<A>
 where
+    A: Float + NumOps + NumAssignOps + AsPrimitive<f64>,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
@@ -170,9 +161,9 @@ where
     }
 }
 
-impl<A: Float + NumOps + NumAssignOps + AsPrimitive<f64> + FromPrimitive> Default
-    for BoxFilterLayer<A>
+impl<A> Default for BoxFilterLayer<A>
 where
+    A: Float + NumOps + NumAssignOps + AsPrimitive<f64>,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
@@ -187,17 +178,14 @@ where
 }
 
 #[derive(Clone)]
-pub struct BoxStackFilter<A: Float + NumOps + NumAssignOps + AsPrimitive<f64> + FromPrimitive>
-where
-    f64: AsPrimitive<A>,
-    usize: AsPrimitive<A>,
-{
+pub struct BoxStackFilter<A> {
     layers: Vec<BoxFilterLayer<A>>,
     size: Option<usize>,
 }
 
-impl<A: Float + NumOps + NumAssignOps + AsPrimitive<f64> + FromPrimitive> BoxStackFilter<A>
+impl<A> BoxStackFilter<A>
 where
+    A: Float + NumOps + NumAssignOps + AsPrimitive<f64>,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
@@ -342,11 +330,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct PeakHold<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>>
-where
-    f64: AsPrimitive<A>,
-    usize: AsPrimitive<A>,
-{
+pub struct PeakHold<A> {
     buffer: Vec<A>,
     buf_mask: isize,
     /// the start idx of back region, which saves the reverse-cumulative-max values
@@ -366,8 +350,9 @@ where
     middle_max: A,
 }
 
-impl<A: Float + NumOps + NumAssignOps + AsPrimitive<f64> + FromPrimitive> PeakHold<A>
+impl<A> PeakHold<A>
 where
+    A: Float + NumOps + NumAssignOps + AsPrimitive<f64>,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {

@@ -13,7 +13,7 @@ use super::envelope::{BoxStackFilter, PeakHold};
 
 #[derive(Clone)]
 #[readonly::make]
-pub struct ExponentialRelease<A: Float + NumOps> {
+pub struct ExponentialRelease<A> {
     pub release_samples: A,
     pub initial_value: A,
     release_slew: A,
