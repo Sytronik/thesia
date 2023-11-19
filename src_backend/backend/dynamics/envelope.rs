@@ -114,7 +114,7 @@ where
             box_sum: BoxSum::new(max_length),
             length: max_length,
             max_length,
-            multiplier: A::one() / max_length.as_(),
+            multiplier: max_length.as_().recip(),
         }
     }
 
@@ -128,7 +128,7 @@ where
     pub fn set(&mut self, length: usize) {
         assert!(length > 0);
         self.length = length;
-        self.multiplier = A::one() / length.as_();
+        self.multiplier = length.as_().recip();
         if length > self.max_length {
             self.resize(length);
         }
@@ -613,7 +613,7 @@ mod tests {
             BoxFilter::<f32>::new(11),
         ];
         let mut stack = BoxStackFilter::<f32>::with_num_layers(50, 1);
-        let ratios = Array1::from_iter([6., 3., 1.].into_iter());
+        let ratios = arr1(&[6., 3., 1.]);
         stack.resize(101, ratios);
         let mut rng = thread_rng();
         let rng_x = Uniform::new_inclusive(-1., 1.);

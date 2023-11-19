@@ -1,5 +1,4 @@
 use ndarray::prelude::*;
-use ndarray::{Data, Slice};
 
 use crate::backend::audio::Audio;
 
@@ -20,44 +19,25 @@ pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
 }
 
 impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
-    pub fn from(arr: ArrayView<'a, A, D>, (index, length): IdxLen) -> Self {
+    pub fn new(arr: ArrayView<'a, A, D>, (index, length): IdxLen) -> Self {
         let (index, length) =
             calc_effective_slice(index, length, arr.shape()[arr.ndim() - 1]).unwrap_or((0, 0));
         ArrWithSliceInfo { arr, index, length }
     }
 
-    pub fn from_ref<S>(arr: &'a ArrayBase<S, D>, (index, length): IdxLen) -> Self
-    where
-        S: Data<Elem = A>,
-    {
-        let (index, length) =
-            calc_effective_slice(index, length, arr.shape()[arr.ndim() - 1]).unwrap_or((0, 0));
+    pub fn entire(arr: ArrayView<'a, A, D>) -> Self {
+        let length = arr.shape()[arr.ndim() - 1];
         ArrWithSliceInfo {
-            arr: arr.view(),
-            index,
-            length,
-        }
-    }
-
-    pub fn entire<S>(arr: &'a ArrayBase<S, D>) -> Self
-    where
-        S: Data<Elem = A>,
-    {
-        ArrWithSliceInfo {
-            arr: arr.view(),
+            arr,
             index: 0,
-            length: arr.shape()[arr.ndim() - 1],
+            length,
         }
     }
 
     pub fn as_sliced(&self) -> ArrayView<A, D> {
         self.arr.slice_axis(
             Axis(self.arr.ndim() - 1),
-            Slice::new(
-                self.index as isize,
-                Some((self.index + self.length) as isize),
-                1,
-            ),
+            ((self.index as isize)..((self.index + self.length) as isize)).into(),
         )
     }
 
@@ -65,7 +45,7 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
         let end = (self.index + self.length + tail).min(self.arr.shape()[self.arr.ndim() - 1]);
         self.arr.slice_axis(
             Axis(self.arr.ndim() - 1),
-            Slice::new(self.index as isize, Some(end as isize), 1),
+            (self.index as isize..(end as isize)).into(),
         )
     }
 }

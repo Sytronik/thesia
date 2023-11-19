@@ -1,6 +1,7 @@
 // https://librosa.org/doc/0.8.0/_modules/librosa/filters.html#mel
 
-use ndarray::{prelude::*, ScalarOperand, Zip};
+use ndarray::prelude::*;
+use ndarray::{ScalarOperand, Zip};
 use num_traits::{AsPrimitive, NumAssignOps};
 use rustfft::num_traits::Float;
 

@@ -1,7 +1,8 @@
 // from rubato crate
 use std::sync::Arc;
 
-use ndarray::{prelude::*, ScalarOperand};
+use ndarray::prelude::*;
+use ndarray::ScalarOperand;
 use ndarray_stats::QuantileExt;
 use num_traits::{AsPrimitive, NumAssignOps, NumOps};
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};

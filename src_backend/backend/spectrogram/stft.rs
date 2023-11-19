@@ -1,7 +1,8 @@
 use std::ops::*;
 use std::sync::Arc;
 
-use ndarray::{prelude::*, ScalarOperand};
+use ndarray::prelude::*;
+use ndarray::ScalarOperand;
 use num_traits::AsPrimitive;
 use rayon::prelude::*;
 use rustfft::{

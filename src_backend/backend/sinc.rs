@@ -1,6 +1,7 @@
 use std::mem::MaybeUninit;
 
-use ndarray::{prelude::*, ScalarOperand};
+use ndarray::prelude::*;
+use ndarray::ScalarOperand;
 use num_traits::{AsPrimitive, NumAssignOps};
 use rustfft::num_traits::{Float, FloatConst};
 
@@ -11,7 +12,7 @@ pub fn sinc<A>(value: A) -> A
 where
     A: Float + FloatConst,
 {
-    if value == A::zero() {
+    if value.is_zero() {
         A::one()
     } else {
         (value * A::PI()).sin() / (value * A::PI())

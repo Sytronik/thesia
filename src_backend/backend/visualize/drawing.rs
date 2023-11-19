@@ -124,7 +124,7 @@ impl TrackDrawer for TrackManager {
                         return out_for_not_exist();
                     };
                     let vec = colorize_grey_with_size(
-                        ArrWithSliceInfo::entire(&grey),
+                        ArrWithSliceInfo::entire(grey),
                         width,
                         height,
                         false,
@@ -135,7 +135,7 @@ impl TrackDrawer for TrackManager {
                     let mut arr = Array3::zeros(shape);
                     draw_wav_to(
                         arr.as_slice_mut().unwrap(),
-                        ArrWithSliceInfo::entire(&track.channel(ch)),
+                        ArrWithSliceInfo::entire(track.channel(ch)),
                         width,
                         height,
                         &opt_for_wav,
@@ -193,8 +193,8 @@ impl TrackDrawer for TrackManager {
                 return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
             }
 
-            let spec_grey_part = ArrWithSliceInfo::from_ref(spec_grey, i_w_and_width);
-            let wav_part = ArrWithSliceInfo::from(
+            let spec_grey_part = ArrWithSliceInfo::new(spec_grey.view(), i_w_and_width);
+            let wav_part = ArrWithSliceInfo::new(
                 track.channel(ch),
                 track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
             );
@@ -265,7 +265,7 @@ impl TrackDrawer for TrackManager {
             .for_each(|(ch, x)| {
                 draw_wav_to(
                     &mut x[..ch_vec_len],
-                    ArrWithSliceInfo::entire(&track.channel(ch)),
+                    ArrWithSliceInfo::entire(track.channel(ch)),
                     drawing_width,
                     ch_h_u32,
                     &DrawOptionForWav {

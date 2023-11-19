@@ -10,9 +10,8 @@ mod dynamics;
 mod sinc;
 mod spectrogram;
 mod track;
-pub mod visualize;
-#[macro_use]
 mod utils;
+pub mod visualize;
 mod windows;
 
 pub use dynamics::{GuardClippingMode, NormalizeTarget};

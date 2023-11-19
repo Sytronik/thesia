@@ -5,7 +5,6 @@ use approx::abs_diff_eq;
 use futures::task;
 use lazy_static::{initialize, lazy_static};
 use ndarray::prelude::*;
-use ndarray::Slice;
 use parking_lot::{Mutex, MutexGuard, RwLock};
 use rayon::prelude::*;
 use tokio::{
@@ -135,7 +134,7 @@ fn crop_caches(
                     return Some((*tup, (zeros, (0, 0))));
                 }
             };
-            let img_slice = image.slice_axis(Axis(1), Slice::from(i_w_eff..i_w_eff + width_eff));
+            let img_slice = image.slice_axis(Axis(1), (i_w_eff..i_w_eff + width_eff).into());
 
             let pad_right = width as usize - width_eff as usize - pad_left;
             if pad_left + pad_right == 0 {

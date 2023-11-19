@@ -29,7 +29,7 @@ impl<A: Float + NumOps + NumAssignOps> ExponentialRelease<A> {
         ExponentialRelease {
             release_samples,
             initial_value,
-            release_slew: A::one() / (release_samples + A::one()),
+            release_slew: (release_samples + A::one()).recip(),
             output: initial_value,
         }
     }

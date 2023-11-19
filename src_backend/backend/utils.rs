@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use std::path::{self, PathBuf};
 
 use ndarray::prelude::*;
-use ndarray::{Data, OwnedRepr, RemoveAxis, Slice, Zip};
+use ndarray::{Data, OwnedRepr, RemoveAxis};
 
 pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
     let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
@@ -76,19 +76,19 @@ where
         let mut result = Self::WithOwnedA::uninit(shape);
 
         let s_result_main = if n_pad_right > 0 {
-            Slice::from(n_pad_left as isize..-(n_pad_right as isize))
+            (n_pad_left as isize..-(n_pad_right as isize)).into()
         } else {
-            Slice::from(n_pad_left as isize..)
+            (n_pad_left as isize..).into()
         };
-        Zip::from(self).map_assign_into(result.slice_axis_mut(axis, s_result_main), |x| *x);
+        self.assign_to(result.slice_axis_mut(axis, s_result_main));
         match mode {
             PadMode::Constant(constant) => {
                 result
-                    .slice_axis_mut(axis, Slice::from(..n_pad_left))
+                    .slice_axis_mut(axis, (..n_pad_left).into())
                     .mapv_inplace(|_| MaybeUninit::new(constant));
                 if n_pad_right > 0 {
                     result
-                        .slice_axis_mut(axis, Slice::from(-(n_pad_right as isize)..))
+                        .slice_axis_mut(axis, (-(n_pad_right as isize)..).into())
                         .mapv_inplace(|_| MaybeUninit::new(constant));
                 }
             }
@@ -104,7 +104,7 @@ where
                     .take(n_pad_left)
                     .rev()
                     .zip(pad_left)
-                    .for_each(|(y, x)| Zip::from(x).map_assign_into(y, |x| *x));
+                    .for_each(|(y, x)| x.assign_to(y));
 
                 if n_pad_right > 0 {
                     let pad_right = self
@@ -120,7 +120,7 @@ where
                         .take(n_pad_right)
                         .rev()
                         .zip(pad_right)
-                        .for_each(|(y, x)| Zip::from(x).map_assign_into(y, |x| *x));
+                        .for_each(|(y, x)| x.assign_to(y));
                 }
             }
         }

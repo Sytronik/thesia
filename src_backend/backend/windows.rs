@@ -1,4 +1,5 @@
-use ndarray::{prelude::*, ScalarOperand};
+use ndarray::prelude::*;
+use ndarray::ScalarOperand;
 use num_traits::{AsPrimitive, NumOps};
 use rustfft::num_traits::{Float, FloatConst};
 
@@ -23,7 +24,7 @@ where
     match win_type {
         WindowType::Hann => hann(size, false) / norm_factor,
         WindowType::Blackman => blackman(size, false) / norm_factor,
-        WindowType::_BoxCar => Array1::from_elem(size, A::one() / norm_factor),
+        WindowType::_BoxCar => Array1::from_elem(size, norm_factor.recip()),
     }
 }
 

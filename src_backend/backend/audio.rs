@@ -105,10 +105,11 @@ impl GuardClipping for Audio {
 
     fn limit(&mut self) -> Array2<f32> {
         let mut limiter = get_cached_limiter(self.sr);
-        let mut gain_arrs = Vec::with_capacity(self.n_ch());
-        for wav in self.wavs.axis_iter_mut(Axis(0)) {
-            gain_arrs.push(limiter.process_inplace(wav));
-        }
+        let gain_arrs: Vec<_> = self
+            .wavs
+            .axis_iter_mut(Axis(0))
+            .map(|wav| limiter.process_inplace(wav))
+            .collect();
         let gain_arr_views: Vec<_> = gain_arrs.iter().map(ArrayBase::view).collect();
         ndarray::stack(Axis(0), &gain_arr_views).unwrap_or_default()
     }
@@ -248,7 +249,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
         (None, Some(bits_per_sample)) => {
             format!("{} bit", bits_per_sample)
         }
-        (None, None) => String::from("? bit"),
+        (None, None) => ("? bit").into(),
     };
     let format_desc = format!("{} {} {}", ext, FORMAT_DESC_DELIMITER, sample_format_str);
     Ok((wavs, sr, format_desc))
