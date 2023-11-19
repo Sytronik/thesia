@@ -109,6 +109,7 @@ where
     usize: AsPrimitive<A>,
 {
     pub fn new(max_length: usize) -> Self {
+        assert!(max_length > 0);
         BoxFilter {
             box_sum: BoxSum::new(max_length),
             length: max_length,
@@ -118,12 +119,14 @@ where
     }
 
     pub fn resize(&mut self, max_length: usize) {
+        assert!(max_length > 0);
         self.box_sum.resize(max_length);
         self.max_length = max_length;
         self.set(max_length);
     }
 
     pub fn set(&mut self, length: usize) {
+        assert!(length > 0);
         self.length = length;
         self.multiplier = A::one() / length.as_();
         if length > self.max_length {
@@ -175,8 +178,8 @@ where
 {
     fn default() -> Self {
         BoxFilterLayer {
-            filter: BoxFilter::new(0),
-            length: 0,
+            filter: BoxFilter::new(1),
+            length: 1,
             ratio: 0.,
             length_err: 0.,
         }
@@ -184,7 +187,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct BoxStackFilter<A: Float + NumOps + NumAssignOps + AsPrimitive<f64>>
+pub struct BoxStackFilter<A: Float + NumOps + NumAssignOps + AsPrimitive<f64> + FromPrimitive>
 where
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
@@ -215,6 +218,8 @@ where
     ];
 
     pub fn with_num_layers(max_size: usize, num_layers: usize) -> Self {
+        assert!(max_size > 0);
+        assert!(num_layers > 0);
         let mut out = BoxStackFilter {
             layers: Vec::new(),
             size: None,
@@ -224,9 +229,10 @@ where
     }
 
     pub fn resize(&mut self, max_size: usize, ratios: Array1<f64>) {
+        assert!(max_size > 0);
         self.setup_layers(ratios);
         for layer in &mut self.layers {
-            layer.filter.resize(0); // .set() will expand it later
+            layer.filter.resize(1); // .set() will expand it later
         }
         self.size = None;
         self.set(max_size);
@@ -235,6 +241,7 @@ where
 
     /// Sets the impulse response length (does not reset if `size` ≤ `maxSize`)
     pub fn set(&mut self, size: usize) {
+        assert!(size > 0);
         if self.layers.is_empty() {
             return;
         }
@@ -295,10 +302,9 @@ where
 
     /// Returns an optimal set of length ratios (heuristic for larger depths)
     fn optimal_ratios(num_layers: usize) -> Array1<f64> {
+        assert!(num_layers > 0);
         // Coefficients up to 6, found through numerical search
-        if num_layers == 0 {
-            Array1::zeros(0)
-        } else if num_layers <= 6 {
+        if num_layers <= 6 {
             let i_start = num_layers * (num_layers - 1) / 2;
             Self::HARDCODED_RATIOS[i_start..(i_start + num_layers)]
                 .iter()
@@ -519,6 +525,117 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_abs_diff_eq;
+    use ndarray_rand::{rand::prelude::*, rand_distr::Uniform, RandomExt};
+
+    #[test]
+    fn box_sum_works() {
+        let length = 1000;
+        let max_box_len = 100;
+        let mut rng = thread_rng();
+        let signal = Array1::random_using(length, Uniform::new_inclusive(-1., 1.), &mut rng);
+        let mut box_sum = BoxSum::new(max_box_len);
+        let mut box_filter = BoxFilter::new(max_box_len);
+        let rng_box_len = Uniform::new_inclusive(1, max_box_len);
+
+        for i in 0..length {
+            let box_len = rng_box_len.sample(&mut rng);
+            let result = box_sum.step(signal[i], box_len);
+            box_filter.set(box_len);
+            let result_avg = box_filter.step(signal[i]);
+
+            let start = (i + 1).max(box_len) - box_len;
+            let sum = signal.slice(s![start..(i + 1)]).sum();
+
+            assert_abs_diff_eq!(result, sum, epsilon = 1e-12);
+            assert_abs_diff_eq!(result_avg, sum / box_len as f64, epsilon = 1e-12);
+        }
+
+        box_sum.reset_default();
+        box_filter.reset(0.);
+
+        for i in 0..length {
+            let box_len = rng_box_len.sample(&mut rng);
+            box_sum.write(signal[i]);
+            let result = box_sum.read(box_len);
+
+            let start = (i + 1).max(box_len) - box_len;
+            let sum = signal.slice(s![start..(i + 1)]).sum();
+
+            assert_abs_diff_eq!(result, sum, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn box_sum_drift_works() {
+        let max_box_len = 100;
+        let mut rng = thread_rng();
+        let mut box_sum = BoxSum::new(max_box_len);
+
+        let rng_x = Uniform::new_inclusive(1e6, 2e6);
+        for _ in 0..10 {
+            for _ in 0..10000 {
+                box_sum.write(rng_x.sample(&mut rng));
+            }
+
+            for i in 0..(max_box_len * 2) {
+                let x = if i % 2 == 1 { 1. } else { -1. };
+                box_sum.write(x);
+            }
+
+            let rng_box_len = Uniform::new_inclusive(25, 100);
+            for _ in 0..10 {
+                let box_len = rng_box_len.sample(&mut rng);
+                let expected = if box_len % 2 == 1 { 1. } else { 0. };
+                let actual = box_sum.read(box_len);
+
+                assert_eq!(expected, actual);
+            }
+        }
+    }
+
+    #[test]
+    fn box_stack_works() {
+        let input = [1., 1., 1., 1., 0., 0., 0., 0., 0., 0.];
+        let target = [0.25, 0.75, 1., 1., 0.75, 0.25, 0., 0., 0., 0.];
+        let mut boxstack = BoxStackFilter::with_num_layers(3, 3);
+        boxstack.reset(0.);
+        let output: Vec<_> = input.into_iter().map(|x| boxstack.step(x)).collect();
+        assert_eq!(output, target);
+    }
+
+    #[test]
+    fn box_stack_custom_ratios_work() {
+        // Effective length is 101, because a length-1 box-filter does nothing
+        let mut filters = [
+            BoxFilter::<f32>::new(61),
+            BoxFilter::<f32>::new(31),
+            BoxFilter::<f32>::new(11),
+        ];
+        let mut stack = BoxStackFilter::<f32>::with_num_layers(50, 1);
+        let ratios = Array1::from_iter([6., 3., 1.].into_iter());
+        stack.resize(101, ratios);
+        let mut rng = thread_rng();
+        let rng_x = Uniform::new_inclusive(-1., 1.);
+
+        for _ in 0..1000 {
+            let x = rng_x.sample(&mut rng);
+            let stack_result = stack.step(x);
+            let filter_result = filters.iter_mut().fold(x, |acc, f| f.step(acc));
+            assert_eq!(stack_result, filter_result);
+        }
+    }
+
+    #[test]
+    fn box_stack_optimal_sizes_are_right() {
+        for size in 1..20 {
+            let ratios = BoxStackFilter::<f64>::optimal_ratios(size);
+            assert_eq!(ratios.len(), size);
+
+            let sum = ratios.sum();
+            assert_abs_diff_eq!(sum, 1., epsilon = 0.0001);
+        }
+    }
 
     #[test]
     fn peak_hold_works() {
@@ -532,15 +649,5 @@ mod tests {
         let peakhold_envlop: Vec<_> = audio.into_iter().map(|x| peakhold.step(x)).collect();
         // dbg!(&peakhold_envlop);
         assert_eq!(peakhold_envlop, target);
-    }
-
-    #[test]
-    fn boxstack_works() {
-        let input = [1., 1., 1., 1., 0., 0., 0., 0., 0., 0.];
-        let target = [0.25, 0.75, 1., 1., 0.75, 0.25, 0., 0., 0., 0.];
-        let mut boxstack = BoxStackFilter::with_num_layers(3, 3);
-        boxstack.reset(0.);
-        let output: Vec<_> = input.into_iter().map(|x| boxstack.step(x)).collect();
-        assert_eq!(output, target);
     }
 }
