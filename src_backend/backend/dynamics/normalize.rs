@@ -24,10 +24,10 @@ pub enum NormalizeTarget {
 }
 
 pub trait GuardClipping {
-    type GainArray;
+    type GainSequence;
 
     #[inline]
-    fn guard_clipping(&mut self, mode: GuardClippingMode) -> Self::GainArray {
+    fn guard_clipping(&mut self, mode: GuardClippingMode) -> Self::GainSequence {
         match mode {
             GuardClippingMode::Clip => self.clip(),
             GuardClippingMode::ReduceGlobalLevel => self.reduce_global_level(),
@@ -35,9 +35,9 @@ pub trait GuardClipping {
         }
     }
 
-    fn clip(&mut self) -> Self::GainArray;
-    fn reduce_global_level(&mut self) -> Self::GainArray;
-    fn limit(&mut self) -> Self::GainArray;
+    fn clip(&mut self) -> Self::GainSequence;
+    fn reduce_global_level(&mut self) -> Self::GainSequence;
+    fn limit(&mut self) -> Self::GainSequence;
 }
 
 pub trait Normalize {

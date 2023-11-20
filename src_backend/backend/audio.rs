@@ -73,25 +73,25 @@ impl Audio {
 }
 
 impl GuardClipping for Audio {
-    type GainArray = Array2<f32>;
+    type GainSequence = Array2<f32>;
 
-    fn clip(&mut self) -> Self::GainArray {
+    fn clip(&mut self) -> Self::GainSequence {
         // self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
-        let mut gain_arr = Array2::ones(self.wavs.raw_dim());
+        let mut gain_seq = Array2::ones(self.wavs.raw_dim());
         self.wavs.indexed_iter_mut().for_each(|(index, x)| {
             *x = x.clamp(-1., 1.);
             if *x > 1. {
-                gain_arr[index] = 1. / *x;
+                gain_seq[index] = 1. / *x;
                 *x = 1.;
             } else if *x < -1. {
-                gain_arr[index] = -1. / *x;
+                gain_seq[index] = -1. / *x;
                 *x = -1.;
             }
         });
-        gain_arr
+        gain_seq
     }
 
-    fn reduce_global_level(&mut self) -> Self::GainArray {
+    fn reduce_global_level(&mut self) -> Self::GainSequence {
         let peak = self.wavs.max_peak() as f64;
         if peak > 1. {
             let gain = 1. / peak;
@@ -105,13 +105,13 @@ impl GuardClipping for Audio {
 
     fn limit(&mut self) -> Array2<f32> {
         let mut limiter = get_cached_limiter(self.sr);
-        let gain_arrs: Vec<_> = self
+        let gain_seqs: Vec<_> = self
             .wavs
             .axis_iter_mut(Axis(0))
             .map(|wav| limiter.process_inplace(wav))
             .collect();
-        let gain_arr_views: Vec<_> = gain_arrs.iter().map(ArrayBase::view).collect();
-        ndarray::stack(Axis(0), &gain_arr_views).unwrap_or_default()
+        let gain_seq_views: Vec<_> = gain_seqs.iter().map(ArrayBase::view).collect();
+        ndarray::stack(Axis(0), &gain_seq_views).unwrap_or_default()
     }
 }
 

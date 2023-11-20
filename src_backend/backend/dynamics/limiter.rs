@@ -106,25 +106,25 @@ impl PerfectLimiter {
     /// apply limiter to wav inplace, return gain array
     pub fn process_inplace(&mut self, mut wav: ArrayViewMut1<f32>) -> Array1<f32> {
         self.reset();
-        let mut gain_arr = Array1::uninit(wav.raw_dim());
+        let mut gain_seq = Array1::uninit(wav.raw_dim());
         for i in 0..(wav.len() + self.buffer.len()) {
             let input = if i < wav.len() { wav[i] } else { 0. };
             let (output, gain) = self.step(input);
             if i >= self.buffer.len() {
                 let j = i - self.buffer.len();
                 wav[j] = output;
-                gain_arr[j] = MaybeUninit::new(gain);
+                gain_seq[j] = MaybeUninit::new(gain);
             }
         }
-        unsafe { gain_arr.assume_init() }
+        unsafe { gain_seq.assume_init() }
     }
 
     /// apply limiter to wav, return (output, gain array)
     #[inline]
     pub fn _process(&mut self, wav: ArrayView1<f32>) -> (Array1<f32>, Array1<f32>) {
         let mut out = wav.to_owned();
-        let gain_arr = self.process_inplace(out.view_mut());
-        (out, gain_arr)
+        let gain_seq = self.process_inplace(out.view_mut());
+        (out, gain_seq)
     }
 
     fn calc_gain(&mut self, value: f32) -> f64 {
