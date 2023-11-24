@@ -238,7 +238,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
 
   return (
     <div className={styles.Overview} role="navigation">
-      <canvas ref={backgroundElem} />
+      <canvas className={styles.OverviewBackground} ref={backgroundElem} />
       <Draggable
         cursorStateInfos={cursorStateInfos}
         calcCursorPos="x"
@@ -246,7 +246,11 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
         calcDragAnchor={calcDragAnchor}
         dragAnchorDefault={0.5}
       >
-        <canvas ref={lensElem} style={{display: selectedTrackId !== null ? "block" : "none"}} />
+        <canvas
+          className={styles.OverviewLens}
+          ref={lensElem}
+          style={{display: selectedTrackId !== null ? "block" : "none"}}
+        />
       </Draggable>
     </div>
   );
