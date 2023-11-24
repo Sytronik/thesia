@@ -614,7 +614,7 @@ fn create_resizer(
         dest_height,
         GrayF32,
         if fast_resize {
-            ResizeType::Point
+            ResizeType::Triangle
         } else {
             ResizeType::Lanczos3
         },
