@@ -136,7 +136,7 @@ impl PerfectLimiter {
         };
         let peak_holded = -self.peakhold.step(-raw_gain);
         let peak_holded_released = self.release.step(peak_holded);
-        self.smoother.step(peak_holded_released)
+        self.smoother.step(peak_holded_released).min(1.)
     }
 
     #[inline]
@@ -269,7 +269,8 @@ mod tests {
         let mut wav = wavs.index_axis_move(Axis(0), 0);
         let mut limiter = PerfectLimiter::new(sr, 1., 5., 15., 40.);
         wav *= 8.;
-        limiter.process_inplace(wav.view_mut());
+        let gain_seq = limiter.process_inplace(wav.view_mut());
+        assert!(gain_seq.iter().all(|x| (0.0..1.0).contains(x)));
 
         let spec = hound::WavSpec {
             channels: 1,
