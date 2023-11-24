@@ -50,6 +50,12 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
     }
 }
 
+impl<'a, A, D: Dimension> From<ArrayView<'a, A, D>> for ArrWithSliceInfo<'a, A, D> {
+    fn from(value: ArrayView<'a, A, D>) -> Self {
+        ArrWithSliceInfo::entire(value)
+    }
+}
+
 pub trait CalcWidth {
     fn calc_width(&self, px_per_sec: f64) -> u32;
     fn calc_part_grey_info(

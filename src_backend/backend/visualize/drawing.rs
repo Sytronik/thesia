@@ -127,19 +127,14 @@ impl TrackDrawer for TrackManager {
                     } else {
                         return out_for_not_exist();
                     };
-                    let vec = colorize_grey_with_size(
-                        ArrWithSliceInfo::entire(grey),
-                        width,
-                        height,
-                        false,
-                    );
+                    let vec = colorize_grey_with_size(grey.into(), width, height, false);
                     Array3::from_shape_vec(shape, vec).unwrap()
                 }
                 ImageKind::Wav(opt_for_wav) => {
                     let mut arr = Array3::zeros(shape);
                     draw_wav_to(
                         arr.as_slice_mut().unwrap(),
-                        ArrWithSliceInfo::entire(track.channel(ch)),
+                        track.channel(ch).into(),
                         width,
                         height,
                         &opt_for_wav,
@@ -280,7 +275,7 @@ impl TrackDrawer for TrackManager {
                 let mut draw_wav = |i_range_x, height| {
                     draw_wav_to(
                         &mut vec_ch[i_range_x],
-                        ArrWithSliceInfo::entire(track.channel(ch)),
+                        track.channel(ch).into(),
                         drawing_width,
                         height,
                         &DrawOptionForWav {
@@ -297,7 +292,7 @@ impl TrackDrawer for TrackManager {
                         let raw_wav = &track.channel(ch) + &diff_seq_ch;
                         draw_wav_to(
                             &mut vec_ch[..ch_vec_len],
-                            ArrWithSliceInfo::entire(raw_wav.view()),
+                            raw_wav.view().into(),
                             drawing_width,
                             ch_h as u32,
                             &DrawOptionForWav {
@@ -311,17 +306,18 @@ impl TrackDrawer for TrackManager {
                     GuardClippingResult::GainSequence(gain_seq) if need_draw_gain => {
                         let gain_seq_ch = gain_seq.index_axis(Axis(0), ch);
                         draw_wav(i_end_upper..i_start_lower, wav_h as u32);
-                        let mut draw_gain = |i_range_x, seq, amp_range, draw_bottom| {
-                            draw_limiter_gain_to(
-                                &mut vec_ch[i_range_x],
-                                ArrWithSliceInfo::entire(seq),
-                                drawing_width,
-                                guard_clip_h as u32,
-                                &DrawOptionForWav { amp_range, dpr },
-                                draw_bottom,
-                                None,
-                            );
-                        };
+                        let mut draw_gain =
+                            |i_range_x, gain: ArrayView1<f32>, amp_range, draw_bottom| {
+                                draw_limiter_gain_to(
+                                    &mut vec_ch[i_range_x],
+                                    gain.into(),
+                                    drawing_width,
+                                    guard_clip_h as u32,
+                                    &DrawOptionForWav { amp_range, dpr },
+                                    draw_bottom,
+                                    None,
+                                );
+                            };
                         draw_gain(0..i_end_upper, gain_seq_ch, (0.5, 1.), true);
                         let neg_gain_seq_ch = gain_seq_ch.neg();
                         draw_gain(
