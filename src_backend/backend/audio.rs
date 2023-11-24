@@ -11,7 +11,8 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
 use super::dynamics::{
-    get_cached_limiter, AudioStats, GuardClipping, GuardClippingMode, MaxPeak, StatCalculator,
+    get_cached_limiter, AudioStats, GuardClipping, GuardClippingMode, GuardClippingResult,
+    GuardClippingStats, MaxPeak, StatCalculator,
 };
 
 const FORMAT_DESC_DELIMITER: &str = "|";
@@ -22,12 +23,22 @@ pub struct Audio {
     wavs: Array2<f32>,
     pub sr: u32,
     pub stats: AudioStats,
+    pub guard_clip_result: GuardClippingResult<Ix2>,
+    pub guard_clip_stats: Array1<GuardClippingStats>,
 }
 
 impl Audio {
     pub fn new(wavs: Array2<f32>, sr: u32, stat_calculator: &mut StatCalculator) -> Self {
         let stats = stat_calculator.calc(wavs.view());
-        Self { wavs, sr, stats }
+        let guard_clip_result = GuardClippingResult::GlobalGain((1., wavs.raw_dim()));
+        let guard_clip_stats = Array1::default(wavs.shape()[0]);
+        Self {
+            wavs,
+            sr,
+            stats,
+            guard_clip_result,
+            guard_clip_stats,
+        }
     }
 
     pub fn view(&self) -> ArrayView2<f32> {
@@ -43,7 +54,9 @@ impl Audio {
         F: Fn(ArrayViewMut2<f32>),
     {
         f(self.wavs.view_mut());
-        self.guard_clipping(guard_clipping_mode);
+        let guard_clip_result = self.guard_clipping(guard_clipping_mode);
+        self.guard_clip_stats = (&guard_clip_result).into();
+        self.guard_clip_result = guard_clip_result;
         self.update_stats(stat_calculator);
     }
 
@@ -72,38 +85,34 @@ impl Audio {
     }
 }
 
-impl GuardClipping for Audio {
-    type GainSequence = Array2<f32>;
-
-    fn clip(&mut self) -> Self::GainSequence {
-        // self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
-        let mut gain_seq = Array2::ones(self.wavs.raw_dim());
+impl GuardClipping<Ix2> for Audio {
+    fn clip(&mut self) -> GuardClippingResult<Ix2> {
+        let mut diff_seq = Array2::zeros(self.wavs.raw_dim());
         self.wavs.indexed_iter_mut().for_each(|(index, x)| {
-            *x = x.clamp(-1., 1.);
             if *x > 1. {
-                gain_seq[index] = 1. / *x;
+                diff_seq[index] = *x - 1.;
                 *x = 1.;
             } else if *x < -1. {
-                gain_seq[index] = -1. / *x;
+                diff_seq[index] = *x + 1.;
                 *x = -1.;
             }
         });
-        gain_seq
+        GuardClippingResult::DiffSequence(diff_seq)
     }
 
-    fn reduce_global_level(&mut self) -> Self::GainSequence {
+    fn reduce_global_level(&mut self) -> GuardClippingResult<Ix2> {
         let peak = self.wavs.max_peak() as f64;
         if peak > 1. {
             let gain = 1. / peak;
             self.wavs
                 .mapv_inplace(|x| ((x as f64 * gain) as f32).clamp(-1., 1.));
-            Array2::from_elem(self.wavs.raw_dim(), gain as f32)
+            GuardClippingResult::GlobalGain((gain as f32, self.wavs.raw_dim()))
         } else {
-            Array2::ones(self.wavs.raw_dim())
+            GuardClippingResult::GlobalGain((1., self.wavs.raw_dim()))
         }
     }
 
-    fn limit(&mut self) -> Array2<f32> {
+    fn limit(&mut self) -> GuardClippingResult<Ix2> {
         let mut limiter = get_cached_limiter(self.sr);
         let gain_seqs: Vec<_> = self
             .wavs
@@ -111,7 +120,8 @@ impl GuardClipping for Audio {
             .map(|wav| limiter.process_inplace(wav))
             .collect();
         let gain_seq_views: Vec<_> = gain_seqs.iter().map(ArrayBase::view).collect();
-        ndarray::stack(Axis(0), &gain_seq_views).unwrap_or_default()
+        let gain_seq = ndarray::stack(Axis(0), &gain_seq_views).unwrap_or_default();
+        GuardClippingResult::GainSequence(gain_seq)
     }
 }
 

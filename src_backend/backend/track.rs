@@ -8,7 +8,10 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use symphonia::core::errors::Error as SymphoniaError;
 
 use super::audio::{open_audio_file, Audio};
-use super::dynamics::{AudioStats, GuardClippingMode, Normalize, NormalizeTarget, StatCalculator};
+use super::dynamics::{
+    AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
+    NormalizeTarget, StatCalculator,
+};
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::utils::unique_filenames;
 use super::visualize::{CalcWidth, IdxLen, PartGreyInfo};
@@ -108,6 +111,16 @@ impl AudioTrack {
     #[inline]
     pub fn stats(&self) -> &AudioStats {
         &self.audio.stats
+    }
+
+    #[inline]
+    pub fn guard_clip_result(&self) -> &GuardClippingResult<Ix2> {
+        &self.audio.guard_clip_result
+    }
+
+    #[inline]
+    pub fn guard_clip_stats(&self) -> ArrayView1<GuardClippingStats> {
+        self.audio.guard_clip_stats.view()
     }
 }
 

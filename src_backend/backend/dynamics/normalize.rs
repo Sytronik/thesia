@@ -1,4 +1,5 @@
 use napi_derive::napi;
+use ndarray::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::stats::AudioStats;
@@ -12,6 +13,13 @@ pub enum GuardClippingMode {
     Limiter,
 }
 
+#[derive(PartialEq, Clone)]
+pub enum GuardClippingResult<D: Dimension> {
+    DiffSequence(Array<f32, D>),
+    GlobalGain((f32, D)),
+    GainSequence(Array<f32, D>),
+}
+
 #[derive(Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(tag = "type", content = "target")]
 #[allow(clippy::upper_case_acronyms)]
@@ -23,11 +31,9 @@ pub enum NormalizeTarget {
     PeakdB(f32),
 }
 
-pub trait GuardClipping {
-    type GainSequence;
-
+pub trait GuardClipping<D: Dimension> {
     #[inline]
-    fn guard_clipping(&mut self, mode: GuardClippingMode) -> Self::GainSequence {
+    fn guard_clipping(&mut self, mode: GuardClippingMode) -> GuardClippingResult<D> {
         match mode {
             GuardClippingMode::Clip => self.clip(),
             GuardClippingMode::ReduceGlobalLevel => self.reduce_global_level(),
@@ -35,9 +41,9 @@ pub trait GuardClipping {
         }
     }
 
-    fn clip(&mut self) -> Self::GainSequence;
-    fn reduce_global_level(&mut self) -> Self::GainSequence;
-    fn limit(&mut self) -> Self::GainSequence;
+    fn clip(&mut self) -> GuardClippingResult<D>;
+    fn reduce_global_level(&mut self) -> GuardClippingResult<D>;
+    fn limit(&mut self) -> GuardClippingResult<D>;
 }
 
 pub trait Normalize {

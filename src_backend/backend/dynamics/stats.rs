@@ -1,8 +1,11 @@
 use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
-use ndarray::Data;
+use ndarray::{Data, RemoveAxis};
+use ndarray_stats::{MaybeNan, QuantileExt};
+use num_traits::{AsPrimitive, Float};
 
 use super::decibel::DeciBel;
+use super::normalize::GuardClippingResult;
 use crate::backend::utils::Planes;
 
 #[readonly::make]
@@ -45,19 +48,102 @@ impl StatCalculator {
     }
 }
 
-pub trait MaxPeak {
-    fn max_peak(&self) -> f32;
+pub trait MaxPeak<A> {
+    fn max_peak(&self) -> A;
 }
 
-impl<S, D> MaxPeak for ArrayBase<S, D>
+impl<A, S, D> MaxPeak<A> for ArrayBase<S, D>
 where
-    S: Data<Elem = f32>,
+    A: Float + MaybeNan,
+    <A as MaybeNan>::NotNan: Ord,
+    S: Data<Elem = A>,
     D: Dimension,
 {
-    fn max_peak(&self) -> f32 {
+    fn max_peak(&self) -> A {
         self.iter()
             .map(|x| x.abs())
-            .reduce(f32::max)
-            .unwrap_or_default()
+            .reduce(Float::max)
+            .unwrap_or(A::zero())
+    }
+}
+
+#[derive(Clone, Default, PartialEq)]
+#[allow(non_snake_case)]
+pub struct GuardClippingStats {
+    pub max_reduction_gain_dB: f32,
+    pub reduction_cnt: usize,
+}
+
+impl GuardClippingStats {
+    pub fn from_diff_seq<'a, A, D>(diff_seq: ArrayView<'a, A, D>) -> Self
+    where
+        A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
+        <A as MaybeNan>::NotNan: Ord,
+        D: Dimension,
+    {
+        let max_reduction_gain = (diff_seq.max_peak() + A::one()).recip();
+        GuardClippingStats {
+            max_reduction_gain_dB: max_reduction_gain.dB_from_amp_default().as_(),
+            reduction_cnt: diff_seq.iter().filter(|&&x| x != A::zero()).count(),
+        }
+    }
+
+    pub fn from_global_gain(gain: f32, len: usize) -> Self {
+        assert!(len > 0);
+        GuardClippingStats {
+            max_reduction_gain_dB: gain.dB_from_amp_default(),
+            reduction_cnt: len,
+        }
+    }
+
+    pub fn from_gain_seq<'a, A, D>(gain_seq: ArrayView<'a, A, D>) -> Self
+    where
+        A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
+        <A as MaybeNan>::NotNan: Ord,
+        D: Dimension,
+    {
+        GuardClippingStats {
+            max_reduction_gain_dB: gain_seq.min_skipnan().dB_from_amp_default().as_(),
+            reduction_cnt: gain_seq.iter().filter(|&&x| x != A::one()).count(),
+        }
+    }
+}
+
+impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
+    for Array<GuardClippingStats, D::Smaller>
+{
+    fn from(value: &GuardClippingResult<D>) -> Self {
+        match value {
+            GuardClippingResult::DiffSequence(diff_seq) => {
+                let raw_dim = diff_seq.raw_dim();
+                let vec = diff_seq
+                    .lanes(Axis(raw_dim.ndim() - 1))
+                    .into_iter()
+                    .map(GuardClippingStats::from_diff_seq)
+                    .collect();
+                Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
+            }
+            GuardClippingResult::GlobalGain((gain, raw_dim)) => Array::from_elem(
+                raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)),
+                GuardClippingStats::from_global_gain(*gain, 1),
+            ),
+            GuardClippingResult::GainSequence(gain_seq) => {
+                let raw_dim = gain_seq.raw_dim();
+                let vec = gain_seq
+                    .lanes(Axis(raw_dim.ndim() - 1))
+                    .into_iter()
+                    .map(GuardClippingStats::from_gain_seq)
+                    .collect();
+                Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
+            }
+        }
+    }
+}
+
+impl<D: Dimension + RemoveAxis> From<GuardClippingResult<D>>
+    for Array<GuardClippingStats, D::Smaller>
+{
+    fn from(value: GuardClippingResult<D>) -> Self {
+        (&value).into()
     }
 }
