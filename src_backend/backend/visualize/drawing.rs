@@ -16,7 +16,7 @@ use tiny_skia::{
     Rect, Stroke, Transform,
 };
 
-use super::img_slice::{ArrWithSliceInfo, CalcWidth, PartGreyInfo};
+use super::img_slice::{ArrWithSliceInfo, CalcWidth, OverviewHeights, PartGreyInfo};
 use super::resample::FftResampler;
 use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::utils::Pad;
@@ -38,12 +38,13 @@ pub const COLORMAP: [[u8; 3]; 10] = [
     [247, 209, 61],
     [252, 255, 164],
 ];
-pub const WAV_COLOR: [u8; 3] = [120, 150, 210];
-pub const LIMITER_GAIN_COLOR: [u8; 3] = [210, 150, 120];
-pub const CLIPPING_COLOR: [u8; 3] = [255, 0, 0];
-pub const RESAMPLE_TAIL: usize = 500;
+const WAV_COLOR: [u8; 3] = [120, 150, 210];
+const LIMITER_GAIN_COLOR: [u8; 3] = [210, 150, 120];
+const CLIPPING_COLOR: [u8; 3] = [255, 0, 0];
+const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: u32 = 70;
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
+const LIMITER_GAIN_HEIGHT_DENOM: usize = 5; // 1/5 of the height will be used for draw limiter gain
 
 pub struct DprDependentConstants {
     thr_long_height: f32,
@@ -266,95 +267,90 @@ impl TrackDrawer for TrackManager {
             drawing_width as usize,
             pad_right as usize,
         );
-        let height = height as usize;
-        let gap_h = (OVERVIEW_CH_GAP_HEIGHT * dpr).round() as usize;
-        let height_without_gap = height - gap_h * (track.n_ch() - 1);
-        let ch_h = height_without_gap / track.n_ch();
-        let guard_clip_h = ch_h / 5;
-        let wav_h = ch_h - 2 * guard_clip_h;
-        let margin_top = height_without_gap % track.n_ch() / 2;
-        let len_per_height = drawing_width_usize * 4; // RGBA
-        let i_start = margin_top * len_per_height;
-        let ch_vec_len = ch_h * len_per_height;
-        let i_end_upper = guard_clip_h * len_per_height;
-        let i_start_lower = (guard_clip_h + wav_h) * len_per_height;
-        let gap_vec_len = gap_h * len_per_height;
-        let (diff_seq_peak, need_draw_gain) = match track.guard_clip_result() {
-            GuardClippingResult::DiffSequence(diff_seq) => (diff_seq.max_peak(), false),
-            GuardClippingResult::GainSequence(gain_seq) => (0., gain_seq.iter().any(|&x| x != 1.)),
-            _ => (0., false),
+        let heights = OverviewHeights::new(height, track.n_ch(), OVERVIEW_CH_GAP_HEIGHT, dpr);
+        let (clip_peak, draw_gain_info) = match track.guard_clip_result() {
+            GuardClippingResult::DiffSequence(diff_seq) => {
+                (1. + diff_seq.max_peak(), Default::default())
+            }
+            GuardClippingResult::GainSequence(gain_seq) if gain_seq.iter().any(|&x| x < 1.) => {
+                (1., heights.decompose_by_gain(LIMITER_GAIN_HEIGHT_DENOM))
+            }
+            _ => (1., Default::default()),
         };
 
-        let mut vec = vec![0u8; height * len_per_height];
-        vec[i_start..]
-            .par_chunks_mut(ch_vec_len + gap_vec_len)
+        let mut arr = Array3::zeros((heights.total, drawing_width_usize, 4));
+        arr.slice_mut(s![heights.margin.., .., ..])
+            .axis_chunks_iter_mut(Axis(0), heights.ch_and_gap())
             .enumerate()
-            .for_each(|(ch, vec_ch)| {
-                let mut draw_wav = |i_range_x, height| {
+            .par_bridge()
+            .for_each(|(ch, mut arr_ch)| {
+                let mut draw_wav = |i_h, h| {
                     draw_wav_to(
-                        &mut vec_ch[i_range_x],
+                        arr_ch
+                            .slice_mut(s![i_h..(i_h + h), .., ..])
+                            .as_slice_mut()
+                            .unwrap(),
                         track.channel(ch).into(),
                         drawing_width,
-                        height,
+                        h as u32,
                         &DrawOptionForWav::with_dpr(dpr),
                         None,
                         false,
                     )
                 };
                 match track.guard_clip_result() {
-                    GuardClippingResult::DiffSequence(diff_seq) if diff_seq_peak > 0. => {
-                        let diff_seq_ch = diff_seq.index_axis(Axis(0), ch);
-                        let raw_wav = &track.channel(ch) + &diff_seq_ch;
+                    GuardClippingResult::DiffSequence(diff_seq) if clip_peak > 1. => {
+                        let not_clipped = &track.channel(ch) + &diff_seq.slice(s![ch, ..]);
                         draw_wav_to(
-                            &mut vec_ch[..ch_vec_len],
-                            raw_wav.view().into(),
+                            arr_ch
+                                .slice_mut(s![..heights.ch, .., ..])
+                                .as_slice_mut()
+                                .unwrap(),
+                            not_clipped.view().into(),
                             drawing_width,
-                            ch_h as u32,
+                            heights.ch as u32,
                             &DrawOptionForWav {
-                                amp_range: (-1. - diff_seq_peak, 1. + diff_seq_peak),
+                                amp_range: (-clip_peak, clip_peak),
                                 dpr,
                             },
                             None,
                             true,
                         )
                     }
-                    GuardClippingResult::GainSequence(gain_seq) if need_draw_gain => {
-                        let gain_seq_ch = gain_seq.index_axis(Axis(0), ch);
-                        draw_wav(i_end_upper..i_start_lower, wav_h as u32);
-                        let mut draw_gain =
-                            |i_range_x, gain: ArrayView1<f32>, amp_range, draw_bottom| {
-                                draw_limiter_gain_to(
-                                    &mut vec_ch[i_range_x],
-                                    gain.into(),
-                                    drawing_width,
-                                    guard_clip_h as u32,
-                                    &DrawOptionForWav { amp_range, dpr },
-                                    draw_bottom,
-                                    None,
-                                );
-                            };
-                        draw_gain(0..i_end_upper, gain_seq_ch, (0.5, 1.), true);
+                    GuardClippingResult::GainSequence(gain_seq)
+                        if draw_gain_info != Default::default() =>
+                    {
+                        let gain_seq_ch = gain_seq.slice(s![ch, ..]);
                         let neg_gain_seq_ch = gain_seq_ch.neg();
-                        draw_gain(
-                            i_start_lower..ch_vec_len,
-                            neg_gain_seq_ch.view(),
-                            (-1., -0.5),
-                            false,
-                        );
+                        let (gain_h, wav_h) = draw_gain_info;
+                        draw_wav(gain_h, wav_h);
+                        let mut draw_gain = |i_h, gain: ArrayView1<f32>, amp_range, draw_bottom| {
+                            draw_limiter_gain_to(
+                                arr_ch
+                                    .slice_mut(s![i_h..(i_h + gain_h), .., ..])
+                                    .as_slice_mut()
+                                    .unwrap(),
+                                gain.into(),
+                                drawing_width,
+                                gain_h as u32,
+                                &DrawOptionForWav { amp_range, dpr },
+                                draw_bottom,
+                                None,
+                            );
+                        };
+                        draw_gain(0, gain_seq_ch, (0.5, 1.), true);
+                        draw_gain(gain_h + wav_h, neg_gain_seq_ch.view(), (-1., -0.5), false);
                     }
                     _ => {
-                        draw_wav(0..ch_vec_len, ch_h as u32);
+                        draw_wav(0, heights.ch);
                     }
                 }
             });
 
         if width != drawing_width {
-            let mut arr = Array3::from_shape_vec((height, drawing_width_usize, 4), vec).unwrap();
             arr = arr.pad((pad_left, pad_right), Axis(1), Default::default());
-            arr.into_raw_vec()
-        } else {
-            vec
         }
+        arr.into_raw_vec()
     }
 }
 

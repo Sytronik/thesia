@@ -134,3 +134,38 @@ pub fn calc_effective_slice(
         Some((index as usize, length.min(total_length - index as usize)))
     }
 }
+
+#[readonly::make]
+pub struct OverviewHeights {
+    pub total: usize,
+    pub ch: usize,
+    pub gap: usize,
+    pub margin: usize,
+}
+
+impl OverviewHeights {
+    pub fn new(height: u32, n_ch: usize, gap: f32, dpr: f32) -> Self {
+        let total = height as usize;
+        let gap = (gap * dpr).round() as usize;
+        let height_without_gap = total - gap * (n_ch - 1);
+        let ch = height_without_gap / n_ch;
+        let margin = height_without_gap % n_ch / 2;
+        OverviewHeights {
+            total,
+            ch,
+            gap,
+            margin,
+        }
+    }
+
+    #[inline]
+    pub fn ch_and_gap(&self) -> usize {
+        self.ch + self.gap
+    }
+
+    #[inline]
+    pub fn decompose_by_gain(&self, gain_height_denom: usize) -> (usize, usize) {
+        let gain_h = self.ch / gain_height_denom;
+        (gain_h, self.ch - 2 * gain_h)
+    }
+}
