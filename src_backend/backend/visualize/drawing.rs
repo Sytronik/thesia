@@ -74,6 +74,24 @@ pub struct DrawOptionForWav {
     pub dpr: f32,
 }
 
+impl DrawOptionForWav {
+    pub fn with_dpr(dpr: f32) -> Self {
+        DrawOptionForWav {
+            dpr,
+            ..Default::default()
+        }
+    }
+}
+
+impl Default for DrawOptionForWav {
+    fn default() -> Self {
+        DrawOptionForWav {
+            amp_range: (-1., 1.),
+            dpr: 1.,
+        }
+    }
+}
+
 pub enum ImageKind {
     Spec,
     Wav(DrawOptionForWav),
@@ -278,10 +296,7 @@ impl TrackDrawer for TrackManager {
                         track.channel(ch).into(),
                         drawing_width,
                         height,
-                        &DrawOptionForWav {
-                            amp_range: (-1., 1.),
-                            dpr,
-                        },
+                        &DrawOptionForWav::with_dpr(dpr),
                         None,
                         false,
                     )

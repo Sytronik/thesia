@@ -317,10 +317,7 @@ mod tests {
             px_per_sec: 200.,
             height: 500,
         };
-        let opt_for_wav = DrawOptionForWav {
-            amp_range: (-1., 1.),
-            dpr: 1.,
-        };
+        let opt_for_wav = Default::default();
         let spec_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Spec);
         let mut wav_imgs =
             tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Wav(opt_for_wav));

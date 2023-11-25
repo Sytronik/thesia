@@ -70,10 +70,7 @@ impl Default for DrawParams {
                 px_per_sec: 0.,
                 height: 1,
             },
-            opt_for_wav: DrawOptionForWav {
-                amp_range: (-1., 1.),
-                dpr: 1.,
-            },
+            opt_for_wav: Default::default(),
             blend: 1.,
         }
     }
