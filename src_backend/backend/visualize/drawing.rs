@@ -330,7 +330,7 @@ impl TrackDrawer for TrackManager {
                                     .slice_mut(s![i_h..(i_h + gain_h), .., ..])
                                     .as_slice_mut()
                                     .unwrap(),
-                                gain.into(),
+                                gain,
                                 drawing_width,
                                 gain_h as u32,
                                 &DrawOptionForWav { amp_range, dpr },
@@ -581,9 +581,14 @@ fn fill_topbottom_envelope_with_clipping(
     };
 }
 
+fn get_amp_to_px_fn(amp_range: (f32, f32), height: f32) -> impl Fn(f32) -> f32 {
+    let scale_factor = height / (amp_range.1 - amp_range.0);
+    move |x: f32| (amp_range.1 - x) * scale_factor
+}
+
 fn draw_limiter_gain_to(
     output: &mut [u8],
-    gain: ArrWithSliceInfo<f32, Ix1>,
+    gain: ArrayView1<f32>,
     width: u32,
     height: u32,
     opt_for_wav: &DrawOptionForWav,
@@ -591,37 +596,33 @@ fn draw_limiter_gain_to(
     alpha: Option<u8>,
 ) {
     let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
-    let context_size = DprDependentConstants::calc(dpr).topbottom_context_size;
-    let amp_to_px = |x: f32| (amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0);
-    let samples_per_px = gain.length as f32 / width as f32;
-    let alpha = alpha.unwrap_or(u8::MAX);
+    let half_context_size = DprDependentConstants::calc(dpr).topbottom_context_size / 2.;
+    let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
+    let samples_per_px = gain.len() as f32 / width as f32;
 
-    let mut out_arr =
-        ArrayViewMut3::from_shape((height as usize, width as usize, 4), output).unwrap();
-    let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
-
-    let gain = gain.as_sliced();
-    let half_context_size = context_size / 2.;
-    let envlop: Vec<_> = (0..(width as usize))
-        .into_iter()
+    let envlop: Vec<_> = (0..width)
         .map(|i_px| {
-            let i_start = ((i_px as f32 - half_context_size) * samples_per_px)
-                .round()
-                .max(0.) as usize;
-            let i_mid = (i_px as f32 * samples_per_px).round() as usize;
-            let i_end = (((i_px as f32 + half_context_size) * samples_per_px).round() as usize)
-                .min(gain.len());
+            let i_px = i_px as f32;
+            let i_mid = (i_px * samples_per_px).round() as usize;
             if gain[i_mid.max(1) - 1] == gain[i_mid]
                 || gain[i_mid] == gain[i_mid.min(gain.len() - 2) + 1]
             {
                 amp_to_px(gain[i_mid])
             } else {
+                let i_start = ((i_px - half_context_size) * samples_per_px)
+                    .round()
+                    .max(0.) as usize;
+                let i_end = (((i_px + half_context_size) * samples_per_px).round() as usize)
+                    .min(gain.len());
                 amp_to_px(gain.slice(s![i_start..i_end]).mean().unwrap())
             }
         })
         .collect();
 
-    let paint = get_wav_paint(&LIMITER_GAIN_COLOR, alpha);
+    let mut out_arr =
+        ArrayViewMut3::from_shape((height as usize, width as usize, 4), output).unwrap();
+    let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
+    let paint = get_wav_paint(&LIMITER_GAIN_COLOR, alpha.unwrap_or(u8::MAX));
     if draw_bottom {
         let top_envlop = vec![amp_to_px(amp_range.1); width as usize];
         fill_topbottom_envelope(&top_envlop, &envlop, &mut pixmap, &paint);
@@ -647,7 +648,7 @@ fn draw_wav_to(
         topbottom_context_size,
         wav_stroke_width,
     } = DprDependentConstants::calc(dpr);
-    let amp_to_px = |x: f32| (amp_range.1 - x) * height as f32 / (amp_range.1 - amp_range.0);
+    let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
     let samples_per_px = wav.length as f32 / width as f32;
     let alpha = alpha.unwrap_or(u8::MAX);
     let clip_values = show_clipping.then_some((amp_to_px(-1.), amp_to_px(1.)));
@@ -666,7 +667,7 @@ fn draw_wav_to(
         let wav_tail = wav.as_sliced_with_tail(RESAMPLE_TAIL);
         let width_tail = (width as f32 * wav_tail.len() as f32 / wav.length as f32).round();
         let mut resampler = create_resampler(wav_tail.len(), width_tail as usize);
-        let upsampled = resampler.resample(wav_tail).mapv(|x| amp_to_px(x));
+        let upsampled = resampler.resample(wav_tail).mapv(amp_to_px);
         let wav_px = upsampled.slice_move(s![..width as usize]);
         stroke_line_with_clipping(
             wav_px.as_slice().unwrap(),
@@ -683,11 +684,12 @@ fn draw_wav_to(
         let mut btm_envlop = Vec::with_capacity(width as usize);
         let mut n_mean_crossing = 0u32;
         for i_px in 0..width {
-            let i_start = ((i_px as f32 - half_context_size) * samples_per_px)
+            let i_px = i_px as f32;
+            let i_start = ((i_px - half_context_size) * samples_per_px)
                 .round()
                 .max(0.) as usize;
-            let i_end = (((i_px as f32 + half_context_size) * samples_per_px).round() as usize)
-                .min(wav.len());
+            let i_end =
+                (((i_px + half_context_size) * samples_per_px).round() as usize).min(wav.len());
             let wav_slice = wav.slice(s![i_start..i_end]);
             let top = amp_to_px(*wav_slice.max_skipnan()) - wav_stroke_width / 2.;
             let bottom = amp_to_px(*wav_slice.min_skipnan()) + wav_stroke_width / 2.;
@@ -699,8 +701,7 @@ fn draw_wav_to(
             top_envlop.push(top);
             btm_envlop.push(bottom);
         }
-        let thr_topbottom = width * THR_TOPBOTTOM_PERCENT / 100;
-        if n_mean_crossing > thr_topbottom {
+        if n_mean_crossing > width * THR_TOPBOTTOM_PERCENT / 100 {
             fill_topbottom_envelope_with_clipping(
                 &top_envlop,
                 &btm_envlop,
