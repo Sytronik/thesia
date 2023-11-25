@@ -8,6 +8,7 @@ import {
   AMP_MARKER_POS,
   DEFAULT_AMP_RANGE,
   MIN_ABS_AMP_RANGE,
+  MAX_ABS_AMP_RANGE,
   VERTICAL_AXIS_PADDING,
 } from "../constants";
 
@@ -38,8 +39,8 @@ const calcIntervalZeroRatio = (ampRange: [number, number]) => {
 };
 const clampAmpRange = (ampRange: [number, number]) => {
   return [
-    Math.min(Math.max(ampRange[0], -1), -MIN_ABS_AMP_RANGE),
-    Math.min(Math.max(ampRange[1], MIN_ABS_AMP_RANGE), 1),
+    Math.min(Math.max(ampRange[0], -MAX_ABS_AMP_RANGE), -MIN_ABS_AMP_RANGE),
+    Math.min(Math.max(ampRange[1], MIN_ABS_AMP_RANGE), MAX_ABS_AMP_RANGE),
   ] as [number, number];
 };
 

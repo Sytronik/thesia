@@ -192,3 +192,4 @@ export const FIT_TOLERANCE_SEC = 1e-6;
 
 export const DEFAULT_AMP_RANGE: [number, number] = [-1, 1];
 export const MIN_ABS_AMP_RANGE = 1e-5;
+export const MAX_ABS_AMP_RANGE = 2;
