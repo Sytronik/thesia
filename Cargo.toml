@@ -60,6 +60,10 @@ lto = true
 opt-level = 0
 lto = false
 
+[profile.dev-debug]
+inherits = "dev"
+lto = false
+
 [profile.release]
 lto = true
 panic = "abort"
