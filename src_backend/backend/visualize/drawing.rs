@@ -50,6 +50,7 @@ pub struct DprDependentConstants {
     thr_long_height: f32,
     topbottom_context_size: f32,
     wav_stroke_width: f32,
+    wav_stroke_border_width: f32,
 }
 
 impl DprDependentConstants {
@@ -58,6 +59,7 @@ impl DprDependentConstants {
             thr_long_height: 2. * dpr,
             topbottom_context_size: 2. * dpr,
             wav_stroke_width: 1.75 * dpr,
+            wav_stroke_border_width: 0.75 * dpr,
         }
     }
 }
@@ -160,6 +162,7 @@ impl TrackDrawer for TrackManager {
                         &opt_for_wav,
                         None,
                         show_clipping,
+                        true,
                     );
                     arr
                 }
@@ -299,6 +302,7 @@ impl TrackDrawer for TrackManager {
                         &DrawOptionForWav::with_dpr(dpr),
                         None,
                         false,
+                        false,
                     )
                 };
                 match track.guard_clip_result() {
@@ -317,6 +321,7 @@ impl TrackDrawer for TrackManager {
                             },
                             None,
                             true,
+                            false,
                         )
                     }
                     GuardClippingResult::GainSequence(gain_seq)
@@ -485,15 +490,21 @@ fn colorize_resize_grey(
     // println!("drawing spec: {:?}", start.elapsed());
 }
 
+#[inline]
 fn get_wav_paint(color: &[u8; 3], alpha: u8) -> Paint {
     let mut paint = Paint::default();
     let &[r, g, b] = color;
     paint.set_color_rgba8(r, g, b, alpha);
-    paint.anti_alias = true;
     paint
 }
 
-fn stroke_line(data: &[f32], stroke_width: f32, pixmap: &mut PixmapMut, paint: &Paint) {
+fn stroke_line(
+    data: &[f32],
+    stroke_width: f32,
+    pixmap: &mut PixmapMut,
+    paint: &Paint,
+    stroke_border_width: f32,
+) {
     let path = {
         let mut pb = PathBuilder::with_capacity(data.len() + 1, data.len() + 1);
         pb.move_to(0., data[0]);
@@ -511,7 +522,20 @@ fn stroke_line(data: &[f32], stroke_width: f32, pixmap: &mut PixmapMut, paint: &
         line_cap: LineCap::Round,
         ..Default::default()
     };
-    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
+    if stroke_border_width > 0. {
+        let border_stroke = Stroke {
+            width: stroke_width + stroke_border_width,
+            ..stroke.clone()
+        };
+        pixmap.stroke_path(
+            &path,
+            &Paint::default(),
+            &border_stroke,
+            Transform::identity(),
+            None,
+        );
+    }
+    pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
 }
 
 fn stroke_line_with_clipping(
@@ -520,21 +544,28 @@ fn stroke_line_with_clipping(
     pixmap: &mut PixmapMut,
     alpha: u8,
     clip_values: Option<(f32, f32)>,
+    stroke_border_width: f32,
 ) {
     let paint = get_wav_paint(&WAV_COLOR, alpha);
     match clip_values {
         Some((bottom_clip, top_clip)) => {
             let paint_clipping = get_wav_paint(&CLIPPING_COLOR, alpha);
-            stroke_line(data, stroke_width, pixmap, &paint_clipping);
+            stroke_line(
+                data,
+                stroke_width,
+                pixmap,
+                &paint_clipping,
+                stroke_border_width,
+            );
 
             let clipped: Vec<_> = data
                 .iter()
                 .map(|&x| x.clamp(top_clip, bottom_clip))
                 .collect();
-            stroke_line(&clipped, stroke_width, pixmap, &paint);
+            stroke_line(&clipped, stroke_width, pixmap, &paint, stroke_border_width);
         }
         None => {
-            stroke_line(data, stroke_width, pixmap, &paint);
+            stroke_line(data, stroke_width, pixmap, &paint, stroke_border_width);
         }
     };
 }
@@ -544,7 +575,7 @@ fn fill_topbottom_envelope(
     btm_envlop: &[f32],
     pixmap: &mut PixmapMut,
     paint: &Paint,
-) {
+) -> tiny_skia::Path {
     let path = {
         let len = top_envlop.len() + btm_envlop.len() + 2;
         let mut pb = PathBuilder::with_capacity(len, len);
@@ -560,6 +591,7 @@ fn fill_topbottom_envelope(
     };
 
     pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
+    path
 }
 
 fn fill_topbottom_envelope_with_clipping(
@@ -568,21 +600,35 @@ fn fill_topbottom_envelope_with_clipping(
     pixmap: &mut PixmapMut,
     alpha: u8,
     clip_values: Option<(f32, f32)>,
+    need_border: bool,
 ) {
     let mut paint = get_wav_paint(&WAV_COLOR, alpha);
-    match clip_values {
+    let path = match clip_values {
         Some((bottom_clip, top_clip)) => {
             let paint_clipping = get_wav_paint(&CLIPPING_COLOR, alpha);
-            fill_topbottom_envelope(top_envlop, btm_envlop, pixmap, &paint_clipping);
+            let path = fill_topbottom_envelope(top_envlop, btm_envlop, pixmap, &paint_clipping);
             paint.blend_mode = BlendMode::SourceAtop;
             let rect = Rect::from_xywh(0., top_clip, pixmap.width() as f32, bottom_clip - top_clip)
                 .unwrap();
             pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+            path
         }
-        None => {
-            fill_topbottom_envelope(top_envlop, btm_envlop, pixmap, &paint);
-        }
+        None => fill_topbottom_envelope(top_envlop, btm_envlop, pixmap, &paint),
     };
+
+    if need_border {
+        let stroke = Stroke {
+            width: 0.,
+            ..Default::default()
+        };
+        pixmap.stroke_path(
+            &path,
+            &Paint::default(),
+            &stroke,
+            Transform::identity(),
+            None,
+        );
+    }
 }
 
 fn get_amp_to_px_fn(amp_range: (f32, f32), height: f32) -> impl Fn(f32) -> f32 {
@@ -644,6 +690,7 @@ fn draw_wav_to(
     opt_for_wav: &DrawOptionForWav,
     alpha: Option<u8>,
     show_clipping: bool,
+    need_border: bool,
 ) {
     // let start = Instant::now();
     let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
@@ -651,7 +698,13 @@ fn draw_wav_to(
         thr_long_height,
         topbottom_context_size,
         wav_stroke_width,
+        wav_stroke_border_width,
     } = DprDependentConstants::calc(dpr);
+    let stroke_border_width = if need_border {
+        wav_stroke_border_width
+    } else {
+        0.
+    };
     let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
     let samples_per_px = wav.length as f32 / width as f32;
     let alpha = alpha.unwrap_or(u8::MAX);
@@ -680,6 +733,7 @@ fn draw_wav_to(
             &mut pixmap,
             alpha,
             clip_values,
+            stroke_border_width,
         );
     } else {
         let wav = wav.as_sliced();
@@ -713,6 +767,7 @@ fn draw_wav_to(
                 &mut pixmap,
                 alpha,
                 clip_values,
+                need_border,
             );
         } else {
             let wav_px = wav.map(|&x| amp_to_px(x));
@@ -722,6 +777,7 @@ fn draw_wav_to(
                 &mut pixmap,
                 alpha,
                 clip_values,
+                stroke_border_width,
             );
         }
     }
@@ -763,6 +819,7 @@ fn draw_blended_spec_wav(
                 opt_for_wav,
                 alpha,
                 show_clipping,
+                blend != 0.,
             )
         };
         if show_clipping {
