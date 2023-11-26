@@ -87,17 +87,9 @@ impl Audio {
 
 impl GuardClipping<Ix2> for Audio {
     fn clip(&mut self) -> GuardClippingResult<Ix2> {
-        let mut diff_seq = Array2::zeros(self.wavs.raw_dim());
-        self.wavs.indexed_iter_mut().for_each(|(index, x)| {
-            if *x > 1. {
-                diff_seq[index] = *x - 1.;
-                *x = 1.;
-            } else if *x < -1. {
-                diff_seq[index] = *x + 1.;
-                *x = -1.;
-            }
-        });
-        GuardClippingResult::DiffSequence(diff_seq)
+        let before_clip = self.wavs.clone();
+        self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
+        GuardClippingResult::WavBeforeClip(before_clip)
     }
 
     fn reduce_global_level(&mut self) -> GuardClippingResult<Ix2> {

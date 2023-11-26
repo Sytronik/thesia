@@ -15,7 +15,7 @@ pub enum GuardClippingMode {
 
 #[derive(PartialEq, Clone)]
 pub enum GuardClippingResult<D: Dimension> {
-    DiffSequence(Array<f32, D>),
+    WavBeforeClip(Array<f32, D>),
     GlobalGain((f32, D)),
     GainSequence(Array<f32, D>),
 }

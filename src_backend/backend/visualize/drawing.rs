@@ -268,9 +268,9 @@ impl TrackDrawer for TrackManager {
             pad_right as usize,
         );
         let heights = OverviewHeights::new(height, track.n_ch(), OVERVIEW_CH_GAP_HEIGHT, dpr);
-        let (clip_peak, draw_gain_info) = match track.guard_clip_result() {
-            GuardClippingResult::DiffSequence(diff_seq) => {
-                (1. + diff_seq.max_peak(), Default::default())
+        let (clipped_peak, draw_gain_heights) = match track.guard_clip_result() {
+            GuardClippingResult::WavBeforeClip(before_clip) => {
+                (before_clip.max_peak(), Default::default())
             }
             GuardClippingResult::GainSequence(gain_seq) if gain_seq.iter().any(|&x| x < 1.) => {
                 (1., heights.decompose_by_gain(LIMITER_GAIN_HEIGHT_DENOM))
@@ -299,18 +299,17 @@ impl TrackDrawer for TrackManager {
                     )
                 };
                 match track.guard_clip_result() {
-                    GuardClippingResult::DiffSequence(diff_seq) if clip_peak > 1. => {
-                        let not_clipped = &track.channel(ch) + &diff_seq.slice(s![ch, ..]);
+                    GuardClippingResult::WavBeforeClip(before_clip) if clipped_peak > 1. => {
                         draw_wav_to(
                             arr_ch
                                 .slice_mut(s![..heights.ch, .., ..])
                                 .as_slice_mut()
                                 .unwrap(),
-                            not_clipped.view().into(),
+                            before_clip.slice(s![ch, ..]).into(),
                             drawing_width,
                             heights.ch as u32,
                             &DrawOptionForWav {
-                                amp_range: (-clip_peak, clip_peak),
+                                amp_range: (-clipped_peak, clipped_peak),
                                 dpr,
                             },
                             None,
@@ -318,11 +317,11 @@ impl TrackDrawer for TrackManager {
                         )
                     }
                     GuardClippingResult::GainSequence(gain_seq)
-                        if draw_gain_info != Default::default() =>
+                        if draw_gain_heights != Default::default() =>
                     {
                         let gain_seq_ch = gain_seq.slice(s![ch, ..]);
                         let neg_gain_seq_ch = gain_seq_ch.neg();
-                        let (gain_h, wav_h) = draw_gain_info;
+                        let (gain_h, wav_h) = draw_gain_heights;
                         draw_wav(gain_h, wav_h);
                         let mut draw_gain = |i_h, gain: ArrayView1<f32>, amp_range, draw_bottom| {
                             draw_limiter_gain_to(

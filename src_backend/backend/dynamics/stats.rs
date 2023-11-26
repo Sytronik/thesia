@@ -75,16 +75,19 @@ pub struct GuardClippingStats {
 }
 
 impl GuardClippingStats {
-    pub fn from_diff_seq<'a, A, D>(diff_seq: ArrayView<'a, A, D>) -> Self
+    pub fn from_wav_before_clip<A, D>(wav_before_clip: ArrayView<A, D>) -> Self
     where
         A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
         <A as MaybeNan>::NotNan: Ord,
         D: Dimension,
     {
-        let max_reduction_gain = (diff_seq.max_peak() + A::one()).recip();
+        let max_reduction_gain = wav_before_clip.max_peak().recip();
         GuardClippingStats {
             max_reduction_gain_dB: max_reduction_gain.dB_from_amp_default().as_(),
-            reduction_cnt: diff_seq.iter().filter(|&&x| x != A::zero()).count(),
+            reduction_cnt: wav_before_clip
+                .iter()
+                .filter(|x| x.abs() > A::one())
+                .count(),
         }
     }
 
@@ -96,7 +99,7 @@ impl GuardClippingStats {
         }
     }
 
-    pub fn from_gain_seq<'a, A, D>(gain_seq: ArrayView<'a, A, D>) -> Self
+    pub fn from_gain_seq<A, D>(gain_seq: ArrayView<A, D>) -> Self
     where
         A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
         <A as MaybeNan>::NotNan: Ord,
@@ -114,12 +117,12 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
 {
     fn from(value: &GuardClippingResult<D>) -> Self {
         match value {
-            GuardClippingResult::DiffSequence(diff_seq) => {
-                let raw_dim = diff_seq.raw_dim();
-                let vec = diff_seq
+            GuardClippingResult::WavBeforeClip(before_clip) => {
+                let raw_dim = before_clip.raw_dim();
+                let vec = before_clip
                     .lanes(Axis(raw_dim.ndim() - 1))
                     .into_iter()
-                    .map(GuardClippingStats::from_diff_seq)
+                    .map(GuardClippingStats::from_wav_before_clip)
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
             }
