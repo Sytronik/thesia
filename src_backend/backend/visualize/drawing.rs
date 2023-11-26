@@ -417,9 +417,16 @@ fn blend_wav_img_to(
             let rect = IntRect::from_xywh(left as i32, 0, width, pixmap.height())
                 .unwrap()
                 .to_rect();
+            let path = PathBuilder::from_rect(rect);
             let mut paint = Paint::default();
             paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
-            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+            pixmap.fill_path(
+                &path,
+                &paint,
+                FillRule::Winding,
+                Transform::identity(),
+                None,
+            );
         }
     }
     let paint = PixmapPaint {
@@ -610,7 +617,22 @@ fn fill_topbottom_envelope_with_clipping(
             paint.blend_mode = BlendMode::SourceAtop;
             let rect = Rect::from_xywh(0., top_clip, pixmap.width() as f32, bottom_clip - top_clip)
                 .unwrap();
-            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+            let path_rect = PathBuilder::from_rect(rect);
+            pixmap.fill_path(
+                &path_rect,
+                &paint,
+                FillRule::Winding,
+                Transform::identity(),
+                None,
+            );
+            paint.set_color_rgba8(0, 0, 0, alpha);
+            pixmap.stroke_path(
+                &path_rect,
+                &paint,
+                &Default::default(),
+                Transform::identity(),
+                None,
+            );
             path
         }
         None => fill_topbottom_envelope(top_envlop, btm_envlop, pixmap, &paint),
@@ -718,8 +740,15 @@ fn draw_wav_to(
     if amp_range.1 - amp_range.0 < 1e-16 {
         // over-zoomed
         let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
+        let path = PathBuilder::from_rect(rect);
         let paint_wav = get_wav_paint(&WAV_COLOR, alpha);
-        pixmap.fill_rect(rect, &paint_wav, Transform::identity(), None);
+        pixmap.fill_path(
+            &path,
+            &paint_wav,
+            FillRule::Winding,
+            Transform::identity(),
+            None,
+        );
     } else if samples_per_px < 2. {
         // upsampling
         let wav_tail = wav.as_sliced_with_tail(RESAMPLE_TAIL);
@@ -830,10 +859,17 @@ fn draw_blended_spec_wav(
             // black
             if (0.0..0.5).contains(&blend) {
                 let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
+                let path = PathBuilder::from_rect(rect);
                 let mut paint = Paint::default();
                 let alpha = (u8::MAX as f64 * (1. - 2. * blend)).round() as u8;
                 paint.set_color_rgba8(0, 0, 0, alpha);
-                pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+                pixmap.fill_path(
+                    &path,
+                    &paint,
+                    FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
             }
             let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
             draw_wav(pixmap.data_mut(), Some(alpha));
