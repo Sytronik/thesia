@@ -542,7 +542,7 @@ fn stroke_line(
             None,
         );
     }
-    pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
 }
 
 fn stroke_line_with_clipping(

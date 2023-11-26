@@ -43,7 +43,7 @@ where
         };
 
         let sinc = calc_windowed_sincs::<A>(input_size, 1, cutoff, WindowType::Blackman)
-            .index_axis_move(Axis(0), 0);
+            .slice_move(s![0, ..]);
         let latency =
             ((sinc.argmax().unwrap() * output_size) as f32 / input_size as f32).round() as usize;
 

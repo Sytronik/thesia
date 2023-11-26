@@ -266,7 +266,7 @@ mod tests {
     fn limiter_works() {
         let path = "samples/sample_48k.wav";
         let (wavs, sr, _) = open_audio_file(path).unwrap();
-        let mut wav = wavs.index_axis_move(Axis(0), 0);
+        let mut wav = wavs.slice_move(s![0, ..]);
         let mut limiter = PerfectLimiter::new(sr, 1., 5., 15., 40.);
         wav *= 8.;
         let gain_seq = limiter.process_inplace(wav.view_mut());

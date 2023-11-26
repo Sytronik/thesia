@@ -131,7 +131,7 @@ fn crop_caches(
                     return Some((*tup, (zeros, (0, 0))));
                 }
             };
-            let img_slice = image.slice_axis(Axis(1), (i_w_eff..i_w_eff + width_eff).into());
+            let img_slice = image.slice(s![.., i_w_eff..i_w_eff + width_eff, ..]);
 
             let pad_right = width as usize - width_eff as usize - pad_left;
             if pad_left + pad_right == 0 {
@@ -179,12 +179,12 @@ fn categorize_id_ch(
     let cat_by_spec = if blend > 0. {
         categorize(spec_caches)
     } else {
-        CategorizedIdChVec::default()
+        Default::default()
     };
     let mut cat_by_wav = if blend < 1. {
         categorize(wav_caches)
     } else {
-        CategorizedIdChVec::default()
+        Default::default()
     };
     let mut need_wav_parts_only = Vec::new();
     {
