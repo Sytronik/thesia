@@ -12,8 +12,8 @@ use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
 use rgb::FromSlice;
 use serde::{Deserialize, Serialize};
 use tiny_skia::{
-    BlendMode, FillRule, IntRect, LineCap, Paint, PathBuilder, PixmapMut, PixmapPaint, PixmapRef,
-    Rect, Stroke, Transform,
+    BlendMode, FillRule, IntRect, LineCap, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint,
+    PixmapRef, Rect, Stroke, Transform,
 };
 
 use super::img_slice::{ArrWithSliceInfo, CalcWidth, OverviewHeights, PartGreyInfo};
@@ -151,14 +151,15 @@ impl TrackDrawer for TrackManager {
                 }
                 ImageKind::Wav(opt_for_wav) => {
                     let mut arr = Array3::zeros(shape);
+                    let (wav, show_clipping) = track.channel_for_drawing(ch);
                     draw_wav_to(
                         arr.as_slice_mut().unwrap(),
-                        track.channel(ch).into(),
+                        wav.into(),
                         width,
                         height,
                         &opt_for_wav,
                         None,
-                        false,
+                        show_clipping,
                     );
                     arr
                 }
@@ -213,8 +214,9 @@ impl TrackDrawer for TrackManager {
             }
 
             let spec_grey_part = ArrWithSliceInfo::new(spec_grey.view(), i_w_and_width);
+            let (wav, show_clipping) = track.channel_for_drawing(ch);
             let wav_part = ArrWithSliceInfo::new(
-                track.channel(ch),
+                wav,
                 track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
             );
             let vec = draw_blended_spec_wav(
@@ -225,6 +227,7 @@ impl TrackDrawer for TrackManager {
                 &opt_for_wav,
                 blend,
                 fast_resize_vec.as_ref().map_or(false, |v| v[i]),
+                show_clipping,
             );
             let mut arr = Array3::from_shape_vec(
                 (height as usize, drawing_width_with_margin as usize, 4),
@@ -391,10 +394,22 @@ pub fn blend_img(
     assert!(0. < blend && blend < 1.);
     let mut result = spec_img.to_vec();
     let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
+
+    let wav_pixmap = PixmapRef::from_bytes(wav_img, width, height).unwrap();
+    blend_wav_img_to(&mut pixmap, wav_pixmap, blend, eff_l_w);
+    result
+}
+
+fn blend_wav_img_to(
+    pixmap: &mut PixmapMut,
+    wav_pixmap: PixmapRef,
+    blend: f64,
+    eff_l_w: Option<(u32, u32)>,
+) {
     // black
     if let Some((left, width)) = eff_l_w {
-        if blend < 0.5 && width > 0 {
-            let rect = IntRect::from_xywh(left as i32, 0, width, height)
+        if (0.0..0.5).contains(&blend) && width > 0 {
+            let rect = IntRect::from_xywh(left as i32, 0, width, pixmap.height())
                 .unwrap()
                 .to_rect();
             let mut paint = Paint::default();
@@ -402,21 +417,11 @@ pub fn blend_img(
             pixmap.fill_rect(rect, &paint, Transform::identity(), None);
         }
     }
-    {
-        let paint = PixmapPaint {
-            opacity: (2. - 2. * blend).min(1.) as f32,
-            ..Default::default()
-        };
-        pixmap.draw_pixmap(
-            0,
-            0,
-            PixmapRef::from_bytes(wav_img, width, height).unwrap(),
-            &paint,
-            Transform::identity(),
-            None,
-        );
-    }
-    result
+    let paint = PixmapPaint {
+        opacity: (2. - 2. * blend).min(1.) as f32,
+        ..Default::default()
+    };
+    pixmap.draw_pixmap(0, 0, wav_pixmap, &paint, Transform::identity(), None);
 }
 
 #[inline]
@@ -650,7 +655,8 @@ fn draw_wav_to(
     let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
     let samples_per_px = wav.length as f32 / width as f32;
     let alpha = alpha.unwrap_or(u8::MAX);
-    let clip_values = show_clipping.then_some((amp_to_px(-1.), amp_to_px(1.)));
+    let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
+        .then_some((amp_to_px(-1.), amp_to_px(1.)));
 
     let mut out_arr =
         ArrayViewMut3::from_shape((height as usize, width as usize, 4), output).unwrap();
@@ -723,6 +729,7 @@ fn draw_wav_to(
     // println!("drawing wav: {:?}", start.elapsed());
 }
 
+/// blend can be < 0 for not drawing spec
 fn draw_blended_spec_wav(
     spec_grey: ArrWithSliceInfo<f32, Ix2>,
     wav: ArrWithSliceInfo<f32, Ix1>,
@@ -731,6 +738,7 @@ fn draw_blended_spec_wav(
     opt_for_wav: &DrawOptionForWav,
     blend: f64,
     fast_resize: bool,
+    show_clipping: bool,
 ) -> Vec<u8> {
     // spec
     if spec_grey.length == 0 || wav.length == 0 {
@@ -745,26 +753,34 @@ fn draw_blended_spec_wav(
     let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
 
     if blend < 1. {
-        // black
-        if (0.0..0.5).contains(&blend) {
-            let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
-            let mut paint = Paint::default();
-            let alpha = (u8::MAX as f64 * (1. - 2. * blend)).round() as u8;
-            paint.set_color_rgba8(0, 0, 0, alpha);
-            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
-        }
-
-        let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
         // wave
-        draw_wav_to(
-            pixmap.data_mut(),
-            wav,
-            width,
-            height,
-            opt_for_wav,
-            Some(alpha),
-            false,
-        );
+        let draw_wav = |pixmap_data, alpha| {
+            draw_wav_to(
+                pixmap_data,
+                wav,
+                width,
+                height,
+                opt_for_wav,
+                alpha,
+                show_clipping,
+            )
+        };
+        if show_clipping {
+            let mut wav_pixmap = Pixmap::new(width, height).unwrap();
+            draw_wav(wav_pixmap.data_mut(), None);
+            blend_wav_img_to(&mut pixmap, wav_pixmap.as_ref(), blend, Some((0, width)));
+        } else {
+            // black
+            if (0.0..0.5).contains(&blend) {
+                let rect = IntRect::from_xywh(0, 0, width, height).unwrap().to_rect();
+                let mut paint = Paint::default();
+                let alpha = (u8::MAX as f64 * (1. - 2. * blend)).round() as u8;
+                paint.set_color_rgba8(0, 0, 0, alpha);
+                pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+            }
+            let alpha = (u8::MAX as f64 * (2. - 2. * blend).min(1.)).round() as u8;
+            draw_wav(pixmap.data_mut(), Some(alpha));
+        }
     }
     result
 }

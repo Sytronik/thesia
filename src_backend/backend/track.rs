@@ -82,6 +82,16 @@ impl AudioTrack {
     }
 
     #[inline]
+    pub fn channel_for_drawing(&self, ch: usize) -> (ArrayView1<f32>, bool) {
+        match self.guard_clip_result() {
+            GuardClippingResult::WavBeforeClip(before_clip) => {
+                (before_clip.slice(s![ch, ..]), true)
+            }
+            _ => (self.channel(ch), false),
+        }
+    }
+
+    #[inline]
     pub fn path_string(&self) -> String {
         self.path.as_os_str().to_string_lossy().into_owned()
     }
