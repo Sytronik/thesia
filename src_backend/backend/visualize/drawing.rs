@@ -1,15 +1,16 @@
 use std::iter;
 use std::mem::MaybeUninit;
+use std::num::NonZeroU32;
 use std::ops::Neg;
 // use std::time::Instant;
 
 use cached::proc_macro::cached;
+use fast_image_resize::pixels::U16;
+use fast_image_resize::{CropBox, FilterType, ImageView, ImageViewMut, ResizeAlg, Resizer};
 use napi_derive::napi;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
-use resize::{self, formats::Gray, Pixel::GrayF32, Resizer};
-use rgb::FromSlice;
 use serde::{Deserialize, Serialize};
 use tiny_skia::{
     BlendMode, FillRule, IntRect, LineCap, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint,
@@ -22,9 +23,6 @@ use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::utils::Pad;
 use crate::backend::{IdChArr, IdChMap, TrackManager};
 
-pub type ResizeType = resize::Type;
-
-const BLACK: [u8; 3] = [0; 3];
 const WHITE: [u8; 3] = [255; 3];
 pub const COLORMAP: [[u8; 3]; 10] = [
     [0, 0, 4],
@@ -366,18 +364,23 @@ pub fn convert_spec_to_grey(
     up_ratio: f32,
     max: f32,
     min: f32,
-) -> Array2<f32> {
+) -> Array2<U16> {
     // spec: T x F
     // return: grey image with F(inverted) x T
     let width = spec.shape()[0];
     let height = (spec.shape()[1] as f32 * up_ratio).round() as usize;
     let mut grey = Array2::uninit((height, width));
-    for ((i, j), x) in grey.indexed_iter_mut() {
-        if height - 1 - i < spec.raw_dim()[1] {
-            *x = MaybeUninit::new((spec[[j, height - 1 - i]] - min) / (max - min));
+    for ((i, j), y) in grey.indexed_iter_mut() {
+        let x = if height - 1 - i < spec.raw_dim()[1] {
+            U16::new(
+                ((spec[[j, height - 1 - i]] - min) * u16::MAX as f32 / (max - min))
+                    .clamp(0., u16::MAX as f32)
+                    .round() as u16,
+            )
         } else {
-            *x = MaybeUninit::new(0.);
-        }
+            U16::new(0)
+        };
+        *y = MaybeUninit::new(x);
     }
     unsafe { grey.assume_init() }
 }
@@ -450,14 +453,17 @@ fn interpolate(rgba1: &[u8], rgba2: &[u8], ratio: f32) -> Vec<u8> {
         .collect()
 }
 
-fn map_grey_to_color(x: f32) -> Vec<u8> {
-    if x < 0. {
-        return BLACK.to_vec();
-    }
-    if x >= 1. {
+/// Map u16 GRAY to u8x4 RGBA color
+/// 0 -> COLORMAP[0]
+/// u16::MAX -> WHITE
+fn map_grey_to_color(x: u16) -> Vec<u8> {
+    // if x < 0. {
+    //     return BLACK.to_vec();
+    // }
+    if x == u16::MAX {
         return WHITE.to_vec();
     }
-    let position = x * COLORMAP.len() as f32;
+    let position = x as f32 * COLORMAP.len() as f32 / u16::MAX as f32;
     let index = position.floor() as usize;
     let rgba1 = if index >= COLORMAP.len() - 1 {
         &WHITE
@@ -468,31 +474,55 @@ fn map_grey_to_color(x: f32) -> Vec<u8> {
 }
 
 fn colorize_resize_grey(
-    grey: ArrWithSliceInfo<f32, Ix2>,
+    grey: ArrWithSliceInfo<U16, Ix2>,
     width: u32,
     height: u32,
     fast_resize: bool,
 ) -> Vec<u8> {
     // let start = Instant::now();
     let (grey, trim_left, trim_width) = (grey.arr, grey.index, grey.length);
-    let mut resizer = create_resizer(
-        trim_width,
-        grey.shape()[0],
-        width as usize,
-        height as usize,
-        fast_resize,
-    );
-    let mut resized = vec![0f32; width as usize * height as usize];
-    resizer
-        .resize_stride(
-            grey.as_slice().unwrap()[trim_left..].as_gray(),
-            grey.shape()[1],
-            resized.as_gray_mut(),
+    let resized = {
+        let mut src_image = ImageView::from_pixels(
+            NonZeroU32::new(grey.shape()[1] as u32).unwrap(),
+            NonZeroU32::new(grey.shape()[0] as u32).unwrap(),
+            grey.as_slice().unwrap(),
         )
         .unwrap();
+        src_image
+            .set_crop_box(CropBox {
+                left: trim_left as u32,
+                top: 0,
+                width: NonZeroU32::new(trim_width as u32).unwrap(),
+                height: src_image.height(),
+            })
+            .unwrap();
+        let mut resizer = Resizer::new(ResizeAlg::Convolution(if fast_resize {
+            FilterType::Bilinear
+        } else {
+            FilterType::Lanczos3
+        }));
+
+        let mut dst_vec = vec![U16::new(0); width as usize * height as usize];
+        let dst_image = ImageViewMut::from_pixels(
+            NonZeroU32::new(width).unwrap(),
+            NonZeroU32::new(height).unwrap(),
+            &mut dst_vec,
+        )
+        .unwrap();
+
+        resizer
+            .resize(&src_image.into(), &mut dst_image.into())
+            .unwrap();
+        dst_vec
+    };
+
     resized
         .into_iter()
-        .flat_map(|x| map_grey_to_color(x).into_iter().chain(iter::once(u8::MAX)))
+        .flat_map(|x| {
+            map_grey_to_color(x.0)
+                .into_iter()
+                .chain(iter::once(u8::MAX))
+        })
         .collect()
     // println!("drawing spec: {:?}", start.elapsed());
 }
@@ -816,7 +846,7 @@ fn draw_wav_to(
 
 /// blend can be < 0 for not drawing spec
 fn draw_blended_spec_wav(
-    spec_grey: ArrWithSliceInfo<f32, Ix2>,
+    spec_grey: ArrWithSliceInfo<U16, Ix2>,
     wav: ArrWithSliceInfo<f32, Ix1>,
     width: u32,
     height: u32,
@@ -879,29 +909,6 @@ fn draw_blended_spec_wav(
 }
 
 #[cached(size = 64)]
-fn create_resizer(
-    src_width: usize,
-    src_height: usize,
-    dest_width: usize,
-    dest_height: usize,
-    fast_resize: bool,
-) -> Resizer<Gray<f32, f32>> {
-    resize::new(
-        src_width,
-        src_height,
-        dest_width,
-        dest_height,
-        GrayF32,
-        if fast_resize {
-            ResizeType::Triangle
-        } else {
-            ResizeType::Lanczos3
-        },
-    )
-    .unwrap()
-}
-
-#[cached(size = 64)]
 fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> {
     FftResampler::new(input_size, output_size)
 }
@@ -912,13 +919,14 @@ mod tests {
 
     use image::RgbImage;
     use resize::Pixel::RGB8;
+    use rgb::FromSlice;
 
     #[test]
     fn show_colorbar() {
         let (width, height) = (50, 500);
         let colormap: Vec<u8> = COLORMAP.iter().rev().flatten().cloned().collect();
         let mut imvec = vec![0u8; width * height * 3];
-        let mut resizer = resize::new(1, 10, width, height, RGB8, ResizeType::Triangle).unwrap();
+        let mut resizer = resize::new(1, 10, width, height, RGB8, resize::Type::Triangle).unwrap();
         resizer
             .resize(&colormap.as_rgb(), imvec.as_rgb_mut())
             .unwrap();

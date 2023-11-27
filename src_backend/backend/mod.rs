@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::iter;
 
+use fast_image_resize::pixels::U16;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
@@ -33,7 +34,7 @@ pub struct TrackManager {
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
-    pub spec_greys: IdChMap<Array2<f32>>,
+    pub spec_greys: IdChMap<Array2<U16>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
     spec_analyzer: SpectrogramAnalyzer,
