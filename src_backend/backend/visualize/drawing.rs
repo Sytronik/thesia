@@ -44,11 +44,12 @@ const THR_TOPBOTTOM_PERCENT: u32 = 70;
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
 const LIMITER_GAIN_HEIGHT_DENOM: usize = 5; // 1/5 of the height will be used for draw limiter gain
 
+const WAV_STROKE_BORDER_WIDTH: f32 = 1.5; // this doesn't depend on dpr
+
 pub struct DprDependentConstants {
     thr_long_height: f32,
     topbottom_context_size: f32,
     wav_stroke_width: f32,
-    wav_stroke_border_width: f32,
 }
 
 impl DprDependentConstants {
@@ -57,7 +58,6 @@ impl DprDependentConstants {
             thr_long_height: 2. * dpr,
             topbottom_context_size: 2. * dpr,
             wav_stroke_width: 1.75 * dpr,
-            wav_stroke_border_width: 0.75 * dpr,
         }
     }
 }
@@ -742,10 +742,9 @@ fn draw_wav_to(
         thr_long_height,
         topbottom_context_size,
         wav_stroke_width,
-        wav_stroke_border_width,
     } = DprDependentConstants::calc(dpr);
     let stroke_border_width = if need_border {
-        wav_stroke_border_width
+        WAV_STROKE_BORDER_WIDTH
     } else {
         0.
     };
