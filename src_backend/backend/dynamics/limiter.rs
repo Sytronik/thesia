@@ -1,11 +1,11 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
 use std::collections::HashMap;
-use std::mem::MaybeUninit;
 use std::sync::Arc;
 
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
+use ndarray::AssignElem;
 use num_traits::{Float, NumAssignOps, NumOps};
 use parking_lot::RwLock;
 
@@ -113,7 +113,7 @@ impl PerfectLimiter {
             if i >= self.buffer.len() {
                 let j = i - self.buffer.len();
                 wav[j] = output;
-                gain_seq[j] = MaybeUninit::new(gain);
+                gain_seq[j].assign_elem(gain);
             }
         }
         unsafe { gain_seq.assume_init() }

@@ -1,4 +1,3 @@
-use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::ops::Neg;
 // use std::time::Instant;
@@ -314,9 +313,8 @@ pub fn convert_spec_to_grey(
     // return: grey image with F(inverted) x T
     let width = spec.shape()[0];
     let height = (spec.shape()[1] as f32 * up_ratio).round() as usize;
-    let mut grey = Array2::uninit((height, width));
-    for ((i, j), y) in grey.indexed_iter_mut() {
-        let x = if height - 1 - i < spec.raw_dim()[1] {
+    Array2::from_shape_fn((height, width), |(i, j)| {
+        if height - 1 - i < spec.raw_dim()[1] {
             U16::new(
                 ((spec[[j, height - 1 - i]] - min) * (u16::MAX - 1) as f32 / (max - min) + 1.)
                     .clamp(1., u16::MAX as f32)
@@ -324,10 +322,8 @@ pub fn convert_spec_to_grey(
             )
         } else {
             U16::new(0)
-        };
-        *y = MaybeUninit::new(x);
-    }
-    unsafe { grey.assume_init() }
+        }
+    })
 }
 
 pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
