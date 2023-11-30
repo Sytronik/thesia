@@ -1,5 +1,3 @@
-use std::iter;
-
 use approx::abs_diff_ne;
 use cached::proc_macro::cached;
 use chrono::naive::NaiveTime;
@@ -139,7 +137,7 @@ fn calc_time_axis_markers(
                 (x, s.trim_end_matches('0').trim_end_matches('.').into())
             }
         })
-        .chain(iter::once(elem_format_display))
+        .chain(Some(elem_format_display))
         .collect()
 }
 

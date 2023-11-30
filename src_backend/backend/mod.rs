@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::iter;
 
 use fast_image_resize::pixels::U16;
 use ndarray::prelude::*;
@@ -117,7 +116,7 @@ impl TrackManager {
             .filter(|&&id| self.has_id(id))
             .flat_map(|&id| {
                 let n_ch = self.tracklist[id].n_ch();
-                iter::repeat(id).zip(0..n_ch)
+                (0..n_ch).map(move |ch| (id, ch))
             })
             .collect()
     }

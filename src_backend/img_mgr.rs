@@ -452,8 +452,8 @@ async fn draw_imgs(
     let (total_widths, cat_by_spec, cat_by_wav, blended_imgs) = categorize_blend_caches(
         id_ch_tuples,
         &params_backup,
-        spec_caches.clone(),
-        wav_caches.clone(),
+        Arc::clone(&spec_caches),
+        Arc::clone(&wav_caches),
     )
     .await;
     if !blended_imgs.is_empty() {
@@ -482,8 +482,8 @@ async fn draw_imgs(
     tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
 
     let blended_imgs = draw_new_caches(
-        spec_caches.clone(),
-        wav_caches.clone(),
+        Arc::clone(&spec_caches),
+        Arc::clone(&wav_caches),
         cat_by_spec.need_new_caches,
         cat_by_wav.need_new_caches,
         &params_backup,

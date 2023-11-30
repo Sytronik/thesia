@@ -1,4 +1,3 @@
-use std::iter;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::ops::Neg;
@@ -466,11 +465,7 @@ fn colorize_resize_grey(
 
     resized
         .into_iter()
-        .flat_map(|x| {
-            map_grey_to_color(x.0)
-                .into_iter()
-                .chain(iter::once(u8::MAX))
-        })
+        .flat_map(|x| map_grey_to_color(x.0).into_iter().chain(Some(u8::MAX)))
         .collect()
     // println!("drawing spec: {:?}", start.elapsed());
 }
