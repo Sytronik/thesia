@@ -6,7 +6,7 @@ mod resample;
 
 pub use axis::{AxisMarkers, CalcAxisMarkers};
 pub use drawing::{
-    blend_img, convert_spec_to_grey, get_colormap_rgb, make_opaque, DrawOption, ImageKind,
+    blend_img_to, convert_spec_to_grey, get_colormap_rgb, make_opaque, DrawOption, ImageKind,
     TrackDrawer,
 };
 pub use drawing_wav::DrawOptionForWav;

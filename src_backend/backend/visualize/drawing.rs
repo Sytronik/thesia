@@ -336,21 +336,19 @@ pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
         .mapv_inplace(|_| u8::MAX);
 }
 
-pub fn blend_img(
-    spec_img: &[u8],
+pub fn blend_img_to(
+    spec_background: &mut [u8],
     wav_img: &[u8],
     width: u32,
     height: u32,
     blend: f64,
     eff_l_w: Option<(u32, u32)>,
-) -> Vec<u8> {
+) {
     assert!(0. < blend && blend < 1.);
-    let mut result = spec_img.to_vec();
-    let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
+    let mut pixmap = PixmapMut::from_bytes(spec_background, width, height).unwrap();
 
     let wav_pixmap = PixmapRef::from_bytes(wav_img, width, height).unwrap();
     blend_wav_img_to(&mut pixmap, wav_pixmap, blend, eff_l_w);
-    result
 }
 
 fn blend_wav_img_to(

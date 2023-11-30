@@ -242,12 +242,12 @@ fn blend_imgs(
         return wav_imgs;
     }
     spec_imgs
-        .par_iter()
-        .filter_map(|(k, spec_img)| {
-            let wav_img = wav_imgs.get(k)?;
-            let eff_l_w = eff_l_w_map.get(k).cloned();
-            let img = blend_img(spec_img, wav_img, width, height, blend, eff_l_w);
-            Some((*k, img))
+        .into_par_iter()
+        .filter_map(|(k, mut spec_img)| {
+            let wav_img = wav_imgs.get(&k)?;
+            let eff_l_w = eff_l_w_map.get(&k).cloned();
+            blend_img_to(&mut spec_img, wav_img, width, height, blend, eff_l_w);
+            Some((k, spec_img))
         })
         .collect()
 }
