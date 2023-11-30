@@ -1,6 +1,6 @@
 import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react";
 import {chunk} from "renderer/utils/arrayUtils";
-import {COLORBAR_CANVAS_WIDTH, COLORBAR_COLORS_COUNT} from "renderer/prototypes/constants";
+import {COLORBAR_CANVAS_WIDTH} from "renderer/prototypes/constants";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import BackendAPI from "../../api";
 import styles from "./ColorBarCanvas.scss";
@@ -33,7 +33,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
 
   const draw = useCallback(() => {
     requestRef.current = null;
-    if (!(colorBarGradientBuf.byteLength === COLORBAR_COLORS_COUNT * 3)) return;
+    if (colorBarGradientBuf.byteLength % 3 !== 0) return;
 
     const ctx = ctxRef.current;
     if (!ctx) {
@@ -50,7 +50,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     gradientColorMap.forEach((color, idx) => {
       const [r, g, b] = color;
       colorGradient.addColorStop(
-        (1 / (COLORBAR_COLORS_COUNT - 1)) * idx,
+        (1 / (gradientColorMap.length - 1)) * idx,
         `rgba(${r}, ${g}, ${b}, 1)`,
       );
     });

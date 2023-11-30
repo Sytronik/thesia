@@ -19,6 +19,7 @@ use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::utils::Pad;
 use crate::backend::{IdChArr, IdChMap, TrackManager};
 
+const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];
 pub const COLORMAP: [[u8; 3]; 10] = [
     [0, 0, 4],
@@ -318,8 +319,8 @@ pub fn convert_spec_to_grey(
     for ((i, j), y) in grey.indexed_iter_mut() {
         let x = if height - 1 - i < spec.raw_dim()[1] {
             U16::new(
-                ((spec[[j, height - 1 - i]] - min) * u16::MAX as f32 / (max - min))
-                    .clamp(0., u16::MAX as f32)
+                ((spec[[j, height - 1 - i]] - min) * (u16::MAX - 1) as f32 / (max - min) + 1.)
+                    .clamp(1., u16::MAX as f32)
                     .round() as u16,
             )
         } else {
@@ -384,36 +385,40 @@ fn blend_wav_img_to(
 
 #[inline]
 pub fn get_colormap_rgb() -> Vec<u8> {
-    COLORMAP.iter().flat_map(|x| x.iter().cloned()).collect()
+    COLORMAP
+        .iter()
+        .chain(Some(&WHITE))
+        .flat_map(|x| x.iter().cloned())
+        .collect()
 }
 
 #[inline]
-fn interpolate(rgba1: &[u8], rgba2: &[u8], ratio: f32) -> Vec<u8> {
-    rgba1
+fn interpolate<const L: usize>(color1: &[u8; L], color2: &[u8; L], ratio: f32) -> [u8; L] {
+    let mut iter = color1
         .iter()
-        .zip(rgba2)
-        .map(|(&a, &b)| (ratio * a as f32 + (1. - ratio) * b as f32).round() as u8)
-        .collect()
+        .zip(color2)
+        .map(|(&a, &b)| (ratio * a as f32 + (1. - ratio) * b as f32).round() as u8);
+    [(); L].map(|_| iter.next().unwrap())
 }
 
 /// Map u16 GRAY to u8x4 RGBA color
 /// 0 -> COLORMAP[0]
 /// u16::MAX -> WHITE
-fn map_grey_to_color(x: u16) -> Vec<u8> {
-    // if x < 0. {
-    //     return BLACK.to_vec();
-    // }
-    if x == u16::MAX {
-        return WHITE.to_vec();
+fn map_grey_to_color(x: u16) -> [u8; 3] {
+    if x == 0 {
+        return BLACK;
     }
-    let position = x as f32 * COLORMAP.len() as f32 / u16::MAX as f32;
+    if x == u16::MAX {
+        return WHITE;
+    }
+    let position = (x - 1) as f32 * COLORMAP.len() as f32 / (u16::MAX - 1) as f32;
     let index = position.floor() as usize;
-    let rgba1 = if index >= COLORMAP.len() - 1 {
+    let rgb1 = if index >= COLORMAP.len() - 1 {
         &WHITE
     } else {
         &COLORMAP[index + 1]
     };
-    interpolate(rgba1, &COLORMAP[index], position - index as f32)
+    interpolate(rgb1, &COLORMAP[index], position - index as f32)
 }
 
 fn colorize_resize_grey(
