@@ -60,6 +60,32 @@ impl Default for DrawOptionForWav {
     }
 }
 
+struct PixmapMutWrapper<'a>(PixmapMut<'a>);
+
+impl<'a> PixmapMutWrapper<'a> {
+    #[inline]
+    fn from_bytes(data: &'a mut [u8], width: u32, height: u32) -> Option<Self> {
+        PixmapMut::from_bytes(data, width, height).map(|x| PixmapMutWrapper(x))
+    }
+
+    #[inline]
+    fn stroke_path(&mut self, path: &tiny_skia::Path, paint: &Paint, stroke: &Stroke) {
+        self.0
+            .stroke_path(path, paint, stroke, Transform::identity(), None);
+    }
+
+    #[inline]
+    fn fill_path(&mut self, path: &tiny_skia::Path, paint: &Paint) {
+        self.0
+            .fill_path(path, paint, FillRule::Winding, Transform::identity(), None);
+    }
+
+    #[inline]
+    fn width(&self) -> u32 {
+        self.0.width()
+    }
+}
+
 pub fn draw_wav_to(
     output: &mut [u8],
     wav: ArrWithSliceInfo<f32, Ix1>,
@@ -90,20 +116,15 @@ pub fn draw_wav_to(
 
     let width_usize = width as usize;
     let mut out_arr = ArrayViewMut3::from_shape((height as usize, width_usize, 4), output).unwrap();
-    let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
+    let mut pixmap =
+        PixmapMutWrapper::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
 
     if amp_range.1 - amp_range.0 < 1e-16 {
         // over-zoomed
         let rect = Rect::from_xywh(0., 0., width as f32, height as f32).unwrap();
         let path = PathBuilder::from_rect(rect);
         let paint_wav = get_wav_paint(&WAV_COLOR);
-        pixmap.fill_path(
-            &path,
-            &paint_wav,
-            FillRule::Winding,
-            Transform::identity(),
-            None,
-        );
+        pixmap.fill_path(&path, &paint_wav);
     } else if resample_ratio > 0.5 {
         // upsampling
         let mut resampler;
@@ -202,7 +223,8 @@ pub fn draw_limiter_gain_to(
 
     let width_usize = width as usize;
     let mut out_arr = ArrayViewMut3::from_shape((height as usize, width_usize, 4), output).unwrap();
-    let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
+    let mut pixmap =
+        PixmapMutWrapper::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
     let paint = get_wav_paint(&LIMITER_GAIN_COLOR);
     if draw_bottom {
         let top_px = amp_to_px(amp_range.1);
@@ -226,7 +248,7 @@ pub fn draw_limiter_gain_to(
 }
 
 fn stroke_line_with_clipping_to(
-    pixmap: &mut PixmapMut,
+    pixmap: &mut PixmapMutWrapper,
     y_px_iter: &mut dyn ExactSizeIterator<Item = f32>,
     stroke_width: f32,
     clip_values: Option<(f32, f32)>,
@@ -261,7 +283,7 @@ fn stroke_line_with_clipping_to(
 }
 
 fn stroke_line_to(
-    pixmap: &mut PixmapMut,
+    pixmap: &mut PixmapMutWrapper,
     y_px_iter: &mut dyn ExactSizeIterator<Item = f32>,
     stroke_width: f32,
     paint: &Paint,
@@ -292,19 +314,13 @@ fn stroke_line_to(
             width: stroke_width + stroke_border_width,
             ..stroke.clone()
         };
-        pixmap.stroke_path(
-            &path,
-            &Paint::default(),
-            &border_stroke,
-            Transform::identity(),
-            None,
-        );
+        pixmap.stroke_path(&path, &Paint::default(), &border_stroke);
     }
-    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
+    pixmap.stroke_path(&path, paint, &stroke);
 }
 
 fn fill_topbottom_envelope_with_clipping_to(
-    pixmap: &mut PixmapMut,
+    pixmap: &mut PixmapMutWrapper,
     top_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
     btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
     envlop_len: usize,
@@ -326,21 +342,9 @@ fn fill_topbottom_envelope_with_clipping_to(
             let rect = Rect::from_xywh(0., top_clip, pixmap.width() as f32, bottom_clip - top_clip)
                 .unwrap();
             let path_rect = PathBuilder::from_rect(rect);
-            pixmap.fill_path(
-                &path_rect,
-                &paint,
-                FillRule::Winding,
-                Transform::identity(),
-                None,
-            );
+            pixmap.fill_path(&path_rect, &paint);
             paint.set_color_rgba8(0, 0, 0, u8::MAX);
-            pixmap.stroke_path(
-                &path_rect,
-                &paint,
-                &Default::default(),
-                Transform::identity(),
-                None,
-            );
+            pixmap.stroke_path(&path_rect, &paint, &Default::default());
             path
         }
         None => {
@@ -353,18 +357,12 @@ fn fill_topbottom_envelope_with_clipping_to(
             width: 0.,
             ..Default::default()
         };
-        pixmap.stroke_path(
-            &path,
-            &Paint::default(),
-            &stroke,
-            Transform::identity(),
-            None,
-        );
+        pixmap.stroke_path(&path, &Paint::default(), &stroke);
     }
 }
 
 fn fill_topbottom_envelope_to(
-    pixmap: &mut PixmapMut,
+    pixmap: &mut PixmapMutWrapper,
     top_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
     btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
     envlop_len: usize,
@@ -385,7 +383,7 @@ fn fill_topbottom_envelope_to(
         pb.finish().unwrap()
     };
 
-    pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
+    pixmap.fill_path(&path, paint);
     path
 }
 
