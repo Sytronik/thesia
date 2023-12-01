@@ -303,6 +303,15 @@ impl TrackDrawer for TrackManager {
     }
 }
 
+#[inline]
+pub fn get_colormap_rgb() -> Vec<u8> {
+    COLORMAP
+        .iter()
+        .chain(Some(&WHITE))
+        .flat_map(|x| x.iter().cloned())
+        .collect()
+}
+
 pub fn convert_spec_to_grey(
     spec: ArrayView2<f32>,
     up_ratio: f32,
@@ -376,15 +385,6 @@ fn blend_wav_img_to(
         ..Default::default()
     };
     pixmap.draw_pixmap(0, 0, wav_pixmap, &paint, Transform::identity(), None);
-}
-
-#[inline]
-pub fn get_colormap_rgb() -> Vec<u8> {
-    COLORMAP
-        .iter()
-        .chain(Some(&WHITE))
-        .flat_map(|x| x.iter().cloned())
-        .collect()
 }
 
 #[inline]

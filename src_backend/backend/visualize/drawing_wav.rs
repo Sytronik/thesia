@@ -20,7 +20,7 @@ const THR_TOPBOTTOM_PERCENT: usize = 70;
 
 const WAV_STROKE_BORDER_WIDTH: f32 = 1.5; // this doesn't depend on dpr
 
-pub struct DprDependentConstants {
+struct DprDependentConstants {
     thr_long_height: f32,
     topbottom_context_size: f32,
     wav_stroke_width: f32,
@@ -57,238 +57,6 @@ impl Default for DrawOptionForWav {
             amp_range: (-1., 1.),
             dpr: 1.,
         }
-    }
-}
-
-#[inline]
-fn get_wav_paint(color: &[u8; 3]) -> Paint {
-    let mut paint = Paint::default();
-    let &[r, g, b] = color;
-    paint.set_color_rgba8(r, g, b, u8::MAX);
-    paint
-}
-
-fn stroke_line_to(
-    pixmap: &mut PixmapMut,
-    y_px_iter: &mut dyn ExactSizeIterator<Item = f32>,
-    stroke_width: f32,
-    paint: &Paint,
-    stroke_border_width: f32,
-) {
-    let path = {
-        let len = y_px_iter.len();
-        let mut pb = PathBuilder::with_capacity(len + 1, len + 1);
-        let first_elem = y_px_iter.next().unwrap();
-        pb.move_to(0., first_elem);
-        let point_per_px = pixmap.width() as f32 / len as f32;
-        for (i, y) in (1..len).zip(y_px_iter) {
-            pb.line_to(i as f32 * point_per_px, y);
-        }
-        if len == 1 {
-            pb.line_to((pixmap.width().min(2) - 1) as f32, first_elem);
-        }
-        pb.finish().unwrap()
-    };
-
-    let stroke = Stroke {
-        width: stroke_width,
-        line_cap: LineCap::Round,
-        ..Default::default()
-    };
-    if stroke_border_width > 0. {
-        let border_stroke = Stroke {
-            width: stroke_width + stroke_border_width,
-            ..stroke.clone()
-        };
-        pixmap.stroke_path(
-            &path,
-            &Paint::default(),
-            &border_stroke,
-            Transform::identity(),
-            None,
-        );
-    }
-    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
-}
-
-fn stroke_line_with_clipping_to(
-    pixmap: &mut PixmapMut,
-    y_px_iter: &mut dyn ExactSizeIterator<Item = f32>,
-    stroke_width: f32,
-    clip_values: Option<(f32, f32)>,
-    stroke_border_width: f32,
-) {
-    let paint = get_wav_paint(&WAV_COLOR);
-    match clip_values {
-        Some((bottom_clip, top_clip)) => {
-            let paint_clipping = get_wav_paint(&CLIPPING_COLOR);
-            let y_px_vec: Vec<_> = y_px_iter.collect();
-            stroke_line_to(
-                pixmap,
-                &mut y_px_vec.iter().cloned(),
-                stroke_width,
-                &paint_clipping,
-                stroke_border_width,
-            );
-
-            let mut clipped = y_px_vec.into_iter().map(|x| x.clamp(top_clip, bottom_clip));
-            stroke_line_to(
-                pixmap,
-                &mut clipped,
-                stroke_width,
-                &paint,
-                stroke_border_width,
-            );
-        }
-        None => {
-            stroke_line_to(pixmap, y_px_iter, stroke_width, &paint, stroke_border_width);
-        }
-    };
-}
-
-fn fill_topbottom_envelope_to(
-    pixmap: &mut PixmapMut,
-    top_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
-    btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
-    envlop_len: usize,
-    paint: &Paint,
-) -> tiny_skia::Path {
-    let path = {
-        let len = envlop_len * 2 + 2;
-        let mut pb = PathBuilder::with_capacity(len, len);
-        pb.move_to(0., top_envlop_iter.next().unwrap());
-        let point_per_px = pixmap.width() as f32 / envlop_len as f32;
-        for (x, y) in (1..envlop_len).zip(top_envlop_iter) {
-            pb.line_to(x as f32 * point_per_px, y);
-        }
-        for (x, y) in (0..envlop_len).rev().zip(btm_envlop_iter.rev()) {
-            pb.line_to(x as f32 * point_per_px, y);
-        }
-        pb.close();
-        pb.finish().unwrap()
-    };
-
-    pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
-    path
-}
-
-fn fill_topbottom_envelope_with_clipping_to(
-    pixmap: &mut PixmapMut,
-    top_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
-    btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
-    envlop_len: usize,
-    clip_values: Option<(f32, f32)>,
-    need_border: bool,
-) {
-    let mut paint = get_wav_paint(&WAV_COLOR);
-    let path = match clip_values {
-        Some((bottom_clip, top_clip)) => {
-            let paint_clipping = get_wav_paint(&CLIPPING_COLOR);
-            let path = fill_topbottom_envelope_to(
-                pixmap,
-                top_envlop_iter,
-                btm_envlop_iter,
-                envlop_len,
-                &paint_clipping,
-            );
-            paint.blend_mode = BlendMode::SourceAtop;
-            let rect = Rect::from_xywh(0., top_clip, pixmap.width() as f32, bottom_clip - top_clip)
-                .unwrap();
-            let path_rect = PathBuilder::from_rect(rect);
-            pixmap.fill_path(
-                &path_rect,
-                &paint,
-                FillRule::Winding,
-                Transform::identity(),
-                None,
-            );
-            paint.set_color_rgba8(0, 0, 0, u8::MAX);
-            pixmap.stroke_path(
-                &path_rect,
-                &paint,
-                &Default::default(),
-                Transform::identity(),
-                None,
-            );
-            path
-        }
-        None => {
-            fill_topbottom_envelope_to(pixmap, top_envlop_iter, btm_envlop_iter, envlop_len, &paint)
-        }
-    };
-
-    if need_border {
-        let stroke = Stroke {
-            width: 0.,
-            ..Default::default()
-        };
-        pixmap.stroke_path(
-            &path,
-            &Paint::default(),
-            &stroke,
-            Transform::identity(),
-            None,
-        );
-    }
-}
-
-fn get_amp_to_px_fn(amp_range: (f32, f32), height: f32) -> impl Fn(f32) -> f32 {
-    let scale_factor = height / (amp_range.1 - amp_range.0);
-    move |x: f32| (amp_range.1 - x) * scale_factor
-}
-
-pub fn draw_limiter_gain_to(
-    output: &mut [u8],
-    gain: ArrayView1<f32>,
-    width: u32,
-    height: u32,
-    opt_for_wav: &DrawOptionForWav,
-    draw_bottom: bool,
-) {
-    let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
-    let half_context_size = DprDependentConstants::calc(dpr).topbottom_context_size / 2.;
-    let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
-    let samples_per_px = gain.len() as f32 / width as f32;
-
-    let mut envlop_iter = (0..width).map(|i_px| {
-        let i_px = i_px as f32;
-        let i_mid = (i_px * samples_per_px).round() as usize;
-        if gain[i_mid.max(1) - 1] == gain[i_mid]
-            || gain[i_mid] == gain[i_mid.min(gain.len() - 2) + 1]
-        {
-            amp_to_px(gain[i_mid])
-        } else {
-            let i_start = ((i_px - half_context_size) * samples_per_px)
-                .round()
-                .max(0.) as usize;
-            let i_end =
-                (((i_px + half_context_size) * samples_per_px).round() as usize).min(gain.len());
-            amp_to_px(gain.slice(s![i_start..i_end]).mean().unwrap())
-        }
-    });
-
-    let width_usize = width as usize;
-    let mut out_arr = ArrayViewMut3::from_shape((height as usize, width_usize, 4), output).unwrap();
-    let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
-    let paint = get_wav_paint(&LIMITER_GAIN_COLOR);
-    if draw_bottom {
-        let top_px = amp_to_px(amp_range.1);
-        fill_topbottom_envelope_to(
-            &mut pixmap,
-            &mut (0..width).map(|_| top_px),
-            &mut envlop_iter,
-            width_usize,
-            &paint,
-        );
-    } else {
-        let btm_px = amp_to_px(amp_range.0);
-        fill_topbottom_envelope_to(
-            &mut pixmap,
-            &mut envlop_iter,
-            &mut (0..width).map(|_| btm_px),
-            width_usize,
-            &paint,
-        );
     }
 }
 
@@ -402,6 +170,231 @@ pub fn draw_wav_to(
     // println!("drawing wav: {:?}", start.elapsed());
 }
 
+pub fn draw_limiter_gain_to(
+    output: &mut [u8],
+    gain: ArrayView1<f32>,
+    width: u32,
+    height: u32,
+    opt_for_wav: &DrawOptionForWav,
+    draw_bottom: bool,
+) {
+    let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
+    let half_context_size = DprDependentConstants::calc(dpr).topbottom_context_size / 2.;
+    let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
+    let samples_per_px = gain.len() as f32 / width as f32;
+
+    let mut envlop_iter = (0..width).map(|i_px| {
+        let i_px = i_px as f32;
+        let i_mid = (i_px * samples_per_px).round() as usize;
+        if gain[i_mid.max(1) - 1] == gain[i_mid]
+            || gain[i_mid] == gain[i_mid.min(gain.len() - 2) + 1]
+        {
+            amp_to_px(gain[i_mid])
+        } else {
+            let i_start = ((i_px - half_context_size) * samples_per_px)
+                .round()
+                .max(0.) as usize;
+            let i_end =
+                (((i_px + half_context_size) * samples_per_px).round() as usize).min(gain.len());
+            amp_to_px(gain.slice(s![i_start..i_end]).mean().unwrap())
+        }
+    });
+
+    let width_usize = width as usize;
+    let mut out_arr = ArrayViewMut3::from_shape((height as usize, width_usize, 4), output).unwrap();
+    let mut pixmap = PixmapMut::from_bytes(out_arr.as_slice_mut().unwrap(), width, height).unwrap();
+    let paint = get_wav_paint(&LIMITER_GAIN_COLOR);
+    if draw_bottom {
+        let top_px = amp_to_px(amp_range.1);
+        fill_topbottom_envelope_to(
+            &mut pixmap,
+            &mut (0..width).map(|_| top_px),
+            &mut envlop_iter,
+            width_usize,
+            &paint,
+        );
+    } else {
+        let btm_px = amp_to_px(amp_range.0);
+        fill_topbottom_envelope_to(
+            &mut pixmap,
+            &mut envlop_iter,
+            &mut (0..width).map(|_| btm_px),
+            width_usize,
+            &paint,
+        );
+    }
+}
+
+fn stroke_line_with_clipping_to(
+    pixmap: &mut PixmapMut,
+    y_px_iter: &mut dyn ExactSizeIterator<Item = f32>,
+    stroke_width: f32,
+    clip_values: Option<(f32, f32)>,
+    stroke_border_width: f32,
+) {
+    let paint = get_wav_paint(&WAV_COLOR);
+    match clip_values {
+        Some((bottom_clip, top_clip)) => {
+            let paint_clipping = get_wav_paint(&CLIPPING_COLOR);
+            let y_px_vec: Vec<_> = y_px_iter.collect();
+            stroke_line_to(
+                pixmap,
+                &mut y_px_vec.iter().cloned(),
+                stroke_width,
+                &paint_clipping,
+                stroke_border_width,
+            );
+
+            let mut clipped = y_px_vec.into_iter().map(|x| x.clamp(top_clip, bottom_clip));
+            stroke_line_to(
+                pixmap,
+                &mut clipped,
+                stroke_width,
+                &paint,
+                stroke_border_width,
+            );
+        }
+        None => {
+            stroke_line_to(pixmap, y_px_iter, stroke_width, &paint, stroke_border_width);
+        }
+    };
+}
+
+fn stroke_line_to(
+    pixmap: &mut PixmapMut,
+    y_px_iter: &mut dyn ExactSizeIterator<Item = f32>,
+    stroke_width: f32,
+    paint: &Paint,
+    stroke_border_width: f32,
+) {
+    let path = {
+        let len = y_px_iter.len();
+        let mut pb = PathBuilder::with_capacity(len + 1, len + 1);
+        let first_elem = y_px_iter.next().unwrap();
+        pb.move_to(0., first_elem);
+        let point_per_px = pixmap.width() as f32 / len as f32;
+        for (i, y) in (1..len).zip(y_px_iter) {
+            pb.line_to(i as f32 * point_per_px, y);
+        }
+        if len == 1 {
+            pb.line_to((pixmap.width().min(2) - 1) as f32, first_elem);
+        }
+        pb.finish().unwrap()
+    };
+
+    let stroke = Stroke {
+        width: stroke_width,
+        line_cap: LineCap::Round,
+        ..Default::default()
+    };
+    if stroke_border_width > 0. {
+        let border_stroke = Stroke {
+            width: stroke_width + stroke_border_width,
+            ..stroke.clone()
+        };
+        pixmap.stroke_path(
+            &path,
+            &Paint::default(),
+            &border_stroke,
+            Transform::identity(),
+            None,
+        );
+    }
+    pixmap.stroke_path(&path, paint, &stroke, Transform::identity(), None);
+}
+
+fn fill_topbottom_envelope_with_clipping_to(
+    pixmap: &mut PixmapMut,
+    top_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
+    btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
+    envlop_len: usize,
+    clip_values: Option<(f32, f32)>,
+    need_border: bool,
+) {
+    let mut paint = get_wav_paint(&WAV_COLOR);
+    let path = match clip_values {
+        Some((bottom_clip, top_clip)) => {
+            let paint_clipping = get_wav_paint(&CLIPPING_COLOR);
+            let path = fill_topbottom_envelope_to(
+                pixmap,
+                top_envlop_iter,
+                btm_envlop_iter,
+                envlop_len,
+                &paint_clipping,
+            );
+            paint.blend_mode = BlendMode::SourceAtop;
+            let rect = Rect::from_xywh(0., top_clip, pixmap.width() as f32, bottom_clip - top_clip)
+                .unwrap();
+            let path_rect = PathBuilder::from_rect(rect);
+            pixmap.fill_path(
+                &path_rect,
+                &paint,
+                FillRule::Winding,
+                Transform::identity(),
+                None,
+            );
+            paint.set_color_rgba8(0, 0, 0, u8::MAX);
+            pixmap.stroke_path(
+                &path_rect,
+                &paint,
+                &Default::default(),
+                Transform::identity(),
+                None,
+            );
+            path
+        }
+        None => {
+            fill_topbottom_envelope_to(pixmap, top_envlop_iter, btm_envlop_iter, envlop_len, &paint)
+        }
+    };
+
+    if need_border {
+        let stroke = Stroke {
+            width: 0.,
+            ..Default::default()
+        };
+        pixmap.stroke_path(
+            &path,
+            &Paint::default(),
+            &stroke,
+            Transform::identity(),
+            None,
+        );
+    }
+}
+
+fn fill_topbottom_envelope_to(
+    pixmap: &mut PixmapMut,
+    top_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
+    btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
+    envlop_len: usize,
+    paint: &Paint,
+) -> tiny_skia::Path {
+    let path = {
+        let len = envlop_len * 2 + 2;
+        let mut pb = PathBuilder::with_capacity(len, len);
+        pb.move_to(0., top_envlop_iter.next().unwrap());
+        let point_per_px = pixmap.width() as f32 / envlop_len as f32;
+        for (x, y) in (1..envlop_len).zip(top_envlop_iter) {
+            pb.line_to(x as f32 * point_per_px, y);
+        }
+        for (x, y) in (0..envlop_len).rev().zip(btm_envlop_iter.rev()) {
+            pb.line_to(x as f32 * point_per_px, y);
+        }
+        pb.close();
+        pb.finish().unwrap()
+    };
+
+    pixmap.fill_path(&path, paint, FillRule::Winding, Transform::identity(), None);
+    path
+}
+
+#[inline]
+fn get_amp_to_px_fn(amp_range: (f32, f32), height: f32) -> impl Fn(f32) -> f32 {
+    let scale_factor = height / (amp_range.1 - amp_range.0);
+    move |x: f32| (amp_range.1 - x) * scale_factor
+}
+
 fn quantize_px_per_samples(px_per_samples: f64) -> f32 {
     if px_per_samples > 0.75 {
         px_per_samples.round() as f32
@@ -410,6 +403,14 @@ fn quantize_px_per_samples(px_per_samples: f64) -> f32 {
     } else {
         1. / (1. / px_per_samples).round() as f32
     }
+}
+
+#[inline]
+fn get_wav_paint(color: &[u8; 3]) -> Paint {
+    let mut paint = Paint::default();
+    let &[r, g, b] = color;
+    paint.set_color_rgba8(r, g, b, u8::MAX);
+    paint
 }
 
 #[cached(size = 64)]
