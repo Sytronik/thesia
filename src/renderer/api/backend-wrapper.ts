@@ -147,4 +147,5 @@ export const {
   setSpecSetting,
   getCommonGuardClipping,
   setCommonGuardClipping,
+  getGuardClipStats,
 } = backend;

@@ -252,7 +252,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getPath, getFileName, getColorMap } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -288,6 +288,7 @@ module.exports.getSampleFormat = getSampleFormat
 module.exports.getGlobalLUFS = getGlobalLUFS
 module.exports.getRMSdB = getRMSdB
 module.exports.getMaxPeakdB = getMaxPeakdB
+module.exports.getGuardClipStats = getGuardClipStats
 module.exports.getPath = getPath
 module.exports.getFileName = getFileName
 module.exports.getColorMap = getColorMap

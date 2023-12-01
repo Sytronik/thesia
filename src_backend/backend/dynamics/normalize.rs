@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use napi_derive::napi;
 use ndarray::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -11,6 +13,16 @@ pub enum GuardClippingMode {
     Clip,
     ReduceGlobalLevel,
     Limiter,
+}
+
+impl Display for GuardClippingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GuardClippingMode::Clip => write!(f, "clipped"),
+            GuardClippingMode::ReduceGlobalLevel => write!(f, "reduced"),
+            GuardClippingMode::Limiter => write!(f, "reduced"),
+        }
+    }
 }
 
 #[derive(PartialEq, Clone)]

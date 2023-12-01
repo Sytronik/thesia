@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use itertools::Itertools;
 use lazy_static::{initialize, lazy_static};
-
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::json;
@@ -332,6 +332,27 @@ fn get_max_peak_dB(track_id: u32) -> f64 {
     TM.blocking_read()
         .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_dB as f64)
+}
+
+#[napi]
+fn get_guard_clip_stats(track_id: u32) -> String {
+    let tm = TM.blocking_read();
+    let prefix = tm.common_guard_clipping().to_string();
+    tm.track(track_id as usize)
+        .map_or_else(String::new, |track| {
+            Itertools::intersperse(
+                track.guard_clip_stats().iter().map(|stat| {
+                    let stat = stat.to_string();
+                    if stat != "" {
+                        format!("{} by {}", &prefix, stat)
+                    } else {
+                        stat
+                    }
+                }),
+                "\n".to_string(),
+            )
+            .collect()
+        })
 }
 
 #[napi]

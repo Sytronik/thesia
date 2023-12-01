@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use ndarray::{Data, RemoveAxis};
@@ -74,6 +76,22 @@ pub struct GuardClippingStats {
     pub reduction_cnt: usize,
 }
 
+impl Display for GuardClippingStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.max_reduction_gain_dB == 0. {
+            write!(f, "")
+        } else if self.reduction_cnt == 0 {
+            write!(f, "{:.2} dB", self.max_reduction_gain_dB)
+        } else {
+            write!(
+                f,
+                "{:.2} dB ({} samples)", // TODO: beter formatting
+                self.max_reduction_gain_dB, self.reduction_cnt
+            )
+        }
+    }
+}
+
 impl GuardClippingStats {
     pub fn from_wav_before_clip<A, D>(wav_before_clip: ArrayView<A, D>) -> Self
     where
@@ -91,11 +109,10 @@ impl GuardClippingStats {
         }
     }
 
-    pub fn from_global_gain(gain: f32, len: usize) -> Self {
-        assert!(len > 0);
+    pub fn from_global_gain(gain: f32) -> Self {
         GuardClippingStats {
             max_reduction_gain_dB: gain.dB_from_amp_default(),
-            reduction_cnt: len,
+            reduction_cnt: 0,
         }
     }
 
@@ -128,7 +145,7 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
             }
             GuardClippingResult::GlobalGain((gain, raw_dim)) => Array::from_elem(
                 raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)),
-                GuardClippingStats::from_global_gain(*gain, 1),
+                GuardClippingStats::from_global_gain(*gain),
             ),
             GuardClippingResult::GainSequence(gain_seq) => {
                 let raw_dim = gain_seq.raw_dim();
