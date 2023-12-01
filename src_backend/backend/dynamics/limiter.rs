@@ -1,13 +1,12 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
+use dashmap::DashMap;
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use ndarray::AssignElem;
 use num_traits::{Float, NumAssignOps, NumOps};
-use parking_lot::RwLock;
 
 use super::envelope::{BoxStackFilter, PeakHold};
 
@@ -227,18 +226,18 @@ impl SimpleLimiter {
     }
 }
 
-struct LimiterManager(HashMap<u32, PerfectLimiter>);
+struct LimiterManager(DashMap<u32, PerfectLimiter>);
 
 impl LimiterManager {
     pub fn new() -> Self {
-        LimiterManager(HashMap::new())
+        LimiterManager(DashMap::new())
     }
 
     pub fn get(&self, sr: u32) -> Option<PerfectLimiter> {
-        self.0.get(&sr).cloned()
+        self.0.get(&sr).map(|v| v.to_owned())
     }
 
-    pub fn insert(&mut self, sr: u32) -> PerfectLimiter {
+    pub fn insert(&self, sr: u32) -> PerfectLimiter {
         let limiter = PerfectLimiter::with_default(sr);
         self.0.insert(sr, limiter.clone());
         limiter
@@ -247,14 +246,13 @@ impl LimiterManager {
 
 pub fn get_cached_limiter(sr: u32) -> PerfectLimiter {
     lazy_static! {
-        static ref LIMITER_MANAGER: Arc<RwLock<LimiterManager>> =
-            Arc::new(RwLock::new(LimiterManager::new()));
+        static ref LIMITER_MANAGER: Arc<LimiterManager> = Arc::new(LimiterManager::new());
     }
 
-    let limiter_or_none = LIMITER_MANAGER.read().get(sr);
+    let limiter_or_none = LIMITER_MANAGER.get(sr);
     match limiter_or_none {
         Some(limiter) => limiter,
-        None => LIMITER_MANAGER.write().insert(sr),
+        None => LIMITER_MANAGER.insert(sr),
     }
 }
 #[cfg(test)]

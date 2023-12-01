@@ -17,6 +17,7 @@ approx = "0.5.1"
 blas-src = {version = "0.9.0", features = ["openblas"]}
 cached = "0.46.0"
 chrono = "0.4.31"
+dashmap = "5.5.3"
 ebur128 = "0.1.8"
 fast_image_resize = "2.7.3"
 futures = "0.3.29"

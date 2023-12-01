@@ -15,7 +15,7 @@ use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to, DrawOptionForWav};
 use super::img_slice::{ArrWithSliceInfo, CalcWidth, OverviewHeights, PartGreyInfo};
 use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::utils::Pad;
-use crate::backend::{IdChArr, IdChMap, TrackManager};
+use crate::backend::{IdChArr, IdChValueVec, TrackManager};
 
 const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];
@@ -52,7 +52,7 @@ pub trait TrackDrawer {
         id_ch_tuples: &IdChArr,
         option: DrawOption,
         kind: ImageKind,
-    ) -> IdChMap<Array3<u8>>;
+    ) -> IdChValueVec<Array3<u8>>;
 
     fn draw_part_imgs(
         &self,
@@ -63,7 +63,7 @@ pub trait TrackDrawer {
         opt_for_wav: DrawOptionForWav,
         blend: f64,
         fast_resize_vec: Option<Vec<bool>>,
-    ) -> IdChMap<Vec<u8>>;
+    ) -> IdChValueVec<Vec<u8>>;
 
     fn draw_overview(&self, id: usize, width: u32, height: u32, dpr: f32) -> Vec<u8>;
 }
@@ -74,10 +74,10 @@ impl TrackDrawer for TrackManager {
         id_ch_tuples: &IdChArr,
         option: DrawOption,
         kind: ImageKind,
-    ) -> IdChMap<Array3<u8>> {
+    ) -> IdChValueVec<Array3<u8>> {
         // let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
-        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
+        let mut result = Vec::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
             let out_for_not_exist = || ((id, ch), Array::zeros((0, 0, 0)));
             let track = if let Some(track) = self.track(id) {
@@ -128,10 +128,10 @@ impl TrackDrawer for TrackManager {
         opt_for_wav: DrawOptionForWav,
         blend: f64,
         fast_resize_vec: Option<Vec<bool>>,
-    ) -> IdChMap<Vec<u8>> {
+    ) -> IdChValueVec<Vec<u8>> {
         // let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
-        let mut result = IdChMap::with_capacity(id_ch_tuples.len());
+        let mut result = Vec::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
             let out_for_not_exist = || ((id, ch), Vec::new());
             let track = if let Some(track) = self.track(id) {

@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use dashmap::DashMap;
 use fast_image_resize::pixels::U16;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
@@ -21,7 +22,9 @@ pub use visualize::{AxisMarkers, CalcAxisMarkers, DrawOption, DrawOptionForWav, 
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
+pub type IdChValueVec<T> = Vec<((usize, usize), T)>;
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
+pub type IdChDMap<T> = DashMap<(usize, usize), T>;
 
 use spectrogram::{FreqScale, SpectrogramAnalyzer, SrWinNfft};
 use track::{AudioTrack, TrackList};
@@ -319,21 +322,26 @@ mod tests {
         };
         let opt_for_wav = Default::default();
         let spec_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Spec);
-        let mut wav_imgs =
-            tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Wav(opt_for_wav));
+        let wav_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Wav(opt_for_wav));
         for ((id, ch), spec) in spec_imgs {
             let sr_str = tags[id];
             let width = spec.shape()[1] as u32;
             let img = RgbaImage::from_vec(width, option.height, spec.into_raw_vec()).unwrap();
             img.save(format!("samples/spec_{}_{}.png", sr_str, ch))
                 .unwrap();
-            let wav_img = wav_imgs.remove(&(id, ch)).unwrap().into_raw_vec();
+            let wav_img = wav_imgs
+                .iter()
+                .find_map(|(id_ch, v)| (*id_ch == (id, ch)).then_some(v))
+                .unwrap()
+                .to_owned()
+                .into_raw_vec();
+
             let img = RgbaImage::from_vec(width, option.height, wav_img).unwrap();
             img.save(format!("samples/wav_{}_{}.png", sr_str, ch))
                 .unwrap();
         }
 
-        let imvec = tm
+        let (id_ch, imvec) = tm
             .draw_part_imgs(
                 &[(0, 0)],
                 20.,
@@ -346,8 +354,9 @@ mod tests {
                 0.,
                 Some(vec![false]),
             )
-            .remove(&(0, 0))
+            .pop()
             .unwrap();
+        assert_eq!(id_ch, (0, 0));
         let im = RgbaImage::from_vec(imvec.len() as u32 / option.height / 4, option.height, imvec)
             .unwrap();
         im.save("samples/wav_part.png").unwrap();
