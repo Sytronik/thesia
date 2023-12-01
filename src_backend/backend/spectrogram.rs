@@ -17,6 +17,8 @@ use stft::perform_stft;
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;
 
 type FramingParams = (usize, usize, usize); // hop, win, n_fft
+type WinNfft = (usize, usize);
+type SrNfft = (u32, usize);
 
 #[napi(string_enum)]
 #[derive(Debug, PartialEq, Hash, Eq, Serialize, Deserialize)]
@@ -107,9 +109,9 @@ impl SpecSetting {
 }
 
 pub struct SpectrogramAnalyzer {
-    windows: HashMap<(usize, usize), Array1<f32>>,
+    windows: HashMap<WinNfft, Array1<f32>>,
     fft_modules: HashMap<usize, Arc<dyn RealToComplex<f32>>>,
-    mel_fbs: HashMap<(u32, usize), Array2<f32>>,
+    mel_fbs: HashMap<SrNfft, Array2<f32>>,
 }
 
 impl SpectrogramAnalyzer {

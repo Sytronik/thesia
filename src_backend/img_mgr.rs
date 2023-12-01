@@ -113,7 +113,7 @@ fn crop_caches(
     start_sec: f64,
     width: u32,
     option: &DrawOption,
-) -> (Images, IdChValueVec<(u32, u32)>) {
+) -> (Images, IdChValueVec<LeftWidth>) {
     // let start = Instant::now();
     let i_w = (start_sec * option.px_per_sec).round() as isize;
     let pad_left = (-i_w.min(0)) as usize;
@@ -219,7 +219,7 @@ fn categorize_id_ch(
 fn blend_imgs(
     spec_imgs: Images,
     mut wav_imgs: Images,
-    eff_l_w_vec: IdChValueVec<(u32, u32)>,
+    eff_l_w_vec: IdChValueVec<LeftWidth>,
     width: u32,
     height: u32,
     blend: f64,

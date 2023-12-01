@@ -10,4 +10,4 @@ pub use drawing::{
     TrackDrawer,
 };
 pub use drawing_wav::DrawOptionForWav;
-pub use img_slice::{calc_effective_slice, CalcWidth, IdxLen, PartGreyInfo};
+pub use img_slice::{calc_effective_slice, CalcWidth, IdxLen, LeftWidth, PartGreyInfo};

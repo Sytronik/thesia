@@ -2,14 +2,15 @@ use ndarray::prelude::*;
 
 use crate::backend::audio::Audio;
 
+pub type LeftWidth = (u32, u32);
+pub type IdxLen = (isize, usize);
+
 #[derive(PartialEq, Debug)]
 pub struct PartGreyInfo {
     pub i_w_and_width: IdxLen,
     pub start_sec_with_margin: f64,
     pub width_with_margin: u32,
 }
-
-pub type IdxLen = (isize, usize);
 
 #[readonly::make]
 pub struct ArrWithSliceInfo<'a, A, D: Dimension> {

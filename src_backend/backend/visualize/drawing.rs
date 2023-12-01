@@ -12,7 +12,7 @@ use tiny_skia::{
 };
 
 use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to, DrawOptionForWav};
-use super::img_slice::{ArrWithSliceInfo, CalcWidth, OverviewHeights, PartGreyInfo};
+use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights, PartGreyInfo};
 use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::utils::Pad;
 use crate::backend::{IdChArr, IdChValueVec, TrackManager};
@@ -338,7 +338,7 @@ pub fn blend_img_to(
     width: u32,
     height: u32,
     blend: f64,
-    eff_l_w: Option<(u32, u32)>,
+    eff_l_w: Option<LeftWidth>,
 ) {
     assert!(0. < blend && blend < 1.);
     let mut pixmap = PixmapMut::from_bytes(spec_background, width, height).unwrap();
@@ -351,7 +351,7 @@ fn blend_wav_img_to(
     pixmap: &mut PixmapMut,
     wav_pixmap: PixmapRef,
     blend: f64,
-    eff_l_w: Option<(u32, u32)>,
+    eff_l_w: Option<LeftWidth>,
 ) {
     // black
     if let Some((left, width)) = eff_l_w {
