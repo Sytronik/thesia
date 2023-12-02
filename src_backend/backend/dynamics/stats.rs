@@ -7,7 +7,7 @@ use ndarray_stats::{MaybeNan, QuantileExt};
 use num_traits::{AsPrimitive, Float};
 
 use super::decibel::DeciBel;
-use super::normalize::GuardClippingResult;
+use super::guardclipping::GuardClippingResult;
 use crate::backend::utils::Planes;
 
 #[readonly::make]
