@@ -50,19 +50,19 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
     setDragging(true);
   };
 
-  const onMove = useEvent((clientX: number) => {
+  const onMove = useEvent((e: MouseEvent | TouchEvent, clientX: number) => {
     if (dragging && separatorXPosition) {
+      e.preventDefault();
       setNormalizedLeftWidth(clientX - separatorXPosition);
     }
   });
 
   const onMouseMove = useEvent((e: MouseEvent) => {
-    e.preventDefault();
-    onMove(e.clientX);
+    onMove(e, e.clientX);
   });
 
   const onTouchMove = useEvent((e: TouchEvent) => {
-    onMove(e.touches[0].clientX);
+    onMove(e, e.touches[0].clientX);
   });
 
   const onMouseUp = useEvent(() => {

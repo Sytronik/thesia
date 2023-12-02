@@ -98,6 +98,7 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
+  const blendRef = useRef<number>(0.5);
 
   const overviewElem = useRef<OverviewHandleElement>(null);
   const splitViewElem = useRef<SplitViewHandleElement>(null);
@@ -183,7 +184,7 @@ function MainViewer(props: MainViewerProps) {
           canvasHeight * devicePixelRatio,
           pxPerSecRef.current * devicePixelRatio,
           {amp_range: ampRangeRef.current, dpr: devicePixelRatio},
-          0.3,
+          blendRef.current,
         );
       }),
     [devicePixelRatio],
@@ -529,10 +530,19 @@ function MainViewer(props: MainViewerProps) {
     normalizePxPerSec,
   ]);
 
-  useEffect(() => {
+  const refreshImg = useEvent(() => {
     const currentIdChArr = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
     if (currentIdChArr.length) throttledSetImgState(currentIdChArr, width, imgHeight);
-  }, [throttledSetImgState, getIdChArr, width, imgHeight, needRefreshTrackIdChArr]);
+  });
+
+  useEffect(refreshImg, [
+    refreshImg,
+    throttledSetImgState,
+    getIdChArr,
+    width,
+    imgHeight,
+    needRefreshTrackIdChArr,
+  ]);
 
   const mainViewerElemCallback = useCallback(
     (node) => {
@@ -562,7 +572,7 @@ function MainViewer(props: MainViewerProps) {
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
         />
-        <SlideBar />
+        <SlideBar blendRef={blendRef} refreshImg={refreshImg} />
       </div>
       <div
         className={`${styles.MainViewer} row-flex`}

@@ -162,6 +162,7 @@ export const TINY_MARGIN = 2;
 export const AXIS_SPACE = AMP_CANVAS_WIDTH + FREQ_CANVAS_WIDTH + TINY_MARGIN;
 
 export const COLORBAR_CANVAS_WIDTH = 16;
+export const SLIDE_ICON_HEIGHT = 18;
 
 export const DB_CANVAS_WIDTH = 32;
 export const DB_MARKER_POS = {
