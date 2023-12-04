@@ -105,14 +105,19 @@ impl GuardClipping<Ix2> for Audio {
     }
 
     fn limit(&mut self) -> GuardClippingResult<Ix2> {
-        let mut limiter = get_cached_limiter(self.sr);
-        let gain_seqs: Vec<_> = self
-            .wavs
-            .axis_iter_mut(Axis(0))
-            .map(|wav| limiter.process_inplace(wav))
-            .collect();
-        let gain_seq_views: Vec<_> = gain_seqs.iter().map(ArrayBase::view).collect();
-        let gain_seq = ndarray::stack(Axis(0), &gain_seq_views).unwrap_or_default();
+        let peak = self.wavs.max_peak();
+        let gain_seq = if peak > 1. {
+            let mut limiter = get_cached_limiter(self.sr);
+            let gain_seqs: Vec<_> = self
+                .wavs
+                .axis_iter_mut(Axis(0))
+                .map(|wav| limiter.process_inplace(wav))
+                .collect();
+            let gain_seq_views: Vec<_> = gain_seqs.iter().map(ArrayBase::view).collect();
+            ndarray::stack(Axis(0), &gain_seq_views).unwrap_or_default()
+        } else {
+            Array2::ones(self.wavs.raw_dim())
+        };
         GuardClippingResult::GainSequence(gain_seq)
     }
 }
