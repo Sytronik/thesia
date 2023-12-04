@@ -11,6 +11,7 @@ module.exports = {
     "react/prop-types": "warn",
     "@typescript-eslint/no-shadow": "warn",
     "promise/always-return": "off",
+    "react/require-default-props": "off",
   },
   parserOptions: {
     ecmaVersion: 2020,

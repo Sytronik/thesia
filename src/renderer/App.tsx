@@ -18,6 +18,7 @@ function App() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting,
+    dBRange,
     commonNormalize,
     commonGuardClipping,
     reloadTracks,
@@ -26,6 +27,7 @@ function App() {
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
   } = useTracks();
@@ -146,6 +148,8 @@ function App() {
         <Control
           specSetting={specSetting}
           setSpecSetting={setSpecSetting}
+          dBRange={dBRange}
+          setdBRange={setdBRange}
           commonGuardClipping={commonGuardClipping}
           setCommonGuardClipping={setCommonGuardClipping}
           commonNormalize={commonNormalize}

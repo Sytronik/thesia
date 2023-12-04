@@ -39,3 +39,7 @@ type OverviewHandleElement = {
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
 
 type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
+
+type FloatRangeInputElement = {
+  setValue: (value: number) => void;
+};

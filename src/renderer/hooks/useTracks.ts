@@ -12,10 +12,11 @@ function useTracks() {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
+
   const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
     BackendAPI.getSpecSetting(),
   );
-
+  const [currentdBRange, setCurrentdBRange] = useState<number>(BackendAPI.getdBRange());
   const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
     BackendAPI.getCommonGuardClipping(),
   );
@@ -132,6 +133,12 @@ function useTracks() {
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
+  const setdBRange = useEvent(async (dBRange: number) => {
+    BackendAPI.setdBRange(dBRange);
+    setCurrentdBRange(BackendAPI.getdBRange());
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+  });
+
   const setCommonGuardClipping = useEvent(async (commonGuardClipping: GuardClippingMode) => {
     await BackendAPI.setCommonGuardClipping(commonGuardClipping);
     setCurrentCommonGuardClipping(BackendAPI.getCommonGuardClipping());
@@ -151,6 +158,7 @@ function useTracks() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting: currentSpecSetting,
+    dBRange: currentdBRange,
     commonNormalize: currentCommonNormalize,
     commonGuardClipping: currentCommonGuardClipping,
     reloadTracks,
@@ -159,6 +167,7 @@ function useTracks() {
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
   };

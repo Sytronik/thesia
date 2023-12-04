@@ -1,4 +1,4 @@
-import React, {useRef, useState} from "react";
+import React, {useMemo, useRef, useState} from "react";
 import {
   SpecSetting,
   GuardClippingMode,
@@ -8,12 +8,15 @@ import {
   NormalizeOnTypeValues,
 } from "renderer/api/backend-wrapper";
 import useEvent from "react-use-event-hook";
-import {debounce} from "throttle-debounce";
+import {debounce, throttle} from "throttle-debounce";
+import FloatRangeInput from "renderer/modules/FloatRangeInput";
 import styles from "./Control.scss";
 
 type ControlProps = {
   specSetting: SpecSetting;
   setSpecSetting: (specSetting: SpecSetting) => Promise<void>;
+  dBRange: number;
+  setdBRange: (dBRange: number) => void;
   commonGuardClipping: GuardClippingMode;
   setCommonGuardClipping: (commonGuardClipping: GuardClippingMode) => Promise<void>;
   commonNormalize: NormalizeTarget;
@@ -24,11 +27,15 @@ function Control(props: ControlProps) {
   const {
     specSetting,
     setSpecSetting,
+    dBRange,
+    setdBRange,
     commonGuardClipping,
     setCommonGuardClipping,
     commonNormalize,
     setCommonNormalize,
   } = props;
+
+  const dBRangeDetents = useMemo(() => [40, 80, 120], []);
 
   const [cursorOnFreqScaleBtn, setCursorOnFreqScaleBtn] = useState<boolean>(false);
   const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(0.0);
@@ -47,6 +54,8 @@ function Control(props: ControlProps) {
       freqScale: toggleFreqScale(specSetting.freqScale),
     });
   };
+
+  const throttledSetdBRange = throttle(1000 / 70, setdBRange);
 
   const onWinMillisecChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const winMillisec = Number.parseFloat(e.target.value);
@@ -156,6 +165,22 @@ function Control(props: ControlProps) {
             id="freqScale"
           />
         </div>
+        <div className={styles.row}>
+          <label htmlFor="dBRange">Dynamic Range: </label>
+          <FloatRangeInput
+            id="dBRange"
+            className={styles.dBRange}
+            unit="dB"
+            min={40}
+            max={120}
+            step={1}
+            precision={0}
+            detents={dBRangeDetents}
+            initialValue={dBRange}
+            doubleClickValue={120}
+            onChangeValue={(value) => throttledSetdBRange(value)}
+          />
+        </div>
       </div>
       <div className={styles.column}>
         <div className={styles.row}>
@@ -226,7 +251,7 @@ function Control(props: ControlProps) {
           <input
             type="text"
             inputMode="decimal"
-            className={styles.commonNormalizedBInput}
+            className={`${styles.dBTextInput} ${styles.commonNormalizedBText}`}
             id="commonNormalizedBText"
             ref={commonNormalizedBTextElem}
             defaultValue=""

@@ -70,6 +70,15 @@
   width: 5em;
 }
 
+.dBRange {
+  input[type="range"] {
+    width: 70px;
+  }
+  input[type="text"] {
+    width: 2.5em;
+  }
+}
+
 .winMillisecInput {
   width: 3em;
   background-color: $bg-primary-lighter;
@@ -87,11 +96,12 @@
   // }
 }
 
-.commonNormalizedBInput {
-  width: 3.5em;
-
+.dBTextInput {
   background-color: transparent;
-  border: none;
+}
+
+.commonNormalizedBText {
+  width: 3.5em;
 }
 
 .commonGuardClippingSelect {
