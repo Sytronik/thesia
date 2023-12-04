@@ -89,19 +89,13 @@
   width: 4.5em;
 }
 
-.commonNormalizedBRange {
-  width: 70px;
-  // ::-webkit-slider-thumb {
-  //   margin-top: 12px;
-  // }
-}
-
-.dBTextInput {
-  background-color: transparent;
-}
-
-.commonNormalizedBText {
-  width: 3.5em;
+.commonNormalizedBInput {
+  input[type="range"] {
+    width: 70px;
+  }
+  input[type="text"] {
+    width: 3.5em;
+  }
 }
 
 .commonGuardClippingSelect {

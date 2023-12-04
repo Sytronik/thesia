@@ -36,13 +36,14 @@ function Control(props: ControlProps) {
   } = props;
 
   const dBRangeDetents = useMemo(() => [40, 80, 120], []);
+  const normalizedBDetents = useMemo(() => [-26, -18, 0], []);
 
   const [cursorOnFreqScaleBtn, setCursorOnFreqScaleBtn] = useState<boolean>(false);
   const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(0.0);
   const [commonNormalizedB, setCommonNormalizedB] = useState<number>(-18.0);
+  const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(false);
 
-  const commonNormalizedBTextElem = useRef<HTMLInputElement>(null);
-  const commonNormalizedBRangeElem = useRef<HTMLInputElement>(null);
+  const commonNormalizedBInputElem = useRef<FloatRangeInputElement>(null);
 
   const toggleFreqScale = useEvent((freqScale: FreqScale) =>
     freqScale === FreqScale.Linear ? FreqScale.Mel : FreqScale.Linear,
@@ -82,64 +83,32 @@ function Control(props: ControlProps) {
     switch (type) {
       case "Off":
         setCommonNormalize({type: "Off"});
-        if (commonNormalizedBRangeElem.current) {
-          commonNormalizedBRangeElem.current.disabled = true;
-          commonNormalizedBRangeElem.current.value = "-60.00";
-        }
-        if (commonNormalizedBTextElem.current) {
-          commonNormalizedBTextElem.current.disabled = true;
-          commonNormalizedBTextElem.current.value = "";
-        }
+        setIsCommonNormalizeOn(false);
         break;
       case "PeakdB":
         setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
-        if (commonNormalizedBRangeElem.current) {
-          commonNormalizedBRangeElem.current.disabled = false;
-          commonNormalizedBRangeElem.current.value = commonNormalizePeakdB.toFixed(2);
-        }
-        if (commonNormalizedBTextElem.current) {
-          commonNormalizedBTextElem.current.disabled = false;
-          commonNormalizedBTextElem.current.value = commonNormalizePeakdB.toFixed(2);
-        }
+        setIsCommonNormalizeOn(true);
+        if (commonNormalizedBInputElem.current)
+          commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
         break;
       default:
         setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
-        if (commonNormalizedBRangeElem.current) {
-          commonNormalizedBRangeElem.current.disabled = false;
-          commonNormalizedBRangeElem.current.value = commonNormalizedB.toFixed(2);
-        }
-        if (commonNormalizedBTextElem.current) {
-          commonNormalizedBTextElem.current.disabled = false;
-          commonNormalizedBTextElem.current.value = commonNormalizedB.toFixed(2);
-        }
+        setIsCommonNormalizeOn(true);
+        if (commonNormalizedBInputElem.current)
+          commonNormalizedBInputElem.current.setValue(commonNormalizedB);
         break;
     }
   };
 
   const debouncedChangeCommonNormalizedB = debounce(250, (dB: number) => {
-    if (commonNormalize.type !== "Off")
-      setCommonNormalize({type: commonNormalize.type, target: dB});
+    if (isCommonNormalizeOn) setCommonNormalize({type: commonNormalize.type, target: dB});
   });
 
-  const onCommonNormalizedBRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (commonNormalize.type === "Off") return;
-    const dB = Number.parseFloat(e.target.value);
-    if (commonNormalize.type === "PeakdB") setCommonNormalizePeakdB(dB);
-    else setCommonNormalizedB(dB);
-    debouncedChangeCommonNormalizedB(dB);
-    if (commonNormalizedBTextElem.current) commonNormalizedBTextElem.current.value = dB.toFixed(2);
-  };
-
-  const onCommonNormalizedBTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (commonNormalize.type === "Off") return;
-    const dB = Number.parseFloat(e.target.value);
-    if (e.target.value !== "" && dB >= -60 && dB <= 0) {
-      if (commonNormalize.type === "PeakdB") setCommonNormalizePeakdB(dB);
-      else setCommonNormalizedB(dB);
-      debouncedChangeCommonNormalizedB(dB);
-      if (commonNormalizedBRangeElem.current)
-        commonNormalizedBRangeElem.current.value = dB.toFixed(2);
-    }
+  const onCommonNormalizedBInputChange = (value: number) => {
+    if (!isCommonNormalizeOn) return;
+    if (commonNormalize.type === "PeakdB") setCommonNormalizePeakdB(value);
+    else setCommonNormalizedB(value);
+    debouncedChangeCommonNormalizedB(value);
   };
 
   const onCommonGuardClippingModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -231,34 +200,20 @@ function Control(props: ControlProps) {
               </option>
             ))}
           </select>
-          <input
-            type="range"
-            min="-60"
-            max="0"
-            step="0.01"
-            className={styles.commonNormalizedBRange}
-            ref={commonNormalizedBRangeElem}
-            defaultValue="-60"
-            onChange={onCommonNormalizedBRangeChange}
-            list="normalize-db-detents"
-            disabled
+          <FloatRangeInput
+            ref={commonNormalizedBInputElem}
+            className={styles.commonNormalizedBInput}
+            id="commonNormalizedBInput"
+            unit="dB"
+            min={-60}
+            max={0}
+            step={0.01}
+            precision={2}
+            detents={normalizedBDetents}
+            initialValue={-60}
+            disabled={!isCommonNormalizeOn}
+            onChangeValue={onCommonNormalizedBInputChange}
           />
-          <datalist id="normalize-db-detents">
-            <option aria-label="small" value="-26" />
-            <option aria-label="middle" value="-18" />
-            <option aria-label="max" value="0" />
-          </datalist>
-          <input
-            type="text"
-            inputMode="decimal"
-            className={`${styles.dBTextInput} ${styles.commonNormalizedBText}`}
-            id="commonNormalizedBText"
-            ref={commonNormalizedBTextElem}
-            defaultValue=""
-            onChange={onCommonNormalizedBTextChange}
-            disabled
-          />
-          <label htmlFor="commonNormalizedBText"> dB</label>
         </div>
         <div className={styles.row}>
           <label htmlFor="commonGuardClipping">Common Clipping Guard: </label>
