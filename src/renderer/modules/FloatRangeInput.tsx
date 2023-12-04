@@ -1,5 +1,6 @@
 import React, {useRef, useEffect, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
+import styles from "./FloatRangeInput.scss";
 
 type FloatRangeInputProps = {
   id: string;
@@ -74,7 +75,7 @@ const FloatRangeInput = forwardRef(
     useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
     return (
-      <div className={className}>
+      <div className={`${styles.FloatRangeInput} ${className}`}>
         <input
           ref={rangeElem}
           id={id}

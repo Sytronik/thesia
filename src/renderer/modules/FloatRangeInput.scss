@@ -1,0 +1,23 @@
+@import "../styles/index.scss";
+
+.FloatRangeInput {
+  input[type="text"] {
+    background-color: transparent;
+    color: white;
+    margin: $spacer-1;
+    border-radius: 4px;
+    border: none;
+    text-align: right;
+    padding: $spacer-1/2 $spacer-1;
+
+    &:hover,
+    &:focus {
+      box-shadow: 0 0 0 0.2em rgba(white, 0.4);
+    }
+  }
+
+  input[type="range"] {
+    position: relative;
+    top: 3px;
+  }
+}
