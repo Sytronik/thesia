@@ -1,9 +1,99 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .Control {
-  // temporary guide
-  border: $border;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  font-size: $body-font-size;
 
   flex: 1 1 auto;
   margin: $component-gap / 2;
+
+  *:focus {
+    box-shadow: 0 0 0 0.2em rgba(white, 0.4);
+    outline: none;
+  }
+
+  select,
+  input[type="text"] {
+    color: white;
+    margin: $spacer-1;
+    border-radius: 4px;
+  }
+
+  select {
+    background-color: $bg-primary-lighter;
+    padding: $spacer-1/2;
+    border: 0px solid $border-primary-light;
+  }
+
+  label[for="commonNormalize"],
+  label[for="commonGuardClipping"] {
+    // text-align: right;
+    // width: 11.5em;
+    display: inline-block;
+  }
+
+  label {
+    margin-right: $spacer-1/2;
+  }
+
+  input[type="text"] {
+    text-align: right;
+    padding: $spacer-1/2 $spacer-1;
+  }
+
+  input[type="range"] {
+    position: relative;
+    top: 3px;
+  }
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.changeFreqScaleBtn {
+  @include btn-outline($button-white, $button-white);
+
+  background-color: $bg-primary-lighter;
+  border: 1px solid $border-primary-light;
+  border-radius: 4px;
+  padding: $spacer-1;
+  width: 5em;
+}
+
+.winMillisecInput {
+  width: 3em;
+  background-color: $bg-primary-lighter;
+  border: 1px solid $border-primary-light;
+}
+
+.commonNormalizeSelect {
+  width: 4.5em;
+}
+
+.commonNormalizedBRange {
+  width: 70px;
+  // ::-webkit-slider-thumb {
+  //   margin-top: 12px;
+  // }
+}
+
+.commonNormalizedBInput {
+  width: 3.5em;
+
+  background-color: transparent;
+  border: none;
+}
+
+.commonGuardClippingSelect {
+  width: 12em;
 }

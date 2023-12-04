@@ -68,14 +68,15 @@ function App() {
   });
 
   const deleteSelectedTracks = useEvent(async (e: KeyboardEvent) => {
-    e.preventDefault();
+    // TODO
+    /* e.preventDefault();
 
     if (e.key === "Delete" || e.key === "Backspace") {
       if (selectedTrackIds.length) {
         await removeTracks(selectedTrackIds);
         await refreshTracks();
       }
-    }
+    } */
   });
 
   useEffect(() => {
@@ -142,7 +143,14 @@ function App() {
   return (
     <div className="App">
       <div className="row-fixed control">
-        <Control />
+        <Control
+          specSetting={specSetting}
+          setSpecSetting={setSpecSetting}
+          commonGuardClipping={commonGuardClipping}
+          setCommonGuardClipping={setCommonGuardClipping}
+          commonNormalize={commonNormalize}
+          setCommonNormalize={setCommonNormalize}
+        />
       </div>
       <DevicePixelRatioProvider>
         <MainViewer

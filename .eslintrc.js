@@ -7,6 +7,7 @@ module.exports = {
     "import/no-extraneous-dependencies": "warn",
     "jsx-a11y/click-events-have-key-events": "warn",
     "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/label-has-associated-control": [2, {labelAttributes: ["htmlFor"]}],
     "react/prop-types": "warn",
     "@typescript-eslint/no-shadow": "warn",
     "promise/always-return": "off",

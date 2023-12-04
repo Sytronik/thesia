@@ -1,4 +1,4 @@
-@import './styles/index.scss';
+@import "./styles/index.scss";
 
 // Type Selector Reset
 // prettier-ignore
@@ -27,6 +27,30 @@ button {
   padding: 0;
   border: 0;
   background: transparent;
+}
+
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 30px;
+  height: 16px;
+  margin: $spacer-1;
+  flex: 1 1 auto;
+  // border: 1px solid $border-primary-light;
+  border-radius: 8px;
+  background-color: $bg-primary-lighter;
+}
+
+input[type="range"][list]::-webkit-slider-thumb {
+  // appearance: none;
+  // -webkit-appearance: none;
+  // width: 16px;
+  // height: 16px;
+  // border: 1px solid $border-gray-light;
+  // border-radius: 8px;
+  // background-color: $button-white;
+  // cursor: pointer;
+  margin-top: -6px;
 }
 
 // Box-Sizing

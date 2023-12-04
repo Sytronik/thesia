@@ -387,7 +387,7 @@ function MainViewer(props: MainViewerProps) {
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
-    [trackIds],
+    [trackIds, needRefreshTrackIdChArr],
   );
 
   const createLeftPane = (leftWidth: number) => (

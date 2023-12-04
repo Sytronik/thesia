@@ -106,10 +106,12 @@ export async function setImageState(
   );
 }
 
+export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
+export type NormalizeOnType = typeof NormalizeOnTypeValues[number];
 export type NormalizeTarget =
   | {type: "Off"}
   | {
-      type: "LUFS" | "RMSdB" | "PeakdB";
+      type: NormalizeOnType;
       target: number;
     };
 
