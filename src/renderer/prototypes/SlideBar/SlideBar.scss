@@ -11,13 +11,12 @@
 
 .SlideBarRow {
   display: flex;
-  justify-content: space-around;
+  justify-content: stretch;
   align-items: center;
   width: 100%;
 
-  img,
-  input {
-    margin: $spacer-1 / 2;
+  img {
+    margin: $spacer-1;
     flex: 0 0 16px;
   }
 }
