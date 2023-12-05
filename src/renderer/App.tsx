@@ -143,7 +143,7 @@ function App() {
   }, [trackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
 
   return (
-    <div className="App">
+    <div id="App" className="App">
       <div className="row-fixed control">
         <Control
           specSetting={specSetting}
