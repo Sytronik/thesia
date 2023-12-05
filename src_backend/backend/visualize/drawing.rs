@@ -232,8 +232,8 @@ impl TrackDrawer for TrackManager {
         let mut arr = Array3::zeros((heights.total, drawing_width_usize, 4));
         arr.slice_mut(s![heights.margin.., .., ..])
             .axis_chunks_iter_mut(Axis(0), heights.ch_and_gap())
+            .into_par_iter()
             .enumerate()
-            .par_bridge()
             .for_each(|(ch, mut arr_ch)| {
                 let mut draw_wav = |i_h, h| {
                     draw_wav_to(

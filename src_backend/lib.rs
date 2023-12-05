@@ -33,9 +33,14 @@ lazy_static! {
 }
 
 #[napi]
-fn init() {
+fn init() -> Result<()> {
     initialize(&TM);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get_physical())
+        .build_global()
+        .expect("rayon init fail");
     img_mgr::spawn_runtime();
+    Ok(())
 }
 
 #[napi]

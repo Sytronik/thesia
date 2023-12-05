@@ -62,7 +62,7 @@ where
             .collect();
 
         if parallel {
-            frames.par_iter_mut().zip(out_frames).for_each(do_fft);
+            frames.par_iter_mut().zip_eq(out_frames).for_each(do_fft);
         } else {
             frames.iter_mut().zip(out_frames).for_each(do_fft);
         }

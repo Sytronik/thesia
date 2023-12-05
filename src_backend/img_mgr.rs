@@ -228,22 +228,22 @@ fn blend_imgs(
         return spec_imgs;
     }
     if abs_diff_eq!(blend, 0.) {
-        wav_imgs.iter_mut().zip(eff_l_w_vec).par_bridge().for_each(
-            |((k, wav_img), (k2, eff_l_w))| {
+        wav_imgs
+            .par_iter_mut()
+            .zip_eq(eff_l_w_vec)
+            .for_each(|((k, wav_img), (k2, eff_l_w))| {
                 assert_eq!(*k, k2);
                 let arr = ArrayViewMut3::from_shape((height as usize, width as usize, 4), wav_img)
                     .unwrap();
                 let (left, eff_width) = eff_l_w;
                 make_opaque(arr, left, eff_width);
-            },
-        );
+            });
         return wav_imgs;
     }
     spec_imgs
-        .into_iter()
-        .zip(wav_imgs)
-        .zip(eff_l_w_vec)
-        .par_bridge()
+        .into_par_iter()
+        .zip_eq(wav_imgs)
+        .zip_eq(eff_l_w_vec)
         .filter_map(|((spec_kv, wav_kv), eff_l_w_kv)| {
             let (k, mut spec_img) = spec_kv;
             let (k2, wav_img) = wav_kv;
