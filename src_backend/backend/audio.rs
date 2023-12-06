@@ -3,6 +3,7 @@ use std::io;
 use std::path::Path;
 
 use ndarray::prelude::*;
+use rayon::prelude::*;
 use symphonia::core::audio::{AudioBuffer, Signal};
 use symphonia::core::codecs::CODEC_TYPE_NULL;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -88,7 +89,12 @@ impl Audio {
 impl GuardClipping<Ix2> for Audio {
     fn clip(&mut self) -> GuardClippingResult<Ix2> {
         let before_clip = self.wavs.clone();
-        self.wavs.mapv_inplace(|x| x.clamp(-1., 1.));
+        self.wavs
+            .axis_iter_mut(Axis(0))
+            .into_par_iter()
+            .for_each(|mut channel| {
+                channel.mapv_inplace(|x| x.clamp(-1., 1.));
+            });
         GuardClippingResult::WavBeforeClip(before_clip)
     }
 
@@ -97,7 +103,11 @@ impl GuardClipping<Ix2> for Audio {
         if peak > 1. {
             let gain = 1. / peak;
             self.wavs
-                .mapv_inplace(|x| ((x as f64 * gain) as f32).clamp(-1., 1.));
+                .axis_iter_mut(Axis(0))
+                .into_par_iter()
+                .for_each(|mut channel| {
+                    channel.mapv_inplace(|x| ((x as f64 * gain) as f32).clamp(-1., 1.));
+                });
             GuardClippingResult::GlobalGain((gain as f32, self.wavs.raw_dim()))
         } else {
             GuardClippingResult::GlobalGain((1., self.wavs.raw_dim()))

@@ -175,16 +175,22 @@ fn categorize_id_ch(
         }
         result
     };
-    let cat_by_spec = if blend > 0. {
-        categorize(spec_caches)
-    } else {
-        Default::default()
-    };
-    let mut cat_by_wav = if blend < 1. {
-        categorize(wav_caches)
-    } else {
-        Default::default()
-    };
+    let (cat_by_spec, mut cat_by_wav) = rayon::join(
+        || {
+            if blend > 0. {
+                categorize(spec_caches)
+            } else {
+                Default::default()
+            }
+        },
+        || {
+            if blend < 1. {
+                categorize(wav_caches)
+            } else {
+                Default::default()
+            }
+        },
+    );
     let mut need_wav_parts_only = Vec::new();
     {
         let (mut i, mut j) = (0, 0);
@@ -295,28 +301,34 @@ async fn categorize_blend_caches(
     );
 
     // crop image cache
-    let (spec_imgs, spec_eff_l_w_vec) = if !cat_by_spec.use_caches.is_empty() {
-        crop_caches(
-            &spec_caches,
-            &cat_by_spec.use_caches,
-            start_sec,
-            width,
-            &option,
-        )
-    } else {
-        (Vec::new(), Vec::new())
-    };
-    let (mut wav_imgs, wav_eff_l_w_vec) = if !cat_by_wav.use_caches.is_empty() {
-        crop_caches(
-            &wav_caches,
-            &cat_by_wav.use_caches,
-            start_sec,
-            width,
-            &option,
-        )
-    } else {
-        (Vec::new(), Vec::new())
-    };
+    let ((spec_imgs, spec_eff_l_w_vec), (mut wav_imgs, wav_eff_l_w_vec)) = rayon::join(
+        || {
+            if !cat_by_spec.use_caches.is_empty() {
+                crop_caches(
+                    &spec_caches,
+                    &cat_by_spec.use_caches,
+                    start_sec,
+                    width,
+                    &option,
+                )
+            } else {
+                (Vec::new(), Vec::new())
+            }
+        },
+        || {
+            if !cat_by_wav.use_caches.is_empty() {
+                crop_caches(
+                    &wav_caches,
+                    &cat_by_wav.use_caches,
+                    start_sec,
+                    width,
+                    &option,
+                )
+            } else {
+                (Vec::new(), Vec::new())
+            }
+        },
+    );
     if !need_wav_parts_only.is_empty() {
         wav_imgs.extend(tm.draw_part_imgs(
             &need_wav_parts_only,

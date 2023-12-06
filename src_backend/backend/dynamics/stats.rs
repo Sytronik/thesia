@@ -5,6 +5,7 @@ use ndarray::prelude::*;
 use ndarray::{Data, RemoveAxis};
 use ndarray_stats::{MaybeNan, QuantileExt};
 use num_traits::{AsPrimitive, Float};
+use rayon::prelude::*;
 
 use super::decibel::DeciBel;
 use super::guardclipping::GuardClippingResult;
@@ -30,11 +31,21 @@ impl StatCalculator {
 
     pub fn calc(&mut self, wavs: ArrayView2<f32>) -> AudioStats {
         self.0.reset();
-        self.0.add_frames_planar_f32(&wavs.planes()).unwrap();
-        let global_lufs = self.0.loudness_global().unwrap();
+        let (global_lufs, mean_squared) = rayon::join(
+            || {
+                self.0.add_frames_planar_f32(&wavs.planes()).unwrap();
+                self.0.loudness_global().unwrap()
+            },
+            || {
+                let n_elem = wavs.len();
+                wavs.axis_iter(Axis(0))
+                    .into_par_iter()
+                    .map(|x| x.iter().map(|x| x.powi(2)).sum::<f32>())
+                    .sum::<f32>()
+                    / n_elem as f32
+            },
+        );
 
-        let n_elem = wavs.len();
-        let mean_squared = wavs.iter().map(|x| x.powi(2)).sum::<f32>() / n_elem as f32;
         #[allow(non_snake_case)]
         let rms_dB = mean_squared.dB_from_power_default();
         let max_peak = wavs.max_peak();
@@ -139,6 +150,7 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
                 let vec = before_clip
                     .lanes(Axis(raw_dim.ndim() - 1))
                     .into_iter()
+                    .par_bridge()
                     .map(GuardClippingStats::from_wav_before_clip)
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
@@ -152,6 +164,7 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
                 let vec = gain_seq
                     .lanes(Axis(raw_dim.ndim() - 1))
                     .into_iter()
+                    .par_bridge()
                     .map(GuardClippingStats::from_gain_seq)
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()

@@ -4,7 +4,7 @@ use std::ops::Index;
 use std::path::PathBuf;
 
 use ndarray::prelude::*;
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
 use super::audio::{open_audio_file, Audio};
