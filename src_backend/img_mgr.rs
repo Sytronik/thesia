@@ -219,7 +219,8 @@ fn categorize_id_ch(
 fn blend_imgs(
     spec_imgs: Images,
     mut wav_imgs: Images,
-    eff_l_w_vec: IdChValueVec<LeftWidth>,
+    spec_eff_l_w_vec: IdChValueVec<LeftWidth>,
+    wav_eff_l_w_vec: IdChValueVec<LeftWidth>,
     width: u32,
     height: u32,
     blend: f64,
@@ -230,9 +231,8 @@ fn blend_imgs(
     if abs_diff_eq!(blend, 0.) {
         wav_imgs
             .par_iter_mut()
-            .zip_eq(eff_l_w_vec)
-            .for_each(|((k, wav_img), (k2, eff_l_w))| {
-                assert_eq!(*k, k2);
+            .zip_eq(wav_eff_l_w_vec)
+            .for_each(|((_, wav_img), (_, eff_l_w))| {
                 let arr = ArrayViewMut3::from_shape((height as usize, width as usize, 4), wav_img)
                     .unwrap();
                 let (left, eff_width) = eff_l_w;
@@ -242,16 +242,23 @@ fn blend_imgs(
     }
     spec_imgs
         .into_par_iter()
-        .zip_eq(wav_imgs)
-        .zip_eq(eff_l_w_vec)
-        .filter_map(|((spec_kv, wav_kv), eff_l_w_kv)| {
+        .zip_eq(spec_eff_l_w_vec)
+        .enumerate()
+        .filter_map(|(i, (spec_kv, eff_l_w_kv))| {
             let (k, mut spec_img) = spec_kv;
-            let (k2, wav_img) = wav_kv;
-            let (k3, eff_l_w) = eff_l_w_kv;
-            assert_eq!(k, k2);
-            assert_eq!(k, k3);
-            blend_img_to(&mut spec_img, &wav_img, width, height, blend, Some(eff_l_w));
-            Some((k, spec_img))
+            let (_, eff_l_w) = eff_l_w_kv;
+            let wav_img_opt = if i < wav_imgs.len() && wav_imgs[i].0 == k {
+                Some(&wav_imgs[i].1)
+            } else {
+                // This rarely happens
+                wav_imgs
+                    .iter()
+                    .find_map(|(wav_k, wav_img)| (*wav_k == k).then_some(wav_img))
+            };
+            wav_img_opt.map(|wav_img| {
+                blend_img_to(&mut spec_img, wav_img, width, height, blend, Some(eff_l_w));
+                (k, spec_img)
+            })
         })
         .collect()
 }
@@ -288,33 +295,27 @@ async fn categorize_blend_caches(
     );
 
     // crop image cache
-    let (spec_imgs, eff_l_w_map) = if !cat_by_spec.use_caches.is_empty() {
-        let (imgs, eff_l_w_map_by_spec) = crop_caches(
+    let (spec_imgs, spec_eff_l_w_vec) = if !cat_by_spec.use_caches.is_empty() {
+        crop_caches(
             &spec_caches,
             &cat_by_spec.use_caches,
             start_sec,
             width,
             &option,
-        );
-        (imgs, Some(eff_l_w_map_by_spec))
+        )
     } else {
-        (Vec::new(), None)
+        (Vec::new(), Vec::new())
     };
-    let (mut wav_imgs, eff_l_w_map) = if !cat_by_wav.use_caches.is_empty() {
-        let (imgs, eff_l_w_map_by_wav) = crop_caches(
+    let (mut wav_imgs, wav_eff_l_w_vec) = if !cat_by_wav.use_caches.is_empty() {
+        crop_caches(
             &wav_caches,
             &cat_by_wav.use_caches,
             start_sec,
             width,
             &option,
-        );
-        if eff_l_w_map.is_none() {
-            (imgs, Some(eff_l_w_map_by_wav))
-        } else {
-            (imgs, eff_l_w_map)
-        }
+        )
     } else {
-        (Vec::new(), eff_l_w_map)
+        (Vec::new(), Vec::new())
     };
     if !need_wav_parts_only.is_empty() {
         wav_imgs.extend(tm.draw_part_imgs(
@@ -334,7 +335,8 @@ async fn categorize_blend_caches(
         blend_imgs(
             spec_imgs,
             wav_imgs,
-            eff_l_w_map.unwrap_or_default(),
+            spec_eff_l_w_vec,
+            wav_eff_l_w_vec,
             width,
             option.height,
             blend,
@@ -392,15 +394,16 @@ async fn draw_new_caches(
     let tm = TM.read().await;
 
     // draw new caches
-    let new_caches = tm.draw_entire_imgs(&need_new_spec_caches, option, ImageKind::Spec);
-    for (k, v) in new_caches {
-        spec_caches.insert(k, v);
-    }
+    let new_spec_caches = tm.draw_entire_imgs(&need_new_spec_caches, option, ImageKind::Spec);
+    let new_wav_caches =
+        tm.draw_entire_imgs(&need_new_wav_caches, option, ImageKind::Wav(opt_for_wav));
 
-    let new_caches = tm.draw_entire_imgs(&need_new_wav_caches, option, ImageKind::Wav(opt_for_wav));
-    for (k, v) in new_caches {
+    new_spec_caches.into_par_iter().for_each(|(k, v)| {
+        spec_caches.insert(k, v);
+    });
+    new_wav_caches.into_par_iter().for_each(|(k, v)| {
         wav_caches.insert(k, v);
-    }
+    });
 
     // blend new caches (and existing caches if needed)
     let id_ch_vec_for_blend = {
@@ -415,7 +418,7 @@ async fn draw_new_caches(
     if id_ch_vec_for_blend.is_empty() {
         return Images::new();
     }
-    let (spec_imgs, _) = crop_caches(
+    let (spec_imgs, spec_eff_l_w_vec) = crop_caches(
         &spec_caches,
         &id_ch_vec_for_blend,
         start_sec,
@@ -426,12 +429,13 @@ async fn draw_new_caches(
     if id_ch_vec_for_blend.is_empty() {
         return Images::new();
     }
-    let (wav_imgs, eff_l_w_vec) =
+    let (wav_imgs, wav_eff_l_w_vec) =
         crop_caches(&wav_caches, &id_ch_vec_for_blend, start_sec, width, &option);
     blend_imgs(
         spec_imgs,
         wav_imgs,
-        eff_l_w_vec,
+        spec_eff_l_w_vec,
+        wav_eff_l_w_vec,
         width,
         option.height,
         blend,
@@ -531,10 +535,10 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
                 if let Some(prev_task) = task_handle.take() {
                     prev_task.await.ok();
                 }
-                for tup in &id_ch_tuples {
+                id_ch_tuples.par_iter().for_each(|tup| {
                     spec_caches.remove(tup);
                     wav_caches.remove(tup);
-                }
+                });
             }
         }
     }
