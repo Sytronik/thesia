@@ -23,6 +23,7 @@ pub use visualize::{AxisMarkers, CalcAxisMarkers, DrawOption, DrawOptionForWav, 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
 pub type IdChValueVec<T> = Vec<((usize, usize), T)>;
+pub type IdChValueArr<T> = [((usize, usize), T)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 pub type IdChDMap<T> = DashMap<(usize, usize), T>;
 

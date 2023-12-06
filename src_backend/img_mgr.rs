@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use crate::visualize::*;
-use crate::{IdChArr, IdChDMap, IdChMap, IdChValueVec, IdChVec, Pad, TM};
+use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad, TM};
 
 type Images = IdChValueVec<Vec<u8>>;
 type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
@@ -151,7 +151,7 @@ fn crop_caches(
 }
 
 fn categorize_id_ch(
-    id_ch_tuples: IdChVec,
+    id_ch_tuples: &IdChArr,
     total_widths: &IdChMap<u32>,
     spec_caches: &ArcImgCaches,
     wav_caches: &ArcImgCaches,
@@ -159,7 +159,7 @@ fn categorize_id_ch(
 ) -> (CategorizedIdChVec, CategorizedIdChVec, IdChVec) {
     let categorize = |images: &ArcImgCaches| {
         let mut result = CategorizedIdChVec::default();
-        for &tup in &id_ch_tuples {
+        for &tup in id_ch_tuples {
             let not_long_w = *total_widths.get(&tup).unwrap() <= MAX_IMG_CACHE_WIDTH;
             // let not_long_w = true;
             match (images.contains_key(&tup), not_long_w) {
@@ -219,8 +219,8 @@ fn categorize_id_ch(
 fn blend_imgs(
     spec_imgs: Images,
     mut wav_imgs: Images,
-    spec_eff_l_w_vec: IdChValueVec<LeftWidth>,
-    wav_eff_l_w_vec: IdChValueVec<LeftWidth>,
+    spec_eff_l_w_vec: &IdChValueArr<LeftWidth>,
+    wav_eff_l_w_vec: &IdChValueArr<LeftWidth>,
     width: u32,
     height: u32,
     blend: f64,
@@ -235,7 +235,7 @@ fn blend_imgs(
             .for_each(|((_, wav_img), (_, eff_l_w))| {
                 let arr = ArrayViewMut3::from_shape((height as usize, width as usize, 4), wav_img)
                     .unwrap();
-                let (left, eff_width) = eff_l_w;
+                let &(left, eff_width) = eff_l_w;
                 make_opaque(arr, left, eff_width);
             });
         return wav_imgs;
@@ -246,7 +246,7 @@ fn blend_imgs(
         .enumerate()
         .filter_map(|(i, (spec_kv, eff_l_w_kv))| {
             let (k, mut spec_img) = spec_kv;
-            let (_, eff_l_w) = eff_l_w_kv;
+            let &(_, eff_l_w) = eff_l_w_kv;
             let wav_img_opt = if i < wav_imgs.len() && wav_imgs[i].0 == k {
                 Some(&wav_imgs[i].1)
             } else {
@@ -287,7 +287,7 @@ async fn categorize_blend_caches(
     }));
 
     let (cat_by_spec, cat_by_wav, need_wav_parts_only) = categorize_id_ch(
-        id_ch_tuples,
+        &id_ch_tuples,
         &total_widths,
         &spec_caches,
         &wav_caches,
@@ -335,8 +335,8 @@ async fn categorize_blend_caches(
         blend_imgs(
             spec_imgs,
             wav_imgs,
-            spec_eff_l_w_vec,
-            wav_eff_l_w_vec,
+            &spec_eff_l_w_vec,
+            &wav_eff_l_w_vec,
             width,
             option.height,
             blend,
@@ -434,8 +434,8 @@ async fn draw_new_caches(
     blend_imgs(
         spec_imgs,
         wav_imgs,
-        spec_eff_l_w_vec,
-        wav_eff_l_w_vec,
+        &spec_eff_l_w_vec,
+        &wav_eff_l_w_vec,
         width,
         option.height,
         blend,
