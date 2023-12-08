@@ -1,7 +1,7 @@
 // https://librosa.org/doc/0.8.0/_modules/librosa/filters.html#mel
 
 use ndarray::prelude::*;
-use ndarray::{ScalarOperand, Zip};
+use ndarray::ScalarOperand;
 use num_traits::{AsPrimitive, NumAssignOps};
 use rustfft::num_traits::Float;
 
@@ -62,10 +62,10 @@ where
 
     let linear_freqs = Array::linspace(A::zero(), f_nyquist, n_freq);
     let mut mel_freqs = Array::linspace(from_hz(fmin), from_hz(fmax), n_mel + 2);
-    mel_freqs.par_mapv_inplace(to_hz);
+    mel_freqs.mapv_inplace(to_hz);
 
-    let mut weights = Array2::<A>::zeros((n_freq, n_mel));
-    Zip::indexed(weights.axis_iter_mut(Axis(1))).par_for_each(|i_m, mut w| {
+    let mut weights = Array2::<A>::zeros((n_mel, n_freq));
+    for (i_m, mut w) in weights.axis_iter_mut(Axis(0)).enumerate() {
         for (i_f, &f) in linear_freqs.indexed_iter() {
             if f <= mel_freqs[i_m] {
                 continue;
@@ -82,8 +82,8 @@ where
         if do_norm {
             w /= w.sum().max(A::epsilon());
         }
-    });
-    weights
+    }
+    weights.t().as_standard_layout().into_owned()
 }
 
 pub fn calc_mel_fb_default(sr: u32, n_fft: usize) -> Array2<f32> {
