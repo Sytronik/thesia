@@ -266,7 +266,9 @@ fn calc_dB_axis_markers(
     max_num_labels: u32,
     dB_range: (f32, f32),
 ) -> AxisMarkers {
-    assert!(dB_range.1 > dB_range.0);
+    if !dB_range.0.is_finite() || !dB_range.1.is_finite() || dB_range.0 >= dB_range.1 {
+        return AxisMarkers::new();
+    }
     assert!(max_num_ticks >= 2);
     let axis = calc_linear_axis(dB_range.0, dB_range.1, max_num_ticks);
     let len = axis.len();
