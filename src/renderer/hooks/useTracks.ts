@@ -151,6 +151,10 @@ function useTracks() {
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
+  const finishRefreshTracks = useEvent(() => {
+    setNeedRefreshTrackIdChArr([]);
+  });
+
   return {
     trackIds,
     erroredTrackIds,
@@ -170,6 +174,7 @@ function useTracks() {
     setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
+    finishRefreshTracks,
   };
 }
 

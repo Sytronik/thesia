@@ -30,6 +30,7 @@ function App() {
     setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
+    finishRefreshTracks,
   } = useTracks();
   const {selectedTrackIds, selectTrack, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks} =
     useSelectedTracks();
@@ -170,6 +171,7 @@ function App() {
           reloadTracks={reloadTracks}
           removeTracks={removeTracks}
           selectTrack={selectTrack}
+          finishRefreshTracks={finishRefreshTracks}
         />
       </DevicePixelRatioProvider>
     </div>

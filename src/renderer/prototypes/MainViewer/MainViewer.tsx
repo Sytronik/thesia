@@ -58,6 +58,7 @@ type MainViewerProps = {
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => Promise<void>;
   selectTrack: (e: React.MouseEvent, id: number) => void;
+  finishRefreshTracks: () => void;
 };
 
 function MainViewer(props: MainViewerProps) {
@@ -74,6 +75,7 @@ function MainViewer(props: MainViewerProps) {
     reloadTracks,
     removeTracks,
     selectTrack,
+    finishRefreshTracks,
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
@@ -530,19 +532,20 @@ function MainViewer(props: MainViewerProps) {
     normalizePxPerSec,
   ]);
 
-  const refreshImg = useEvent(() => {
-    const currentIdChArr = needRefreshTrackIdChArr.length ? needRefreshTrackIdChArr : getIdChArr();
+  // refresh tracks (currently all tracks, in the future, only tracks inside viewport)
+  const refreshImgs = useEvent(() => {
+    const currentIdChArr = getIdChArr();
     if (currentIdChArr.length) throttledSetImgState(currentIdChArr, width, imgHeight);
   });
 
-  useEffect(refreshImg, [
-    refreshImg,
-    throttledSetImgState,
-    getIdChArr,
-    width,
-    imgHeight,
-    needRefreshTrackIdChArr,
-  ]);
+  useEffect(refreshImgs, [refreshImgs]);
+
+  // refresh "needRefresh" Tracks
+  useEffect(() => {
+    if (needRefreshTrackIdChArr.length === 0) return;
+    throttledSetImgState(needRefreshTrackIdChArr, width, imgHeight);
+    finishRefreshTracks();
+  }, [throttledSetImgState, width, imgHeight, needRefreshTrackIdChArr, finishRefreshTracks]);
 
   const mainViewerElemCallback = useCallback(
     (node) => {

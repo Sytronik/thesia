@@ -6,15 +6,15 @@ import waveformMode from "../../../../assets/icons/waveform_mode.svg";
 
 type SlideBarProps = {
   blendRef: MutableRefObject<number>;
-  refreshImg: () => void;
+  refreshImgs: () => void;
 };
 
 function SlideBar(props: SlideBarProps) {
-  const {blendRef, refreshImg} = props;
+  const {blendRef, refreshImgs} = props;
 
   const setBlend = (value: string) => {
     blendRef.current = Number.parseFloat(value);
-    refreshImg();
+    refreshImgs();
   };
 
   const onBlendChange = (e: React.ChangeEvent<HTMLInputElement>) => {
