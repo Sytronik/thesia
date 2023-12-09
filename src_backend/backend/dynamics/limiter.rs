@@ -5,8 +5,9 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
-use ndarray::AssignElem;
 use num_traits::{Float, NumAssignOps, NumOps};
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 
 use super::envelope::{BoxStackFilter, PeakHold};
 
@@ -92,7 +93,7 @@ impl PerfectLimiter {
     }
 
     /// process one sample, and returns (delayed_output, gain)
-    pub fn step(&mut self, value: ArrayView1<f32>) -> (Array1<f32>, f32) {
+    pub fn _step(&mut self, value: ArrayView1<f32>) -> (Array1<f32>, f32) {
         let mut delayed = self.buffer.slice(s![self.i_buf, ..]).to_owned();
         let gain = self.calc_gain(value);
         azip!((y in &mut self.buffer.slice_mut(s![self.i_buf, ..]), x in &value) *y = *x as f64);
@@ -109,25 +110,32 @@ impl PerfectLimiter {
         (out, gain as f32)
     }
 
-    /// apply limiter to wav inplace, return gain array
+    /// apply limiter to wav inplace , return gain array. parallel over channel axis (=Axis(0))
     pub fn process_inplace(&mut self, mut wavs: ArrayViewMut2<f32>) -> Array1<f32> {
-        let (n_ch, len) = (wavs.shape()[0], wavs.shape()[1]);
-        self.reset(n_ch);
-        let mut gain_seq = Array1::uninit(len);
-        for i in 0..(len + self.buffer.len()) {
-            let input: CowArray<f32, Ix1> = if i < len {
-                wavs.slice(s![.., i]).into()
-            } else {
-                Array1::zeros(wavs.shape()[0]).into()
-            };
-            let (output, gain) = self.step(input.view());
-            if i >= self.buffer.len() {
-                let j = i - self.buffer.len();
-                wavs.slice_mut(s![.., j]).assign(&output);
-                gain_seq[j].assign_elem(gain);
-            }
-        }
-        unsafe { gain_seq.assume_init() }
+        self.reset(0);
+
+        let zero = Array1::zeros(wavs.shape()[0]);
+        let attack = self.attack;
+        let gain_seq: Array1<_> = wavs
+            .lanes(Axis(0))
+            .into_iter()
+            .chain(std::iter::repeat(zero.view()).take(attack))
+            .map(|x| self.calc_gain(x))
+            .skip(attack)
+            .collect();
+
+        wavs.axis_iter_mut(Axis(0))
+            .into_par_iter()
+            .for_each(|mut ch| {
+                for (x, &gain) in ch.iter_mut().zip(&gain_seq) {
+                    let y = *x as f64 * gain;
+                    debug_assert!(
+                        -1. - (f32::EPSILON as f64) < y && y < 1. + (f32::EPSILON as f64)
+                    );
+                    *x = y.clamp(-1., 1.) as f32;
+                }
+            });
+        gain_seq.mapv(|x| x as f32)
     }
 
     /// apply limiter to wav, return (output, gain array)
