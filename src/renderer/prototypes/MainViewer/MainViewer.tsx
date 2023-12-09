@@ -532,20 +532,23 @@ function MainViewer(props: MainViewerProps) {
     normalizePxPerSec,
   ]);
 
-  // refresh tracks (currently all tracks, in the future, only tracks inside viewport)
-  const refreshImgs = useEvent(() => {
-    const currentIdChArr = getIdChArr();
-    if (currentIdChArr.length) throttledSetImgState(currentIdChArr, width, imgHeight);
-  });
+  const refreshImgs = useCallback(() => {
+    if (needRefreshTrackIdChArr.length > 0) {
+      throttledSetImgState(needRefreshTrackIdChArr, width, imgHeight);
+      finishRefreshTracks();
+    } else {
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+    }
+  }, [
+    throttledSetImgState,
+    getIdChArr,
+    width,
+    imgHeight,
+    needRefreshTrackIdChArr,
+    finishRefreshTracks,
+  ]);
 
   useEffect(refreshImgs, [refreshImgs]);
-
-  // refresh "needRefresh" Tracks
-  useEffect(() => {
-    if (needRefreshTrackIdChArr.length === 0) return;
-    throttledSetImgState(needRefreshTrackIdChArr, width, imgHeight);
-    finishRefreshTracks();
-  }, [throttledSetImgState, width, imgHeight, needRefreshTrackIdChArr, finishRefreshTracks]);
 
   const mainViewerElemCallback = useCallback(
     (node) => {
@@ -575,7 +578,7 @@ function MainViewer(props: MainViewerProps) {
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
         />
-        <SlideBar blendRef={blendRef} refreshImg={refreshImg} />
+        <SlideBar blendRef={blendRef} refreshImgs={refreshImgs} />
       </div>
       <div
         className={`${styles.MainViewer} row-flex`}
