@@ -53,7 +53,8 @@ pub struct PerfectLimiter {
     peakhold: PeakHold<f64>,
     release: ExponentialRelease<f64>,
     smoother: BoxStackFilter<f64>,
-    buffer: Vec<f32>,
+    /// buffer of interleaved samples
+    buffer: Array2<f64>,
     i_buf: usize,
 }
 
@@ -73,7 +74,7 @@ impl PerfectLimiter {
             peakhold: PeakHold::new(sr, attack_ms + hold_ms),
             release: ExponentialRelease::new(ms_to_samples(release_ms)),
             smoother,
-            buffer: vec![0.; attack],
+            buffer: Array2::zeros((attack, 0)),
             i_buf: 0,
         }
     }
@@ -83,35 +84,46 @@ impl PerfectLimiter {
         Self::new(sr, 1., 5., 15., 40.)
     }
 
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, n_ch: usize) {
         self.peakhold.reset_default();
         self.release.reset();
         self.smoother.reset(1.);
-        self.buffer.fill(0.);
+        self.buffer = Array2::zeros((self.attack, n_ch));
     }
 
     /// process one sample, and returns (delayed_output, gain)
-    pub fn step(&mut self, value: f32) -> (f32, f32) {
-        let delayed = self.buffer[self.i_buf] as f64;
+    pub fn step(&mut self, value: ArrayView1<f32>) -> (Array1<f32>, f32) {
+        let mut delayed = self.buffer.slice(s![self.i_buf, ..]).to_owned();
         let gain = self.calc_gain(value);
-        self.buffer[self.i_buf] = value;
-        self.i_buf = (self.i_buf + 1) % self.buffer.len();
+        azip!((y in &mut self.buffer.slice_mut(s![self.i_buf, ..]), x in &value) *y = *x as f64);
+        self.i_buf = (self.i_buf + 1) % self.buffer.shape()[0];
         // println!("i={} d={} g={}", value, delayed, gain);
-        let out = (delayed * gain) as f32;
-        debug_assert!(-1. - f32::EPSILON < out && out < 1. + f32::EPSILON);
-        (out.clamp(-1., 1.), gain as f32)
+        delayed *= gain;
+        for &y in &delayed {
+            debug_assert!(-1. - (f32::EPSILON as f64) < y && y < 1. + (f32::EPSILON as f64));
+        }
+        let out = delayed
+            .into_iter()
+            .map(|y| y.clamp(-1., 1.) as f32)
+            .collect();
+        (out, gain as f32)
     }
 
     /// apply limiter to wav inplace, return gain array
-    pub fn process_inplace(&mut self, mut wav: ArrayViewMut1<f32>) -> Array1<f32> {
-        self.reset();
-        let mut gain_seq = Array1::uninit(wav.raw_dim());
-        for i in 0..(wav.len() + self.buffer.len()) {
-            let input = if i < wav.len() { wav[i] } else { 0. };
-            let (output, gain) = self.step(input);
+    pub fn process_inplace(&mut self, mut wavs: ArrayViewMut2<f32>) -> Array1<f32> {
+        let (n_ch, len) = (wavs.shape()[0], wavs.shape()[1]);
+        self.reset(n_ch);
+        let mut gain_seq = Array1::uninit(len);
+        for i in 0..(len + self.buffer.len()) {
+            let input: CowArray<f32, Ix1> = if i < len {
+                wavs.slice(s![.., i]).into()
+            } else {
+                Array1::zeros(wavs.shape()[0]).into()
+            };
+            let (output, gain) = self.step(input.view());
             if i >= self.buffer.len() {
                 let j = i - self.buffer.len();
-                wav[j] = output;
+                wavs.slice_mut(s![.., j]).assign(&output);
                 gain_seq[j].assign_elem(gain);
             }
         }
@@ -120,14 +132,14 @@ impl PerfectLimiter {
 
     /// apply limiter to wav, return (output, gain array)
     #[inline]
-    pub fn _process(&mut self, wav: ArrayView1<f32>) -> (Array1<f32>, Array1<f32>) {
-        let mut out = wav.to_owned();
+    pub fn _process(&mut self, wavs: ArrayView2<f32>) -> (Array2<f32>, Array1<f32>) {
+        let mut out = wavs.to_owned();
         let gain_seq = self.process_inplace(out.view_mut());
         (out, gain_seq)
     }
 
-    fn calc_gain(&mut self, value: f32) -> f64 {
-        let v_abs = value.abs() as f64;
+    fn calc_gain(&mut self, value: ArrayView1<f32>) -> f64 {
+        let v_abs = value.iter().map(|x| x.abs()).reduce(f32::max).unwrap() as f64;
         let raw_gain = if v_abs > self.threshold {
             self.threshold / (v_abs + f64::EPSILON)
         } else {
@@ -263,11 +275,10 @@ mod tests {
     #[test]
     fn limiter_works() {
         let path = "samples/sample_48k.wav";
-        let (wavs, sr, _) = open_audio_file(path).unwrap();
-        let mut wav = wavs.slice_move(s![0, ..]);
+        let (mut wavs, sr, _) = open_audio_file(path).unwrap();
         let mut limiter = PerfectLimiter::new(sr, 1., 5., 15., 40.);
-        wav *= 8.;
-        let gain_seq = limiter.process_inplace(wav.view_mut());
+        wavs *= 8.;
+        let gain_seq = limiter.process_inplace(wavs.view_mut());
         assert!(gain_seq.iter().all(|x| (0.0..1.0).contains(x)));
 
         let spec = hound::WavSpec {
@@ -278,7 +289,7 @@ mod tests {
         };
         let mut writer =
             hound::WavWriter::create("samples/sample_48k_plus18dB_limit.wav", spec).unwrap();
-        for sample in wav.into_iter() {
+        for sample in wavs.into_iter() {
             writer.write_sample(sample).unwrap();
         }
         writer.finalize().unwrap();

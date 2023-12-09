@@ -270,10 +270,13 @@ impl TrackDrawer for TrackManager {
                     GuardClippingResult::GainSequence(gain_seq)
                         if draw_gain_heights != Default::default() =>
                     {
-                        let gain_seq_ch = gain_seq.slice(s![ch, ..]);
-                        let neg_gain_seq_ch = gain_seq_ch.neg();
                         let (gain_h, wav_h) = draw_gain_heights;
                         draw_wav(gain_h, wav_h);
+                        if ch > 0 {
+                            return;
+                        }
+                        let gain_seq = gain_seq.slice(s![0, ..]);
+                        let neg_gain_seq = gain_seq.neg();
                         let mut draw_gain = |i_h, gain: ArrayView1<f32>, amp_range, draw_bottom| {
                             draw_limiter_gain_to(
                                 arr_ch
@@ -287,8 +290,8 @@ impl TrackDrawer for TrackManager {
                                 draw_bottom,
                             );
                         };
-                        draw_gain(0, gain_seq_ch, (0.5, 1.), true);
-                        draw_gain(gain_h + wav_h, neg_gain_seq_ch.view(), (-1., -0.5), false);
+                        draw_gain(0, gain_seq, (0.5, 1.), true);
+                        draw_gain(gain_h + wav_h, neg_gain_seq.view(), (-1., -0.5), false);
                     }
                     _ => {
                         draw_wav(0, heights.ch);
@@ -296,6 +299,29 @@ impl TrackDrawer for TrackManager {
                 }
             });
 
+        if draw_gain_heights != Default::default() {
+            let (gain_h, wav_h) = draw_gain_heights;
+            let gain_upper = arr
+                .slice(s![heights.margin.., .., ..])
+                .slice(s![..gain_h, .., ..])
+                .to_owned();
+            let gain_lower = arr
+                .slice(s![heights.margin.., .., ..])
+                .slice(s![(gain_h + wav_h)..heights.ch, .., ..])
+                .to_owned();
+
+            arr.slice_mut(s![heights.margin.., .., ..])
+                .axis_chunks_iter_mut(Axis(0), heights.ch_and_gap())
+                .into_par_iter()
+                .enumerate()
+                .filter(|(ch, _)| *ch > 0)
+                .for_each(|(_, mut arr_ch)| {
+                    arr_ch.slice_mut(s![..gain_h, .., ..]).assign(&gain_upper);
+                    arr_ch
+                        .slice_mut(s![(gain_h + wav_h)..heights.ch, .., ..])
+                        .assign(&gain_lower);
+                });
+        }
         if width != drawing_width {
             arr = arr.pad((pad_left, pad_right), Axis(1), Default::default());
         }
