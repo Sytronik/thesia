@@ -193,3 +193,12 @@ export const FIT_TOLERANCE_SEC = 1e-6;
 export const DEFAULT_AMP_RANGE: [number, number] = [-1, 1];
 export const MIN_ABS_AMP_RANGE = 1e-5;
 export const MAX_ABS_AMP_RANGE = 2;
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const MIN_COMMON_NORMALIZE_dB = -40;
+export const COMMON_NORMALIZE_DB_DETENTS = [-26, -18, 0];
+
+export const DB_RANGE_MIN_MAX = [40, 120];
+export const DB_RANGE_DETENTS = [40, 80, 120];
+
+export const T_OVERLAP_VALUES = [1, 2, 4, 8, 16, 32];

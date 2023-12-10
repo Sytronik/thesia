@@ -1,4 +1,6 @@
-import React, {useMemo, useRef, useState} from "react";
+import React, {useRef, useState} from "react";
+import useEvent from "react-use-event-hook";
+import {debounce, throttle} from "throttle-debounce";
 import {
   SpecSetting,
   GuardClippingMode,
@@ -7,10 +9,15 @@ import {
   NormalizeOnType,
   NormalizeOnTypeValues,
 } from "renderer/api/backend-wrapper";
-import useEvent from "react-use-event-hook";
-import {debounce, throttle} from "throttle-debounce";
 import FloatRangeInput from "renderer/modules/FloatRangeInput";
 import styles from "./Control.scss";
+import {
+  COMMON_NORMALIZE_DB_DETENTS,
+  DB_RANGE_DETENTS,
+  DB_RANGE_MIN_MAX,
+  MIN_COMMON_NORMALIZE_dB,
+  T_OVERLAP_VALUES,
+} from "../constants";
 
 type ControlProps = {
   specSetting: SpecSetting;
@@ -34,9 +41,6 @@ function Control(props: ControlProps) {
     commonNormalize,
     setCommonNormalize,
   } = props;
-
-  const dBRangeDetents = useMemo(() => [40, 80, 120], []);
-  const normalizedBDetents = useMemo(() => [-26, -18, 0], []);
 
   const [cursorOnFreqScaleBtn, setCursorOnFreqScaleBtn] = useState<boolean>(false);
   const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(0.0);
@@ -140,13 +144,13 @@ function Control(props: ControlProps) {
             id="dBRange"
             className={styles.dBRange}
             unit="dB"
-            min={40}
-            max={120}
+            min={DB_RANGE_MIN_MAX[0]}
+            max={DB_RANGE_MIN_MAX[1]}
             step={1}
             precision={0}
-            detents={dBRangeDetents}
+            detents={DB_RANGE_DETENTS}
             initialValue={dBRange}
-            doubleClickValue={120}
+            doubleClickValue={DB_RANGE_MIN_MAX[1]}
             onChangeValue={(value) => throttledSetdBRange(value)}
           />
         </div>
@@ -174,12 +178,9 @@ function Control(props: ControlProps) {
             defaultValue={specSetting.tOverlap}
             onChange={onTOverlapChange}
           >
-            <option value="1">1x</option>
-            <option value="2">2x</option>
-            <option value="4">4x</option>
-            <option value="8">8x</option>
-            <option value="16">16x</option>
-            <option value="32">32x</option>
+            {T_OVERLAP_VALUES.map((v) => (
+              <option key={`t-overlap-${v}x`} value={`${v}`}>{`${v}x`}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -205,12 +206,12 @@ function Control(props: ControlProps) {
             className={styles.commonNormalizedBInput}
             id="commonNormalizedBInput"
             unit="dB"
-            min={-60}
+            min={MIN_COMMON_NORMALIZE_dB}
             max={0}
             step={0.01}
             precision={2}
-            detents={normalizedBDetents}
-            initialValue={-60}
+            detents={COMMON_NORMALIZE_DB_DETENTS}
+            initialValue={MIN_COMMON_NORMALIZE_dB}
             disabled={!isCommonNormalizeOn}
             onChangeValue={onCommonNormalizedBInputChange}
           />
