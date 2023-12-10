@@ -1,3 +1,4 @@
+use std::num::Wrapping;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
@@ -31,7 +32,7 @@ lazy_static! {
 }
 
 static mut MSG_TX: Option<Sender<ImgMsg>> = None;
-static mut IMG_RX: Option<Receiver<Images>> = None;
+static mut IMG_RX: Option<Receiver<(Wrapping<usize>, Images)>> = None;
 
 #[derive(Clone, PartialEq)]
 pub struct DrawParams {
@@ -99,9 +100,30 @@ pub fn recv() -> Option<Images> {
     let mut cx = Context::from_waker(&waker);
 
     let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
+    let mut max_req_id = Wrapping(0);
     let mut opt_images: Option<Images> = None;
-    while let Poll::Ready(Some(x)) = img_rx.poll_recv(&mut cx) {
-        opt_images = Some(x);
+    while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
+        let max_largely_skip = max_req_id + Wrapping(usize::MAX / 2);
+        let max_wrapped = max_largely_skip < max_req_id;
+        let curr_largely_skip = curr_req_id + Wrapping(usize::MAX / 2);
+        let curr_wrapped = curr_largely_skip < curr_req_id;
+        // assume curr_req_id and max_req_id is not too far
+        // 0--curr--max-------------LIMIT  -> X
+        // 0-------------curr--max--LIMIT  -> X
+        // 0--------curr--max-------LIMIT  -> X
+        // 0--max-------------curr--LIMIT  -> X
+        if curr_req_id == max_req_id
+        // 0--max--curr-------------LIMIT
+        // 0-------------max--curr--LIMIT
+        || !(curr_wrapped ^ max_wrapped) && max_req_id < curr_req_id
+        // 0--------max--curr-------LIMIT
+        || curr_wrapped && !max_wrapped && curr_largely_skip < max_req_id
+        // 0--curr-------------max--LIMIT
+        || !curr_wrapped && max_wrapped && curr_req_id < max_largely_skip
+        {
+            max_req_id = curr_req_id;
+            opt_images = Some(imgs);
+        }
     }
 
     opt_images
@@ -459,7 +481,8 @@ async fn draw_imgs(
     params: Arc<RwLock<DrawParams>>,
     spec_caches: ArcImgCaches,
     wav_caches: ArcImgCaches,
-    img_tx: Sender<Images>,
+    img_tx: Sender<(Wrapping<usize>, Images)>,
+    req_id: Wrapping<usize>,
 ) {
     let params_backup = params.read().clone();
     let (total_widths, cat_by_spec, cat_by_wav, blended_imgs) = categorize_blend_caches(
@@ -471,7 +494,7 @@ async fn draw_imgs(
     .await;
     if !blended_imgs.is_empty() {
         // println!("send cached images");
-        img_tx.send(blended_imgs).await.unwrap();
+        img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
     if *params.read() != params_backup {
         return;
@@ -487,7 +510,7 @@ async fn draw_imgs(
     .await;
     if !blended_imgs.is_empty() {
         // println!("send part images");
-        img_tx.send(blended_imgs).await.unwrap();
+        img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
     if *params.read() != params_backup {
         return;
@@ -504,14 +527,15 @@ async fn draw_imgs(
     .await;
     if !blended_imgs.is_empty() {
         // println!("send new cached images");
-        img_tx.send(blended_imgs).await.unwrap();
+        img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
 }
 
-async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
+async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>, Images)>) {
     let spec_caches = Arc::new(IdChDMap::new());
     let wav_caches = Arc::new(IdChDMap::new());
     let prev_params = Arc::new(RwLock::new(DrawParams::default()));
+    let mut req_id = Wrapping(0);
     let mut task_handle: Option<JoinHandle<()>> = None;
     while let Some(msg) = msg_rx.recv().await {
         match msg {
@@ -521,12 +545,6 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
                     if let Some(prev_task) = task_handle.take() {
                         prev_task.abort();
                     }
-                    // if draw_params != *prev_params_write {
-                    //     let waker = task::noop_waker();
-                    //     let mut cx = Context::from_waker(&waker);
-                    //     let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
-                    //     while let Poll::Ready(Some(_)) = img_rx.poll_recv(&mut cx) {}
-                    // }
                     if draw_params.option != prev_params_write.option {
                         spec_caches.clear();
                         wav_caches.clear();
@@ -541,7 +559,9 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
                     Arc::clone(&spec_caches),
                     Arc::clone(&wav_caches),
                     img_tx.clone(),
+                    req_id,
                 )));
+                req_id += 1;
             }
             ImgMsg::Remove(id_ch_tuples) => {
                 if let Some(prev_task) = task_handle.take() {
