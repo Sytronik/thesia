@@ -557,6 +557,11 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<Images>) {
 }
 
 pub fn spawn_runtime() {
+    unsafe {
+        if MSG_TX.is_some() && IMG_RX.is_some() {
+            return;
+        }
+    }
     initialize(&RUNTIME);
 
     let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(60);

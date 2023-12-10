@@ -133,6 +133,11 @@ impl TrackManager {
     }
 
     #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.tracklist.is_empty()
+    }
+
+    #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
         self.specs.contains_key(&(id, ch))
     }

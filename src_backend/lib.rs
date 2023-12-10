@@ -35,10 +35,17 @@ lazy_static! {
 #[napi]
 fn init() -> Result<()> {
     initialize(&TM);
+    {
+        let mut tm = TM.blocking_write();
+        if !tm.is_empty() {
+            *tm = TrackManager::new();
+        }
+    }
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
         .build_global()
-        .expect("rayon init fail");
+        .unwrap_or_default();
+
     img_mgr::spawn_runtime();
     Ok(())
 }

@@ -356,6 +356,11 @@ impl TrackList {
     }
 
     #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.tracks.is_empty() || self.tracks.iter().all(|x| x.is_none())
+    }
+
+    #[inline]
     pub fn has(&self, id: usize) -> bool {
         id < self.tracks.len() && self.tracks[id].is_some()
     }
