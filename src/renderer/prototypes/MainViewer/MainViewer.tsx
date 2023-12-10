@@ -494,6 +494,9 @@ function MainViewer(props: MainViewerProps) {
           ref={timeCanvasElem}
           width={width}
           shiftWhenResize={!canvasIsFit}
+          startSecRef={startSecRef}
+          pxPerSecRef={pxPerSecRef}
+          moveLens={moveLens}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
