@@ -74,11 +74,11 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 }
 
 #[napi]
-async fn remove_tracks(track_ids: Vec<u32>) {
+fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let mut tm = TM.write().await;
+    let mut tm = TM.blocking_write();
     tokio::spawn(img_mgr::send(ImgMsg::Remove(
         tm.id_ch_tuples_from(&track_ids),
     )));

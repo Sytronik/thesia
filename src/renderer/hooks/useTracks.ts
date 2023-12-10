@@ -114,9 +114,9 @@ function useTracks() {
     setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, [erroredId]));
   });
 
-  const removeTracks = useEvent(async (ids: number[]) => {
+  const removeTracks = useEvent((ids: number[]) => {
     try {
-      await BackendAPI.removeTracks(ids);
+      BackendAPI.removeTracks(ids);
       setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
       setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 

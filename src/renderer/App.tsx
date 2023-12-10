@@ -98,7 +98,7 @@ function App() {
 
   useEffect(() => {
     ipcRenderer.on("delete-track", async (_, targetTrackId) => {
-      await removeTracks([targetTrackId]);
+      removeTracks([targetTrackId]);
       await refreshTracks();
     });
     return () => {

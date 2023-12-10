@@ -56,7 +56,7 @@ type MainViewerProps = {
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
-  removeTracks: (ids: number[]) => Promise<void>;
+  removeTracks: (ids: number[]) => void;
   selectTrack: (e: Event | React.MouseEvent, id: number) => void;
   finishRefreshTracks: () => void;
 };
@@ -128,7 +128,7 @@ function MainViewer(props: MainViewerProps) {
     await refreshTracks();
   });
   const removeAndRefreshTracks = useEvent(async (ids: number[]) => {
-    await removeTracks(ids);
+    removeTracks(ids);
     await refreshTracks();
   });
 

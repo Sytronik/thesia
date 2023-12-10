@@ -25,7 +25,7 @@ export interface DrawOption {
 export function init(): void
 export function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
-export function removeTracks(trackIds: Array<number>): Promise<void>
+export function removeTracks(trackIds: Array<number>): void
 export function applyTrackListChanges(): Promise<Array<string>>
 export function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
 export function getdBRange(): number
