@@ -41,9 +41,9 @@ import {
   VERTICAL_AXIS_PADDING,
   MAX_PX_PER_SEC,
   FIT_TOLERANCE_SEC,
-  TIME_CANVAS_HEIGHT,
   DEFAULT_AMP_RANGE,
 } from "../constants";
+import isCommand from "../../utils/commandKey";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -57,7 +57,7 @@ type MainViewerProps = {
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => Promise<void>;
-  selectTrack: (e: React.MouseEvent, id: number) => void;
+  selectTrack: (e: Event | React.MouseEvent, id: number) => void;
   finishRefreshTracks: () => void;
 };
 
@@ -110,6 +110,7 @@ function MainViewer(props: MainViewerProps) {
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
+  const [trackInfosRef, registerTrackInfos] = useRefs<TrackInfoElement>();
 
   const prevCursorClientY = useRef<number>(0);
   const vScrollAnchorInfoRef = useRef<VScrollAnchorInfo>({
@@ -121,6 +122,15 @@ function MainViewer(props: MainViewerProps) {
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
   const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
+
+  const reloadAndRefreshTracks = useEvent(async (ids: number[]) => {
+    await reloadTracks(ids);
+    await refreshTracks();
+  });
+  const removeAndRefreshTracks = useEvent(async (ids: number[]) => {
+    await removeTracks(ids);
+    await refreshTracks();
+  });
 
   const {
     markersAndLengthRef: timeMarkersAndLengthRef,
@@ -248,6 +258,14 @@ function MainViewer(props: MainViewerProps) {
     updateLensParams({pxPerSec});
   });
 
+  const zoomHeight = useEvent((delta: number) => {
+    const newHeight = Math.round(
+      Math.min(Math.max(height * (1 + delta / 1000), MIN_HEIGHT), MAX_HEIGHT),
+    );
+    setHeight(newHeight);
+    return newHeight;
+  });
+
   const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
     let i = 0;
     let prevBottom = 0;
@@ -326,17 +344,13 @@ function MainViewer(props: MainViewerProps) {
         const splitView = splitViewElem.current;
         if (!splitView) return;
 
-        const newHeight = Math.round(
-          Math.min(Math.max(height * (1 + delta / 1000), MIN_HEIGHT), MAX_HEIGHT),
-        );
-        setHeight(newHeight);
+        const newHeight = zoomHeight(delta);
 
-        const cursorY = e.clientY - splitView.getBoundingClientY();
+        const cursorY = e.clientY - (splitView.getBoundingClientRect()?.y ?? 0);
         const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
         // TODO: remove hard-coded 2
         setScrollTop(
-          TIME_CANVAS_HEIGHT +
-            imgIndex * (newHeight + 2) +
+          imgIndex * (newHeight + 2) +
             VERTICAL_AXIS_PADDING +
             cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
             cursorOffset -
@@ -346,6 +360,69 @@ function MainViewer(props: MainViewerProps) {
     } else if (horizontal) {
       // horizontal scroll
       updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
+    }
+  });
+
+  const deleteSelectedTracks = useEvent(async (e: KeyboardEvent) => {
+    e.preventDefault();
+    if (selectedTrackIds.length) {
+      await removeAndRefreshTracks(selectedTrackIds);
+    }
+  });
+
+  const handleKeyDown = useEvent(async (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement | null)?.tagName !== "BODY") return;
+    if (isCommand(e)) {
+      const calcPxPerSecDelta = () => 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 1);
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          zoomHeight(100);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          zoomHeight(-100);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          updateLensParams({pxPerSec: pxPerSecRef.current + calcPxPerSecDelta()});
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          updateLensParams({pxPerSec: pxPerSecRef.current - calcPxPerSecDelta()});
+          break;
+        default:
+          break;
+      }
+    } else {
+      switch (e.key) {
+        case "Delete":
+        case "Backspace":
+          await deleteSelectedTracks(e);
+          break;
+        case "ArrowDown":
+          selectTrack(
+            e,
+            trackIds[
+              Math.min(
+                trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]) + 1,
+                trackIds.length - 1,
+              )
+            ],
+          );
+          break;
+        case "ArrowUp":
+          selectTrack(e, trackIds[Math.max(trackIds.indexOf(selectedTrackIds[0]) - 1, 0)]);
+          break;
+        case "ArrowRight":
+          updateLensParams({startSec: startSecRef.current + 10 / pxPerSecRef.current});
+          break;
+        case "ArrowLeft":
+          updateLensParams({startSec: startSecRef.current - 10 / pxPerSecRef.current});
+          break;
+        default:
+          break;
+      }
     }
   });
 
@@ -367,15 +444,6 @@ function MainViewer(props: MainViewerProps) {
     });
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
-  });
-
-  const reloadAndRefreshTrack = useEvent(async (id: number) => {
-    await reloadTracks([id]);
-    await refreshTracks();
-  });
-  const removeAndRefreshTrack = useEvent(async (id: number) => {
-    await removeTracks([id]);
-    await refreshTracks();
   });
 
   const trackSummaryArr = useMemo(
@@ -402,6 +470,7 @@ function MainViewer(props: MainViewerProps) {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
+            ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
             trackId={trackId}
             trackIdChArr={trackIdChMap.get(trackId) || []}
@@ -435,14 +504,21 @@ function MainViewer(props: MainViewerProps) {
           {erroredTrackIds.includes(id) ? (
             <ErrorBox
               trackId={id}
-              handleReload={reloadAndRefreshTrack}
+              handleReload={(trackId) => reloadAndRefreshTracks([trackId])}
               handleIgnore={ignoreError}
-              handleClose={removeAndRefreshTrack}
+              handleClose={(trackId) => removeAndRefreshTracks([trackId])}
             />
           ) : null}
           {trackIdChMap.get(id)?.map((idChStr) => {
             return (
-              <div key={idChStr} className={styles.chCanvases}>
+              <div
+                key={idChStr}
+                className={styles.chCanvases}
+                role="presentation"
+                onClick={(e) => {
+                  selectTrack(e, id);
+                }}
+              >
                 <ImgCanvas
                   ref={registerImgCanvas(idChStr)}
                   width={width}
@@ -508,6 +584,23 @@ function MainViewer(props: MainViewerProps) {
       overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
   }, [needRefreshTrackIdChArr]);
 
+  useEffect(() => {
+    if (selectedTrackIds.length === 0) return;
+    const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
+    const trackInfo = trackInfosRef.current[selectedIdStr];
+    if (trackInfo === null) return;
+    const infoRect = trackInfo.getBoundingClientRect();
+    const viewElem = splitViewElem.current;
+    const viewRect = viewElem?.getBoundingClientRect() ?? null;
+    if (infoRect === null || viewElem === null || viewRect === null) return;
+    const infoMiddle = infoRect.top + infoRect.height / 2;
+    if (infoMiddle < viewRect.top) {
+      viewElem.scrollTo({top: infoRect.top - viewRect.top, behavior: "smooth"});
+    } else if (infoMiddle > viewRect.bottom) {
+      viewElem.scrollTo({top: infoRect.bottom - viewRect.bottom, behavior: "smooth"});
+    }
+  }, [selectedTrackIds, trackInfosRef]);
+
   // set LensParams when track list or width change
   useLayoutEffect(() => {
     if (trackIds.length > 0) {
@@ -562,6 +655,14 @@ function MainViewer(props: MainViewerProps) {
     },
     [handleWheel],
   );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   return (
     <>

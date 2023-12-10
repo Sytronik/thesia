@@ -70,18 +70,6 @@ function App() {
     await refreshTracks();
   });
 
-  const deleteSelectedTracks = useEvent(async (e: KeyboardEvent) => {
-    // TODO
-    /* e.preventDefault();
-
-    if (e.key === "Delete" || e.key === "Backspace") {
-      if (selectedTrackIds.length) {
-        await removeTracks(selectedTrackIds);
-        await refreshTracks();
-      }
-    } */
-  });
-
   useEffect(() => {
     ipcRenderer.on("open-dialog-closed", async (_, file) => {
       if (!file.canceled) {
@@ -117,14 +105,6 @@ function App() {
       ipcRenderer.removeAllListeners("delete-track");
     };
   }, [removeTracks, refreshTracks]);
-
-  useEffect(() => {
-    document.addEventListener("keydown", deleteSelectedTracks);
-
-    return () => {
-      document.removeEventListener("keydown", deleteSelectedTracks);
-    };
-  }, [deleteSelectedTracks]);
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;

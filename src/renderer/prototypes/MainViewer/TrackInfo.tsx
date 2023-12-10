@@ -1,4 +1,4 @@
-import React from "react";
+import React, {forwardRef, useImperativeHandle, useRef} from "react";
 import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.scss";
@@ -13,7 +13,7 @@ type TrackInfoProps = {
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
-  selectTrack: (e: React.MouseEvent, id: number) => void;
+  selectTrack: (e: Event | React.MouseEvent, id: number) => void;
 };
 
 const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
@@ -21,7 +21,7 @@ const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
   showElectronContextMenu(trackId);
 };
 
-function TrackInfo(props: TrackInfoProps) {
+const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   const {
     trackId,
     trackIdChArr: trackIdCh,
@@ -31,6 +31,7 @@ function TrackInfo(props: TrackInfoProps) {
     isSelected,
     selectTrack,
   } = props;
+  const trackInfoElem = useRef<HTMLDivElement>(null);
 
   const channels = trackIdCh.map((idChStr, ch) => {
     return (
@@ -40,8 +41,14 @@ function TrackInfo(props: TrackInfoProps) {
     );
   });
 
+  const imperativeHandleRef = useRef<TrackInfoElement>({
+    getBoundingClientRect: () => trackInfoElem.current?.getBoundingClientRect() ?? null,
+  });
+  useImperativeHandle(ref, () => imperativeHandleRef.current, []);
+
   return (
     <div
+      ref={trackInfoElem}
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
       onClick={(e) => selectTrack(e, trackId)} // TODO: need optimization?
@@ -55,6 +62,7 @@ function TrackInfo(props: TrackInfoProps) {
       <div className={styles.channels}>{channels}</div>
     </div>
   );
-}
+});
+TrackInfo.displayName = "TrackInfo";
 
 export default TrackInfo;

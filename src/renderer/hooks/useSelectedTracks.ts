@@ -4,7 +4,7 @@ import useEvent from "react-use-event-hook";
 function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
 
-  const selectTrack = useEvent((e: React.MouseEvent, id: number) => {
+  const selectTrack = useEvent((e: Event | React.MouseEvent, id: number) => {
     e.preventDefault();
 
     // with nothing pressed

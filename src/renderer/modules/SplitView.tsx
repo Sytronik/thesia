@@ -1,6 +1,6 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
-import {AXIS_SPACE, TINY_MARGIN} from "renderer/prototypes/constants";
+import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants";
 import styles from "./SplitView.scss";
 
 const MARGIN = 2;
@@ -92,8 +92,14 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
   );
 
   const imperativeInstanceRef = useRef<SplitViewHandleElement>({
-    getBoundingClientY: () => splitPaneElem.current?.getBoundingClientRect().y ?? 0,
-    scrollTo: (options: ScrollToOptions) => splitPaneElem.current?.scrollTo(options),
+    getBoundingClientRect: () => splitPaneElem.current?.getBoundingClientRect() ?? null,
+    scrollTo: (options: ScrollToOptions) => {
+      if (options.top !== undefined) {
+        options.top += TIME_CANVAS_HEIGHT;
+      }
+      splitPaneElem.current?.scrollTo(options);
+    },
+    scrollTop: () => splitPaneElem.current?.scrollTop ?? 0,
   });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 

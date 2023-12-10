@@ -4,8 +4,9 @@ type IdChArr = IdChannel[];
 type IdChMap = Map<number, IdChArr>;
 
 type SplitViewHandleElement = {
-  getBoundingClientY: () => number;
+  getBoundingClientRect: () => DOMRect | null;
   scrollTo: (option: ScrollToOptions) => void;
+  scrollTop: () => number;
 };
 
 type ImgCanvasHandleElement = {
@@ -29,7 +30,7 @@ type TickScaleTable = {
 };
 
 type AxisCanvasHandleElement = {
-  draw: (markersAndLength: [Markers, number]) => void;
+  draw: (markersAndLength: [Markers, number], forced?: boolean) => void;
 };
 
 type OverviewHandleElement = {
@@ -42,4 +43,8 @@ type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffs
 
 type FloatRangeInputElement = {
   setValue: (value: number) => void;
+};
+
+type TrackInfoElement = {
+  getBoundingClientRect: () => DOMRect | null;
 };

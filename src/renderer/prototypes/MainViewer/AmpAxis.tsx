@@ -99,8 +99,8 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
 
   const onClick = useEvent((e: MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     if (e.button === 0 && e.detail === 2) {
+      e.stopPropagation();
       setAmpRange([...DEFAULT_AMP_RANGE]);
     }
   });
