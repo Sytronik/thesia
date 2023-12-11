@@ -1,4 +1,5 @@
 use std::num::Wrapping;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
@@ -6,6 +7,7 @@ use approx::abs_diff_eq;
 use futures::task;
 use lazy_static::{initialize, lazy_static};
 use ndarray::prelude::*;
+use num_traits::{AsPrimitive, Num, NumOps};
 use parking_lot::RwLock;
 use rayon::prelude::*;
 use tokio::{
@@ -95,37 +97,57 @@ pub async fn send(msg: ImgMsg) {
     }
 }
 
-pub fn recv() -> Option<Images> {
-    let waker = task::noop_waker();
-    let mut cx = Context::from_waker(&waker);
+trait SlightlyLarger {
+    fn slightly_larger_than_or_equal_to(&self, b: Self) -> bool;
+}
 
-    let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
-    let mut max_req_id = Wrapping(0);
-    let mut opt_images: Option<Images> = None;
-    while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
-        let max_largely_skip = max_req_id + Wrapping(usize::MAX / 2);
-        let max_wrapped = max_largely_skip < max_req_id;
-        let curr_largely_skip = curr_req_id + Wrapping(usize::MAX / 2);
-        let curr_wrapped = curr_largely_skip < curr_req_id;
+impl<T> SlightlyLarger for Wrapping<T>
+where
+    T: Copy + Num + Ord + num_traits::bounds::Bounded + 'static,
+    usize: AsPrimitive<T>,
+    Wrapping<T>: NumOps,
+{
+    fn slightly_larger_than_or_equal_to(&self, b: Self) -> bool {
+        let b_big_skip = b + Wrapping(T::max_value() / 2.as_());
+        let b_wrapped = b_big_skip < b;
+        let self_big_skip = *self + Wrapping(T::max_value() / 2.as_());
+        let self_wrapped = self_big_skip < *self;
         // assume curr_req_id and max_req_id is not too far
         // 0--curr--max-------------LIMIT  -> X
         // 0-------------curr--max--LIMIT  -> X
         // 0--------curr--max-------LIMIT  -> X
         // 0--max-------------curr--LIMIT  -> X
-        if curr_req_id == max_req_id
+        *self == b
         // 0--max--curr-------------LIMIT
         // 0-------------max--curr--LIMIT
-        || !(curr_wrapped ^ max_wrapped) && max_req_id < curr_req_id
+        || (self_wrapped == b_wrapped) && b < *self
         // 0--------max--curr-------LIMIT
-        || curr_wrapped && !max_wrapped && curr_largely_skip < max_req_id
+        || self_wrapped && !b_wrapped && self_big_skip < b
         // 0--curr-------------max--LIMIT
-        || !curr_wrapped && max_wrapped && curr_req_id < max_largely_skip
-        {
+        || !self_wrapped && b_wrapped && *self < b_big_skip
+    }
+}
+
+pub fn recv() -> Option<Images> {
+    static RECENT_REQ_ID: AtomicUsize = AtomicUsize::new(0);
+    let waker = task::noop_waker();
+    let mut cx = Context::from_waker(&waker);
+
+    let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
+    let mut max_req_id = Wrapping(RECENT_REQ_ID.load(std::sync::atomic::Ordering::SeqCst));
+    let mut opt_images: Option<Images> = None;
+    while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
+        if curr_req_id.slightly_larger_than_or_equal_to(max_req_id) {
             max_req_id = curr_req_id;
             opt_images = Some(imgs);
         }
     }
 
+    /* if opt_images.is_some() {
+        println!("return req_id={}", max_req_id);
+    } */
+
+    RECENT_REQ_ID.store(max_req_id.0, std::sync::atomic::Ordering::SeqCst);
     opt_images
 }
 
@@ -493,7 +515,10 @@ async fn draw_imgs(
     )
     .await;
     if !blended_imgs.is_empty() {
-        // println!("send cached images");
+        /* println!(
+            "[cached] req_id: {}, blend: {}",
+            req_id, params_backup.blend
+        ); */
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
     if *params.read() != params_backup {
@@ -509,7 +534,7 @@ async fn draw_imgs(
     )
     .await;
     if !blended_imgs.is_empty() {
-        // println!("send part images");
+        // println!("[part] req_id: {}, blend: {}", req_id, params_backup.blend);
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
     if *params.read() != params_backup {
@@ -526,7 +551,10 @@ async fn draw_imgs(
     )
     .await;
     if !blended_imgs.is_empty() {
-        // println!("send new cached images");
+        /* println!(
+            "[new cache] req_id: {}, blend: {}",
+            req_id, params_backup.blend
+        ) */
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
 }
