@@ -31,6 +31,7 @@ pub const COLORMAP: [[u8; 3]; 10] = [
     [247, 209, 61],
     [252, 255, 164],
 ];
+const OVERVIEW_MAX_CH: usize = 4;
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
 const LIMITER_GAIN_HEIGHT_DENOM: usize = 5; // 1/5 of the height will be used for draw limiter gain
 
@@ -218,7 +219,8 @@ impl TrackDrawer for TrackManager {
             drawing_width as usize,
             pad_right as usize,
         );
-        let heights = OverviewHeights::new(height, track.n_ch(), OVERVIEW_CH_GAP_HEIGHT, dpr);
+        let n_ch = track.n_ch().min(OVERVIEW_MAX_CH);
+        let heights = OverviewHeights::new(height, n_ch, OVERVIEW_CH_GAP_HEIGHT, dpr);
         let (clipped_peak, draw_gain_heights) = match track.guard_clip_result() {
             GuardClippingResult::WavBeforeClip(before_clip) => {
                 (before_clip.max_peak(), Default::default())
