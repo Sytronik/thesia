@@ -134,7 +134,7 @@ pub fn recv() -> Option<Images> {
     let mut cx = Context::from_waker(&waker);
 
     let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
-    let mut max_req_id = Wrapping(RECENT_REQ_ID.load(std::sync::atomic::Ordering::SeqCst));
+    let mut max_req_id = Wrapping(RECENT_REQ_ID.load(std::sync::atomic::Ordering::Acquire));
     let mut opt_images: Option<Images> = None;
     while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
         if curr_req_id.slightly_larger_than_or_equal_to(max_req_id) {
@@ -147,7 +147,7 @@ pub fn recv() -> Option<Images> {
         println!("return req_id={}", max_req_id);
     } */
 
-    RECENT_REQ_ID.store(max_req_id.0, std::sync::atomic::Ordering::SeqCst);
+    RECENT_REQ_ID.store(max_req_id.0, std::sync::atomic::Ordering::Release);
     opt_images
 }
 
