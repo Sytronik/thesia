@@ -6,6 +6,7 @@ import React, {
   useState,
   useContext,
   useLayoutEffect,
+  RefObject,
 } from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -16,6 +17,7 @@ import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
+import {Player} from "renderer/hooks/usePlayer";
 import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
@@ -56,6 +58,7 @@ type MainViewerProps = {
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
   blend: number;
+  player: Player;
   addDroppedFile: (e: DragEvent) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -75,6 +78,7 @@ function MainViewer(props: MainViewerProps) {
     needRefreshTrackIdChArr,
     maxTrackSec,
     blend,
+    player,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -112,6 +116,7 @@ function MainViewer(props: MainViewerProps) {
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const locatorElem = useRef<HTMLCanvasElement>(null);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
@@ -137,6 +142,7 @@ function MainViewer(props: MainViewerProps) {
     removeTracks(ids);
     await refreshTracks();
   });
+  const calcEndSec = useEvent(() => startSecRef.current + width / pxPerSecRef.current);
 
   const {
     markersAndLengthRef: timeMarkersAndLengthRef,
@@ -151,13 +157,13 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetTimeMarkersAndUnit = useCallback(() => {
     throttledSetTimeMarkers(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
-      endSec: startSecRef.current + width / pxPerSecRef.current,
+      endSec: calcEndSec(),
     });
     const [markers] = timeMarkersAndLengthRef.current;
     if (markers.length === 0) return;
     const timeUnit = markers[markers.length - 1][1];
     setTimeUnitLabel(timeUnit);
-  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef]);
+  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec]);
 
   const unsetTimeMarkersAndUnit = useEvent(() => {
     resetTimeMarkers();
@@ -249,7 +255,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
-    const endSec = startSecRef.current + width / pxPerSecRef.current;
+    const endSec = calcEndSec();
     const startSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
     const pxPerSec = normalizePxPerSec(width / (endSec - startSec), startSec);
 
@@ -374,6 +380,15 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
+  const handleSeekbyClick = async (e: React.MouseEvent) => {
+    const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
+    if (rect === null) return;
+    const cursorX = e.clientX - rect.left;
+    if (cursorX < 0 || cursorX >= width) return;
+    e.preventDefault();
+    await player.seek(startSecRef.current + cursorX / pxPerSecRef.current);
+  };
+
   // Browsing Hotkeys
   useHotkeys("right, left, shift+right, shift+left", (_, hotkey) => {
     const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
@@ -428,6 +443,39 @@ function MainViewer(props: MainViewerProps) {
     Object.entries(images).forEach(([idChStr, buf]) => {
       imgCanvasesRef.current[idChStr]?.draw(buf);
     });
+    if (timeCanvasElem.current !== null && locatorElem.current !== null) {
+      const rect = timeCanvasElem.current.getBoundingClientRect();
+      if (rect !== null) {
+        const locatorPos =
+          ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current;
+        const locatorElemPos = Math.floor(locatorPos) - 1;
+        const drawPos = locatorPos - locatorElemPos;
+        const lineHeight = mainViewerElem.current?.getBoundingClientRect().height ?? 500;
+
+        if (locatorPos <= -1.5 || locatorPos >= rect.width + 0.5) {
+          locatorElem.current.style.visibility = "hidden";
+        } else {
+          locatorElem.current.style.visibility = "";
+          locatorElem.current.style.left = `${locatorElemPos + rect.left}px`;
+          locatorElem.current.style.height = `${lineHeight}px`;
+          locatorElem.current.height = lineHeight * devicePixelRatio;
+          locatorElem.current.width =
+            ((locatorElem.current.computedStyleMap().get("width") as CSSUnitValue).value ?? 2) *
+            devicePixelRatio;
+          const ctx = locatorElem.current.getContext("2d");
+          if (!ctx) return;
+          ctx.scale(devicePixelRatio, devicePixelRatio);
+          ctx.strokeStyle = "#999999";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.setLineDash([5, 10]);
+          ctx.moveTo(drawPos + 0.5, 0);
+          ctx.lineTo(drawPos + 0.5, lineHeight);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+    }
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
   });
@@ -665,6 +713,8 @@ function MainViewer(props: MainViewerProps) {
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
+        onClick={handleSeekbyClick}
+        role="presentation"
       >
         {isDropzoneActive && <div className={styles.dropzone} />}
         <SplitView
@@ -673,6 +723,7 @@ function MainViewer(props: MainViewerProps) {
           right={rightPane}
           setCanvasWidth={setWidth}
         />
+        <canvas ref={locatorElem} className={styles.locator} />
         <ColorMap
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}

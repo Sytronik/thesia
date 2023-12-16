@@ -53,6 +53,7 @@ function ColorMap(props: ColorMapProps) {
           markerPos={DB_MARKER_POS}
           direction="V"
           className="dBAxis"
+          endInclusive
         />
       </div>
     </div>

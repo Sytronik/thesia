@@ -20,12 +20,16 @@ approx = "0.5.1"
 blas-src = {version = "0.10.0", features = ["openblas"]}
 cached = "0.53.1"
 chrono = "0.4.38"
+color-eyre = "0.6.2"
+coreaudio-sys = "0.2.14"
+cpal = "0.15.2"
 dashmap = "6.0.1"
 ebur128 = "0.1.9"
 fast_image_resize = "4.2.1"
 futures = "0.3.30"
 itertools = "0.13.0"
 lazy_static = "1.5.0"
+log = "0.4.20"
 ndarray = {version = "0.16.0", features = ["approx", "blas", "rayon"]}
 ndarray-stats = {git = "https://github.com/Sytronik/ndarray-stats.git", rev = "34f246c"}
 num-traits = "0.2.19"
@@ -35,9 +39,11 @@ rayon = "1.10.0"
 readonly = "0.2.12"
 realfft = "3.3.0"
 rgb = "0.8.48"
+rubato = "0.12.0"
 rustfft = "6.2.0"
 serde = {version = "1.0.207", features = ["derive"]}
 serde_json = "1.0.124"
+simple_logger = "4.3.0"
 symphonia = {version = "0.5.4", features = [
   "aac",
   "alac",
@@ -56,6 +62,9 @@ openblas-src = {version = "0.10.9", features = ["cblas", "static", "system"]}
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 openblas-src = {version = "0.10.9", features = ["cache", "cblas", "static"]}
+
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd"))'.dependencies]
+alsa-sys = "0.3.1"
 
 [target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
 mimalloc = "0.1.43"

@@ -11,6 +11,7 @@ import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
+import usePlayer from "./hooks/usePlayer";
 
 function MyApp() {
   const {
@@ -43,6 +44,9 @@ function MyApp() {
     selectTrackAfterAddTracks,
     selectTrackAfterRemoveTracks,
   } = useSelectedTracks();
+  const player = usePlayer(
+    selectedTrackIds.length > 0 ? selectedTrackIds[selectedTrackIds.length - 1] : -1,
+  );
 
   const prevTrackIds = useRef<number[]>([]);
 
@@ -137,7 +141,7 @@ function MyApp() {
 
   return (
     <div id="App" className="App">
-      <PlayerControl />
+      <PlayerControl player={player} />
       <div className="flex-container-row flex-item-auto">
         <Control
           specSetting={specSetting}
@@ -160,6 +164,7 @@ function MyApp() {
             needRefreshTrackIdChArr={needRefreshTrackIdChArr}
             maxTrackSec={maxTrackSec}
             blend={blend}
+            player={player}
             addDroppedFile={addDroppedFile}
             ignoreError={ignoreError}
             refreshTracks={refreshTracks}

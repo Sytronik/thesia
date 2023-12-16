@@ -24,6 +24,10 @@ const calcCursorY = (e: MouseEvent | React.MouseEvent, rect: DOMRect) => {
   return e.clientY - rect.top;
 };
 
+const stopImmediatePropagation = (e: Event) => {
+  e.stopImmediatePropagation();
+};
+
 function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   const {
     cursorStateInfos,
@@ -36,6 +40,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   const dragAnchorRef = useRef<U>(dragAnchorDefault);
   const cursorStateRef = useRef<T>();
   const divElem = useRef<HTMLDivElement>(null);
+  const draggedRef = useRef<boolean>(false);
 
   let calcCursorPosFunc: (e: MouseEvent | React.MouseEvent, rect: DOMRect) => number;
   if (calcCursorPos === "x") calcCursorPosFunc = calcCursorX;
@@ -60,6 +65,11 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
         value.handleDragging(cursorStateRef.current, cursorPos, dragAnchorRef.current, rect);
       }
     });
+    e.target?.removeEventListener("click", stopImmediatePropagation);
+    if (draggedRef.current) {
+      e.target?.addEventListener("click", stopImmediatePropagation, {once: true});
+    }
+    draggedRef.current = true;
   });
 
   const onMouseUp = (e: MouseEvent) => {
@@ -95,6 +105,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
         }
       });
     }
+    draggedRef.current = false;
     document.addEventListener("mousemove", onDragging);
     document.addEventListener("mouseup", onMouseUp, {once: true});
   };

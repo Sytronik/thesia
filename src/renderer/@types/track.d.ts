@@ -35,6 +35,7 @@ type TickScaleTable = {
 
 type AxisCanvasHandleElement = {
   draw: (markersAndLength: [Markers, number], forced?: boolean) => void;
+  getBoundingClientRect: () => DOMRect | null;
 };
 
 type OverviewHandleElement = {

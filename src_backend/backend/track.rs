@@ -82,6 +82,11 @@ impl AudioTrack {
     }
 
     #[inline]
+    pub fn view(&self) -> ArrayView2<f32> {
+        self.audio.view()
+    }
+
+    #[inline]
     pub fn channel_for_drawing(&self, ch: usize) -> (ArrayView1<f32>, bool) {
         match self.guard_clip_result() {
             GuardClippingResult::WavBeforeClip(before_clip) => {
@@ -367,7 +372,9 @@ impl TrackList {
 
     #[inline]
     pub fn get(&self, id: usize) -> Option<&AudioTrack> {
-        self.tracks[id].as_ref()
+        (id < self.tracks.len())
+            .then_some(self.tracks[id].as_ref())
+            .flatten()
     }
 
     #[inline]
