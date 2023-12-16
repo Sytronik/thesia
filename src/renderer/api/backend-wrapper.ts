@@ -123,6 +123,16 @@ export async function setCommonNormalize(commonNormalize: NormalizeTarget): Prom
   return backend.setCommonNormalize(commonNormalize);
 }
 
+export type PlayerStatus = {
+  err: string;
+  isPlaying: boolean;
+  positionSec: number;
+};
+
+export function getPlayerStatus(): PlayerStatus {
+  return backend.getPlayerStatus();
+}
+
 export const {
   addTracks,
   reloadTracks,
@@ -150,4 +160,8 @@ export const {
   getCommonGuardClipping,
   setCommonGuardClipping,
   getGuardClipStats,
+  setTrackPlayer,
+  pausePlayer,
+  resumePlayer,
+  seekPlayer,
 } = backend;

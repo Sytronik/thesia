@@ -58,3 +58,8 @@ export function getGuardClipStats(trackId: number): string
 export function getPath(trackId: number): string
 export function getFileName(trackId: number): string
 export function getColorMap(): Buffer
+export function setTrackPlayer(trackId: number, sec: number): Promise<void>
+export function seekPlayer(sec: number): Promise<void>
+export function pausePlayer(): Promise<void>
+export function resumePlayer(): Promise<void>
+export function getPlayerStatus(): any

@@ -163,6 +163,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
           markerPos={AMP_MARKER_POS}
           direction="V"
           className="ampAxis"
+          endInclusive
         />
       </Draggable>
     </div>

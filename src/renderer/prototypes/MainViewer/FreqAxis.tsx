@@ -12,6 +12,7 @@ const FreqAxis = forwardRef(({height}: {height: number}, ref) => {
       markerPos={FREQ_MARKER_POS}
       direction="V"
       className="freqAxis"
+      endInclusive
     />
   );
 });
