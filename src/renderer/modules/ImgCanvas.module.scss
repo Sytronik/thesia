@@ -11,7 +11,7 @@
 
 .tooltip {
   position: fixed;
-  z-index: 1;
+  z-index: 256;
   pointer-events: none;
   background-color: rgba($bg-primary, 0.6);
   font-size: $body-font-size-xsmall;

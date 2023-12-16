@@ -6,6 +6,7 @@ extern crate blas_src;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Duration;
 
 use itertools::Itertools;
 use lazy_static::{initialize, lazy_static};
@@ -18,9 +19,12 @@ use tokio::sync::RwLock;
 mod backend;
 #[warn(dead_code)]
 mod img_mgr;
+#[warn(dead_code)]
+mod player;
 
 use backend::*;
 use img_mgr::{DrawParams, ImgMsg};
+use player::{PlayerCommand, PlayerNotification};
 
 #[cfg(all(
     any(windows, unix),
@@ -50,6 +54,7 @@ fn init() -> Result<()> {
         .unwrap_or_default();
 
     img_mgr::spawn_runtime();
+    player::spawn_runtime();
     Ok(())
 }
 
@@ -90,16 +95,18 @@ fn remove_tracks(track_ids: Vec<u32>) {
 
 #[napi]
 async fn apply_track_list_changes() -> Vec<String> {
-    let id_ch_tuples = {
+    let (id_ch_tuples, sr) = {
         let mut tm = TM.write().await;
-        let updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
-        tm.id_ch_tuples_from(&updated_ids)
+        let (updated_id_set, sr) = tm.apply_track_list_changes();
+        let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
+        (tm.id_ch_tuples_from(&updated_ids), sr)
     };
     let id_ch_strs = id_ch_tuples
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
         .collect();
     tokio::spawn(img_mgr::send(ImgMsg::Remove(id_ch_tuples)));
+    tokio::spawn(player::send(PlayerCommand::SetSr(sr)));
     id_ch_strs
 }
 
@@ -387,6 +394,49 @@ fn get_file_name(track_id: u32) -> String {
 #[napi]
 fn get_color_map() -> Buffer {
     visualize::get_colormap_rgb().into()
+}
+
+#[napi]
+async fn set_track_player(track_id: u32, sec: f64) {
+    let track_id = track_id as usize;
+    if TM.read().await.has_id(track_id) {
+        player::send(PlayerCommand::SetTrack((
+            track_id,
+            Duration::from_secs_f64(sec),
+        )))
+        .await;
+    }
+}
+
+#[napi]
+async fn seek_player(sec: f64) {
+    player::send(PlayerCommand::Seek(Duration::from_secs_f64(sec))).await;
+}
+
+#[napi]
+async fn pause_player() {
+    player::send(PlayerCommand::Pause).await;
+}
+
+#[napi]
+async fn resume_player() {
+    player::send(PlayerCommand::Resume).await;
+}
+
+#[napi]
+fn get_player_status() -> serde_json::Value {
+    match player::recv() {
+        PlayerNotification::Ok(status) => {
+            json!({
+                "isPlaying": status.is_playing,
+                "positionSec": status.play_pos.as_secs_f64(),
+                "err": "",
+            })
+        }
+        PlayerNotification::Err(e_str) => {
+            json!({"isPlaying": false, "positionSec": 0., "err": e_str})
+        }
+    }
 }
 
 #[inline]

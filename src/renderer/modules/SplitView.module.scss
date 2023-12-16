@@ -32,7 +32,9 @@
 
 .dividerLine {
   height: 100%;
-  border: 2px solid transparent;
+  border-left: 3px solid $bg-main;
+  border-right: 1px solid transparent;
+  z-index: 2;
 }
 
 .RightPane {
