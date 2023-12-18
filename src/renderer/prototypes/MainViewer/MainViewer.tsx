@@ -6,7 +6,6 @@ import React, {
   useState,
   useContext,
   useLayoutEffect,
-  RefObject,
 } from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -45,6 +44,8 @@ import {
   DEFAULT_AMP_RANGE,
   BIG_SHIFT_PX,
   SHIFT_PX,
+  PLAY_JUMP_SEC,
+  PLAY_BIG_JUMP_SEC,
 } from "../constants/tracks";
 import {isCommand, isCommandOnly} from "../../utils/commandKey";
 
@@ -448,6 +449,38 @@ function MainViewer(props: MainViewerProps) {
         let shiftSec = shiftPx / pxPerSecRef.current;
         if (e.key === "ArrowLeft") shiftSec = -shiftSec;
         updateLensParams({startSec: startSecRef.current + shiftSec});
+        break;
+      }
+      case " ":
+        e.preventDefault();
+        await player.togglePlay();
+        break;
+      case ",":
+      case ".":
+      case "<":
+      case ">": {
+        e.preventDefault();
+        let jumpSec = e.key === "<" || e.key === ">" ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
+        if (e.key === "," || e.key === "<") jumpSec = -jumpSec;
+        const sec = Math.min(
+          Math.max((player.positionSecRef.current ?? 0) + jumpSec, 0),
+          maxTrackSec,
+        );
+        await player.seek(sec);
+        // TODO: nicer way
+        setTimeout(() => {
+          if (sec >= calcEndSec() || sec < startSecRef.current) {
+            updateLensParams({startSec: startSecRef.current + jumpSec});
+          }
+        }, 1000 / 60);
+        break;
+      }
+      case "Enter": {
+        e.preventDefault();
+        await player.seek(0);
+        if (startSecRef.current > 0) {
+          updateLensParams({startSec: 0});
+        }
         break;
       }
       default:
