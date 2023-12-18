@@ -12,15 +12,20 @@ type ImgCanvasProps = {
   canvasIsFit: boolean;
 };
 
+type ImgTooltipInfo = {pos: number[]; lines: string[]};
+
+const calcTooltipPos = (e: React.MouseEvent) => {
+  return [e.clientX + 10, e.clientY + 15];
+};
+
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {width, height, maxTrackSec, canvasIsFit} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(1);
-  const [showTooltip, setShowTooltip] = useState<boolean>(false);
-  const [tooltipText, setTooltipText] = useState<string>(" sec\n Hz");
-  const [tooltipPosition, setTooltipPosition] = useState<[number, number]>([0, 0]);
+  const tooltipElem = useRef<HTMLSpanElement>(null);
+  const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
   const draw = useEvent((buf: Buffer) => {
     const bitmapWidth = width * devicePixelRatio;
@@ -59,23 +64,31 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
-  const setTooltipPositionByCursorPos = useEvent((e: React.MouseEvent) => {
-    setTooltipPosition([e.clientX + 10, e.clientY + 15]);
-  });
-
-  const onMouseMove = throttle(1000 / 70, async (e: React.MouseEvent) => {
-    if (!showTooltip || !canvasElem.current) return;
+  const getTooltipLines = useEvent(async (e: React.MouseEvent) => {
+    if (!canvasElem.current) return ["sec", "Hz"];
     const x = e.clientX - canvasElem.current.getBoundingClientRect().left;
     const y = Math.min(
       Math.max(e.clientY - canvasElem.current.getBoundingClientRect().top, 0),
       height,
     );
+    // TODO: need better formatting (from backend?)
     const time = Math.min(Math.max(startSecRef.current + x / pxPerSecRef.current, 0), maxTrackSec);
     const timeStr = time.toFixed(6).slice(0, -3);
     const hz = await BackendAPI.getHzAt(y, height);
     const hzStr = hz.toFixed(0);
-    setTooltipText(`${timeStr} sec\n${hzStr} Hz`); // TODO: need better formatting (from backend?)
-    setTooltipPositionByCursorPos(e);
+    return [`${timeStr} sec`, `${hzStr} Hz`];
+  });
+
+  const onMouseMove = throttle(1000 / 120, async (e: React.MouseEvent) => {
+    if (initTooltipInfo === null || tooltipElem.current === null) return;
+    const [left, top] = calcTooltipPos(e);
+    tooltipElem.current.style.left = `${left}px`;
+    tooltipElem.current.style.top = `${top}px`;
+    const lines = await getTooltipLines(e);
+    lines.forEach((v, i) => {
+      const node = tooltipElem.current?.children.item(i) ?? null;
+      if (node) node.innerHTML = v;
+    });
   });
 
   return (
@@ -85,16 +98,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
          because changing width of canvas elem can occur in different time (in draw function) */
       style={{width, height}}
     >
-      {showTooltip ? (
+      {initTooltipInfo !== null ? (
         <span
+          ref={tooltipElem}
           className={styles.tooltip}
-          style={{
-            left: `${tooltipPosition[0]}px`,
-            top: `${tooltipPosition[1]}px`,
-          }}
+          style={{left: `${initTooltipInfo.pos[0]}px`, top: `${initTooltipInfo.pos[1]}px`}}
         >
-          {tooltipText.split("\n").map((v) => (
-            <p key={`tooltip_line${v.split(" ")[1]}`}>{v}</p>
+          {initTooltipInfo.lines.map((v) => (
+            <p key={`img-tooltip-${v.split(" ")[1]}`}>{v}</p>
           ))}
         </span>
       ) : null}
@@ -105,13 +116,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
            different height between image and canvas can be allowed.
            the same for width only if canvasIsFit */
         style={canvasIsFit ? {width, height} : {width: canvasElem.current?.style.width, height}}
-        onMouseEnter={(e) => {
+        onMouseEnter={async (e) => {
           if (e.buttons !== 0) return;
-          setShowTooltip(true);
-          setTooltipPositionByCursorPos(e);
+          setInitTooltipInfo({pos: calcTooltipPos(e), lines: await getTooltipLines(e)});
         }}
         onMouseMove={onMouseMove}
-        onMouseLeave={() => setShowTooltip(false)}
+        onMouseLeave={() => setInitTooltipInfo(null)}
       />
     </div>
   );
