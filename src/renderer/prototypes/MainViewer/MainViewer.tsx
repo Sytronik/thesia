@@ -6,7 +6,6 @@ import React, {
   useState,
   useContext,
   useLayoutEffect,
-  RefObject,
 } from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -47,6 +46,8 @@ import {
   DEFAULT_AMP_RANGE,
   BIG_SHIFT_PX,
   SHIFT_PX,
+  PLAY_JUMP_SEC,
+  PLAY_BIG_JUMP_SEC,
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
 
@@ -426,6 +427,31 @@ function MainViewer(props: MainViewerProps) {
       await removeAndRefreshTracks(selectedTrackIds);
     }
   });
+
+  // Player Hotkeys
+  useHotkeys("space", player.togglePlay, {preventDefault: true});
+  useHotkeys("comma,period,shift+comma,shift+period", async (_, hotkey) => {
+    let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
+    if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
+    const sec = Math.min(Math.max((player.positionSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
+    await player.seek(sec);
+    // TODO: nicer way
+    setTimeout(() => {
+      if (sec >= calcEndSec() || sec < startSecRef.current) {
+        updateLensParams({startSec: startSecRef.current + jumpSec});
+      }
+    }, 1000 / 60);
+  });
+  useHotkeys(
+    "enter",
+    async () => {
+      await player.seek(0);
+      if (startSecRef.current > 0) {
+        updateLensParams({startSec: 0});
+      }
+    },
+    {preventDefault: true},
+  );
 
   useEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
