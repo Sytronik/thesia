@@ -66,4 +66,4 @@ function SlideBar(props: SlideBarProps) {
   );
 }
 
-export default SlideBar;
+export default React.memo(SlideBar);

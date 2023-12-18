@@ -17,6 +17,7 @@ type TimeAxisDragAnchor = {
   sec: number;
 };
 const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
+const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
   const {width, shiftWhenResize, startSecRef, pxPerSecRef, moveLens} = props;
@@ -57,7 +58,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     <Draggable
       cursorStateInfos={cursorStateInfos}
       calcCursorPos="x"
-      determineCursorStates={() => "drag"}
+      determineCursorStates={determineCursorStates}
       calcDragAnchor={calcDragAnchor}
       dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
     >

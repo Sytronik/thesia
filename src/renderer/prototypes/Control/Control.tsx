@@ -1,4 +1,4 @@
-import React, {useRef, useState} from "react";
+import React, {useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {
@@ -60,7 +60,7 @@ function Control(props: ControlProps) {
     });
   };
 
-  const throttledSetdBRange = throttle(1000 / 70, setdBRange);
+  const throttledSetdBRange = useMemo(() => throttle(1000 / 70, setdBRange), [setdBRange]);
 
   const onWinMillisecChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const winMillisec = Number.parseFloat(e.target.value);
@@ -108,12 +108,12 @@ function Control(props: ControlProps) {
     if (isCommonNormalizeOn) setCommonNormalize({type: commonNormalize.type, target: dB});
   });
 
-  const onCommonNormalizedBInputChange = (value: number) => {
+  const onCommonNormalizedBInputChange = useEvent((value: number) => {
     if (!isCommonNormalizeOn) return;
     if (commonNormalize.type === "PeakdB") setCommonNormalizePeakdB(value);
     else setCommonNormalizedB(value);
     debouncedChangeCommonNormalizedB(value);
-  };
+  });
 
   const onCommonGuardClippingModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCommonGuardClipping(e.target.selectedOptions[0].value as GuardClippingMode);
@@ -151,7 +151,7 @@ function Control(props: ControlProps) {
             detents={DB_RANGE_DETENTS}
             initialValue={dBRange}
             doubleClickValue={DB_RANGE_MIN_MAX[1]}
-            onChangeValue={(value) => throttledSetdBRange(value)}
+            onChangeValue={throttledSetdBRange}
           />
         </div>
       </div>
