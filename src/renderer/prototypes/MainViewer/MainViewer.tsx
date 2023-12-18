@@ -398,9 +398,11 @@ function MainViewer(props: MainViewerProps) {
       switch (e.key) {
         case "Delete":
         case "Backspace":
+          e.preventDefault();
           await deleteSelectedTracks(e);
           break;
         case "ArrowDown":
+          e.preventDefault();
           selectTrack(
             e,
             trackIds[
@@ -412,12 +414,15 @@ function MainViewer(props: MainViewerProps) {
           );
           break;
         case "ArrowUp":
+          e.preventDefault();
           selectTrack(e, trackIds[Math.max(trackIds.indexOf(selectedTrackIds[0]) - 1, 0)]);
           break;
         case "ArrowRight":
+          e.preventDefault();
           updateLensParams({startSec: startSecRef.current + 10 / pxPerSecRef.current});
           break;
         case "ArrowLeft":
+          e.preventDefault();
           updateLensParams({startSec: startSecRef.current - 10 / pxPerSecRef.current});
           break;
         default:
