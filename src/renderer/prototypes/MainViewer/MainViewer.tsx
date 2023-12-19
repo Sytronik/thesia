@@ -117,7 +117,12 @@ function MainViewer(props: MainViewerProps) {
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const locatorElem = useRef<HTMLCanvasElement>(null);
+  const locatorElem = useRef<HTMLCanvasElement | null>(null);
+  const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
+    locatorElem.current = node;
+    locatorCtxRef.current = node?.getContext("2d") ?? null;
+  }, []);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
@@ -381,14 +386,15 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
-  const handleSeekbyClick = async (e: React.MouseEvent) => {
+  // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
+  const handleSeekbyClick = useEvent(async (e: React.MouseEvent) => {
     const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
     const cursorX = e.clientX - rect.left;
     if (cursorX < 0 || cursorX >= width) return;
     e.preventDefault();
     await player.seek(startSecRef.current + cursorX / pxPerSecRef.current);
-  };
+  });
 
   // Browsing Hotkeys
   useHotkeys("right, left, shift+right, shift+left", (_, hotkey) => {
@@ -488,16 +494,15 @@ function MainViewer(props: MainViewerProps) {
           locatorElem.current.width =
             ((locatorElem.current.computedStyleMap().get("width") as CSSUnitValue).value ?? 2) *
             devicePixelRatio;
-          const ctx = locatorElem.current.getContext("2d");
+          const ctx = locatorCtxRef.current;
           if (!ctx) return;
           ctx.scale(devicePixelRatio, devicePixelRatio);
           ctx.strokeStyle = "#999999";
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.setLineDash([5, 10]);
+          ctx.setLineDash([5, 5]);
           ctx.moveTo(drawPos + 0.5, 0);
           ctx.lineTo(drawPos + 0.5, lineHeight);
-          ctx.closePath();
           ctx.stroke();
         }
       }
@@ -749,7 +754,7 @@ function MainViewer(props: MainViewerProps) {
           right={rightPane}
           setCanvasWidth={setWidth}
         />
-        <canvas ref={locatorElem} className={styles.locator} />
+        <canvas ref={locatorElemCallback} className={styles.locator} />
         <ColorMap
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
