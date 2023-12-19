@@ -14,12 +14,11 @@ type SplitViewProps = {
   className?: string;
 };
 
-const SplitView = forwardRef((props: SplitViewProps, ref) => {
-  const {createLeft, right, setCanvasWidth, className} = props;
+const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) => {
+  const {createLeft, right, setCanvasWidth} = props;
 
   const [leftWidth, setLeftWidth] = useState<number>(MIN_WIDTH);
-  const [separatorXPosition, setSeparatorXPosition] = useState<undefined | number>(undefined);
-  const [dragging, setDragging] = useState(false);
+  const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
   const [rightVisibility, setRightVisibility] = useState<boolean>(true);
 
   const splitPaneElem = useRef<HTMLDivElement>(null);
@@ -40,21 +39,9 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
     setLeftWidth(newLeftWidth);
   });
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    setSeparatorXPosition(e.clientX - leftWidth);
-    setDragging(true);
-  };
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setSeparatorXPosition(e.touches[0].clientX - leftWidth);
-    setDragging(true);
-  };
-
   const onMove = useEvent((e: MouseEvent | TouchEvent, clientX: number) => {
-    if (dragging && separatorXPosition) {
-      e.preventDefault();
-      setNormalizedLeftWidth(clientX - separatorXPosition);
-    }
+    e.preventDefault();
+    setNormalizedLeftWidth(clientX - separatorXPosition);
   });
 
   const onMouseMove = useEvent((e: MouseEvent) => {
@@ -66,8 +53,25 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
   });
 
   const onMouseUp = useEvent(() => {
-    setDragging(false);
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("touchmove", onTouchMove);
   });
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    setSeparatorXPosition(e.clientX - leftWidth);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("touchmove", onTouchMove);
+    document.addEventListener("mouseup", onMouseUp, {once: true});
+    document.addEventListener("touchend", onMouseUp, {once: true});
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setSeparatorXPosition(e.touches[0].clientX - leftWidth);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("touchmove", onTouchMove);
+    document.addEventListener("mouseup", onMouseUp, {once: true});
+    document.addEventListener("touchend", onMouseUp, {once: true});
+  };
 
   const [rightResizeObserver, setRightResizeObserver] = useState(
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
@@ -102,20 +106,6 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
     scrollTop: () => splitPaneElem.current?.scrollTop ?? 0,
   });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
-
-  useEffect(() => {
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("touchmove", onTouchMove);
-    document.addEventListener("mouseup", onMouseUp);
-    document.addEventListener("touchend", onMouseUp);
-
-    return () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("touchmove", onTouchMove);
-      document.removeEventListener("mouseup", onMouseUp);
-      document.removeEventListener("touchend", onMouseUp);
-    };
-  }, [onMouseMove, onMouseUp, onTouchMove]);
 
   useEffect(() => {
     if (rightPaneElem.current) {
@@ -158,8 +148,5 @@ const SplitView = forwardRef((props: SplitViewProps, ref) => {
 });
 
 SplitView.displayName = "SplitView";
-SplitView.defaultProps = {
-  className: "",
-};
 
 export default SplitView;
