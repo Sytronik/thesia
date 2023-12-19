@@ -386,14 +386,20 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
+  const throttledSeek = useMemo(() => throttle(1000 / 30, player.seek), [player]);
+
   // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
-  const handleSeekbyClick = useEvent(async (e: React.MouseEvent) => {
+  const handleSeek = useEvent(async (e: React.MouseEvent | MouseEvent) => {
     const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
+    e.preventDefault();
     const cursorX = e.clientX - rect.left;
     if (cursorX < 0 || cursorX >= width) return;
-    e.preventDefault();
-    await player.seek(startSecRef.current + cursorX / pxPerSecRef.current);
+    throttledSeek(startSecRef.current + cursorX / pxPerSecRef.current);
+  });
+
+  const handleLocatorDragEnd = useEvent(() => {
+    document.removeEventListener("mousemove", handleSeek);
   });
 
   // Browsing Hotkeys
@@ -744,7 +750,7 @@ function MainViewer(props: MainViewerProps) {
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
-        onClick={handleSeekbyClick}
+        onClick={handleSeek}
         role="presentation"
       >
         {isDropzoneActive && <div className={styles.dropzone} />}
@@ -754,7 +760,14 @@ function MainViewer(props: MainViewerProps) {
           right={rightPane}
           setCanvasWidth={setWidth}
         />
-        <canvas ref={locatorElemCallback} className={styles.locator} />
+        <canvas
+          ref={locatorElemCallback}
+          className={styles.locator}
+          onMouseDown={() => {
+            document.addEventListener("mousemove", handleSeek);
+            document.addEventListener("mouseup", handleLocatorDragEnd, {once: true});
+          }}
+        />
         <ColorMap
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
