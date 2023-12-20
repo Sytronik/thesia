@@ -33,7 +33,7 @@ pub fn init_logger() -> Result<(), SetLoggerError> {
 pub enum PlayerCommand {
     Initialize, // caused by refreshing of frontend
     SetSr(u32),
-    SetTrack((usize, Duration)),
+    SetTrack((Option<usize>, Duration)),
     Seek(Duration),
     Pause,
     Resume,
@@ -138,7 +138,7 @@ fn main_loop(
                     }
                 }
                 PlayerCommand::SetTrack((track_id, start_time)) => {
-                    set_track(&player, Some(track_id), start_time);
+                    set_track(&player, track_id, start_time);
                 }
                 PlayerCommand::Seek(time) => {
                     let max_sec = TM.blocking_read().tracklist.max_sec;
