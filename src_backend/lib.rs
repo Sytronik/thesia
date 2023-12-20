@@ -182,6 +182,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
     let mut tm = TM.write().await;
     tm.set_common_guard_clipping(mode);
     remove_all_imgs(tm);
+    refresh_track_player().await;
 }
 
 #[napi]
@@ -195,6 +196,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
     tm.set_common_normalize(target);
     remove_all_imgs(tm);
+    refresh_track_player().await;
     Ok(())
 }
 
@@ -401,7 +403,7 @@ async fn set_track_player(track_id: u32, sec: f64) {
     let track_id = track_id as usize;
     if TM.read().await.has_id(track_id) {
         player::send(PlayerCommand::SetTrack((
-            track_id,
+            Some(track_id),
             Duration::from_secs_f64(sec),
         )))
         .await;
@@ -473,4 +475,17 @@ pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
 #[inline]
 fn remove_all_imgs(tm: impl Deref<Target = TrackManager>) {
     tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+}
+
+#[inline]
+async fn refresh_track_player() {
+    let sec = match player::recv() {
+        PlayerNotification::Ok(status) => status.play_pos.as_secs_f64(),
+        _ => 0.,
+    };
+    player::send(PlayerCommand::SetTrack((
+        None,
+        Duration::from_secs_f64(sec),
+    )))
+    .await;
 }
