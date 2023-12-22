@@ -28,10 +28,10 @@ function usePlayer(selectedTrackId: number) {
     return () => cancelAnimationFrame(requestRef.current);
   }, [updatePlayerStates]);
 
-  const setPlayingTrack = useEvent((trackId: number, positionSec: number) => {
+  const setPlayingTrack = useEvent((trackId: number) => {
     setCurrentPlayingTrack((current) => {
       if (current === trackId) return current;
-      if (trackId >= 0) BackendAPI.setTrackPlayer(trackId, positionSec);
+      if (trackId >= 0) BackendAPI.setTrackPlayer(trackId);
       return trackId;
     });
   });
@@ -42,8 +42,7 @@ function usePlayer(selectedTrackId: number) {
   });
 
   useEffect(() => {
-    const {positionSec} = BackendAPI.getPlayerStatus();
-    setPlayingTrack(selectedTrackId, positionSec);
+    setPlayingTrack(selectedTrackId);
   }, [selectedTrackId, setPlayingTrack]);
 
   return {
