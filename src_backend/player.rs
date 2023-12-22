@@ -1,3 +1,4 @@
+use std::sync::atomic::{self, AtomicUsize};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
@@ -88,9 +89,9 @@ fn main_loop(
     init_logger().unwrap();
     let init_player = || Player::new(Some(vec![48000])).unwrap(); // TODO: handle error
     let mut player = init_player();
-    let mut current_track_id = 0;
-    let mut set_track = |player: &Player, track_id: Option<usize>, start_time: Duration| {
-        let track_id = track_id.unwrap_or(current_track_id);
+    let current_track_id = AtomicUsize::new(0);
+    let set_track = |player: &Player, track_id: Option<usize>, start_time: Duration| {
+        let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
         let song = TM
             .blocking_read()
             .track(track_id)
@@ -100,7 +101,7 @@ fn main_loop(
         if let Some(song) = song {
             match player.play_song_now(&song, Some(start_time)) {
                 Ok(()) => {
-                    current_track_id = track_id;
+                    current_track_id.store(track_id, atomic::Ordering::Release);
                     println!("set song");
                 }
                 Err(e) => {
@@ -154,6 +155,17 @@ fn main_loop(
                 }
                 PlayerCommand::Pause => {
                     player.set_playing(false);
+                    if let Some((play_pos, _)) = player.get_playback_position() {
+                        if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
+                            noti_tx
+                                .send(PlayerNotification::Ok(PlayerStatus {
+                                    is_playing: false,
+                                    play_pos,
+                                    instant: Instant::now(),
+                                }))
+                                .unwrap();
+                        }
+                    }
                     println!("pause");
                 }
                 PlayerCommand::Resume => {
@@ -178,21 +190,29 @@ fn main_loop(
                     None
                 };
                 if let Some(prev_pos) = prev_pos {
-                    let status = if let Some((play_pos, _)) = player.get_playback_position() {
-                        PlayerStatus {
+                    let status = match player.get_playback_position() {
+                        Some((play_pos, _)) => PlayerStatus {
                             is_playing: player.is_playing(),
                             play_pos,
                             instant: Instant::now(),
-                        }
-                    } else {
-                        if !player.has_current_song() && player.is_playing() {
-                            player.set_playing(false);
-                            println!("song end");
-                        }
-                        PlayerStatus {
-                            is_playing: false,
-                            play_pos: prev_pos,
-                            instant: Instant::now(),
+                        },
+                        None => {
+                            // no current song
+                            let play_pos = (!player.has_current_song() && player.is_playing())
+                                .then(|| {
+                                    player.set_playing(false);
+                                    println!("song end");
+                                    TM.blocking_read()
+                                        .track(current_track_id.load(atomic::Ordering::Acquire))
+                                        .map(|track| Duration::from_secs_f64(track.sec()))
+                                })
+                                .flatten()
+                                .unwrap_or(prev_pos);
+                            PlayerStatus {
+                                is_playing: false,
+                                play_pos,
+                                instant: Instant::now(),
+                            }
                         }
                     };
                     noti_tx.send(PlayerNotification::Ok(status)).unwrap();
