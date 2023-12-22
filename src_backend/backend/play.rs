@@ -361,14 +361,13 @@ impl PlayerState {
         }
         if *self.playing.read() {
             let playback_speed = *self.playback_speed.read();
-            let mut playback = self.playback.write();
-            if playback.is_none() {
+            if self.playback.read().is_none() {
                 if let Some((new_samples, new_pos)) = self.next_samples.write().take() {
-                    *playback = Some((new_samples, new_pos));
+                    *self.playback.write() = Some((new_samples, new_pos));
                 }
             }
             let mut done = false;
-            if let Some((decoding_song, sample_pos)) = playback.as_mut() {
+            if let Some((decoding_song, sample_pos)) = self.playback.write().as_mut() {
                 let mut neg_offset = 0;
                 let data_len = data.len();
                 let (mut samples, mut new_pos, mut is_final) =
@@ -394,7 +393,7 @@ impl PlayerState {
                 done = is_final;
             }
             if done {
-                *playback = None;
+                *self.playback.write() = None;
             }
         }
     }
