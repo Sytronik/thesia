@@ -34,7 +34,7 @@ pub fn init_logger() -> Result<(), SetLoggerError> {
 pub enum PlayerCommand {
     Initialize, // caused by refreshing of frontend
     SetSr(u32),
-    SetTrack((Option<usize>, Duration)),
+    SetTrack((Option<usize>, Option<Duration>)),
     Seek(Duration),
     Pause,
     Resume,
@@ -139,6 +139,13 @@ fn main_loop(
                     }
                 }
                 PlayerCommand::SetTrack((track_id, start_time)) => {
+                    let start_time = start_time.unwrap_or_else(|| {
+                        if let PlayerNotification::Ok(status) = &(*noti_tx.borrow()) {
+                            status.play_pos
+                        } else {
+                            Default::default()
+                        }
+                    });
                     set_track(&player, track_id, start_time);
                 }
                 PlayerCommand::Seek(time) => {

@@ -399,12 +399,12 @@ fn get_color_map() -> Buffer {
 }
 
 #[napi]
-async fn set_track_player(track_id: u32, sec: f64) {
+async fn set_track_player(track_id: u32, sec: Option<f64>) {
     let track_id = track_id as usize;
     if TM.read().await.has_id(track_id) {
         player::send(PlayerCommand::SetTrack((
             Some(track_id),
-            Duration::from_secs_f64(sec),
+            sec.map(Duration::from_secs_f64),
         )))
         .await;
     }
@@ -479,13 +479,5 @@ fn remove_all_imgs(tm: impl Deref<Target = TrackManager>) {
 
 #[inline]
 async fn refresh_track_player() {
-    let sec = match player::recv() {
-        PlayerNotification::Ok(status) => status.play_pos.as_secs_f64(),
-        _ => 0.,
-    };
-    player::send(PlayerCommand::SetTrack((
-        None,
-        Duration::from_secs_f64(sec),
-    )))
-    .await;
+    player::send(PlayerCommand::SetTrack((None, None))).await;
 }
