@@ -8,7 +8,6 @@ use rayon::prelude::*;
 
 mod audio;
 mod dynamics;
-mod play;
 mod sinc;
 mod spectrogram;
 mod track;
@@ -17,7 +16,6 @@ pub mod visualize;
 mod windows;
 
 pub use dynamics::{GuardClippingMode, NormalizeTarget};
-pub use play::{Player, Song};
 pub use spectrogram::SpecSetting;
 pub use utils::Pad;
 pub use visualize::{CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer};
