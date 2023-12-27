@@ -373,7 +373,7 @@ impl TrackList {
     #[inline]
     pub fn get(&self, id: usize) -> Option<&AudioTrack> {
         (id < self.tracks.len())
-            .then_some(self.tracks[id].as_ref())
+            .then(|| self.tracks[id].as_ref())
             .flatten()
     }
 
