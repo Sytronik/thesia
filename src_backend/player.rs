@@ -1,10 +1,16 @@
-use std::sync::atomic::{self, AtomicUsize};
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::sync::atomic::{self, AtomicU32, AtomicUsize};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
+use cpal::traits::DeviceTrait;
+use cpal::SupportedStreamConfigsError;
 use futures::task;
+use kittyaudio::{Device, Frame, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use lazy_static::{initialize, lazy_static};
-use log::{LevelFilter, SetLoggerError};
+use log::{error, info, LevelFilter, SetLoggerError};
+use ndarray::Axis;
 use simple_logger::SimpleLogger;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -12,7 +18,7 @@ use tokio::{
     sync::watch,
 };
 
-use crate::{Player, Song, TM};
+use crate::TM;
 
 lazy_static! {
     static ref RUNTIME: Runtime = Builder::new_multi_thread()
@@ -34,8 +40,8 @@ pub fn init_logger() -> Result<(), SetLoggerError> {
 pub enum PlayerCommand {
     Initialize, // caused by refreshing of frontend
     SetSr(u32),
-    SetTrack((Option<usize>, Option<Duration>)),
-    Seek(Duration),
+    SetTrack((Option<usize>, Option<f64>)),
+    Seek(f64),
     Pause,
     Resume,
 }
@@ -43,7 +49,7 @@ pub enum PlayerCommand {
 #[derive(Clone)]
 pub struct PlayerStatus {
     pub is_playing: bool,
-    pub play_pos: Duration,
+    pub play_pos: f64,
     pub instant: Instant,
 }
 
@@ -75,11 +81,79 @@ pub fn recv() -> PlayerNotification {
     match noti {
         PlayerNotification::Ok(mut status) if status.is_playing => {
             let elapsed = status.instant.elapsed();
-            status.play_pos += elapsed;
+            status.play_pos += elapsed.as_secs_f64();
             PlayerNotification::Ok(status)
         }
         _ => noti,
     }
+}
+
+fn get_supported_sr_list(device_name: &str) -> Result<Vec<u32>, KaError> {
+    if let Device::Custom(device) = Device::from_name(device_name)? {
+        match device.supported_output_configs() {
+            Ok(supported_configs) => Ok(supported_configs
+                .flat_map(|c| (c.min_sample_rate().0..=c.max_sample_rate().0))
+                .collect()),
+            Err(SupportedStreamConfigsError::DeviceNotAvailable) => Err(KaError::BuildStreamError(
+                cpal::BuildStreamError::DeviceNotAvailable,
+            )),
+            Err(SupportedStreamConfigsError::InvalidArgument) => Err(KaError::BuildStreamError(
+                cpal::BuildStreamError::InvalidArgument,
+            )),
+            Err(SupportedStreamConfigsError::BackendSpecific { err }) => Err(
+                KaError::BuildStreamError(cpal::BuildStreamError::BackendSpecific { err }),
+            ),
+        }
+    } else {
+        unreachable!();
+    }
+}
+
+fn get_nearest_sr(device_name: &str, sr: u32) -> Result<Option<u32>, KaError> {
+    if sr == 0 {
+        return Ok(None);
+    }
+    let supported_sr_list = get_supported_sr_list(device_name)?;
+    println!("supported sr: {:?}", supported_sr_list);
+    if supported_sr_list.contains(&sr) {
+        return Ok(Some(sr));
+    }
+    let (closest_greater, closest_less) = supported_sr_list.into_iter().fold(
+        (u32::MAX, 0),
+        |(closest_greater, closest_less), curr_sr| {
+            if curr_sr >= sr {
+                if curr_sr - sr < closest_greater - sr {
+                    (curr_sr, closest_less)
+                } else {
+                    (closest_greater, closest_less)
+                }
+            } else {
+                if sr - curr_sr < sr - closest_less {
+                    (closest_greater, curr_sr)
+                } else {
+                    (closest_greater, closest_less)
+                }
+            }
+        },
+    );
+    if closest_greater < u32::MAX {
+        Ok(Some(closest_greater))
+    } else if closest_less > 0 {
+        Ok(Some(closest_less))
+    } else {
+        Ok(None)
+    }
+}
+
+fn calc_position(sound_handle: impl Deref<Target = SoundHandle>) -> f64 {
+    sound_handle.index() as f64 / sound_handle.sample_rate() as f64
+}
+
+fn noti_err(noti_tx: &watch::Sender<PlayerNotification>, err: KaError) {
+    error!("{}", err);
+    noti_tx
+        .send(PlayerNotification::Err(err.to_string()))
+        .unwrap();
 }
 
 fn main_loop(
@@ -87,29 +161,78 @@ fn main_loop(
     noti_tx: watch::Sender<PlayerNotification>,
 ) {
     init_logger().unwrap();
-    let init_player = || Player::new(Some(vec![48000])).unwrap(); // TODO: handle error
-    let mut player = init_player();
+    let current_sr = AtomicU32::new(48000);
     let current_track_id = AtomicUsize::new(0);
-    let set_track = |player: &Player, track_id: Option<usize>, start_time: Duration| {
+    let get_device_name = || match Device::Default.name() {
+        Ok(n) => n,
+        Err(err) => {
+            noti_err(&noti_tx, err);
+            "".into()
+        }
+    };
+    let device_name = RefCell::new(get_device_name());
+    let init_mixer = |sr: Option<u32>| {
+        let sr = sr.unwrap_or(48000);
+        let mixer = Mixer::new();
+        let device = loop {
+            match Device::from_name(&device_name.borrow()) {
+                Ok(d) => break d,
+                Err(err) => {
+                    noti_err(&noti_tx, err);
+                    std::thread::sleep(Duration::from_secs(1));
+                    *device_name.borrow_mut() = get_device_name();
+                }
+            };
+        };
+        mixer.init_ex(
+            device,
+            StreamSettings {
+                sample_rate: Some(sr),
+                ..Default::default()
+            },
+        );
+        info!("device: {}, sr: {}", device_name.borrow(), sr);
+        current_sr.store(sr, atomic::Ordering::Release);
+        mixer
+    };
+    let mut mixer = init_mixer(None);
+    let mut sound_handle = SoundHandle::new({
+        let mut sound = Sound::default();
+        sound.paused = true;
+        sound
+    });
+    let set_track = |mixer: &mut Mixer,
+                     sound_handle: &mut SoundHandle,
+                     track_id: Option<usize>,
+                     start_time: f64| {
         let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
-        let song = TM
-            .blocking_read()
-            .track(track_id)
-            .map(|track| Song::new(track.view(), track.sr(), None));
+        let sound = TM.blocking_read().track(track_id).map(|track| {
+            let frames: Vec<Frame> = track
+                .view()
+                .axis_iter(Axis(1))
+                .map(|frame| {
+                    match frame.len() {
+                        1 => Frame::from_mono(frame[0]),
+                        2 => Frame::new(frame[0], frame[1]),
+                        _ => unimplemented!(), // TODO
+                    }
+                })
+                .collect(); // TODO: caching
+            Sound::from_frames(track.sr(), &frames)
+        });
 
-        println!("song created");
-        if let Some(song) = song {
-            match player.play_song_now(&song, Some(start_time)) {
-                Ok(()) => {
-                    current_track_id.store(track_id, atomic::Ordering::Release);
-                    println!("set song");
-                }
-                Err(e) => {
-                    noti_tx
-                        .send(PlayerNotification::Err(e.to_string()))
-                        .unwrap();
-                }
-            }
+        println!("sound created");
+        if let Some(mut sound) = sound {
+            sound.seek_to(start_time);
+            sound.paused = sound_handle.guard().paused;
+            mixer.renderer.guard().sounds.clear();
+            println!("mixer clear");
+            *sound_handle = mixer.play(sound);
+            println!("sound added");
+            current_track_id.store(track_id, atomic::Ordering::Release);
+        } else {
+            mixer.renderer.guard().sounds.clear();
+            println!("mixer clear");
         }
     };
 
@@ -119,26 +242,27 @@ fn main_loop(
         match msg_rx.poll_recv(&mut cx) {
             Poll::Ready(Some(msg)) => match msg {
                 PlayerCommand::Initialize => {
-                    player = init_player();
+                    mixer = init_mixer(None);
                 }
-                PlayerCommand::SetSr(sr) => {
-                    if player.sr() != sr as usize {
-                        let new_player = match Player::new(Some(vec![sr])) {
-                            Ok(p) => p,
-                            Err(e) => {
-                                noti_tx
-                                    .send(PlayerNotification::Err(e.to_string()))
-                                    .unwrap();
-                                continue;
-                            }
-                        };
-                        if player.sr() != new_player.sr() {
-                            player = new_player;
-                            println!("player is initialized with sr {}", player.sr());
+                PlayerCommand::SetSr(sr) if current_sr.load(atomic::Ordering::Acquire) != sr => {
+                    let sr = match get_nearest_sr(&device_name.borrow(), sr) {
+                        Ok(sr) => sr,
+                        Err(err) => {
+                            noti_err(&noti_tx, err);
+                            continue;
                         }
+                    };
+                    if sr.is_some_and(|sr| sr != current_sr.load(atomic::Ordering::Acquire))
+                        || sr.is_none()
+                    {
+                        mixer = init_mixer(sr);
+                    } else {
+                        println!("sr no change");
                     }
                 }
+                PlayerCommand::SetSr(_) => {}
                 PlayerCommand::SetTrack((track_id, start_time)) => {
+                    println!("set track");
                     let start_time = start_time.unwrap_or_else(|| {
                         if let PlayerNotification::Ok(status) = &(*noti_tx.borrow()) {
                             status.play_pos
@@ -146,12 +270,12 @@ fn main_loop(
                             Default::default()
                         }
                     });
-                    set_track(&player, track_id, start_time);
+                    set_track(&mut mixer, &mut sound_handle, track_id, start_time);
                 }
                 PlayerCommand::Seek(time) => {
                     let max_sec = TM.blocking_read().tracklist.max_sec;
-                    let time = time.min(Duration::from_secs_f64(max_sec));
-                    player.seek(time);
+                    let time = time.min(max_sec);
+                    sound_handle.seek_to(time);
                     noti_tx.send_modify(|noti| {
                         if let PlayerNotification::Ok(status) = noti {
                             status.play_pos = time;
@@ -161,35 +285,37 @@ fn main_loop(
                     println!("seek to {:?}", time);
                 }
                 PlayerCommand::Pause => {
-                    player.set_playing(false);
-                    if let Some((play_pos, _)) = player.get_playback_position() {
-                        if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
-                            noti_tx
-                                .send(PlayerNotification::Ok(PlayerStatus {
-                                    is_playing: false,
-                                    play_pos,
-                                    instant: Instant::now(),
-                                }))
-                                .unwrap();
-                        }
+                    sound_handle.guard().paused = true;
+                    if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
+                        noti_tx
+                            .send(PlayerNotification::Ok(PlayerStatus {
+                                is_playing: false,
+                                play_pos: calc_position(&sound_handle),
+                                instant: Instant::now(),
+                            }))
+                            .unwrap();
                     }
                     println!("pause");
                 }
                 PlayerCommand::Resume => {
-                    player.set_playing(true);
+                    sound_handle.guard().paused = false;
 
                     let play_pos = if let PlayerNotification::Ok(status) = &(*noti_tx.borrow()) {
                         status.play_pos
                     } else {
                         Default::default()
                     };
-                    if !player.has_current_song() {
-                        set_track(&player, None, play_pos);
+                    if mixer.is_finished() {
+                        set_track(&mut mixer, &mut sound_handle, None, play_pos);
                     }
                     println!("play");
                 }
             },
             Poll::Pending => {
+                // TODO: error handling
+                // mixer.handle_errors(|err| {
+                //     noti_err(&noti_tx, KaError::StreamError(err));
+                // });
                 // notification
                 let prev_pos = if let PlayerNotification::Ok(status) = &(*noti_tx.borrow()) {
                     Some(status.play_pos)
@@ -197,29 +323,29 @@ fn main_loop(
                     None
                 };
                 if let Some(prev_pos) = prev_pos {
-                    let status = match player.get_playback_position() {
-                        Some((play_pos, _)) => PlayerStatus {
-                            is_playing: player.is_playing(),
+                    let is_playing = !sound_handle.guard().paused;
+                    let status = if !mixer.is_finished() {
+                        PlayerStatus {
+                            is_playing,
+                            play_pos: calc_position(&sound_handle),
+                            instant: Instant::now(),
+                        }
+                    } else {
+                        // no current sound
+                        let play_pos = is_playing
+                            .then(|| {
+                                sound_handle.guard().paused = true;
+                                println!("track ended");
+                                TM.blocking_read()
+                                    .track(current_track_id.load(atomic::Ordering::Acquire))
+                                    .map(|track| track.sec())
+                            })
+                            .flatten()
+                            .unwrap_or(prev_pos);
+                        PlayerStatus {
+                            is_playing: false,
                             play_pos,
                             instant: Instant::now(),
-                        },
-                        None => {
-                            // no current song
-                            let play_pos = (!player.has_current_song() && player.is_playing())
-                                .then(|| {
-                                    player.set_playing(false);
-                                    println!("song end");
-                                    TM.blocking_read()
-                                        .track(current_track_id.load(atomic::Ordering::Acquire))
-                                        .map(|track| Duration::from_secs_f64(track.sec()))
-                                })
-                                .flatten()
-                                .unwrap_or(prev_pos);
-                            PlayerStatus {
-                                is_playing: false,
-                                play_pos,
-                                instant: Instant::now(),
-                            }
                         }
                     };
                     noti_tx.send(PlayerNotification::Ok(status)).unwrap();

@@ -6,7 +6,6 @@ extern crate blas_src;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::time::Duration;
 
 use itertools::Itertools;
 use lazy_static::{initialize, lazy_static};
@@ -402,17 +401,13 @@ fn get_color_map() -> Buffer {
 async fn set_track_player(track_id: u32, sec: Option<f64>) {
     let track_id = track_id as usize;
     if TM.read().await.has_id(track_id) {
-        player::send(PlayerCommand::SetTrack((
-            Some(track_id),
-            sec.map(Duration::from_secs_f64),
-        )))
-        .await;
+        player::send(PlayerCommand::SetTrack((Some(track_id), sec))).await;
     }
 }
 
 #[napi]
 async fn seek_player(sec: f64) {
-    player::send(PlayerCommand::Seek(Duration::from_secs_f64(sec))).await;
+    player::send(PlayerCommand::Seek(sec)).await;
 }
 
 #[napi]
@@ -431,7 +426,7 @@ fn get_player_status() -> serde_json::Value {
         PlayerNotification::Ok(status) => {
             json!({
                 "isPlaying": status.is_playing,
-                "positionSec": status.play_pos.as_secs_f64(),
+                "positionSec": status.play_pos,
                 "err": "",
             })
         }
