@@ -17,7 +17,8 @@ function usePlayer(selectedTrackId: number) {
   const requestRef = useRef<number>(0);
 
   const updatePlayerStates = useEvent(() => {
-    const {isPlaying: newIsPlaying, positionSec} = BackendAPI.getPlayerStatus();
+    const {isPlaying: newIsPlaying, positionSec, err} = BackendAPI.getPlayerState();
+    if (err) console.error(err);
     if (isPlaying !== newIsPlaying) setIsPlaying(newIsPlaying);
     positionSecRef.current = positionSec;
     requestRef.current = requestAnimationFrame(updatePlayerStates);
