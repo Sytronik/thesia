@@ -62,4 +62,4 @@ export function setTrackPlayer(trackId: number, sec?: number | undefined | null)
 export function seekPlayer(sec: number): Promise<void>
 export function pausePlayer(): Promise<void>
 export function resumePlayer(): Promise<void>
-export function getPlayerStatus(): any
+export function getPlayerState(): any

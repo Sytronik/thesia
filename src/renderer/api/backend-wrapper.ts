@@ -123,14 +123,14 @@ export async function setCommonNormalize(commonNormalize: NormalizeTarget): Prom
   return backend.setCommonNormalize(commonNormalize);
 }
 
-export type PlayerStatus = {
+export type PlayerState = {
   err: string;
   isPlaying: boolean;
   positionSec: number;
 };
 
-export function getPlayerStatus(): PlayerStatus {
-  return backend.getPlayerStatus();
+export function getPlayerState(): PlayerState {
+  return backend.getPlayerState();
 }
 
 export const {
