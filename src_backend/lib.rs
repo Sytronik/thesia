@@ -423,10 +423,10 @@ async fn resume_player() {
 #[napi]
 fn get_player_status() -> serde_json::Value {
     match player::recv() {
-        PlayerNotification::Ok(status) => {
+        PlayerNotification::Ok(state) => {
             json!({
-                "isPlaying": status.is_playing,
-                "positionSec": status.play_pos,
+                "isPlaying": state.is_playing,
+                "positionSec": state.position_sec,
                 "err": "",
             })
         }
