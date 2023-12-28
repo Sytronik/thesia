@@ -66,7 +66,7 @@ impl Default for PlayerState {
     fn default() -> Self {
         PlayerState {
             is_playing: false,
-            position_sec: Default::default(),
+            position_sec: 0.,
             instant: Instant::now(),
         }
     }
@@ -210,7 +210,8 @@ fn main_loop(
     let set_track = |mixer: &mut Mixer,
                      sound_handle: &mut SoundHandle,
                      track_id: Option<usize>,
-                     start_time_sec: f64| {
+                     start_time_sec: f64,
+                     is_playing: bool| {
         let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
         let sound = TM.blocking_read().track(track_id).map(|track| {
             let frames: Vec<Frame> = track
@@ -231,7 +232,7 @@ fn main_loop(
         match sound {
             Some(mut sound) => {
                 sound.seek_to(start_time_sec);
-                sound.paused = sound_handle.guard().paused;
+                sound.paused = !is_playing;
                 mixer.renderer.guard().sounds.clear();
                 println!("mixer clear");
                 *sound_handle = mixer.play(sound);
@@ -272,14 +273,19 @@ fn main_loop(
                 PlayerCommand::SetSr(_) => {}
                 PlayerCommand::SetTrack((track_id, start_time)) => {
                     println!("set track");
-                    let start_time = start_time.unwrap_or_else(|| {
+                    let (start_time, is_playing) =
                         if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
-                            state.position_sec
+                            (start_time.unwrap_or(state.position_sec), state.is_playing)
                         } else {
-                            Default::default()
-                        }
-                    });
-                    set_track(&mut mixer, &mut sound_handle, track_id, start_time);
+                            (0., false)
+                        };
+                    set_track(
+                        &mut mixer,
+                        &mut sound_handle,
+                        track_id,
+                        start_time,
+                        is_playing,
+                    );
                 }
                 PlayerCommand::Seek(sec) => {
                     let max_sec = TM.blocking_read().tracklist.max_sec;
@@ -312,10 +318,19 @@ fn main_loop(
                     let position_sec = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
                         state.position_sec
                     } else {
-                        Default::default()
+                        0.
                     };
                     if mixer.is_finished() {
-                        set_track(&mut mixer, &mut sound_handle, None, position_sec);
+                        set_track(&mut mixer, &mut sound_handle, None, position_sec, true);
+                    }
+                    if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
+                        noti_tx
+                            .send(PlayerNotification::Ok(PlayerState {
+                                is_playing: true,
+                                position_sec,
+                                instant: Instant::now(),
+                            }))
+                            .unwrap();
                     }
                     println!("play");
                 }
@@ -326,31 +341,43 @@ fn main_loop(
                 //     noti_err(&noti_tx, KaError::StreamError(err));
                 // });
                 // notification
-                let prev_pos = if let PlayerNotification::Ok(status) = &(*noti_tx.borrow()) {
-                    Some(status.position_sec)
+                let prev_state = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
+                    Some(state.clone())
                 } else {
                     None
                 };
-                if let Some(prev_pos) = prev_pos {
-                    let is_playing = !sound_handle.guard().paused;
+                if let Some(prev_state) = prev_state {
                     let mut state = PlayerState {
-                        is_playing,
+                        is_playing: prev_state.is_playing,
                         position_sec: calc_position_sec(&sound_handle),
                         instant: Instant::now(),
                     };
                     if mixer.is_finished() {
                         // no current sound
-                        state.is_playing = false;
-                        state.position_sec = is_playing
-                            .then(|| {
-                                sound_handle.guard().paused = true;
+                        {
+                            // only for logging
+                            let mut sound = sound_handle.guard();
+                            if !sound.paused {
+                                sound.paused = true;
                                 println!("track ended");
-                                TM.blocking_read()
-                                    .track(current_track_id.load(atomic::Ordering::Acquire))
-                                    .map(|track| track.sec())
-                            })
-                            .flatten()
-                            .unwrap_or(prev_pos);
+                            }
+                        }
+                        let position_sec = prev_state.position_sec
+                            + (state.instant - prev_state.instant).as_secs_f64();
+                        let max_sec = TM.blocking_read().tracklist.max_sec;
+                        if position_sec >= max_sec {
+                            state.is_playing = false;
+                            state.position_sec = max_sec;
+                            if prev_state.position_sec != max_sec {
+                                println!("reached max_sec {}", max_sec);
+                            }
+                        } else if prev_state.is_playing {
+                            state.is_playing = true;
+                            state.position_sec = position_sec;
+                        } else {
+                            state.is_playing = false;
+                            state.position_sec = prev_state.position_sec;
+                        }
                     }
                     noti_tx.send(PlayerNotification::Ok(state)).unwrap();
                 }
