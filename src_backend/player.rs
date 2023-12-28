@@ -27,7 +27,7 @@ lazy_static! {
         .thread_name("thesia-tokio-audio")
         .build()
         .unwrap();
-    static ref PLAYER_NOTI_INTERVAL: Duration = Duration::from_secs_f64(1. / 60.);
+    static ref PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 }
 
 static mut COMMAND_TX: Option<mpsc::Sender<PlayerCommand>> = None;
