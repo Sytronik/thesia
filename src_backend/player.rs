@@ -220,8 +220,8 @@ fn main_loop(
         println!("sound created with track {}", track_id);
         match sound {
             Some(mut sound) => {
-                sound.seek_to(start_time_sec);
                 sound.paused = !is_playing;
+                sound.seek_to(start_time_sec);
                 mixer.renderer.guard().sounds.clear();
                 println!("mixer clear");
                 *sound_handle = mixer.play(sound);
