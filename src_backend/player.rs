@@ -6,10 +6,9 @@ use std::time::{Duration, Instant};
 use cpal::traits::DeviceTrait;
 use cpal::SupportedStreamConfigsError;
 use futures::task;
-use kittyaudio::{Device, Frame, KaError, Mixer, Sound, SoundHandle, StreamSettings};
+use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use lazy_static::{initialize, lazy_static};
 use log::{error, info, LevelFilter, SetLoggerError};
-use ndarray::Axis;
 use simple_logger::SimpleLogger;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -213,20 +212,10 @@ fn main_loop(
                      start_time_sec: f64,
                      is_playing: bool| {
         let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
-        let sound = TM.blocking_read().track(track_id).map(|track| {
-            let frames: Vec<Frame> = track
-                .view()
-                .axis_iter(Axis(1))
-                .map(|frame| {
-                    match frame.len() {
-                        1 => Frame::from_mono(frame[0]),
-                        2 => Frame::new(frame[0], frame[1]),
-                        _ => unimplemented!(), // TODO
-                    }
-                })
-                .collect(); // TODO: caching
-            Sound::from_frames(track.sr(), &frames)
-        });
+        let sound = TM
+            .blocking_read()
+            .track(track_id)
+            .map(|track| Sound::from_frames(track.sr(), &track.interleaved_frames()));
 
         println!("sound created with track {}", track_id);
         match sound {
