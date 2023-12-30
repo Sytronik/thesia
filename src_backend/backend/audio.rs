@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::io;
 use std::path::Path;
 
+use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::audio::{AudioBuffer, Signal};
@@ -125,6 +126,22 @@ impl GuardClipping<Ix2> for Audio {
             Array2::ones(gain_shape)
         };
         GuardClippingResult::GainSequence(gain_seq)
+    }
+}
+
+impl From<&Audio> for Vec<Frame> {
+    fn from(value: &Audio) -> Self {
+        value
+            .view()
+            .axis_iter(Axis(1))
+            .map(|frame| {
+                match frame.len() {
+                    1 => frame[0].into(),
+                    2 => (frame[0], frame[1]).into(),
+                    _ => unimplemented!(), // TODO
+                }
+            })
+            .collect()
     }
 }
 

@@ -3,6 +3,7 @@ use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
 
+use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -43,6 +44,7 @@ pub struct AudioTrack {
     path: PathBuf,
     original: Audio,
     audio: Audio,
+    interleaved: Vec<Frame>,
     stat_calculator: StatCalculator,
 }
 
@@ -53,12 +55,14 @@ impl AudioTrack {
         let original = Audio::new(wavs, sr, &mut stat_calculator);
 
         let audio = original.clone();
+        let interleaved = (&audio).into();
 
         Ok(AudioTrack {
             format_desc,
             path: PathBuf::from(path).canonicalize().unwrap(),
             original,
             audio,
+            interleaved,
             stat_calculator,
         })
     }
@@ -71,6 +75,7 @@ impl AudioTrack {
         }
         let original = Audio::new(wavs, sr, &mut self.stat_calculator);
         self.original = original.clone();
+        self.interleaved = (&original).into();
         self.audio = original;
         self.format_desc = format_desc;
         Ok(true)
@@ -82,8 +87,8 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn view(&self) -> ArrayView2<f32> {
-        self.audio.view()
+    pub fn interleaved_frames(&self) -> &[Frame] {
+        &self.interleaved
     }
 
     #[inline]
@@ -186,6 +191,7 @@ impl Normalize for AudioTrack {
             &mut self.stat_calculator,
             guard_clipping_mode,
         );
+        self.interleaved = (&self.audio).into();
     }
 }
 
