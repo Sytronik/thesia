@@ -26,7 +26,7 @@ ebur128 = "0.1.8"
 fast_image_resize = "3.0.4"
 futures = "0.3.30"
 itertools = "0.12.1"
-kittyaudio = "0.1.6"
+kittyaudio = {git = "https://github.com/Sytronik/kittyaudio.git", branch = "master"}
 lazy_static = "1.4.0"
 log = "0.4.20"
 ndarray = {version = "0.15.6", features = ["approx", "blas", "rayon"]}
