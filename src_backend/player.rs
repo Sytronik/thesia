@@ -203,7 +203,7 @@ fn main_loop(
     let mut mixer = init_mixer(None);
     let mut sound_handle = SoundHandle::new({
         let mut sound = Sound::default();
-        sound.paused = true;
+        sound.pause();
         sound
     });
     let set_track = |mixer: &mut Mixer,
@@ -259,7 +259,9 @@ fn main_loop(
                         info!("sr no change");
                     }
                 }
-                PlayerCommand::SetSr(_) => {}
+                PlayerCommand::SetSr(_) => {
+                    info!("sr no change");
+                }
                 PlayerCommand::SetTrack((track_id, start_time)) => {
                     info!("set track");
                     let (start_time, is_playing) =
@@ -289,7 +291,7 @@ fn main_loop(
                     info!("seek to {}", sec);
                 }
                 PlayerCommand::Pause => {
-                    sound_handle.guard().paused = true;
+                    sound_handle.pause();
                     if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
                         noti_tx
                             .send(PlayerNotification::Ok(PlayerState {
@@ -302,7 +304,7 @@ fn main_loop(
                     info!("pause");
                 }
                 PlayerCommand::Resume => {
-                    sound_handle.guard().paused = false;
+                    sound_handle.resume();
 
                     let position_sec = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
                         state.position_sec
@@ -326,9 +328,12 @@ fn main_loop(
             },
             Poll::Pending => {
                 // TODO: error handling
-                // mixer.handle_errors(|err| {
-                //     noti_err(&noti_tx, KaError::StreamError(err));
-                // });
+                // if !mixer.backend.is_locked() {
+                //     mixer.handle_errors(|err| {
+                //         noti_err(&noti_tx, KaError::StreamError(err));
+                //     });
+                //     mixer = init_mixer(Some(current_sr.load(atomic::Ordering::Acquire)));
+                // }
                 // notification
                 let prev_state = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
                     Some(state.clone())
@@ -345,9 +350,8 @@ fn main_loop(
                         // no current sound
                         {
                             // only for logging
-                            let mut sound = sound_handle.guard();
-                            if !sound.paused {
-                                sound.paused = true;
+                            if !sound_handle.paused() {
+                                sound_handle.pause();
                                 info!("track ended");
                             }
                         }
