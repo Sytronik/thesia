@@ -122,7 +122,7 @@ fn get_optimal_sr(device_name: &str, sr: u32) -> Result<Option<u32>, KaError> {
         return Ok(None);
     }
     let supported_sr_list = get_supported_sr_list(device_name)?;
-    println!("supported sr: {:?}", supported_sr_list);
+    info!("supported sr: {:?}", supported_sr_list);
     if supported_sr_list.contains(&sr) {
         return Ok(Some(sr));
     }
@@ -217,20 +217,20 @@ fn main_loop(
             .track(track_id)
             .map(|track| Sound::from_frames(track.sr(), &track.interleaved_frames()));
 
-        println!("sound created with track {}", track_id);
+        info!("sound created with track {}", track_id);
         match sound {
             Some(mut sound) => {
                 sound.paused = !is_playing;
                 sound.seek_to(start_time_sec);
                 mixer.renderer.guard().sounds.clear();
-                println!("mixer clear");
+                info!("mixer clear");
                 *sound_handle = mixer.play(sound);
-                println!("sound added");
+                info!("sound added");
                 current_track_id.store(track_id, atomic::Ordering::Release);
             }
             None => {
                 mixer.renderer.guard().sounds.clear();
-                println!("mixer clear");
+                info!("mixer clear");
             }
         }
     };
@@ -256,12 +256,12 @@ fn main_loop(
                     {
                         mixer = init_mixer(sr);
                     } else {
-                        println!("sr no change");
+                        info!("sr no change");
                     }
                 }
                 PlayerCommand::SetSr(_) => {}
                 PlayerCommand::SetTrack((track_id, start_time)) => {
-                    println!("set track");
+                    info!("set track");
                     let (start_time, is_playing) =
                         if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
                             (start_time.unwrap_or(state.position_sec), state.is_playing)
@@ -286,7 +286,7 @@ fn main_loop(
                             state.instant = Instant::now();
                         }
                     });
-                    println!("seek to {}", sec);
+                    info!("seek to {}", sec);
                 }
                 PlayerCommand::Pause => {
                     sound_handle.guard().paused = true;
@@ -299,7 +299,7 @@ fn main_loop(
                             }))
                             .unwrap();
                     }
-                    println!("pause");
+                    info!("pause");
                 }
                 PlayerCommand::Resume => {
                     sound_handle.guard().paused = false;
@@ -321,7 +321,7 @@ fn main_loop(
                             }))
                             .unwrap();
                     }
-                    println!("play");
+                    info!("play");
                 }
             },
             Poll::Pending => {
@@ -348,7 +348,7 @@ fn main_loop(
                             let mut sound = sound_handle.guard();
                             if !sound.paused {
                                 sound.paused = true;
-                                println!("track ended");
+                                info!("track ended");
                             }
                         }
                         let position_sec = prev_state.position_sec
@@ -358,7 +358,7 @@ fn main_loop(
                             state.is_playing = false;
                             state.position_sec = max_sec;
                             if prev_state.position_sec != max_sec {
-                                println!("reached max_sec {}", max_sec);
+                                info!("reached max_sec {}", max_sec);
                             }
                         } else if prev_state.is_playing {
                             state.is_playing = true;
