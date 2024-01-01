@@ -65,7 +65,7 @@ struct PixmapMutWrapper<'a>(PixmapMut<'a>);
 impl<'a> PixmapMutWrapper<'a> {
     #[inline]
     fn from_bytes(data: &'a mut [u8], width: u32, height: u32) -> Option<Self> {
-        PixmapMut::from_bytes(data, width, height).map(|x| PixmapMutWrapper(x))
+        PixmapMut::from_bytes(data, width, height).map(PixmapMutWrapper)
     }
 
     #[inline]

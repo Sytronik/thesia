@@ -190,13 +190,12 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
 
 #[napi]
 fn get_images() -> HashMap<String, Buffer> {
-    if let Some(images) = img_mgr::recv() {
-        images
+    match img_mgr::recv() {
+        Some(images) => images
             .into_iter()
             .map(|((id, ch), img)| (format_id_ch(id, ch), img.into()))
-            .collect()
-    } else {
-        HashMap::new()
+            .collect(),
+        None => HashMap::new(),
     }
 }
 
@@ -355,7 +354,7 @@ fn get_guard_clip_stats(track_id: u32) -> String {
             Itertools::intersperse(
                 track.guard_clip_stats().iter().map(|stat| {
                     let stat = stat.to_string();
-                    if stat != "" {
+                    if !stat.is_empty() {
                         format!("{} by {}", &prefix, stat)
                     } else {
                         stat

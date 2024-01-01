@@ -98,7 +98,7 @@ pub async fn send(msg: ImgMsg) {
 }
 
 trait SlightlyLarger {
-    fn slightly_larger_than_or_equal_to(&self, b: Self) -> bool;
+    fn slightly_larger_than_or_equal_to(&self, other: Self) -> bool;
 }
 
 impl<T> SlightlyLarger for Wrapping<T>
@@ -107,24 +107,24 @@ where
     usize: AsPrimitive<T>,
     Wrapping<T>: NumOps,
 {
-    fn slightly_larger_than_or_equal_to(&self, b: Self) -> bool {
-        let b_big_skip = b + Wrapping(T::max_value() / 2.as_());
-        let b_wrapped = b_big_skip < b;
+    fn slightly_larger_than_or_equal_to(&self, other: Self) -> bool {
+        let other_big_skip = other + Wrapping(T::max_value() / 2.as_());
+        let other_wrapped = other_big_skip < other;
         let self_big_skip = *self + Wrapping(T::max_value() / 2.as_());
         let self_wrapped = self_big_skip < *self;
-        // assume curr_req_id and max_req_id is not too far
-        // 0--curr--max-------------LIMIT  -> X
-        // 0-------------curr--max--LIMIT  -> X
-        // 0--------curr--max-------LIMIT  -> X
-        // 0--max-------------curr--LIMIT  -> X
-        *self == b
-        // 0--max--curr-------------LIMIT
-        // 0-------------max--curr--LIMIT
-        || (self_wrapped == b_wrapped) && b < *self
-        // 0--------max--curr-------LIMIT
-        || self_wrapped && !b_wrapped && self_big_skip < b
-        // 0--curr-------------max--LIMIT
-        || !self_wrapped && b_wrapped && *self < b_big_skip
+        // assume self and other is not too far
+        // 0--self--other-------------LIMIT  -> X
+        // 0-------------self--other--LIMIT  -> X
+        // 0--------self--other-------LIMIT  -> X
+        // 0--other-------------self--LIMIT  -> X
+        *self == other
+        // 0--other--self-------------LIMIT
+        // 0-------------other--self--LIMIT
+        || (self_wrapped == other_wrapped) && other < *self
+        // 0--------other--self-------LIMIT
+        || self_wrapped && !other_wrapped && self_big_skip < other
+        // 0--self-------------other--LIMIT
+        || !self_wrapped && other_wrapped && *self < other_big_skip
     }
 }
 
