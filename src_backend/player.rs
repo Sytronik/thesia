@@ -61,6 +61,16 @@ pub struct PlayerState {
     pub instant: Instant,
 }
 
+impl PlayerState {
+    pub fn position_sec_elapsed(&self) -> f64 {
+        if self.is_playing {
+            self.position_sec + self.instant.elapsed().as_secs_f64()
+        } else {
+            self.position_sec
+        }
+    }
+}
+
 impl Default for PlayerState {
     fn default() -> Self {
         PlayerState {
@@ -88,8 +98,7 @@ pub fn recv() -> PlayerNotification {
     let noti = unsafe { (*NOTI_RX.as_ref().unwrap().borrow()).clone() };
     match noti {
         PlayerNotification::Ok(mut state) if state.is_playing => {
-            let elapsed = state.instant.elapsed();
-            state.position_sec += elapsed.as_secs_f64();
+            state.position_sec = state.position_sec_elapsed();
             PlayerNotification::Ok(state)
         }
         _ => noti,
@@ -269,7 +278,10 @@ fn main_loop(
                     info!("set track");
                     let (start_time, is_playing) =
                         if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
-                            (start_time.unwrap_or(state.position_sec), state.is_playing)
+                            (
+                                start_time.unwrap_or(state.position_sec_elapsed()),
+                                state.is_playing,
+                            )
                         } else {
                             (0., false)
                         };
