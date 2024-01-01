@@ -175,10 +175,13 @@ fn main_loop(
             "".into()
         }
     };
-    let device_name = RefCell::new(get_device_name());
-    let init_mixer = |sr: Option<u32>| {
+    let device_name = RefCell::new(String::new());
+    let init_mixer = |sr: Option<u32>, change_device: bool| {
         let sr = sr.unwrap_or(48000);
         let mixer = Mixer::new();
+        if change_device {
+            *device_name.borrow_mut() = get_device_name();
+        }
         let device = loop {
             match Device::from_name(&device_name.borrow()) {
                 Ok(d) => break d,
@@ -200,7 +203,7 @@ fn main_loop(
         current_sr.store(sr, atomic::Ordering::Release);
         mixer
     };
-    let mut mixer = init_mixer(None);
+    let mut mixer = init_mixer(None, true);
     let mut sound_handle = SoundHandle::new({
         let mut sound = Sound::default();
         sound.pause();
@@ -241,7 +244,7 @@ fn main_loop(
         match msg_rx.poll_recv(&mut cx) {
             Poll::Ready(Some(msg)) => match msg {
                 PlayerCommand::Initialize => {
-                    mixer = init_mixer(None);
+                    mixer = init_mixer(None, true);
                 }
                 PlayerCommand::SetSr(sr) if current_sr.load(atomic::Ordering::Acquire) != sr => {
                     let sr = match get_optimal_sr(&device_name.borrow(), sr) {
@@ -254,7 +257,7 @@ fn main_loop(
                     if sr.is_some_and(|sr| sr != current_sr.load(atomic::Ordering::Acquire))
                         || sr.is_none()
                     {
-                        mixer = init_mixer(sr);
+                        mixer = init_mixer(sr, false);
                     } else {
                         info!("sr no change");
                     }
