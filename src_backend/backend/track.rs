@@ -182,15 +182,15 @@ impl Normalize for AudioTrack {
     fn apply_gain(&mut self, gain: f32, guard_clipping_mode: GuardClippingMode) {
         if !gain.is_finite() || gain == 1. {
             self.audio.clone_from(&self.original);
-            return;
+        } else {
+            self.audio.mutate(
+                |wavs| {
+                    azip!((y in wavs, x in self.original.view()) *y = gain * x);
+                },
+                &mut self.stat_calculator,
+                guard_clipping_mode,
+            );
         }
-        self.audio.mutate(
-            |wavs| {
-                azip!((y in wavs, x in self.original.view()) *y = gain * x);
-            },
-            &mut self.stat_calculator,
-            guard_clipping_mode,
-        );
         self.interleaved = (&self.audio).into();
     }
 }
