@@ -486,20 +486,20 @@ function MainViewer(props: MainViewerProps) {
       if (rect !== null) {
         const locatorPos =
           ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current;
-        const locatorElemPos = Math.floor(locatorPos) - 1;
-        const drawPos = locatorPos - locatorElemPos;
-        const lineHeight = mainViewerElem.current?.getBoundingClientRect().height ?? 500;
 
         if (locatorPos <= -1.5 || locatorPos >= rect.width + 0.5) {
-          locatorElem.current.style.visibility = "hidden";
+          if (locatorElem.current.style.visibility !== "hidden")
+            locatorElem.current.style.visibility = "hidden";
         } else {
-          locatorElem.current.style.visibility = "";
-          locatorElem.current.style.left = `${locatorElemPos + rect.left}px`;
-          locatorElem.current.style.height = `${lineHeight}px`;
+          const locatorElemPos = Math.floor(locatorPos) - 1;
+          const drawPos = locatorPos - locatorElemPos;
+          const lineHeight = mainViewerElem.current?.getBoundingClientRect().height ?? 500;
+          if (locatorElem.current.style.visibility !== "")
+            locatorElem.current.style.visibility = "";
+          if (locatorElem.current.style.left !== `${locatorElemPos + rect.left}px`)
+            locatorElem.current.style.left = `${locatorElemPos + rect.left}px`;
+          locatorElem.current.width = 5 * devicePixelRatio;
           locatorElem.current.height = lineHeight * devicePixelRatio;
-          locatorElem.current.width =
-            ((locatorElem.current.computedStyleMap().get("width") as CSSUnitValue).value ?? 2) *
-            devicePixelRatio;
           const ctx = locatorCtxRef.current;
           if (!ctx) return;
           ctx.scale(devicePixelRatio, devicePixelRatio);
