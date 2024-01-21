@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+extern crate blas_src;
+
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
