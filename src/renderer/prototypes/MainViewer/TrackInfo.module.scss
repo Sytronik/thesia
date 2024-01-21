@@ -4,7 +4,6 @@
   display: flex;
   flex: 0 0 auto;
   position: relative;
-  margin-bottom: $track-margin;
 }
 
 // track summary
@@ -48,9 +47,5 @@
 
   > span {
     @include body-assist;
-  }
-
-  &:not(:last-child) {
-    margin-bottom: $track-margin;
   }
 }
