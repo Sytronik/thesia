@@ -11,9 +11,9 @@ use tiny_skia::{
 use super::img_slice::ArrWithSliceInfo;
 use super::resample::FftResampler;
 
-const WAV_COLOR: [u8; 3] = [120, 150, 210];
-const LIMITER_GAIN_COLOR: [u8; 3] = [210, 150, 120];
-const CLIPPING_COLOR: [u8; 3] = [255, 0, 0];
+const WAV_COLOR: [u8; 3] = [19, 137, 235];
+const LIMITER_GAIN_COLOR: [u8; 3] = [218, 151, 46];
+const CLIPPING_COLOR: [u8; 3] = [196, 34, 50];
 
 const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: usize = 70;
