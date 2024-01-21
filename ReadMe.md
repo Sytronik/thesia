@@ -4,7 +4,7 @@ This project is in a very early stage.
 
 ## Design Draft
 
-![design_draft](https://user-images.githubusercontent.com/61383377/102886103-d806b200-4497-11eb-91b2-2e752df089e5.png)
+![design_draft](https://github.com/Sytronik/thesia/assets/61383377/9f6b8428-5a96-4c0e-a925-f556089e1650)
 
 ## Run in Dev Mode
 
@@ -16,6 +16,7 @@ yarn start
 ```
 
 ## packaging into an executable binary
+
 ```
 yarn global add @napi-rs/cli
 yarn build:backend
