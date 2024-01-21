@@ -21,10 +21,10 @@
 
 .selected {
   .TrackSummary {
-    background-color: $bg-primary-light;
+    background-color: $bg-primary-semilight;
   }
   .ch {
-    background-color: $bg-primary-lighter;
+    background-color: $bg-primary-light;
   }
 }
 
@@ -43,7 +43,7 @@
   justify-content: center;
 
   width: 100%;
-  background-color: $bg-primary-light;
+  background-color: $bg-primary-semilight;
   text-align: center;
 
   > span {

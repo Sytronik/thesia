@@ -1,4 +1,4 @@
-@import 'color-system.scss';
+@import "color-system.scss";
 // Color variables
 
 // Border colors
@@ -9,6 +9,7 @@ $border-primary-light: $primary-400 !default;
 // Background colors
 $bg-main: $primary-900 !default;
 $bg-primary: $primary-800 !default;
+$bg-primary-semilight: $primary-750 !default;
 $bg-primary-light: $primary-700 !default;
 $bg-primary-lighter: $primary-600 !default;
 
