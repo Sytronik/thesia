@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+// need to statically link OpenBLAS on Windows
+extern crate blas_src;
+
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
