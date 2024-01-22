@@ -7,7 +7,7 @@
   font-size: $body-font-size;
 
   flex: 1 1 auto;
-  margin: $component-gap*0.5;
+  margin: $component-gap * 0.5;
 
   *:focus {
     box-shadow: 0 0 0 0.2em rgba(white, 0.4);
@@ -29,7 +29,7 @@
   }
 
   select {
-    padding: $spacer-1*0.5;
+    padding: $tiny-spacer;
   }
 
   label[for="commonNormalize"],
@@ -40,7 +40,7 @@
   }
 
   label {
-    margin-right: $spacer-1*0.5;
+    margin-right: $tiny-spacer;
   }
 }
 
@@ -59,7 +59,7 @@
   @include btn-outline($button-white, $border-primary-light);
 
   background-color: $bg-primary-light;
-  padding: $spacer-1*0.5 $spacer-1;
+  padding: $tiny-spacer $spacer-1;
   width: 5em;
 }
 
@@ -75,7 +75,7 @@
 .winMillisecInput {
   width: 3em;
   text-align: right;
-  padding: $spacer-1*0.5 $spacer-1;
+  padding: $tiny-spacer $spacer-1;
   border: 1px solid $border-primary-light;
 }
 

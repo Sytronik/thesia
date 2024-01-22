@@ -1,6 +1,7 @@
 @import "layout.scss";
 
 $component-gap: $spacer;
+$tiny-spacer: round($spacer-1 * 0.5); // 2px
 
 // Components container
 $control-height: 80px;
