@@ -343,8 +343,10 @@ fn fill_topbottom_envelope_with_clipping_to(
                 .unwrap();
             let path_rect = PathBuilder::from_rect(rect);
             pixmap.fill_path(&path_rect, &paint);
-            paint.set_color_rgba8(0, 0, 0, u8::MAX);
-            pixmap.stroke_path(&path_rect, &paint, &Default::default());
+            if need_border {
+                paint.set_color_rgba8(0, 0, 0, u8::MAX);
+                pixmap.stroke_path(&path_rect, &paint, &Default::default());
+            }
             path
         }
         None => {
