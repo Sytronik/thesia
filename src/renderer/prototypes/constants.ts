@@ -29,9 +29,9 @@ export const AXIS_STYLE = {
 };
 
 export const OVERVIEW_LENS_STYLE = {
-  OUT_LENS_FILL_STYLE: "rgba(0, 0, 0, 0.4)",
-  LENS_STROKE_STYLE: "rgba(255, 255, 255, 0.4)",
-  OUT_TRACK_FILL_STYLE: "rgba(0, 0, 0, 0.2)",
+  OUT_LENS_FILL_STYLE: "rgba(31, 33, 51, 0.6)",
+  LENS_STROKE_STYLE: "rgb(185, 185, 185)",
+  OUT_TRACK_FILL_STYLE: "rgba(31, 33, 51, 0.5)",
   LINE_WIDTH: 1.6,
   RESIZE_CURSOR: "col-resize",
 };
