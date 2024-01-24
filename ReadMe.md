@@ -4,7 +4,7 @@ This project is in a very early stage.
 
 ## Design Draft
 
-![design_draft](https://github.com/Sytronik/thesia/assets/61383377/9f6b8428-5a96-4c0e-a925-f556089e1650)
+![design_draft](https://github.com/Sytronik/thesia/assets/61383377/938e0425-999f-408c-ae16-82ddf207bc63)
 
 ## Setup
 
@@ -12,13 +12,16 @@ This project is in a very early stage.
 
 1. Install [Rust](https://www.rust-lang.org/tools/install)
 2. Install node.js v16 and yarn
+
    ```
    brew install nvm
    nvm install 16
    nvm use 16
    npm install --global yarn
    ```
+
 3. Install napi-rs/cli and dependencies
+
    ```
    yarn global add @napi-rs/cli
    yarn build:backend
@@ -29,20 +32,25 @@ This project is in a very early stage.
 
 1. Install [Rust](https://www.rust-lang.org/tools/install)
 2. Install vcpkg and openblas
+
    ```
    git clone https://github.com/microsoft/vcpkg
    .\vcpkg\bootstrap-vcpkg.bat
    .\vcpkg\vcpkg integrate install
    vcpkg install openblas --triplet x64-windows-static
    ```
+
 3. Install nvm-windows (using a GUI installer)
 4. Install node.js v16 and yarn
+
    ```
    nvm install 16
    nvm use 16
    npm install --global yarn
    ```
+
 5. Install napi-rs/cli and dependencies
+
    ```
    yarn global add @napi-rs/cli
    yarn build:backend
