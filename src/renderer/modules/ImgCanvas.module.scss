@@ -11,12 +11,26 @@
 
 .tooltip {
   position: fixed;
-  pointer-events: none;
-  background-color: $bg-primary;
-  opacity: 0.6;
-  border: 1px solid white;
-  font-size: smaller;
-  padding: 0.2em;
-  min-width: 6em;
   z-index: 1;
+  pointer-events: none;
+  background-color: rgba(31, 33, 51, 0.6); // bg-primary with opacity 60
+  font-size: $body-font-size-xsmall;
+  line-height: 1.5;
+  min-width: $spacer * 10;
+  padding: $spacer $spacer-3;
+  border-radius: 0 $spacer-1 $spacer-1 $spacer-1;
+
+  &::after {
+    content: "";
+    display: block;
+    margin: 0 auto;
+    width: 0;
+    height: 0;
+    border: 5px solid transparent;
+    border-bottom: 5px solid rgba(31, 33, 51, 0.6);
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(0%, -100%);
+  }
 }
