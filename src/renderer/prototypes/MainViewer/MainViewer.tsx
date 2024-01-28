@@ -462,7 +462,7 @@ function MainViewer(props: MainViewerProps) {
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
-    [trackIds, needRefreshTrackIdChArr],
+    [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const createLeftPane = (leftWidth: number) => (
@@ -590,7 +590,7 @@ function MainViewer(props: MainViewerProps) {
     const selectedIdUnderscore = `${selectedTrackIds[selectedTrackIds.length - 1]}_`;
     if (needRefreshTrackIdChArr.some((idCh: string) => idCh.startsWith(selectedIdUnderscore)))
       overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
-  }, [needRefreshTrackIdChArr]);
+  }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedTrackIds.length === 0) return;
@@ -652,7 +652,7 @@ function MainViewer(props: MainViewerProps) {
   useEffect(refreshImgs, [refreshImgs]);
 
   const mainViewerElemCallback = useCallback(
-    (node) => {
+    (node: HTMLDivElement | null) => {
       if (node === null) {
         mainViewerElem.current?.removeEventListener("wheel", handleWheel);
         mainViewerElem.current = null;

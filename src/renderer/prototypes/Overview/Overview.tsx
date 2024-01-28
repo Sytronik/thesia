@@ -211,7 +211,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   const determineCursorStates = useEvent((cursorX: number) => {
     if (!prevArgsLensRef.current) return "outlens";
 
-    const [trackDurationSec, startSec, lensDuratoinSec] = prevArgsLensRef.current;
+    const [_trackDurationSec, startSec, lensDuratoinSec] = prevArgsLensRef.current;
     const pxPerSec = calcPxPerSec();
     const lensStartX = Math.round(startSec * pxPerSec);
     const lensEndX = Math.round((startSec + lensDuratoinSec) * pxPerSec);
@@ -231,7 +231,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     (cursorState: OverviewCursorState, cursorPos: number, rect: DOMRect) => {
       if (prevArgsLensRef.current !== null && cursorState === "inlens") {
         const sec = calcSecFromX(cursorPos, rect);
-        const [trackDurationSec, startSec, lensDurationSec] = prevArgsLensRef.current;
+        const [_trackDurationSec, startSec, lensDurationSec] = prevArgsLensRef.current;
         return (sec - startSec) / lensDurationSec;
       }
       return 0.5;

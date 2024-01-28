@@ -78,7 +78,6 @@
     "bracketSpacing": false,
     "jsxBracketSameLine": false,
     "arrowParens": "always",
-    "endOfLine": "lf",
     "overrides": [
       {
         "files": [

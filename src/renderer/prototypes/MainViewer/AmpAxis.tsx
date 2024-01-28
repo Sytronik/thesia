@@ -54,7 +54,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     rect: DOMRect,
   ) => {
     const cursorRatio = cursorPos / getAxisHeight(rect);
-    const [interval, zeroRatio] = calcIntervalZeroRatio(ampRangeRef.current ?? DEFAULT_AMP_RANGE);
+    const [_interval, zeroRatio] = calcIntervalZeroRatio(ampRangeRef.current ?? DEFAULT_AMP_RANGE);
     if (cursorState === "positive") {
       return Math.min(cursorRatio, zeroRatio - MIN_DISTANCE_CURSOR_N_ZERO);
     }
