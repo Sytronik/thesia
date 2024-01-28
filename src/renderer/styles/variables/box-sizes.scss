@@ -4,8 +4,9 @@ $component-gap: $spacer;
 $tiny-spacer: round($spacer-1 * 0.5); // 2px
 
 // Components container
-$control-height: 80px;
-$overview-height: 50px;
+$player-control-height: $spacer * 8;
+$overview-height: $spacer * 6;
+$track-control-width: $spacer * 27;
 
 // Components
 $colorbar-width: 65px;
@@ -13,7 +14,7 @@ $slidebar-width: $colorbar-width + 93px;
 
 // MainViewer
 $time-ruler-height: $spacer-3;
-$emptytrack-height: 80px;
+$emptytrack-height: $spacer * 10;
 $track-margin: 2px;
 
 // Channels

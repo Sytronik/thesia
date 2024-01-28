@@ -2,11 +2,11 @@
 
 .Control {
   display: flex;
-  flex-direction: row;
-  justify-content: space-around;
+  flex-direction: column;
+  background-color: $bg-primary;
   font-size: $body-font-size;
 
-  flex: 1 1 auto;
+  width: $track-control-width;
   margin: $component-gap * 0.5;
 
   *:focus {
@@ -42,17 +42,6 @@
   label {
     margin-right: $tiny-spacer;
   }
-}
-
-.row {
-  display: flex;
-  align-items: baseline;
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .changeFreqScaleBtn {

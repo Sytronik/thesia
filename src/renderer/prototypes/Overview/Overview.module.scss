@@ -2,9 +2,10 @@
 
 .Overview {
   flex: 1 1 auto;
-  margin: $component-gap * 0.5;
   position: relative;
   cursor: text;
+  height: $overview-height;
+  margin: $component-gap * 0.5;
 }
 
 .OverviewLens {

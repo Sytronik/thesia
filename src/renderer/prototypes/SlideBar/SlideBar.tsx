@@ -33,35 +33,33 @@ function SlideBar(props: SlideBarProps) {
 
   return (
     <div className={styles.SlideBar}>
-      <div className={styles.SlideBarRow}>
-        <img
-          src={waveformMode}
-          alt="waveform mode"
-          width={SLIDE_ICON_HEIGHT}
-          height={SLIDE_ICON_HEIGHT}
-        />
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          defaultValue={blendRef.current}
-          onChange={onBlendChange}
-          onClick={onBlendDoubleClick}
-          list="blend-detents"
-        />
-        <datalist id="blend-detents">
-          <option aria-label="min" value="0.0" />
-          <option aria-label="middle" value="0.5" />
-          <option aria-label="max" value="1.0" />
-        </datalist>
-        <img
-          src={spectrogramMode}
-          alt="spectrogram mode"
-          width={SLIDE_ICON_HEIGHT}
-          height={SLIDE_ICON_HEIGHT}
-        />
-      </div>
+      <img
+        src={waveformMode}
+        alt="waveform mode"
+        width={SLIDE_ICON_HEIGHT}
+        height={SLIDE_ICON_HEIGHT}
+      />
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        defaultValue={blendRef.current}
+        onChange={onBlendChange}
+        onClick={onBlendDoubleClick}
+        list="blend-detents"
+      />
+      <datalist id="blend-detents">
+        <option aria-label="min" value="0.0" />
+        <option aria-label="middle" value="0.5" />
+        <option aria-label="max" value="1.0" />
+      </datalist>
+      <img
+        src={spectrogramMode}
+        alt="spectrogram mode"
+        width={SLIDE_ICON_HEIGHT}
+        height={SLIDE_ICON_HEIGHT}
+      />
     </div>
   );
 }

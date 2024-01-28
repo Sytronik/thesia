@@ -1,5 +1,9 @@
 @import "../../styles/index.scss";
 
+.mainViewerWrapper {
+  width: calc(100% - #{$track-control-width - #{$component-gap}});
+}
+
 .MainViewer {
   position: relative;
   height: 0;
@@ -16,6 +20,15 @@
   margin: $margin;
   border: 2px dashed $border-primary-light;
   border-radius: $spacer-1;
+}
+
+/* Track Control */
+
+.trackControl {
+  background-color: $bg-primary;
+  min-width: $track-control-width;
+  padding: $spacer-3;
+  margin: $component-gap * 0.5;
 }
 
 /* Right Track Elements */

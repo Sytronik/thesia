@@ -10,6 +10,7 @@ import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
+import styles from "./prototypes/PlayerControl/PlayerControl.scss";
 
 function MyApp() {
   const {
@@ -126,7 +127,8 @@ function MyApp() {
 
   return (
     <div id="App" className="App">
-      <div className="row-fixed control">
+      <div className={`flex-item-fixed ${styles.PlayerControl}`}>player control</div>
+      <div className="flex-container-row flex-item-auto">
         <Control
           specSetting={specSetting}
           setSpecSetting={setSpecSetting}
@@ -137,24 +139,24 @@ function MyApp() {
           commonNormalize={commonNormalize}
           setCommonNormalize={setCommonNormalize}
         />
+        <DevicePixelRatioProvider>
+          <MainViewer
+            trackIds={trackIds}
+            erroredTrackIds={erroredTrackIds}
+            selectedTrackIds={selectedTrackIds}
+            trackIdChMap={trackIdChMap}
+            needRefreshTrackIdChArr={needRefreshTrackIdChArr}
+            maxTrackSec={maxTrackSec}
+            addDroppedFile={addDroppedFile}
+            ignoreError={ignoreError}
+            refreshTracks={refreshTracks}
+            reloadTracks={reloadTracks}
+            removeTracks={removeTracks}
+            selectTrack={selectTrack}
+            finishRefreshTracks={finishRefreshTracks}
+          />
+        </DevicePixelRatioProvider>
       </div>
-      <DevicePixelRatioProvider>
-        <MainViewer
-          trackIds={trackIds}
-          erroredTrackIds={erroredTrackIds}
-          selectedTrackIds={selectedTrackIds}
-          trackIdChMap={trackIdChMap}
-          needRefreshTrackIdChArr={needRefreshTrackIdChArr}
-          maxTrackSec={maxTrackSec}
-          addDroppedFile={addDroppedFile}
-          ignoreError={ignoreError}
-          refreshTracks={refreshTracks}
-          reloadTracks={reloadTracks}
-          removeTracks={removeTracks}
-          selectTrack={selectTrack}
-          finishRefreshTracks={finishRefreshTracks}
-        />
-      </DevicePixelRatioProvider>
     </div>
   );
 }

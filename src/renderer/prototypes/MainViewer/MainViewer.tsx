@@ -673,8 +673,9 @@ function MainViewer(props: MainViewerProps) {
   }, [handleKeyDown]);
 
   return (
-    <>
-      <div className="row-fixed overview">
+    <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
+      <div className="flex-container-row flex-item-fixed">
+        <SlideBar blendRef={blendRef} refreshImgs={refreshImgs} />
         <Overview
           ref={overviewElem}
           selectedTrackId={
@@ -687,10 +688,9 @@ function MainViewer(props: MainViewerProps) {
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
         />
-        <SlideBar blendRef={blendRef} refreshImgs={refreshImgs} />
       </div>
       <div
-        className={`${styles.MainViewer} row-flex`}
+        className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
       >
@@ -708,7 +708,7 @@ function MainViewer(props: MainViewerProps) {
           dBAxisCanvasElem={dBCanvasElem}
         />
       </div>
-    </>
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, {useMemo, useRef, useState} from "react";
+import React, {ReactNode, useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {
@@ -120,116 +120,110 @@ function Control(props: ControlProps) {
   };
 
   return (
-    <div className={styles.Control}>
-      <div className={styles.column}>
-        <div className={styles.row}>
-          <label htmlFor="freqScale">Frequency Scale: </label>
+    <div className={`flex-item-fixed ${styles.Control}`}>
+      <div>
+        <label htmlFor="freqScale">Frequency Scale: </label>
+        <input
+          type="button"
+          className={styles.changeFreqScaleBtn}
+          onClick={onFreqScaleBtnClick}
+          onMouseEnter={() => setCursorOnFreqScaleBtn(true)}
+          onMouseLeave={() => setCursorOnFreqScaleBtn(false)}
+          defaultValue={
+            cursorOnFreqScaleBtn
+              ? `to ${toggleFreqScale(specSetting.freqScale)}`
+              : specSetting.freqScale
+          }
+          id="freqScale"
+        />
+      </div>
+      <div>
+        <label htmlFor="dBRange">Dynamic Range: </label>
+        <FloatRangeInput
+          id="dBRange"
+          className={styles.dBRange}
+          unit="dB"
+          min={DB_RANGE_MIN_MAX[0]}
+          max={DB_RANGE_MIN_MAX[1]}
+          step={1}
+          precision={0}
+          detents={DB_RANGE_DETENTS}
+          initialValue={dBRange}
+          doubleClickValue={DB_RANGE_MIN_MAX[1]}
+          onChangeValue={throttledSetdBRange}
+        />
+      </div>
+      <div>
+        <label htmlFor="winMillisec">
+          Window Size:
           <input
-            type="button"
-            className={styles.changeFreqScaleBtn}
-            onClick={onFreqScaleBtnClick}
-            onMouseEnter={() => setCursorOnFreqScaleBtn(true)}
-            onMouseLeave={() => setCursorOnFreqScaleBtn(false)}
-            defaultValue={
-              cursorOnFreqScaleBtn
-                ? `to ${toggleFreqScale(specSetting.freqScale)}`
-                : specSetting.freqScale
-            }
-            id="freqScale"
+            type="text"
+            inputMode="decimal"
+            id="winMillisec"
+            className={styles.winMillisecInput}
+            defaultValue={specSetting.winMillisec.toFixed(1)}
+            onChange={onWinMillisecChange}
           />
-        </div>
-        <div className={styles.row}>
-          <label htmlFor="dBRange">Dynamic Range: </label>
-          <FloatRangeInput
-            id="dBRange"
-            className={styles.dBRange}
-            unit="dB"
-            min={DB_RANGE_MIN_MAX[0]}
-            max={DB_RANGE_MIN_MAX[1]}
-            step={1}
-            precision={0}
-            detents={DB_RANGE_DETENTS}
-            initialValue={dBRange}
-            doubleClickValue={DB_RANGE_MIN_MAX[1]}
-            onChangeValue={throttledSetdBRange}
-          />
-        </div>
+          ms
+        </label>
       </div>
-      <div className={styles.column}>
-        <div className={styles.row}>
-          <label htmlFor="winMillisec">
-            Window Size:
-            <input
-              type="text"
-              inputMode="decimal"
-              id="winMillisec"
-              className={styles.winMillisecInput}
-              defaultValue={specSetting.winMillisec.toFixed(1)}
-              onChange={onWinMillisecChange}
-            />
-            ms
-          </label>
-        </div>
-        <div className={styles.row}>
-          <label htmlFor="tOverlap">Time Overlap: </label>
-          <select
-            name="tOverlap"
-            id="tOverlap"
-            defaultValue={specSetting.tOverlap}
-            onChange={onTOverlapChange}
-          >
-            {T_OVERLAP_VALUES.map((v) => (
-              <option key={`t-overlap-${v}x`} value={`${v}`}>{`${v}x`}</option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label htmlFor="tOverlap">Time Overlap: </label>
+        <select
+          name="tOverlap"
+          id="tOverlap"
+          defaultValue={specSetting.tOverlap}
+          onChange={onTOverlapChange}
+        >
+          {T_OVERLAP_VALUES.map((v) => (
+            <option key={`t-overlap-${v}x`} value={`${v}`}>{`${v}x`}</option>
+          ))}
+        </select>
       </div>
-      <div className={styles.column}>
-        <div className={styles.row}>
-          <label htmlFor="commonNormalize">Common Normalization: </label>
-          <select
-            className={styles.commonNormalizeSelect}
-            name="commonNormalize"
-            id="commonNormalize"
-            onChange={onCommonNormalizeTypeChange}
-            defaultValue={commonNormalize.type}
-          >
-            <option value="Off">Off</option>
-            {NormalizeOnTypeValues.map((type) => (
-              <option key={type} value={type}>
-                {type.replace("dB", "")}
-              </option>
-            ))}
-          </select>
-          <FloatRangeInput
-            ref={commonNormalizedBInputElem}
-            className={styles.commonNormalizedBInput}
-            id="commonNormalizedBInput"
-            unit="dB"
-            min={MIN_COMMON_NORMALIZE_dB}
-            max={0}
-            step={0.01}
-            precision={2}
-            detents={COMMON_NORMALIZE_DB_DETENTS}
-            initialValue={MIN_COMMON_NORMALIZE_dB}
-            disabled={!isCommonNormalizeOn}
-            onChangeValue={onCommonNormalizedBInputChange}
-          />
-        </div>
-        <div className={styles.row}>
-          <label htmlFor="commonGuardClipping">Common Clipping Guard: </label>
-          <select
-            className={styles.commonGuardClippingSelect}
-            name="commonGuardClipping"
-            id="commonGuardClipping"
-            onChange={onCommonGuardClippingModeChange}
-            defaultValue={commonGuardClipping}
-          >
-            <option value={GuardClippingMode.ReduceGlobalLevel}>Reducing Global Level</option>
-            <option value={GuardClippingMode.Limiter}>Applying Limiter</option>
-            <option value={GuardClippingMode.Clip}>Off (Hard Clipping)</option>
-          </select>
-        </div>
+      <div>
+        <label htmlFor="commonNormalize">Common Normalization: </label>
+        <select
+          className={styles.commonNormalizeSelect}
+          name="commonNormalize"
+          id="commonNormalize"
+          onChange={onCommonNormalizeTypeChange}
+          defaultValue={commonNormalize.type}
+        >
+          <option value="Off">Off</option>
+          {NormalizeOnTypeValues.map((type) => (
+            <option key={type} value={type}>
+              {type.replace("dB", "")}
+            </option>
+          ))}
+        </select>
+        <FloatRangeInput
+          ref={commonNormalizedBInputElem}
+          className={styles.commonNormalizedBInput}
+          id="commonNormalizedBInput"
+          unit="dB"
+          min={MIN_COMMON_NORMALIZE_dB}
+          max={0}
+          step={0.01}
+          precision={2}
+          detents={COMMON_NORMALIZE_DB_DETENTS}
+          initialValue={MIN_COMMON_NORMALIZE_dB}
+          disabled={!isCommonNormalizeOn}
+          onChangeValue={onCommonNormalizedBInputChange}
+        />
+      </div>
+      <div>
+        <label htmlFor="commonGuardClipping">Common Clipping Guard: </label>
+        <select
+          className={styles.commonGuardClippingSelect}
+          name="commonGuardClipping"
+          id="commonGuardClipping"
+          onChange={onCommonGuardClippingModeChange}
+          defaultValue={commonGuardClipping}
+        >
+          <option value={GuardClippingMode.ReduceGlobalLevel}>Reducing Global Level</option>
+          <option value={GuardClippingMode.Limiter}>Applying Limiter</option>
+          <option value={GuardClippingMode.Clip}>Off (Hard Clipping)</option>
+        </select>
       </div>
     </div>
   );

@@ -2,18 +2,12 @@
 
 .SlideBar {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  justify-content: stretch;
+  align-items: center;
+
   flex: 0 0 auto;
   width: $slidebar-width;
   margin: $component-gap * 0.5;
-}
-
-.SlideBarRow {
-  display: flex;
-  justify-content: stretch;
-  align-items: center;
-  width: 100%;
 
   img {
     margin: $spacer-1;
