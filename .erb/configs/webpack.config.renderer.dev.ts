@@ -35,6 +35,12 @@ if (!requiredByDLLConfig && !(fs.existsSync(webpackPaths.dllPath) && fs.existsSy
 }
 
 const configuration: webpack.Configuration = {
+  externals: Object.fromEntries(
+    (baseConfig.externals as string[]).map(
+      (k) => [k, path.join(webpackPaths.appNodeModulesPath, k)],
+      baseConfig.externals,
+    ),
+  ),
   devtool: "inline-source-map",
 
   mode: "development",
