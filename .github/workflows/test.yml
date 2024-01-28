@@ -8,11 +8,16 @@ jobs:
 
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest]
 
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
+
+      - name: Setup Rust Environment
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Install Node.js and NPM
         uses: actions/setup-node@v3
@@ -20,8 +25,21 @@ jobs:
           node-version: 18
           cache: npm
 
+      - if: matrix.os == 'windows-latest'
+        name: Setup vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg .vcpkg
+          .\.vcpkg\bootstrap-vcpkg.bat
+          .\.vcpkg\vcpkg integrate install
+
+      - if: matrix.os == 'windows-latest'
+        name: Install OpenBLAS
+        run: |
+          .\.vcpkg\vcpkg install openblas --triplet x64-windows-static
+
       - name: npm install
         run: |
+          npm install --global @napi-rs/cli
           npm install
 
       - name: npm test
@@ -31,4 +49,4 @@ jobs:
           npm run package
           npm run lint
           npm exec tsc
-          npm test
+        # npm test

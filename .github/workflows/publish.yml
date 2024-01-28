@@ -21,6 +21,11 @@ jobs:
       - name: Checkout git repo
         uses: actions/checkout@v3
 
+      - name: Setup Rust Environment
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Install Node and NPM
         uses: actions/setup-node@v3
         with:
@@ -30,6 +35,7 @@ jobs:
       - name: Install and build
         run: |
           npm install
+          npm install --global @napi-rs/cli
           npm run postinstall
           npm run build
 
