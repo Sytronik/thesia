@@ -1,3 +1,5 @@
+import React from "react";
+
 function isApple() {
   const expression = /(Mac|iPhone|iPod|iPad)/i;
   return expression.test(navigator.platform);

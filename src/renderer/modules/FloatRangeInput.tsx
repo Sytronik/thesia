@@ -26,11 +26,11 @@ const FloatRangeInput = forwardRef(
       disabledValue = NaN,
       doubleClickValue = null,
       onChangeValue = () => {},
-      ...rest_props
+      ...props
     }: FloatRangeInputProps,
     ref,
   ) => {
-    const {id, unit, min, max, step, precision, initialValue, detents} = rest_props;
+    const {id, unit, min, max, step, precision, initialValue, detents} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
 

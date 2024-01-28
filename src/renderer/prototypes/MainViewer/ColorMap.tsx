@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState, useContext} from "react";
+import React, {useRef, useEffect, useState} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.module.scss";

@@ -152,7 +152,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
   useEffect(() => {
     if (!prevArgsLensRef.current) return;
     draw(prevArgsLensRef.current[1], prevArgsLensRef.current[2], true);
-  }, [maxTrackSec]);
+  }, [maxTrackSec, draw]);
 
   const imperativeInstanceRef = useRef<OverviewHandleElement>({draw});
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);

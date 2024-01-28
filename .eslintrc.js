@@ -6,6 +6,7 @@ module.exports = {
     "import/no-extraneous-dependencies": "warn",
     "react/react-in-jsx-scope": "off",
     "react/jsx-filename-extension": "off",
+    "react-hooks/exhaustive-deps": "warn",
     "import/extensions": "off",
     "import/no-unresolved": "off",
     "import/no-import-module-exports": "off",
@@ -17,15 +18,26 @@ module.exports = {
     "react/require-default-props": "off",
     "no-alert": "warn",
     "no-restricted-syntax": "warn",
+    "no-restricted-exports": 0,
     "jsx-a11y/click-events-have-key-events": "warn",
     "jsx-a11y/no-static-element-interactions": "warn",
     "jsx-a11y/label-has-associated-control": [2, {labelAttributes: ["htmlFor"]}],
+    "jsx-a11y/control-has-associated-label": "warn",
     "promise/always-return": "off",
+    camelcase: "warn",
   },
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: "module",
   },
+  overrides: [
+    {
+      files: ["*.ts", "*.tsx"],
+      rules: {
+        "no-undef": "off",
+      },
+    },
+  ],
   settings: {
     "import/resolver": {
       // See https://github.com/benmosher/eslint-plugin-import/issues/1396#issuecomment-575727774 for line below
