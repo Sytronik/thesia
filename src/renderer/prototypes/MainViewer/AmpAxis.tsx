@@ -1,6 +1,6 @@
 import React, {RefObject, forwardRef, useCallback, useMemo, useRef} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
-import styles from "renderer/modules/AxisCanvas.scss";
+import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import {

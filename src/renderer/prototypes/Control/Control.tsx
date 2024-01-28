@@ -10,7 +10,7 @@ import {
   NormalizeOnTypeValues,
 } from "renderer/api/backend-wrapper";
 import FloatRangeInput from "renderer/modules/FloatRangeInput";
-import styles from "./Control.scss";
+import styles from "./Control.module.scss";
 import {
   COMMON_NORMALIZE_DB_DETENTS,
   DB_RANGE_DETENTS,

@@ -15,7 +15,7 @@ import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import styles from "./MainViewer.scss";
+import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
 import ErrorBox from "./ErrorBox";

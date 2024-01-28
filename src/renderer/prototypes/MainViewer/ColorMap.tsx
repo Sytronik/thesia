@@ -1,7 +1,7 @@
 import React, {useRef, useEffect, useState, useContext} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
-import styles from "./ColorMap.scss";
+import styles from "./ColorMap.module.scss";
 import {
   COLORBAR_CANVAS_WIDTH,
   DB_CANVAS_WIDTH,

@@ -1,6 +1,6 @@
 import React, {useRef, useEffect, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
-import styles from "./FloatRangeInput.scss";
+import styles from "./FloatRangeInput.module.scss";
 
 type FloatRangeInputProps = {
   id: string;

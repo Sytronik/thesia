@@ -1,5 +1,5 @@
 import React, {MutableRefObject} from "react";
-import styles from "./SlideBar.scss";
+import styles from "./SlideBar.module.scss";
 import {SLIDE_ICON_HEIGHT} from "../constants";
 import spectrogramMode from "../../../../assets/icons/spectrogram_mode.svg";
 import waveformMode from "../../../../assets/icons/waveform_mode.svg";

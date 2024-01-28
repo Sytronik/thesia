@@ -1,7 +1,7 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants";
-import styles from "./SplitView.scss";
+import styles from "./SplitView.module.scss";
 
 const MARGIN = 2;
 const MIN_WIDTH = 160 + 32;

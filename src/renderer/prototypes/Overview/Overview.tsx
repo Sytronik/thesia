@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import styles from "./Overview.scss";
+import styles from "./Overview.module.scss";
 import BackendAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants";
 import Draggable, {CursorStateInfo} from "../../modules/Draggable";
@@ -194,17 +194,19 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     [moveLens, calcSecFromX],
   );
 
-  const cursorStateInfos: Map<OverviewCursorState, CursorStateInfo<OverviewCursorState, number>> =
-    useMemo(
-      () =>
-        new Map([
-          ["left", getInfoForResize(resizeLensLeft)],
-          ["right", getInfoForResize(resizeLensRight)],
-          ["inlens", infoForInOutLens],
-          ["outlens", infoForInOutLens],
-        ]),
-      [resizeLensLeft, resizeLensRight, getInfoForResize, infoForInOutLens],
-    );
+  const cursorStateInfos: Map<
+    OverviewCursorState,
+    CursorStateInfo<OverviewCursorState, number>
+  > = useMemo(
+    () =>
+      new Map([
+        ["left", getInfoForResize(resizeLensLeft)],
+        ["right", getInfoForResize(resizeLensRight)],
+        ["inlens", infoForInOutLens],
+        ["outlens", infoForInOutLens],
+      ]),
+    [resizeLensLeft, resizeLensRight, getInfoForResize, infoForInOutLens],
+  );
 
   const determineCursorStates = useEvent((cursorX: number) => {
     if (!prevArgsLensRef.current) return "outlens";

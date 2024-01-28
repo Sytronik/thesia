@@ -2,7 +2,7 @@ import React, {forwardRef, useRef, useImperativeHandle, useState, useContext} fr
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import styles from "./ImgCanvas.scss";
+import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 
 type ImgCanvasProps = {

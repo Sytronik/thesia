@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./ErrorBox.scss";
+import styles from "./ErrorBox.module.scss";
 
 type ErrorBoxProps = {
   trackId: number;
