@@ -11,15 +11,15 @@ This project is in a very early stage.
 ### macOS, Linux
 
 1. Install [Rust](https://www.rust-lang.org/tools/install)
-2. Install node.js v16
-   ```
-   brew install nvm
-   nvm install 16
-   nvm use 16
-   ```
+2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
+   - Example using nvm on macOS
+      ```
+      brew install nvm
+      nvm install 21.6.1
+      nvm use 21.6.1
+      ```
 
 3. Install napi-rs/cli and dependencies
-
    ```
    npm install -g @napi-rs/cli
    npm run build:backend
@@ -39,10 +39,10 @@ This project is in a very early stage.
    ```
 
 3. Install nvm-windows (using a GUI installer)
-4. Install node.js v16
+2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
    ```
-   nvm install 16
-   nvm use 16
+   nvm install 21.6.1
+   nvm use 21.6.1
    ```
 
 5. Install napi-rs/cli and dependencies
