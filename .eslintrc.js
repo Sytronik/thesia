@@ -1,11 +1,18 @@
 module.exports = {
   extends: "erb",
+  plugins: ["@typescript-eslint"],
   rules: {
     // A temporary hack related to IDE not resolving correct package.json
     "import/no-extraneous-dependencies": "warn",
-    "import/no-unresolved": "error",
-    // Since React 17 and typescript 4.1 you can safely disable the rule
     "react/react-in-jsx-scope": "off",
+    "react/jsx-filename-extension": "off",
+    "import/extensions": "off",
+    "import/no-unresolved": "off",
+    "import/no-import-module-exports": "off",
+    "no-shadow": "off",
+    "@typescript-eslint/no-shadow": "warn",
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": "warn",
     "react/prop-types": "warn",
     "react/require-default-props": "off",
     "no-alert": "warn",
@@ -13,15 +20,11 @@ module.exports = {
     "jsx-a11y/click-events-have-key-events": "warn",
     "jsx-a11y/no-static-element-interactions": "warn",
     "jsx-a11y/label-has-associated-control": [2, {labelAttributes: ["htmlFor"]}],
-    "@typescript-eslint/no-shadow": "warn",
     "promise/always-return": "off",
   },
   parserOptions: {
-    ecmaVersion: 2020,
+    ecmaVersion: 2022,
     sourceType: "module",
-    project: "./tsconfig.json",
-    tsconfigRootDir: __dirname,
-    createDefaultProgram: true,
   },
   settings: {
     "import/resolver": {

@@ -15,7 +15,7 @@ import log from "electron-log";
 import MenuBuilder from "./menu";
 import {resolveHtmlPath} from "./util";
 
-export default class AppUpdater {
+class AppUpdater {
   constructor() {
     log.transports.file.level = "info";
     autoUpdater.logger = log;
@@ -131,12 +131,12 @@ const createWindow = async () => {
     minHeight: 320,
     icon: getAssetPath("icon.png"),
     webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      sandbox: false,
       /* preload: app.isPackaged
         ? path.join(__dirname, "preload.js")
         : path.join(__dirname, "../../.erb/dll/preload.js"), */
-      sandbox: false,
-      nodeIntegration: true,
-      contextIsolation: false,
     },
   });
 
