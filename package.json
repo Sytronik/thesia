@@ -135,7 +135,7 @@
     "use-device-pixel-ratio": "^1.1.2"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.16.3",
+    "@napi-rs/cli": "^2.18.0",
     "@electron/notarize": "^2.1.0",
     "@electron/rebuild": "^3.3.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
@@ -148,7 +148,7 @@
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
     "@types/react-test-renderer": "^18.0.1",
-    "@types/throttle-debounce": "^5.0.0",
+    "@types/throttle-debounce": "^5.0.2",
     "@types/webpack-bundle-analyzer": "^4.6.0",
     "@typescript-eslint/eslint-plugin": "^6.7.0",
     "@typescript-eslint/parser": "^6.7.0",
