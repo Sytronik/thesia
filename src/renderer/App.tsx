@@ -4,13 +4,13 @@ import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
+import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
 import {SUPPORTED_MIME} from "./prototypes/constants";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
-import styles from "./prototypes/PlayerControl/PlayerControl.scss";
 
 function MyApp() {
   const {
@@ -127,7 +127,7 @@ function MyApp() {
 
   return (
     <div id="App" className="App">
-      <div className={`flex-item-fixed ${styles.PlayerControl}`}>player control</div>
+      <PlayerControl />
       <div className="flex-container-row flex-item-auto">
         <Control
           specSetting={specSetting}
