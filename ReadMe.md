@@ -13,14 +13,15 @@ This project is in a very early stage.
 1. Install [Rust](https://www.rust-lang.org/tools/install)
 2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
    - Example using nvm on macOS
-      ```
+      ``` bash
       brew install nvm
       nvm install 21.6.1
       nvm use 21.6.1
       ```
 
 3. Install napi-rs/cli and dependencies
-   ```
+   ``` bash
+   # clone thesia repo & cd to the directory
    npm install -g @napi-rs/cli
    npm run build:backend
    npm install
@@ -30,8 +31,7 @@ This project is in a very early stage.
 
 1. Install [Rust](https://www.rust-lang.org/tools/install)
 2. Install vcpkg and openblas
-
-   ```
+   ``` powershell
    git clone https://github.com/microsoft/vcpkg
    .\vcpkg\bootstrap-vcpkg.bat
    .\vcpkg\vcpkg integrate install
@@ -40,14 +40,14 @@ This project is in a very early stage.
 
 3. Install nvm-windows (using a GUI installer)
 2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
-   ```
+   ``` powershell
    nvm install 21.6.1
    nvm use 21.6.1
    ```
 
 5. Install napi-rs/cli and dependencies
-
-   ```
+   ``` powershell
+   # clone thesia repo & cd to the directory
    npm install -g @napi-rs/cli
    npm run build:backend
    npm install
