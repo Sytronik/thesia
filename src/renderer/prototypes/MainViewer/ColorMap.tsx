@@ -1,7 +1,7 @@
-import React, {useRef, useEffect, useState, useContext} from "react";
+import React, {useRef, useEffect, useState} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
-import styles from "./ColorMap.scss";
+import styles from "./ColorMap.module.scss";
 import {
   COLORBAR_CANVAS_WIDTH,
   DB_CANVAS_WIDTH,
@@ -22,7 +22,7 @@ function ColorMap(props: ColorMapProps) {
 
   const colorMapElem = useRef<HTMLDivElement>(null);
 
-  const [resizeObserver, setResizeObserver] = useState(
+  const [resizeObserver, _setResizeObserver] = useState(
     new ResizeObserver((entries) => {
       const {target} = entries[0];
       // Need throttle?

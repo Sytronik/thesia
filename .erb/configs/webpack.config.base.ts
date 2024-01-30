@@ -2,13 +2,15 @@
  * Base webpack config used across other specific configs
  */
 
-import path from "path";
 import webpack from "webpack";
-import webpackPaths from "./webpack.paths.js";
-import {dependencies as externals} from "../../build/app/package.json";
+import TsconfigPathsPlugins from "tsconfig-paths-webpack-plugin";
+import webpackPaths from "./webpack.paths";
+import {dependencies as externals} from "../../release/app/package.json";
 
-export default {
+const configuration: webpack.Configuration = {
   externals: [...Object.keys(externals || {})],
+
+  stats: "errors-only",
 
   module: {
     rules: [
@@ -16,9 +18,13 @@ export default {
         test: /\.[jt]sx?$/,
         exclude: /node_modules/,
         use: {
-          loader: "babel-loader",
+          loader: "ts-loader",
           options: {
-            cacheDirectory: true,
+            // Remove this line to enable type checking in webpack builds
+            transpileOnly: true,
+            compilerOptions: {
+              module: "esnext",
+            },
           },
         },
       },
@@ -39,6 +45,8 @@ export default {
   resolve: {
     extensions: [".js", ".jsx", ".json", ".ts", ".tsx"],
     modules: [webpackPaths.srcPath, "node_modules"],
+    // There is no need to add aliases here, the paths in tsconfig get mirrored
+    plugins: [new TsconfigPathsPlugins()],
   },
 
   plugins: [
@@ -47,3 +55,5 @@ export default {
     }),
   ],
 };
+
+export default configuration;

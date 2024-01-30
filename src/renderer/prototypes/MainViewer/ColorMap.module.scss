@@ -1,4 +1,4 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .colorMap {
   display: flex;
@@ -6,7 +6,7 @@
 
   flex: 0 0 auto;
   width: $colorbar-width;
-  margin: $component-gap / 2;
+  margin: $component-gap * 0.5;
 }
 
 .colorMapHeader {

@@ -11,21 +11,19 @@ This project is in a very early stage.
 ### macOS, Linux
 
 1. Install [Rust](https://www.rust-lang.org/tools/install)
-2. Install node.js v16 and yarn
-
-   ```
-   brew install nvm
-   nvm install 16
-   nvm use 16
-   npm install --global yarn
-   ```
+2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
+   - Example using nvm on macOS
+      ```
+      brew install nvm
+      nvm install 21.6.1
+      nvm use 21.6.1
+      ```
 
 3. Install napi-rs/cli and dependencies
-
    ```
-   yarn global add @napi-rs/cli
-   yarn build:backend
-   yarn install
+   npm install -g @napi-rs/cli
+   npm run build:backend
+   npm install
    ```
 
 ### Windows
@@ -41,32 +39,30 @@ This project is in a very early stage.
    ```
 
 3. Install nvm-windows (using a GUI installer)
-4. Install node.js v16 and yarn
-
+2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
    ```
-   nvm install 16
-   nvm use 16
-   npm install --global yarn
+   nvm install 21.6.1
+   nvm use 21.6.1
    ```
 
 5. Install napi-rs/cli and dependencies
 
    ```
-   yarn global add @napi-rs/cli
-   yarn build:backend
-   yarn install
+   npm install -g @napi-rs/cli
+   npm run build:backend
+   npm install
    ```
 
 ## Run in Dev Mode
 
 ```
-yarn start
+npm run start
 ```
 
 ## packaging into an executable binary
 
 ```
-yarn package
+npm run package
 ```
 
 ## Plan

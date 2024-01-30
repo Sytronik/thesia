@@ -1,7 +1,7 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants";
-import styles from "./SplitView.scss";
+import styles from "./SplitView.module.scss";
 
 const MARGIN = 2;
 const MIN_WIDTH = 160 + 32;
@@ -73,7 +73,7 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
     document.addEventListener("touchend", onMouseUp, {once: true});
   };
 
-  const [rightResizeObserver, setRightResizeObserver] = useState(
+  const [rightResizeObserver, _setRightResizeObserver] = useState(
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const {target} = entries[0];
       if (target.clientWidth > AXIS_SPACE) {
@@ -86,7 +86,7 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
     }),
   );
 
-  const [resizeObserver, setResizeObserver] = useState(
+  const [resizeObserver, _setResizeObserver] = useState(
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const {target} = entries[0];
       if ((rightPaneElem.current?.clientWidth ?? 0) === 0) {

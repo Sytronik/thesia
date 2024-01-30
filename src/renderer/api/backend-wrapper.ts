@@ -107,7 +107,7 @@ export async function setImageState(
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
-export type NormalizeOnType = typeof NormalizeOnTypeValues[number];
+export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
 export type NormalizeTarget =
   | {type: "Off"}
   | {

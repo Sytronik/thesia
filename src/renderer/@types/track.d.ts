@@ -3,6 +3,8 @@ type IdChannel = import("../api").IdChannel;
 type IdChArr = IdChannel[];
 type IdChMap = Map<number, IdChArr>;
 
+type OptionalLensParams = {startSec?: number; pxPerSec?: number};
+
 type SplitViewHandleElement = {
   getBoundingClientRect: () => DOMRect | null;
   scrollTo: (option: ScrollToOptions) => void;
@@ -36,8 +38,6 @@ type AxisCanvasHandleElement = {
 type OverviewHandleElement = {
   draw: (startSec: number, lensDurationSec: number, forced?: boolean) => Promise<void>;
 };
-
-type OptionalLensParams = {startSec?: number; pxPerSec?: number};
 
 type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
 

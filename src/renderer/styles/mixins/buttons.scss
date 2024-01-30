@@ -21,9 +21,9 @@
   &::after {
     background: $color;
     position: absolute;
-    left: -$unit/2;
-    top: $unit/2;
-    content: '';
+    left: -$unit * 0.5;
+    top: $unit * 0.5;
+    content: "";
     width: $unit + $weight;
     height: $weight;
   }

@@ -2,7 +2,7 @@ import React, {useRef, useState} from "react";
 import ReactDOM from "react-dom";
 import {debounce} from "throttle-debounce";
 import useEvent from "react-use-event-hook";
-import styles from "./TrackSummary.scss";
+import styles from "./TrackSummary.module.scss";
 
 type TrackSummaryProps = {
   data: TrackSummaryData;

@@ -1,17 +1,9 @@
-const rimraf = require("rimraf");
-const webpackPaths = require("../configs/webpack.paths.js");
-const process = require("process");
+import {rimrafSync} from "rimraf";
+import fs from "fs";
+import webpackPaths from "../configs/webpack.paths";
 
-const args = process.argv.slice(2);
-const commandMap = {
-  dist: webpackPaths.releasePath,
-  release: webpackPaths.distPath,
-  dll: webpackPaths.dllPath,
-};
+const foldersToRemove = [webpackPaths.distPath, webpackPaths.buildPath, webpackPaths.dllPath];
 
-args.forEach((x) => {
-  const pathToRemove = commandMap[x];
-  if (pathToRemove !== undefined) {
-    rimraf.sync(pathToRemove);
-  }
+foldersToRemove.forEach((folder) => {
+  if (fs.existsSync(folder)) rimrafSync(folder);
 });

@@ -3,7 +3,7 @@ import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH} from "renderer/prototypes/constants";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import BackendAPI from "../../api";
-import styles from "./ColorBarCanvas.scss";
+import styles from "./ColorBarCanvas.module.scss";
 
 type ColorBarCanvasProps = {
   width: number;
