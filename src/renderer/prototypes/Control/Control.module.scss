@@ -3,45 +3,46 @@
 .Control {
   display: flex;
   flex-direction: column;
-  background-color: $bg-primary;
-  font-size: $body-font-size;
-
   width: $track-control-width;
+  padding: 0 $spacer-3;
   margin: $component-gap * 0.5;
 
-  *:focus {
-    box-shadow: 0 0 0 0.2em rgba(white, 0.4);
-    outline: none;
-  }
-
-  select,
-  input[type="text"] {
-    background-color: $bg-primary-light;
-    &:hover,
-    &:focus {
-      background-color: $bg-primary-lighter;
-    }
-    color: white;
-    margin: $spacer-1;
-    border-radius: 4px;
-    border: none;
-    height: 21px;
-  }
+  background-color: $bg-primary;
+  font-size: $body-font-size-small;
+  font-weight: 500;
 
   select {
-    padding: $tiny-spacer;
+    @include select-basic($spacer);
   }
 
-  label[for="commonNormalize"],
-  label[for="commonGuardClipping"] {
-    // text-align: right;
-    // width: 11.5em;
-    display: inline-block;
+  *:focus {
+    box-shadow: 0 0 $tiny-spacer $tiny-spacer rgba($bg-primary-lighter, 0.5);
+    outline: none;
+  }
+}
+
+.sectionContainer {
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba($border-gray-light, 0.5);
+  }
+}
+.itemContainer {
+  margin: $spacer-4 $spacer-2;
+
+  > label {
+    display: block;
+    margin-left: 1px;
+    font-size: $body-font-size-xsmall;
+    opacity: 0.7;
   }
 
-  label {
-    margin-right: $tiny-spacer;
+  > *:not(:last-child) {
+    margin-bottom: $spacer;
   }
+}
+
+.winMillisecInput {
+  @include input-text-basic($spacer);
 }
 
 .changeFreqScaleBtn {
@@ -50,37 +51,4 @@
   background-color: $bg-primary-light;
   padding: $tiny-spacer $spacer-1;
   width: 5em;
-}
-
-.dBRange {
-  input[type="range"] {
-    width: 70px;
-  }
-  input[type="text"] {
-    width: 2.5em;
-  }
-}
-
-.winMillisecInput {
-  width: 3em;
-  text-align: right;
-  padding: $tiny-spacer $spacer-1;
-  border: 1px solid $border-primary-light;
-}
-
-.commonNormalizeSelect {
-  width: 4.5em;
-}
-
-.commonNormalizedBInput {
-  input[type="range"] {
-    width: 70px;
-  }
-  input[type="text"] {
-    width: 3.5em;
-  }
-}
-
-.commonGuardClippingSelect {
-  width: 12em;
 }

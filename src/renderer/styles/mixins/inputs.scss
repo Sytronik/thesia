@@ -1,0 +1,78 @@
+@mixin basic-input-setting($unit: $spacer, $margin-right: $spacer) {
+  /* reset default font*/
+  font-family: $body-font;
+  font-size: $body-font-size-small;
+  color: white;
+
+  margin-right: $margin-right;
+  border: none;
+
+  text-align: left;
+}
+
+@mixin basic-input-box($unit: $spacer) {
+  @include basic-input-setting($unit, $spacer);
+  background-color: $bg-primary-light;
+
+  min-width: $unit * 9;
+  height: $unit * 3.5;
+  border-radius: $spacer-1;
+
+  &:hover,
+  &:focus {
+    background-color: $bg-primary-lighter;
+  }
+}
+
+@mixin select-basic($unit: $spacer) {
+  @include basic-input-box($unit);
+
+  -webkit-appearance: none;
+  background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI4LjEuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCAxNiA4IiBzdHlsZT0iZW5hYmxlLWJhY2tncm91bmQ6bmV3IDAgMCAxNiA4OyIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+CjxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+Cgkuc3Qwe2ZpbGw6bm9uZTtzdHJva2U6I0ZGRkZGRjtzdHJva2Utd2lkdGg6MjtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7fQo8L3N0eWxlPgo8cGF0aCBpZD0iYXJyb3ciIGNsYXNzPSJzdDAiIGQ9Ik0wLDBsOC4xLDhMMTYsMCIvPgo8L3N2Zz4K);
+  background-repeat: no-repeat;
+  background-position: right $unit top 50%, 0 0;
+  background-size: $unit auto;
+
+  padding: 0 $unit * 4 0 $unit * 1.5;
+}
+
+@mixin input-text-basic($unit: $spacer, $width: $unit * 9) {
+  @include basic-input-box($unit);
+
+  width: $width;
+  padding: 0 $unit * 1.5;
+}
+
+@mixin input-text-transparent($unit: $spacer) {
+  @include basic-input-setting($unit, $tiny-spacer);
+
+  background-color: transparent;
+  margin: auto 0;
+}
+
+@mixin input-range-base($height: $spacer) {
+  -webkit-appearance: none;
+  background-color: $bg-primary-lighter;
+  cursor: pointer;
+
+  width: $spacer * 12;
+  height: $height;
+  margin: auto $spacer auto 0;
+  border-radius: $height * 0.5;
+
+  &:focus {
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+@mixin input-range-thumb($color: $white, $height: $spacer, $offset: 0) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: $color;
+
+  height: $height;
+  width: $height;
+  margin-top: $offset;
+  border-radius: 50%;
+}

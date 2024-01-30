@@ -8,6 +8,8 @@ type FloatRangeInputProps = {
   unit: string;
   min: number;
   max: number;
+  leftColor?: string;
+  rightColor?: string;
   step: number;
   precision: number;
   detents: number[];
@@ -21,6 +23,8 @@ type FloatRangeInputProps = {
 const FloatRangeInput = forwardRef(
   (
     {
+      leftColor = "#858ef2",
+      rightColor = "#4c4f75",
       className = "",
       disabled = false,
       disabledValue = NaN,
@@ -79,6 +83,13 @@ const FloatRangeInput = forwardRef(
         <input
           ref={rangeElem}
           id={id}
+          style={{
+            background: `linear-gradient(to right, ${leftColor} ${
+              ((Number(textElem.current?.value ?? 0) - min) / (max - min)) * 100
+            }%, ${rightColor} ${
+              ((Number(textElem.current?.value ?? 0) - min) / (max - min)) * 100
+            }%)`,
+          }}
           type="range"
           min={min}
           max={max}
@@ -101,9 +112,9 @@ const FloatRangeInput = forwardRef(
         <input
           ref={textElem}
           id={`${id}Text`}
-          style={{backgroundColor: "transparent"}}
           type="text"
           inputMode="decimal"
+          size={textElem.current?.value.length ?? 0}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onChange={onTextChange}

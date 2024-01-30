@@ -9,8 +9,15 @@
   width: $slidebar-width;
   margin: $component-gap * 0.5;
 
+  $icon-width: $spacer-3;
+
   img {
     margin: $spacer-1;
-    flex: 0 0 16px;
+    flex: 0 0 $icon-width;
+  }
+
+  input[type="range"] {
+    flex: 1 1 auto;
+    width: calc(100% - 2 * #{$icon-width} - #{$component-gap});
   }
 }

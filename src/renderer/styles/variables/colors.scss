@@ -3,7 +3,7 @@
 
 // Border colors
 $border-temp: $gray-500 !default;
-$border-gray-light: $gray-300 !default;
+$border-gray-light: $gray-400 !default;
 $border-primary-light: $primary-400 !default;
 
 // Background colors
@@ -19,6 +19,7 @@ $bg-main-transparent: transparentize($bg-main, 0.2);
 // Text colors
 $text-main: $primary-900 !default;
 $text-white: $white !default;
+$text-gray: $primary-600 !default;
 
 // Button colors
 $button-white: $white !default;

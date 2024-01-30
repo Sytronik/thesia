@@ -1,23 +1,56 @@
 @import "../styles/index.scss";
 
 .FloatRangeInput {
-  input[type="text"] {
-    background-color: transparent;
-    color: white;
-    margin: $spacer-1;
-    border-radius: 4px;
-    border: none;
-    text-align: right;
-    padding: $tiny-spacer $spacer-1;
+  $input-height: $spacer-3;
+  $track-height: 2px;
+  $thumb-height: $spacer;
 
-    &:hover,
-    &:focus {
-      box-shadow: 0 0 0 0.2em rgba(white, 0.4);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+
+  height: $input-height;
+
+  label {
+    margin: auto 0;
+  }
+
+  input[type="text"] {
+    @include input-text-transparent($spacer);
+
+    &:disabled,
+    &:disabled + label {
+      color: $text-gray;
     }
   }
 
+  $effect-color: $primary-400;
+
   input[type="range"] {
-    position: relative;
-    top: 3px;
+    @include input-range-base($track-height);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @include input-range-thumb($white, $thumb-height, $track-height - $input-height);
+    transition: 0.2s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0 0 $thumb-height rgba($effect-color, 0.1);
+    }
+  }
+
+  input[type="range"]:disabled::-webkit-slider-thumb {
+    @include input-range-thumb($bg-primary-lighter, $thumb-height, $track-height - $input-height);
+
+    &:hover {
+      box-shadow: none;
+    }
+  }
+
+  input[type="range"]:active::-webkit-slider-thumb {
+    box-shadow: 0 0 0 $thumb-height * 1.2 rgba($effect-color, 0.2);
+  }
+  input[type="range"]:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 $thumb-height * 1.2 rgba($effect-color, 0.2);
   }
 }

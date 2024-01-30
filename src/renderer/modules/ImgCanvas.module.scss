@@ -13,7 +13,7 @@
   position: fixed;
   z-index: 1;
   pointer-events: none;
-  background-color: rgba(31, 33, 51, 0.6); // bg-primary with opacity 60
+  background-color: rgba($bg-primary, 0.6);
   font-size: $body-font-size-xsmall;
   line-height: 1.5;
   min-width: $spacer * 10;
