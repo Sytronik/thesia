@@ -37,6 +37,10 @@ const FloatRangeInput = forwardRef(
     const {id, unit, min, max, step, precision, initialValue, detents} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
+    const rangeRatio = Math.max(
+      Math.min((Number(textElem.current?.value ?? 0) - min) / (max - min), 0),
+      1,
+    );
 
     const setValue = useEvent((value: number) => {
       if (value >= min && value <= max) {
@@ -84,11 +88,11 @@ const FloatRangeInput = forwardRef(
           ref={rangeElem}
           id={id}
           style={{
-            background: `linear-gradient(to right, ${leftColor} ${
-              ((Number(textElem.current?.value ?? 0) - min) / (max - min)) * 100
-            }%, ${rightColor} ${
-              ((Number(textElem.current?.value ?? 0) - min) / (max - min)) * 100
-            }%)`,
+            background: disabled
+              ? ""
+              : `linear-gradient(to right, ${leftColor} ${rangeRatio * 100}%, ${rightColor} ${
+                  rangeRatio * 100
+                }%)`,
           }}
           type="range"
           min={min}
@@ -114,7 +118,7 @@ const FloatRangeInput = forwardRef(
           id={`${id}Text`}
           type="text"
           inputMode="decimal"
-          size={textElem.current?.value.length ?? 0}
+          size={textElem.current?.value.length || initialValue.toFixed(precision).length}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onChange={onTextChange}

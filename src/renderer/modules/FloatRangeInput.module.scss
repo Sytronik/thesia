@@ -47,10 +47,13 @@
     }
   }
 
-  input[type="range"]:active::-webkit-slider-thumb {
-    box-shadow: 0 0 0 $thumb-height * 1.2 rgba($effect-color, 0.2);
-  }
+  input[type="range"]:active::-webkit-slider-thumb,
   input[type="range"]:focus::-webkit-slider-thumb {
     box-shadow: 0 0 0 $thumb-height * 1.2 rgba($effect-color, 0.2);
+  }
+
+  input[type="range"]:disabled:active::-webkit-slider-thumb,
+  input[type="range"]:disabled:focus::-webkit-slider-thumb {
+    box-shadow: none;
   }
 }
