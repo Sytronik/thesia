@@ -6,47 +6,26 @@ This project is in a very early stage.
 
 ![design_draft](https://github.com/Sytronik/thesia/assets/61383377/938e0425-999f-408c-ae16-82ddf207bc63)
 
-## Setup
+## Build Setup
 
-### macOS, Linux
-
-1. Install [Rust](https://www.rust-lang.org/tools/install)
-2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
-   - Example using nvm on macOS
-      ``` bash
-      brew install nvm
-      nvm install 21.6.1
-      nvm use 21.6.1
-      ```
-
-3. Install napi-rs/cli and dependencies
-   ``` bash
-   # clone thesia repo & cd to the directory
-   npm install -g @napi-rs/cli
-   npm run build:backend
-   npm install
-   ```
-
-### Windows
-
-1. Install [Rust](https://www.rust-lang.org/tools/install)
-2. Install vcpkg and openblas
-   ``` powershell
-   git clone https://github.com/microsoft/vcpkg
-   .\vcpkg\bootstrap-vcpkg.bat
-   .\vcpkg\vcpkg integrate install
-   vcpkg install openblas --triplet x64-windows-static
-   ```
-
-3. Install nvm-windows (using a GUI installer)
-2. Install node.js v16.20.2 ~ v21 (The most recent version tested: v21.6.1)
-   ``` powershell
-   nvm install 21.6.1
-   nvm use 21.6.1
-   ```
-
-5. Install napi-rs/cli and dependencies
-   ``` powershell
+1. Install prerequisites
+   - Common
+     - [Rust](https://www.rust-lang.org/tools/install)
+     - [node.js](https://nodejs.org/en/download/current) v16.20.2 ~ v21
+       - The most recent version tested: v21.6.1
+   - Windows
+     - vcpkg & OpenbLAS
+       ```powershell
+       git clone https://github.com/microsoft/vcpkg
+       .\vcpkg\bootstrap-vcpkg.bat
+       .\vcpkg\vcpkg integrate install
+       vcpkg install openblas --triplet x64-windows-static
+       ```
+   - Linux
+     - ALSA
+       - For Debian/Ubuntu: `sudo apt install libasound2-dev`
+2. Install npm packages & build
+   ```bash
    # clone thesia repo & cd to the directory
    npm install -g @napi-rs/cli
    npm run build:backend
@@ -55,15 +34,17 @@ This project is in a very early stage.
 
 ## Run in Dev Mode
 
-```
+```bash
 npm run start
 ```
 
-## packaging into an executable binary
+## Packaging into an executable binary
 
-```
+```bash
 npm run package
 ```
+
+The target binary is under `release/build/<os>/thesia.app`.
 
 ## Plan
 

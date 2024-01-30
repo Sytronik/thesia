@@ -25,6 +25,11 @@ jobs:
           node-version: 18
           cache: npm
 
+      - if: matrix.os == 'ubuntu-latest'
+        name: Install alsa dependency
+        run: |
+          sudo apt install libasound2-dev
+
       - if: matrix.os == 'windows-latest'
         name: Setup vcpkg
         run: |
