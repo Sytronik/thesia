@@ -54,10 +54,7 @@ tokio = {version = "1.35.1", features = ["rt-multi-thread", "sync", "time"]}
 [target.'cfg(target_os = "windows")'.dependencies]
 openblas-src = {version = "0.10.8", features = ["cblas", "static", "system"]}
 
-[target.'cfg(target_os = "macos")'.dependencies]
-openblas-src = {version = "0.10.8", features = ["cblas", "system"]}
-
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 openblas-src = {version = "0.10.8", features = ["cblas", "static"]}
 
 [target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
