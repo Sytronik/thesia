@@ -20,6 +20,7 @@ function MyApp() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting,
+    blend,
     dBRange,
     commonNormalize,
     commonGuardClipping,
@@ -29,6 +30,7 @@ function MyApp() {
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setBlend,
     setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
@@ -132,6 +134,8 @@ function MyApp() {
         <Control
           specSetting={specSetting}
           setSpecSetting={setSpecSetting}
+          blend={blend}
+          setBlend={setBlend}
           dBRange={dBRange}
           setdBRange={setdBRange}
           commonGuardClipping={commonGuardClipping}
@@ -147,6 +151,7 @@ function MyApp() {
             trackIdChMap={trackIdChMap}
             needRefreshTrackIdChArr={needRefreshTrackIdChArr}
             maxTrackSec={maxTrackSec}
+            blend={blend}
             addDroppedFile={addDroppedFile}
             ignoreError={ignoreError}
             refreshTracks={refreshTracks}

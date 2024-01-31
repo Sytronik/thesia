@@ -1,6 +1,7 @@
 import React, {useRef, useEffect, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
 import styles from "./FloatRangeInput.module.scss";
+import {DEFAULT_RANGE_COLOR} from "renderer/prototypes/constants/colors";
 
 type FloatRangeInputProps = {
   id: string;
@@ -23,8 +24,6 @@ type FloatRangeInputProps = {
 const FloatRangeInput = forwardRef(
   (
     {
-      leftColor = "#858ef2",
-      rightColor = "#4c4f75",
       className = "",
       disabled = false,
       disabledValue = NaN,
@@ -90,9 +89,9 @@ const FloatRangeInput = forwardRef(
           style={{
             background: disabled
               ? ""
-              : `linear-gradient(to right, ${leftColor} ${rangeRatio * 100}%, ${rightColor} ${
-                  rangeRatio * 100
-                }%)`,
+              : `linear-gradient(to right, ${DEFAULT_RANGE_COLOR.LEFT} ${rangeRatio * 100}%, ${
+                  DEFAULT_RANGE_COLOR.RIGHT
+                } ${rangeRatio * 100}%)`,
           }}
           type="range"
           min={min}

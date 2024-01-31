@@ -18,10 +18,13 @@ import {
   MIN_COMMON_NORMALIZE_dB,
   T_OVERLAP_VALUES,
 } from "../constants";
+import {BLEND_RANGE_COLOR} from "../constants/colors";
 
 type ControlProps = {
   specSetting: SpecSetting;
   setSpecSetting: (specSetting: SpecSetting) => Promise<void>;
+  blend: number;
+  setBlend: (blend: number) => void;
   dBRange: number;
   setdBRange: (dBRange: number) => void;
   commonGuardClipping: GuardClippingMode;
@@ -34,6 +37,8 @@ function Control(props: ControlProps) {
   const {
     specSetting,
     setSpecSetting,
+    blend,
+    setBlend,
     dBRange,
     setdBRange,
     commonGuardClipping,
@@ -47,6 +52,20 @@ function Control(props: ControlProps) {
   const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(false);
 
   const commonNormalizedBInputElem = useRef<FloatRangeInputElement>(null);
+
+  const onBlendChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBlend(Number.parseFloat(e.target.value));
+  };
+
+  const onBlendDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (e.button === 0) {
+      if (e.detail === 2) {
+        e.preventDefault();
+        setBlend(0.5);
+        (e.target as HTMLInputElement).value = "0.5";
+      }
+    }
+  };
 
   const toggleFreqScale = useEvent((freqScale: FreqScale) =>
     freqScale === FreqScale.Linear ? FreqScale.Mel : FreqScale.Linear,
@@ -120,6 +139,114 @@ function Control(props: ControlProps) {
 
   return (
     <div className={`flex-item-fixed ${styles.Control}`}>
+      <div className={styles.sectionContainer}>
+        <div className={styles.itemContainer}>
+          <label htmlFor="blend">Blend</label>
+          <div id="blend" className={styles.slideBar}>
+            <svg
+              id="waveform"
+              xmlns="http://www.w3.org/2000/svg"
+              width="15.6"
+              height="12"
+              viewBox="0 0 15.6 12"
+            >
+              <path
+                id="waveform-path-1"
+                data-name="waveform-path-2"
+                d="M.6,44.8a.571.571,0,0,0-.6.6v2.4a.571.571,0,0,0,.6.6.571.571,0,0,0,.6-.6V45.4A.571.571,0,0,0,.6,44.8Z"
+                transform="translate(0 -40.6)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+              <path
+                id="waveform-path-2"
+                data-name="waveform-path-3"
+                d="M26.2,32a.571.571,0,0,0-.6.6v4.8a.6.6,0,1,0,1.2,0V32.6A.571.571,0,0,0,26.2,32Z"
+                transform="translate(-23.2 -29)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+              <path
+                id="waveform-path-4"
+                data-name="waveform-path-4"
+                d="M51.8,0a.571.571,0,0,0-.6.6V11.4a.6.6,0,1,0,1.2,0V.6A.571.571,0,0,0,51.8,0Z"
+                transform="translate(-46.4)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+              <path
+                id="waveform-path-5"
+                data-name="waveform-path-5"
+                d="M77.4,44.8a.571.571,0,0,0-.6.6v2.4a.6.6,0,1,0,1.2,0V45.4A.571.571,0,0,0,77.4,44.8Z"
+                transform="translate(-69.6 -40.6)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+              <path
+                id="waveform-path-6"
+                data-name="waveform-path-6"
+                d="M103,19.2a.571.571,0,0,0-.6.6V27a.6.6,0,1,0,1.2,0V19.8A.571.571,0,0,0,103,19.2Z"
+                transform="translate(-92.8 -17.4)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+              <path
+                id="waveform-path-7"
+                data-name="waveform-path-7"
+                d="M128.6,0a.571.571,0,0,0-.6.6V11.4a.6.6,0,0,0,1.2,0V.6A.571.571,0,0,0,128.6,0Z"
+                transform="translate(-116)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+              <path
+                id="waveform-path-8"
+                data-name="waveform-path-8"
+                d="M154.2,44.8a.571.571,0,0,0-.6.6v2.4a.6.6,0,0,0,1.2,0V45.4A.571.571,0,0,0,154.2,44.8Z"
+                transform="translate(-139.2 -40.6)"
+                fill={BLEND_RANGE_COLOR.LEFT}
+              />
+            </svg>
+            <input
+              style={{
+                background: `linear-gradient(to right, ${BLEND_RANGE_COLOR.LEFT} ${blend * 100}%, ${
+                  BLEND_RANGE_COLOR.RIGHT
+                } ${blend * 100}%)`,
+              }}
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              defaultValue={blend}
+              onChange={onBlendChange}
+              onClick={onBlendDoubleClick}
+              list="blend-detents"
+            />
+            <datalist id="blend-detents">
+              <option aria-label="min" value="0.0" />
+              <option aria-label="middle" value="0.5" />
+              <option aria-label="max" value="1.0" />
+            </datalist>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="12" viewBox="0 0 15 12">
+              <g id="spectro" transform="translate(-2 -4)">
+                <path
+                  id="spectromode-path-1"
+                  data-name="spectromode-path-1"
+                  d="M12.875,55a3.038,3.038,0,0,1-2.184-.937,1.541,1.541,0,0,0-2.381,0,3.014,3.014,0,0,1-4.369,0A1.587,1.587,0,0,0,2.75,53.5a.75.75,0,1,1,0-1.5,3.038,3.038,0,0,1,2.184.938,1.541,1.541,0,0,0,2.381,0,3.014,3.014,0,0,1,4.369,0,1.541,1.541,0,0,0,2.381,0A3.057,3.057,0,0,1,16.25,52a.75.75,0,1,1,0,1.5,1.587,1.587,0,0,0-1.191.563A3.038,3.038,0,0,1,12.875,55Z"
+                  transform="translate(0 -43.5)"
+                  fill={BLEND_RANGE_COLOR.RIGHT}
+                />
+                <path
+                  id="spectromode-path-2"
+                  data-name="spectromode-path-2"
+                  d="M12.884,7A3.038,3.038,0,0,1,10.7,6.063a1.541,1.541,0,0,0-2.381,0A3.082,3.082,0,0,1,6.125,7a3.038,3.038,0,0,1-2.184-.937A1.587,1.587,0,0,0,2.75,5.5a.75.75,0,0,1,0-1.5,3.038,3.038,0,0,1,2.184.938,1.541,1.541,0,0,0,2.381,0,3.014,3.014,0,0,1,4.369,0,1.6,1.6,0,0,0,1.191.562,1.521,1.521,0,0,0,1.181-.562A3.02,3.02,0,0,1,16.241,4a.75.75,0,0,1,0,1.5,1.521,1.521,0,0,0-1.181.563A3.014,3.014,0,0,1,12.884,7Z"
+                  fill={BLEND_RANGE_COLOR.RIGHT}
+                />
+                <path
+                  id="spectromode-path-3"
+                  data-name="spectromode-path-3"
+                  d="M12.875,103a3.038,3.038,0,0,1-2.184-.937,1.541,1.541,0,0,0-2.381,0,3.014,3.014,0,0,1-4.369,0A1.587,1.587,0,0,0,2.75,101.5a.75.75,0,0,1,0-1.5,3.038,3.038,0,0,1,2.184.938,1.541,1.541,0,0,0,2.381,0,3.014,3.014,0,0,1,4.369,0,1.541,1.541,0,0,0,2.381,0A3.057,3.057,0,0,1,16.25,100a.75.75,0,1,1,0,1.5,1.587,1.587,0,0,0-1.191.563A3.038,3.038,0,0,1,12.875,103Z"
+                  transform="translate(0 -87)"
+                  fill={BLEND_RANGE_COLOR.RIGHT}
+                />
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
       <div className={styles.sectionContainer}>
         <div className={styles.itemContainer}>
           <label htmlFor="dBRange">Dynamic Range</label>

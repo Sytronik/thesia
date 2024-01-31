@@ -1,15 +1,11 @@
 @import "../styles/index.scss";
 
 .FloatRangeInput {
-  $input-height: $spacer-3;
-  $track-height: 2px;
-  $thumb-height: $spacer;
-
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
 
-  height: $input-height;
+  height: $range-input-height;
 
   label {
     margin: auto 0;
@@ -27,15 +23,19 @@
   $effect-color: $primary-400;
 
   input[type="range"] {
-    @include input-range-base($track-height);
+    @include input-range-base($range-track-height);
   }
 
   input[type="range"]::-webkit-slider-thumb {
-    @include input-range-thumb($white, $thumb-height, $track-height - $input-height);
+    @include input-range-thumb(
+      $white,
+      $range-thumb-height,
+      $range-track-height - $range-input-height
+    );
     transition: 0.2s ease-in-out;
 
     &:hover {
-      box-shadow: 0 0 0 $thumb-height rgba($effect-color, 0.1);
+      box-shadow: 0 0 0 $range-thumb-height rgba($effect-color, 0.1);
     }
   }
 
@@ -49,7 +49,7 @@
 
   input[type="range"]:active::-webkit-slider-thumb,
   input[type="range"]:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 $thumb-height * 1.2 rgba($effect-color, 0.2);
+    box-shadow: 0 0 0 $range-thumb-height * 1.2 rgba($effect-color, 0.2);
   }
 
   input[type="range"]:disabled:active::-webkit-slider-thumb,

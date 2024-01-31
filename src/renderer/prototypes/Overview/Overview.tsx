@@ -194,19 +194,17 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     [moveLens, calcSecFromX],
   );
 
-  const cursorStateInfos: Map<
-    OverviewCursorState,
-    CursorStateInfo<OverviewCursorState, number>
-  > = useMemo(
-    () =>
-      new Map([
-        ["left", getInfoForResize(resizeLensLeft)],
-        ["right", getInfoForResize(resizeLensRight)],
-        ["inlens", infoForInOutLens],
-        ["outlens", infoForInOutLens],
-      ]),
-    [resizeLensLeft, resizeLensRight, getInfoForResize, infoForInOutLens],
-  );
+  const cursorStateInfos: Map<OverviewCursorState, CursorStateInfo<OverviewCursorState, number>> =
+    useMemo(
+      () =>
+        new Map([
+          ["left", getInfoForResize(resizeLensLeft)],
+          ["right", getInfoForResize(resizeLensRight)],
+          ["inlens", infoForInOutLens],
+          ["outlens", infoForInOutLens],
+        ]),
+      [resizeLensLeft, resizeLensRight, getInfoForResize, infoForInOutLens],
+    );
 
   const determineCursorStates = useEvent((cursorX: number) => {
     if (!prevArgsLensRef.current) return "outlens";

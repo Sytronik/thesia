@@ -41,6 +41,37 @@
   }
 }
 
+.slideBar {
+  display: flex;
+  justify-content: stretch;
+  align-items: center;
+
+  height: $spacer-3;
+
+  svg {
+    flex: 0 0 auto;
+    height: $spacer * 1.5;
+  }
+
+  input[type="range"] {
+    @include input-range-base($range-track-height);
+    margin: auto $spacer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @include input-range-thumb(
+      $white,
+      $range-thumb-height,
+      $range-track-height - $range-input-height
+    );
+    transition: 0.2s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0 0 $range-thumb-height rgba($primary-400, 0.1);
+    }
+  }
+}
+
 .winMillisecInput {
   @include input-text-basic($spacer);
 }

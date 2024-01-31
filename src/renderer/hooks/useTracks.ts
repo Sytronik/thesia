@@ -16,6 +16,7 @@ function useTracks() {
   const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
     BackendAPI.getSpecSetting(),
   );
+  const [blend, setBlend] = useState<number>(0.5);
   const [currentdBRange, setCurrentdBRange] = useState<number>(BackendAPI.getdBRange());
   const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
     BackendAPI.getCommonGuardClipping(),
@@ -162,6 +163,7 @@ function useTracks() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting: currentSpecSetting,
+    blend,
     dBRange: currentdBRange,
     commonNormalize: currentCommonNormalize,
     commonGuardClipping: currentCommonGuardClipping,
@@ -171,6 +173,7 @@ function useTracks() {
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setBlend,
     setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
