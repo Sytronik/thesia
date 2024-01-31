@@ -40,7 +40,7 @@
   }
 
   input[type="range"]:disabled::-webkit-slider-thumb {
-    @include input-range-thumb($bg-primary-lighter, $thumb-height, $track-height - $input-height);
+    background-color: $bg-primary-lighter;
 
     &:hover {
       box-shadow: none;

@@ -45,10 +45,52 @@
   @include input-text-basic($spacer);
 }
 
-.changeFreqScaleBtn {
-  @include btn-outline($button-white, $border-primary-light);
+$switch-scale: $spacer;
 
-  background-color: $bg-primary-light;
-  padding: $tiny-spacer $spacer-1;
-  width: 5em;
+.changeFreqScaleBtn {
+  display: none;
+}
+
+.freqScaleSwitchBox {
+  @include input-switch-base($switch-scale);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+
+  .freqScaleToggle {
+    @include input-switch-thumb($switch-scale);
+  }
+  .freqScaleLabelBox {
+    display: inline-flex;
+    align-self: center;
+    justify-content: center;
+    z-index: 2;
+
+    width: $spacer * 7;
+
+    > svg {
+      position: relative;
+      top: 0.125em;
+      margin-right: $spacer-1;
+    }
+  }
+  .freqScaleLinear {
+    @include input-switch-inactive();
+  }
+  .freqScaleMel {
+    @include input-switch-active();
+  }
+}
+
+.changeFreqScaleBtn:checked + .freqScaleSwitchBox {
+  .freqScaleToggle {
+    @include input-switch-thumb-moved();
+  }
+  .freqScaleLinear {
+    @include input-switch-active();
+  }
+  .freqScaleMel {
+    @include input-switch-inactive();
+  }
 }

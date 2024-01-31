@@ -42,7 +42,6 @@ function Control(props: ControlProps) {
     setCommonNormalize,
   } = props;
 
-  const [cursorOnFreqScaleBtn, setCursorOnFreqScaleBtn] = useState<boolean>(false);
   const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(0.0);
   const [commonNormalizedB, setCommonNormalizedB] = useState<number>(-18.0);
   const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(false);
@@ -169,18 +168,40 @@ function Control(props: ControlProps) {
         <div className={styles.itemContainer}>
           <label htmlFor="freqScale">Frequency Scale</label>
           <input
-            type="button"
+            type="checkbox"
+            role="switch"
             className={styles.changeFreqScaleBtn}
             onClick={onFreqScaleBtnClick}
-            onMouseEnter={() => setCursorOnFreqScaleBtn(true)}
-            onMouseLeave={() => setCursorOnFreqScaleBtn(false)}
-            defaultValue={
-              cursorOnFreqScaleBtn
-                ? `to ${toggleFreqScale(specSetting.freqScale)}`
-                : specSetting.freqScale
-            }
             id="freqScale"
           />
+          <div className={styles.freqScaleSwitchBox}>
+            <label className={styles.freqScaleToggle} htmlFor="freqScale"></label>
+            <label
+              className={`${styles.freqScaleLabelBox} ${styles.freqScaleLinear}`}
+              htmlFor="freqScale"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                <path
+                  id="logo"
+                  d="M11.625,0H.375A.376.376,0,0,0,0,.375v11.25A.376.376,0,0,0,.375,12h11.25A.376.376,0,0,0,12,11.625V.375A.376.376,0,0,0,11.625,0Zm-.187.563L.563,11.438V.563Z"
+                />
+              </svg>
+              <span>Linear</span>
+            </label>
+            <label
+              className={`${styles.freqScaleLabelBox} ${styles.freqScaleMel}`}
+              htmlFor="freqScale"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                <path
+                  id="logo"
+                  d="M11.525.1H.275A.376.376,0,0,0-.1.475v11.25a.376.376,0,0,0,.375.375h11.25a.376.376,0,0,0,.375-.375V.475A.376.376,0,0,0,11.525.1ZM.463,10.75V.662H11.338V3.438C5.263,4.694,1.644,7.281.463,10.75Z"
+                  transform="translate(0.1 -0.1)"
+                />
+              </svg>
+              <span>Mel</span>
+            </label>
+          </div>
         </div>
       </div>
       <div className={styles.sectionContainer}>
