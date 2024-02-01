@@ -4,7 +4,6 @@
   display: flex;
   flex-direction: column;
   width: $track-control-width;
-  padding: 0 $spacer-3;
   margin: $component-gap * 0.5;
 
   background-color: $bg-primary;
@@ -19,6 +18,12 @@
     box-shadow: 0 0 $tiny-spacer $tiny-spacer rgba($bg-primary-lighter, 0.5);
     outline: none;
   }
+}
+
+.scrollBox {
+  flex: 1 1 0;
+  overflow-y: scroll;
+  padding: 0 $spacer-3;
 }
 
 .sectionContainer {
