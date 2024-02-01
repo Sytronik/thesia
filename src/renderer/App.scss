@@ -29,40 +29,6 @@ button {
   background: transparent;
 }
 
-input[type="range"] {
-  appearance: none;
-  -webkit-appearance: none;
-  min-width: 30px;
-  height: 16px;
-  margin: $spacer-1;
-  flex: 1 1 auto;
-  // border: 1px solid $border-primary-light;
-  border-radius: 8px;
-  background-color: $bg-primary-light;
-
-  &:hover:enabled,
-  &:focus {
-    background-color: $bg-primary-lighter;
-  }
-
-  &:focus {
-    box-shadow: 0 0 0 0.2em rgba(white, 0.4);
-    outline: none;
-  }
-}
-
-input[type="range"][list]::-webkit-slider-thumb {
-  // appearance: none;
-  // -webkit-appearance: none;
-  // width: 16px;
-  // height: 16px;
-  // border: 1px solid $border-gray-light;
-  // border-radius: 8px;
-  // background-color: $button-white;
-  // cursor: pointer;
-  margin-top: -6px;
-}
-
 // Box-Sizing
 html {
   box-sizing: border-box;
@@ -99,28 +65,25 @@ body {
   height: 100vh;
   padding: $component-gap * 0.5;
   color: $text-white;
+}
 
-  // [TEMP] class 등으로 대체
-  > div {
+.flex-container {
+  &-row {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
+  }
+  &-column {
+    display: flex;
+    flex-direction: column;
   }
 }
 
-.row {
+.flex-item {
   &-fixed {
     flex: 0 0 auto;
-
-    &.control {
-      height: $control-height;
-    }
-    &.overview {
-      height: $overview-height;
-    }
   }
-  &-flex {
+  &-auto {
     flex: 1 1 auto;
-    width: 100%;
   }
 }
 

@@ -21,7 +21,6 @@ import ColorMap from "./ColorMap";
 import ErrorBox from "./ErrorBox";
 import FreqAxis from "./FreqAxis";
 import Overview from "../Overview/Overview";
-import SlideBar from "../SlideBar/SlideBar";
 import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
@@ -42,7 +41,7 @@ import {
   MAX_PX_PER_SEC,
   FIT_TOLERANCE_SEC,
   DEFAULT_AMP_RANGE,
-} from "../constants";
+} from "../constants/tracks";
 import isCommand from "../../utils/commandKey";
 
 type MainViewerProps = {
@@ -52,6 +51,7 @@ type MainViewerProps = {
   trackIdChMap: IdChMap;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
+  blend: number;
   addDroppedFile: (e: DragEvent) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -69,6 +69,7 @@ function MainViewer(props: MainViewerProps) {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    blend,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -100,7 +101,6 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
-  const blendRef = useRef<number>(0.5);
 
   const overviewElem = useRef<OverviewHandleElement>(null);
   const splitViewElem = useRef<SplitViewHandleElement>(null);
@@ -196,10 +196,10 @@ function MainViewer(props: MainViewerProps) {
           canvasHeight * devicePixelRatio,
           pxPerSecRef.current * devicePixelRatio,
           {amp_range: ampRangeRef.current, dpr: devicePixelRatio},
-          blendRef.current,
+          blend,
         );
       }),
-    [devicePixelRatio],
+    [blend, devicePixelRatio],
   );
 
   const setAmpRange = useEvent((newRange: [number, number]) => {
@@ -673,24 +673,25 @@ function MainViewer(props: MainViewerProps) {
   }, [handleKeyDown]);
 
   return (
-    <>
-      <div className="row-fixed overview">
-        <Overview
-          ref={overviewElem}
-          selectedTrackId={
-            trackIds.length > 0 && selectedTrackIds.length > 0
-              ? selectedTrackIds[selectedTrackIds.length - 1]
-              : null
-          }
-          maxTrackSec={maxTrackSec}
-          moveLens={moveLens}
-          resizeLensLeft={resizeLensLeft}
-          resizeLensRight={resizeLensRight}
-        />
-        <SlideBar blendRef={blendRef} refreshImgs={refreshImgs} />
+    <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
+      <div className="flex-container-row flex-item-fixed">
+        {trackIds.length ? (
+          <Overview
+            ref={overviewElem}
+            selectedTrackId={
+              trackIds.length > 0 && selectedTrackIds.length > 0
+                ? selectedTrackIds[selectedTrackIds.length - 1]
+                : null
+            }
+            maxTrackSec={maxTrackSec}
+            moveLens={moveLens}
+            resizeLensLeft={resizeLensLeft}
+            resizeLensRight={resizeLensRight}
+          />
+        ) : null}
       </div>
       <div
-        className={`${styles.MainViewer} row-flex`}
+        className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
       >
@@ -708,7 +709,7 @@ function MainViewer(props: MainViewerProps) {
           dBAxisCanvasElem={dBCanvasElem}
         />
       </div>
-    </>
+    </div>
   );
 }
 

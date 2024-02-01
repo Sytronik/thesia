@@ -2,7 +2,7 @@ import React, {forwardRef, useImperativeHandle, useRef} from "react";
 import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
-import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
+import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
 
 const MemoizedTrackSummary = React.memo(TrackSummary);
 
@@ -54,8 +54,8 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       onClick={(e) => selectTrack(e, trackId)} // TODO: need optimization?
       onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: need optimization?
       style={{
-        padding: `${VERTICAL_AXIS_PADDING}px 0`,
-        height: channelHeight * trackIdCh.length + 2 * (trackIdCh.length - 1),
+        margin: `${VERTICAL_AXIS_PADDING}px 0`,
+        height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,
       }}
     >
       <MemoizedTrackSummary className={styles.TrackSummary} data={trackSummary} />

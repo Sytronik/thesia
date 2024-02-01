@@ -15,15 +15,15 @@
 }
 
 .pathNameTooltip {
-  @include body-title;
   position: fixed;
-  pointer-events: none;
-  background-color: $bg-primary;
-  border: $border;
-  padding: 2px;
   z-index: 256;
+  pointer-events: none;
+  background-color: $bg-primary-light;
   font-size: $body-font-size;
-  box-shadow: 1px 1px 4px black;
+  padding: $spacer $spacer-3;
+  border-radius: $spacer-1;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15), 0 2px 2px rgba(0, 0, 0, 0.15),
+    0 4px 4px rgba(0, 0, 0, 0.15), 0 8px 8px rgba(0, 0, 0, 0.15);
 }
 
 $path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor

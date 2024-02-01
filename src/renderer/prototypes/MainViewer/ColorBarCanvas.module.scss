@@ -1,7 +1,6 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .ColorBarCanvas {
   flex: 0 0 auto;
-
-  margin-right: $track-margin;
+  margin-right: $tiny-spacer;
 }

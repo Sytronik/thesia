@@ -1,6 +1,6 @@
 import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react";
 import {chunk} from "renderer/utils/arrayUtils";
-import {COLORBAR_CANVAS_WIDTH} from "renderer/prototypes/constants";
+import {COLORBAR_CANVAS_WIDTH} from "renderer/prototypes/constants/tracks";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import BackendAPI from "../../api";
 import styles from "./ColorBarCanvas.module.scss";

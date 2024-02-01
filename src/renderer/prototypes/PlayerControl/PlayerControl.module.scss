@@ -1,0 +1,7 @@
+@import "../../styles/index.scss";
+
+.PlayerControl {
+  background-color: $bg-primary;
+  height: $player-control-height;
+  margin: $component-gap * 0.5;
+}

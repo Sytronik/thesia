@@ -15,7 +15,7 @@ type ImgCanvasProps = {
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
 
 const calcTooltipPos = (e: React.MouseEvent) => {
-  return [e.clientX + 10, e.clientY + 15];
+  return [e.clientX + 0, e.clientY + 15];
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {

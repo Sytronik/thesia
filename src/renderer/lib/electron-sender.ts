@@ -1,5 +1,5 @@
 import {ipcRenderer} from "electron";
-import {SUPPORTED_TYPES} from "renderer/prototypes/constants";
+import {SUPPORTED_TYPES} from "renderer/prototypes/constants/tracks";
 
 export function showElectronOpenDialog() {
   ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);

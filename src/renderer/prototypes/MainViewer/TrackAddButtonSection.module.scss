@@ -1,10 +1,11 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 .trackAddButtonSection {
   position: relative;
   flex: 1 1 auto;
   min-height: $emptytrack-height;
   height: 100%;
+  margin-top: $track-margin;
 
   > button {
     @include btn-square($spacer-3);

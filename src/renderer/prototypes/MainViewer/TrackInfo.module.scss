@@ -4,7 +4,6 @@
   display: flex;
   flex: 0 0 auto;
   position: relative;
-  margin-bottom: $track-margin;
 }
 
 // track summary
@@ -21,10 +20,10 @@
 
 .selected {
   .TrackSummary {
-    background-color: $bg-primary-light;
+    background-color: $bg-primary-semilight;
   }
   .ch {
-    background-color: $bg-primary-lighter;
+    background-color: $bg-primary-light;
   }
 }
 
@@ -43,14 +42,10 @@
   justify-content: center;
 
   width: 100%;
-  background-color: $bg-primary-light;
+  background-color: $bg-primary-semilight;
   text-align: center;
 
   > span {
     @include body-assist;
-  }
-
-  &:not(:last-child) {
-    margin-bottom: $track-margin;
   }
 }

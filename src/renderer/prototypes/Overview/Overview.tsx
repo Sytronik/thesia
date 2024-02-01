@@ -11,7 +11,7 @@ import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.module.scss";
 import BackendAPI from "../../api";
-import {OVERVIEW_LENS_STYLE} from "../constants";
+import {OVERVIEW_LENS_STYLE} from "../constants/tracks";
 import Draggable, {CursorStateInfo} from "../../modules/Draggable";
 
 const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
@@ -68,12 +68,15 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       ctx.restore();
     }
     if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
-    ctx.strokeRect(
+    ctx.beginPath();
+    ctx.roundRect(
       startSec * pxPerSec + LINE_WIDTH / 2,
       LINE_WIDTH / 2,
       lensDurationSec * pxPerSec - LINE_WIDTH,
       height - LINE_WIDTH,
+      2,
     );
+    ctx.stroke();
     if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
     prevArgsLensRef.current = [trackDurationSec, startSec, lensDurationSec];
   };

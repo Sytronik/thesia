@@ -1,3 +1,6 @@
+import {getRGBA} from "renderer/utils/colorUtils";
+import {WHITE, BG_COLOR_RGB, BORDER_COLOR} from "./colors";
+
 // audio file
 export const CHANNEL = [
   [], // Unreachable
@@ -23,15 +26,15 @@ const createBoundaries = (tickScaleTable: TickScaleTable) => {
 
 export const AXIS_STYLE = {
   LINE_WIDTH: 1,
-  TICK_COLOR: "#fff",
-  LABEL_COLOR: "#fff",
+  TICK_COLOR: WHITE,
+  LABEL_COLOR: WHITE,
   LABEL_FONT: "11px sans-serif",
 };
 
 export const OVERVIEW_LENS_STYLE = {
-  OUT_LENS_FILL_STYLE: "rgba(0, 0, 0, 0.4)",
-  LENS_STROKE_STYLE: "rgba(255, 255, 255, 0.4)",
-  OUT_TRACK_FILL_STYLE: "rgba(0, 0, 0, 0.2)",
+  OUT_LENS_FILL_STYLE: getRGBA(BG_COLOR_RGB.MAIN, 0.6),
+  LENS_STROKE_STYLE: BORDER_COLOR.GRAY_LIGHT,
+  OUT_TRACK_FILL_STYLE: getRGBA(BG_COLOR_RGB.MAIN, 0.5),
   LINE_WIDTH: 1.6,
   RESIZE_CURSOR: "col-resize",
 };
@@ -184,7 +187,7 @@ export const MIN_TICK_SCALE_BOUNDARY = 80;
 export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 70;
 export const MAX_HEIGHT = 5000;
 
-export const VERTICAL_AXIS_PADDING = 5;
+export const VERTICAL_AXIS_PADDING = 4;
 export const HORIZONTAL_AXIS_PADDING = 0;
 
 export const MAX_PX_PER_SEC = 384000;

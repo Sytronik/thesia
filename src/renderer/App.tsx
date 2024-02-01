@@ -4,8 +4,9 @@ import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
+import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
-import {SUPPORTED_MIME} from "./prototypes/constants";
+import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
@@ -19,6 +20,7 @@ function MyApp() {
     needRefreshTrackIdChArr,
     maxTrackSec,
     specSetting,
+    blend,
     dBRange,
     commonNormalize,
     commonGuardClipping,
@@ -28,6 +30,7 @@ function MyApp() {
     removeTracks,
     ignoreError,
     setSpecSetting,
+    setBlend,
     setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,
@@ -126,10 +129,13 @@ function MyApp() {
 
   return (
     <div id="App" className="App">
-      <div className="row-fixed control">
+      <PlayerControl />
+      <div className="flex-container-row flex-item-auto">
         <Control
           specSetting={specSetting}
           setSpecSetting={setSpecSetting}
+          blend={blend}
+          setBlend={setBlend}
           dBRange={dBRange}
           setdBRange={setdBRange}
           commonGuardClipping={commonGuardClipping}
@@ -137,24 +143,25 @@ function MyApp() {
           commonNormalize={commonNormalize}
           setCommonNormalize={setCommonNormalize}
         />
+        <DevicePixelRatioProvider>
+          <MainViewer
+            trackIds={trackIds}
+            erroredTrackIds={erroredTrackIds}
+            selectedTrackIds={selectedTrackIds}
+            trackIdChMap={trackIdChMap}
+            needRefreshTrackIdChArr={needRefreshTrackIdChArr}
+            maxTrackSec={maxTrackSec}
+            blend={blend}
+            addDroppedFile={addDroppedFile}
+            ignoreError={ignoreError}
+            refreshTracks={refreshTracks}
+            reloadTracks={reloadTracks}
+            removeTracks={removeTracks}
+            selectTrack={selectTrack}
+            finishRefreshTracks={finishRefreshTracks}
+          />
+        </DevicePixelRatioProvider>
       </div>
-      <DevicePixelRatioProvider>
-        <MainViewer
-          trackIds={trackIds}
-          erroredTrackIds={erroredTrackIds}
-          selectedTrackIds={selectedTrackIds}
-          trackIdChMap={trackIdChMap}
-          needRefreshTrackIdChArr={needRefreshTrackIdChArr}
-          maxTrackSec={maxTrackSec}
-          addDroppedFile={addDroppedFile}
-          ignoreError={ignoreError}
-          refreshTracks={refreshTracks}
-          reloadTracks={reloadTracks}
-          removeTracks={removeTracks}
-          selectTrack={selectTrack}
-          finishRefreshTracks={finishRefreshTracks}
-        />
-      </DevicePixelRatioProvider>
     </div>
   );
 }

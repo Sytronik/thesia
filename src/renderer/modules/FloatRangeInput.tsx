@@ -1,5 +1,6 @@
 import React, {useRef, useEffect, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
+import {DEFAULT_RANGE_COLOR} from "renderer/prototypes/constants/colors";
 import styles from "./FloatRangeInput.module.scss";
 
 type FloatRangeInputProps = {
@@ -8,6 +9,8 @@ type FloatRangeInputProps = {
   unit: string;
   min: number;
   max: number;
+  leftColor?: string;
+  rightColor?: string;
   step: number;
   precision: number;
   detents: number[];
@@ -33,6 +36,10 @@ const FloatRangeInput = forwardRef(
     const {id, unit, min, max, step, precision, initialValue, detents} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
+    const rangeRatio = Math.min(
+      Math.max((Number(textElem.current?.value ?? 0) - min) / (max - min), 0),
+      1,
+    );
 
     const setValue = useEvent((value: number) => {
       if (value >= min && value <= max) {
@@ -79,6 +86,13 @@ const FloatRangeInput = forwardRef(
         <input
           ref={rangeElem}
           id={id}
+          style={{
+            background: disabled
+              ? ""
+              : `linear-gradient(to right, ${DEFAULT_RANGE_COLOR.LEFT} ${rangeRatio * 100}%, ${
+                  DEFAULT_RANGE_COLOR.RIGHT
+                } ${rangeRatio * 100}%)`,
+          }}
           type="range"
           min={min}
           max={max}
@@ -101,9 +115,9 @@ const FloatRangeInput = forwardRef(
         <input
           ref={textElem}
           id={`${id}Text`}
-          style={{backgroundColor: "transparent"}}
           type="text"
           inputMode="decimal"
+          size={textElem.current?.value.length || initialValue.toFixed(precision).length}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onChange={onTextChange}

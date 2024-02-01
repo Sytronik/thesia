@@ -2,7 +2,7 @@ import React, {RefObject, forwardRef, useMemo} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
-import {HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS} from "../constants";
+import {HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS} from "../constants/tracks";
 
 type TimeAxisProps = {
   width: number;
