@@ -1,4 +1,4 @@
-import React, {ReactNode, useMemo, useRef, useState} from "react";
+import React, {useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {
@@ -302,7 +302,7 @@ function Control(props: ControlProps) {
             id="freqScale"
           />
           <div className={styles.freqScaleSwitchBox}>
-            <label className={styles.freqScaleToggle} htmlFor="freqScale"></label>
+            <label className={styles.freqScaleToggle} htmlFor="freqScale" />
             <label
               className={`${styles.freqScaleLabelBox} ${styles.freqScaleLinear}`}
               htmlFor="freqScale"
