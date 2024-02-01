@@ -36,8 +36,8 @@ const FloatRangeInput = forwardRef(
     const {id, unit, min, max, step, precision, initialValue, detents} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
-    const rangeRatio = Math.max(
-      Math.min((Number(textElem.current?.value ?? 0) - min) / (max - min), 0),
+    const rangeRatio = Math.min(
+      Math.max((Number(textElem.current?.value ?? 0) - min) / (max - min), 0),
       1,
     );
 
