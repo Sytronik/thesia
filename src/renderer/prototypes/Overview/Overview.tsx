@@ -68,12 +68,15 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
       ctx.restore();
     }
     if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
-    ctx.strokeRect(
+    ctx.beginPath();
+    ctx.roundRect(
       startSec * pxPerSec + LINE_WIDTH / 2,
       LINE_WIDTH / 2,
       lensDurationSec * pxPerSec - LINE_WIDTH,
       height - LINE_WIDTH,
+      2,
     );
+    ctx.stroke();
     if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
     prevArgsLensRef.current = [trackDurationSec, startSec, lensDurationSec];
   };
