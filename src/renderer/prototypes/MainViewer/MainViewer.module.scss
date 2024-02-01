@@ -1,7 +1,7 @@
 @import "../../styles/index.scss";
 
 .mainViewerWrapper {
-  width: calc(100% - #{$track-control-width - #{$component-gap}});
+  width: calc(100% - #{$track-control-width} - #{$component-gap});
 }
 
 .MainViewer {

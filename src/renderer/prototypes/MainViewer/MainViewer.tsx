@@ -674,22 +674,20 @@ function MainViewer(props: MainViewerProps) {
 
   return (
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
-      <div className="flex-container-row flex-item-fixed">
-        {trackIds.length ? (
-          <Overview
-            ref={overviewElem}
-            selectedTrackId={
-              trackIds.length > 0 && selectedTrackIds.length > 0
-                ? selectedTrackIds[selectedTrackIds.length - 1]
-                : null
-            }
-            maxTrackSec={maxTrackSec}
-            moveLens={moveLens}
-            resizeLensLeft={resizeLensLeft}
-            resizeLensRight={resizeLensRight}
-          />
-        ) : null}
-      </div>
+      {trackIds.length ? (
+        <Overview
+          ref={overviewElem}
+          selectedTrackId={
+            trackIds.length > 0 && selectedTrackIds.length > 0
+              ? selectedTrackIds[selectedTrackIds.length - 1]
+              : null
+          }
+          maxTrackSec={maxTrackSec}
+          moveLens={moveLens}
+          resizeLensLeft={resizeLensLeft}
+          resizeLensRight={resizeLensRight}
+        />
+      ) : null}
       <div
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
