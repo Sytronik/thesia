@@ -1,3 +1,6 @@
+import {getRGBA} from "renderer/utils/colorUtils";
+import {WHITE, BG_COLOR_RGB, BORDER_COLOR} from "./colors";
+
 // audio file
 export const CHANNEL = [
   [], // Unreachable
@@ -23,15 +26,15 @@ const createBoundaries = (tickScaleTable: TickScaleTable) => {
 
 export const AXIS_STYLE = {
   LINE_WIDTH: 1,
-  TICK_COLOR: "#fff",
-  LABEL_COLOR: "#fff",
+  TICK_COLOR: WHITE,
+  LABEL_COLOR: WHITE,
   LABEL_FONT: "11px sans-serif",
 };
 
 export const OVERVIEW_LENS_STYLE = {
-  OUT_LENS_FILL_STYLE: "rgba(31, 33, 51, 0.6)",
-  LENS_STROKE_STYLE: "rgb(185, 185, 185)",
-  OUT_TRACK_FILL_STYLE: "rgba(31, 33, 51, 0.5)",
+  OUT_LENS_FILL_STYLE: getRGBA(BG_COLOR_RGB.MAIN, 0.6),
+  LENS_STROKE_STYLE: BORDER_COLOR.GRAY_LIGHT,
+  OUT_TRACK_FILL_STYLE: getRGBA(BG_COLOR_RGB.MAIN, 0.5),
   LINE_WIDTH: 1.6,
   RESIZE_CURSOR: "col-resize",
 };

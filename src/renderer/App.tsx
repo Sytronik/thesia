@@ -6,7 +6,7 @@ import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
-import {SUPPORTED_MIME} from "./prototypes/constants";
+import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";

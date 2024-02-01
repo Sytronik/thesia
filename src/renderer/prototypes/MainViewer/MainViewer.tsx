@@ -41,7 +41,7 @@ import {
   MAX_PX_PER_SEC,
   FIT_TOLERANCE_SEC,
   DEFAULT_AMP_RANGE,
-} from "../constants";
+} from "../constants/tracks";
 import isCommand from "../../utils/commandKey";
 
 type MainViewerProps = {

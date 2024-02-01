@@ -17,7 +17,7 @@ import {
   DB_RANGE_MIN_MAX,
   MIN_COMMON_NORMALIZE_dB,
   T_OVERLAP_VALUES,
-} from "../constants";
+} from "../constants/tracks";
 import {BLEND_RANGE_COLOR} from "../constants/colors";
 
 type ControlProps = {

@@ -1,6 +1,6 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
-import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants";
+import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants/tracks";
 import styles from "./SplitView.module.scss";
 
 const MARGIN = 2;

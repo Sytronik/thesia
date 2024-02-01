@@ -8,7 +8,7 @@ import {
   DB_MARKER_POS,
   MIN_HEIGHT,
   VERTICAL_AXIS_PADDING,
-} from "../constants";
+} from "../constants/tracks";
 
 type ColorMapProps = {
   height: number;

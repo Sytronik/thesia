@@ -2,7 +2,7 @@ import React, {forwardRef, useImperativeHandle, useRef} from "react";
 import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
-import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants";
+import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
 
 const MemoizedTrackSummary = React.memo(TrackSummary);
 

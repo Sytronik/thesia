@@ -1,7 +1,7 @@
 import React, {useRef, useEffect, forwardRef, useImperativeHandle} from "react";
 import useEvent from "react-use-event-hook";
-import styles from "./FloatRangeInput.module.scss";
 import {DEFAULT_RANGE_COLOR} from "renderer/prototypes/constants/colors";
+import styles from "./FloatRangeInput.module.scss";
 
 type FloatRangeInputProps = {
   id: string;

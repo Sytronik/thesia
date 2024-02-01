@@ -10,7 +10,7 @@ import {
   MIN_ABS_AMP_RANGE,
   MAX_ABS_AMP_RANGE,
   VERTICAL_AXIS_PADDING,
-} from "../constants";
+} from "../constants/tracks";
 
 type AmpAxisProps = {
   height: number;
