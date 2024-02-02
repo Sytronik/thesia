@@ -4,7 +4,7 @@ authors = [
   "crackyachae <crackyache@gmail.com>",
 ]
 edition = "2021"
-license = "MIT"
+license-file = "LICENSE"
 name = "thesia-native-backend"
 version = "0.1.0"
 
