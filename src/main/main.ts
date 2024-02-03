@@ -98,7 +98,7 @@ if (isDebug) {
 }
 
 const installExtensions = async () => {
-  const installer = require("electron-devtools-installer");
+  const installer = require("electron-devtools-assembler");
   const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
   const extensions = ["REACT_DEVELOPER_TOOLS"];
 

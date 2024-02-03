@@ -135,9 +135,9 @@
     "use-device-pixel-ratio": "^1.1.2"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.18.0",
     "@electron/notarize": "^2.1.0",
     "@electron/rebuild": "^3.3.0",
+    "@napi-rs/cli": "^2.18.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@svgr/webpack": "^8.1.0",
     "@teamsupercell/typings-for-css-modules-loader": "^2.5.2",
@@ -162,7 +162,7 @@
     "detect-port": "^1.5.1",
     "electron": "^26.2.1",
     "electron-builder": "^24.6.4",
-    "electron-devtools-installer": "^3.2.0",
+    "electron-devtools-assembler": "^1.2.0",
     "electronmon": "^2.0.2",
     "eslint": "^8.49.0",
     "eslint-config-airbnb-base": "^15.0.0",
