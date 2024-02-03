@@ -65,6 +65,18 @@ impl CalcAxisMarkers for TrackManager {
     }
 }
 
+pub fn convert_sec_to_label(sec: f64) -> String {
+    let sec_floor = sec.floor() as u32;
+    let milli = ((sec - sec_floor as f64) * 1000.).round() as u32;
+    let sec_u32 = sec_floor + milli / 1000;
+    let milli = milli - milli / 1000;
+    let nano: u32 = milli * 1_000_000;
+    NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
+        .unwrap()
+        .format("%H:%M:%S%.3f")
+        .to_string()
+}
+
 fn calc_time_axis_markers(
     start_sec: f64,
     end_sec: f64,
@@ -119,6 +131,7 @@ fn calc_time_axis_markers(
             let sec_floor = sec.floor() as u32;
             let milli = ((sec - sec_floor as f64) * 1000.).round() as u32;
             let sec_u32 = sec_floor + milli / 1000;
+            let milli = milli - milli / 1000;
             let nano = if milli_format.is_empty() {
                 0
             } else {
