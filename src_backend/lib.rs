@@ -237,6 +237,11 @@ async fn get_hz_at(y: u32, height: u32) -> f64 {
 }
 
 #[napi]
+fn seconds_to_label(sec: f64) -> String {
+    convert_sec_to_label(sec)
+}
+
+#[napi]
 async fn get_time_axis_markers(
     start_sec: f64,
     end_sec: f64,

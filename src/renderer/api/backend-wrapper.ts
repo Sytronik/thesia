@@ -149,6 +149,7 @@ export const {
   getMaxPeakdB,
   getLongestTrackLengthSec,
   getHzAt,
+  secondsToLabel,
   getMaxdB,
   getMindB,
   getColorMap,

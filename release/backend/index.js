@@ -295,7 +295,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, secondsToLabel, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -317,6 +317,7 @@ module.exports.getImages = getImages
 module.exports.findIdByPath = findIdByPath
 module.exports.getOverview = getOverview
 module.exports.getHzAt = getHzAt
+module.exports.secondsToLabel = secondsToLabel
 module.exports.getTimeAxisMarkers = getTimeAxisMarkers
 module.exports.getFreqAxisMarkers = getFreqAxisMarkers
 module.exports.getAmpAxisMarkers = getAmpAxisMarkers
