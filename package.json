@@ -54,7 +54,7 @@
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
     "build:backend": "napi build --platform release/backend",
     "build:backend.release": "napi build --platform --release release/backend",
-    "build:backend.debug": "napi build --platform --profile dev-debug build/backend",
+    "build:backend.debug": "napi build --platform --profile dev-debug release/backend",
     "postinstall": "ts-node .erb/scripts/check-native-dep.js && electron-builder install-app-deps && npm run build:dll",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
     "package": "ts-node ./.erb/scripts/clean.js dist && npm run build:backend.release && npm run build && electron-builder build --publish never && npm run build:dll",
