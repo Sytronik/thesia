@@ -34,22 +34,44 @@ const FloatRangeInput = forwardRef(
     const {id, unit, min, max, step, precision, initialValue, detents} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
-    const rangeRatio = Math.min(
-      Math.max((Number(textElem.current?.value ?? initialValue) - min) / (max - min), 0),
-      1,
-    );
+
+    const getRangeBackground = () => {
+      const rangeRatio = Math.min(
+        Math.max((Number(textElem.current?.value ?? initialValue) - min) / (max - min), 0),
+        1,
+      );
+      return disabled
+        ? ""
+        : `linear-gradient(to right, ${DEFAULT_RANGE_COLOR.LEFT} ${rangeRatio * 100}%, ${
+            DEFAULT_RANGE_COLOR.RIGHT
+          } ${rangeRatio * 100}%)`;
+    };
+
+    const getTextElemSize = () =>
+      textElem.current?.value.length || initialValue.toFixed(precision).length;
+
+    const updateStyle = useEvent(() => {
+      if (rangeElem.current) {
+        rangeElem.current.style.background = getRangeBackground();
+      }
+      if (textElem.current) {
+        textElem.current.size = getTextElemSize();
+      }
+    });
 
     const setValue = useEvent((value: number) => {
       if (value >= min && value <= max) {
         if (rangeElem.current) rangeElem.current.value = value.toFixed(precision);
         if (textElem.current) textElem.current.value = value.toFixed(precision);
       }
+      updateStyle();
     });
 
     const onRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = Number.parseFloat(e.target.value);
       if (textElem.current) textElem.current.value = value.toFixed(precision);
       onChangeValue(value);
+      updateStyle();
     };
 
     const onRangeDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
@@ -57,6 +79,7 @@ const FloatRangeInput = forwardRef(
         if (rangeElem.current) rangeElem.current.value = doubleClickValue.toFixed(precision);
         if (textElem.current) textElem.current.value = doubleClickValue.toFixed(precision);
         onChangeValue(doubleClickValue);
+        updateStyle();
       }
     };
 
@@ -65,6 +88,7 @@ const FloatRangeInput = forwardRef(
       if (e.target.value !== "" && value >= min && value <= max) {
         if (rangeElem.current) rangeElem.current.value = value.toFixed(precision);
         onChangeValue(value);
+        updateStyle();
       }
     };
 
@@ -85,11 +109,7 @@ const FloatRangeInput = forwardRef(
           ref={rangeElem}
           id={id}
           style={{
-            background: disabled
-              ? ""
-              : `linear-gradient(to right, ${DEFAULT_RANGE_COLOR.LEFT} ${rangeRatio * 100}%, ${
-                  DEFAULT_RANGE_COLOR.RIGHT
-                } ${rangeRatio * 100}%)`,
+            background: getRangeBackground(),
           }}
           type="range"
           min={min}
@@ -115,7 +135,7 @@ const FloatRangeInput = forwardRef(
           id={`${id}Text`}
           type="text"
           inputMode="decimal"
-          size={textElem.current?.value.length || initialValue.toFixed(precision).length}
+          size={getTextElemSize()}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onChange={onTextChange}
@@ -128,4 +148,4 @@ const FloatRangeInput = forwardRef(
 
 FloatRangeInput.displayName = "FloatRangeInput";
 
-export default FloatRangeInput;
+export default React.memo(FloatRangeInput);
