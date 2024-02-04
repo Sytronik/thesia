@@ -9,6 +9,7 @@ import pauseIcon from "../../../../assets/buttons/pause.svg";
 import rewindBackIcon from "../../../../assets/buttons/rewind-back.svg";
 import rewindForwardIcon from "../../../../assets/buttons/rewind-forward.svg";
 import skipToBeginningIcon from "../../../../assets/buttons/skip-to-beginning.svg";
+import volumeIcon from "../../../../assets/buttons/volume.svg";
 
 function PlayerControl({player}: {player: Player}) {
   const prevPosSecRef = useRef<number>(0);
@@ -37,53 +38,54 @@ function PlayerControl({player}: {player: Player}) {
   }, [updatePosLabel]);
 
   return (
-    <div className={`flex-item-fixed ${styles.PlayerControl}`}>
-      <div ref={posLabelElem}>{backend.secondsToLabel(player.positionSecRef.current ?? 0)}</div>
-      <button
-        type="button"
-        className={styles.playerButton}
-        onClick={async () => {
-          await player.seek(0);
-        }}
-      >
-        <img src={skipToBeginningIcon} alt="skip to beginning icon" />
-      </button>
-      <button
-        type="button"
-        className={styles.playerButton}
-        onClick={async () => {
-          await player.seek(Math.max((player.positionSecRef.current ?? 0) - 5, 0));
-        }}
-      >
-        <img src={rewindBackIcon} alt="rewind back icon" />
-      </button>
-      <button
-        type="button"
-        className={styles.playerButton}
-        onClick={async () => {
-          player.togglePlay();
-        }}
-      >
-        <img
-          src={playIcon}
-          alt="play button icon"
-          style={{display: player.isPlaying ? "none" : "inline-block"}}
-        />
-        <img
-          src={pauseIcon}
-          alt="pause button icon"
-          style={{display: player.isPlaying ? "inline-block" : "none"}}
-        />
-      </button>
-      <button
-        type="button"
-        className={styles.playerButton}
-        onClick={async () => {
-          await player.seek((player.positionSecRef.current ?? 0) + 5);
-        }}
-      >
-        <img src={rewindForwardIcon} alt="rewind forward icon" />
-      </button>
+    <div className={`flex-container-row ${styles.PlayerControl}`}>
+      <div ref={posLabelElem} className={styles.positionLabel}>
+        {backend.secondsToLabel(player.positionSecRef.current ?? 0)}
+      </div>
+      <div className={styles.playerButton}>
+        <button
+          type="button"
+          onClick={async () => {
+            await player.seek(0);
+          }}
+        >
+          <img src={skipToBeginningIcon} alt="skip to beginning icon" />
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            await player.seek(Math.max((player.positionSecRef.current ?? 0) - 5, 0));
+          }}
+        >
+          <img src={rewindBackIcon} alt="rewind back icon" />
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            player.togglePlay();
+          }}
+        >
+          <img
+            src={playIcon}
+            alt="play button icon"
+            style={{display: player.isPlaying ? "none" : "inline-block"}}
+          />
+          <img
+            src={pauseIcon}
+            alt="pause button icon"
+            style={{display: player.isPlaying ? "inline-block" : "none"}}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            await player.seek((player.positionSecRef.current ?? 0) + 5);
+          }}
+        >
+          <img src={rewindForwardIcon} alt="rewind forward icon" />
+        </button>
+      </div>
+      <img src={volumeIcon} alt="volume icon" className={styles.volumeIcon} />
       <FloatRangeInput
         id="volumeRangeInput"
         className={styles.volumeRangeInput}
