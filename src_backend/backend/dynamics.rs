@@ -5,6 +5,7 @@ mod limiter;
 mod normalize;
 mod stats;
 
+pub use decibel::DeciBel;
 pub use guardclipping::{GuardClipping, GuardClippingMode, GuardClippingResult};
 pub use limiter::get_cached_limiter;
 pub use normalize::{Normalize, NormalizeTarget};

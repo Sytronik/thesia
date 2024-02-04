@@ -2,6 +2,7 @@ import React, {useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import backend from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
+import FloatRangeInput from "renderer/modules/FloatRangeInput";
 import styles from "./PlayerControl.module.scss";
 import playIcon from "../../../../assets/buttons/play.svg";
 import pauseIcon from "../../../../assets/buttons/pause.svg";
@@ -83,6 +84,21 @@ function PlayerControl({player}: {player: Player}) {
       >
         <img src={rewindForwardIcon} alt="rewind forward icon" />
       </button>
+      <FloatRangeInput
+        id="volumeRangeInput"
+        className={styles.volumeRangeInput}
+        unit="dB"
+        min={-24}
+        max={0}
+        step={0.1}
+        precision={1}
+        detents={[]}
+        initialValue={0.0}
+        doubleClickValue={0.0}
+        onChangeValue={async (volume) => {
+          await backend.setVolumedB(volume);
+        }}
+      />
     </div>
   );
 }

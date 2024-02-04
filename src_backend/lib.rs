@@ -402,6 +402,12 @@ fn get_color_map() -> Buffer {
     visualize::get_colormap_rgb().into()
 }
 
+#[napi(js_name = "setVolumedB")]
+#[allow(non_snake_case)]
+async fn set_volume_dB(volume_dB: f64) {
+    player::send(PlayerCommand::SetVolumedB(volume_dB)).await;
+}
+
 #[napi]
 async fn set_track_player(track_id: u32, sec: Option<f64>) {
     let track_id = track_id as usize;

@@ -15,7 +15,7 @@ mod utils;
 pub mod visualize;
 mod windows;
 
-pub use dynamics::{GuardClippingMode, NormalizeTarget};
+pub use dynamics::{DeciBel, GuardClippingMode, NormalizeTarget};
 pub use spectrogram::SpecSetting;
 pub use utils::Pad;
 pub use visualize::{
