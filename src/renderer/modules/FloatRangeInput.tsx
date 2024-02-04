@@ -9,8 +9,6 @@ type FloatRangeInputProps = {
   unit: string;
   min: number;
   max: number;
-  leftColor?: string;
-  rightColor?: string;
   step: number;
   precision: number;
   detents: number[];
