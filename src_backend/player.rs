@@ -3,6 +3,7 @@ use std::sync::atomic::{self, AtomicU32, AtomicUsize};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
+use atomic_float::AtomicF32;
 use cpal::traits::DeviceTrait;
 use cpal::SupportedStreamConfigsError;
 use futures::task;
@@ -16,6 +17,7 @@ use tokio::{
     sync::watch,
 };
 
+use crate::backend::DeciBel;
 use crate::TM;
 
 lazy_static! {
@@ -38,6 +40,8 @@ pub fn init_logger() -> Result<(), SetLoggerError> {
 pub enum PlayerCommand {
     /// only caused by refreshing of frontend
     Initialize,
+    /// set volume
+    SetVolumedB(f64),
     /// if zero, the default sr is used
     SetSr(u32),
     /// arg: (optional track_id, optional start_time (sec))
@@ -176,6 +180,7 @@ fn main_loop(
 ) {
     init_logger().unwrap();
     let current_sr = AtomicU32::new(48000);
+    let current_volume = AtomicF32::new(1.);
     let current_track_id = AtomicUsize::new(0);
     let get_device_name = || match Device::Default.name() {
         Ok(n) => n,
@@ -227,12 +232,13 @@ fn main_loop(
         let sound = TM
             .blocking_read()
             .track(track_id)
-            .map(|track| Sound::from_frames(track.sr(), &track.interleaved_frames()));
+            .map(|track| Sound::from_frames(track.sr(), track.interleaved_frames()));
 
         info!("sound created with track {}", track_id);
         match sound {
             Some(mut sound) => {
                 sound.paused = !is_playing;
+                sound.set_volume(current_volume.load(atomic::Ordering::Acquire));
                 sound.seek_to(start_time_sec);
                 mixer.renderer.guard().sounds.clear();
                 info!("mixer clear");
@@ -273,6 +279,12 @@ fn main_loop(
                 }
                 PlayerCommand::SetSr(_) => {
                     info!("sr no change");
+                }
+                #[allow(non_snake_case)]
+                PlayerCommand::SetVolumedB(volume_dB) => {
+                    let volume = volume_dB.amp_from_dB_default() as f32;
+                    current_volume.store(volume, atomic::Ordering::Release);
+                    sound_handle.set_volume(volume);
                 }
                 PlayerCommand::SetTrack((track_id, start_time)) => {
                     info!("set track");

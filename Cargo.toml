@@ -17,6 +17,7 @@ napi = {version = "2.15.1", features = ["async", "serde-json"]}
 napi-derive = "2.15.1"
 
 approx = "0.5.1"
+atomic_float = "0.1.0"
 blas-src = {version = "0.10.0", features = ["openblas"]}
 cached = "0.48.1"
 chrono = "0.4.34"

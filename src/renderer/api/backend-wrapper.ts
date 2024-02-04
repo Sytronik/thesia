@@ -161,6 +161,7 @@ export const {
   getCommonGuardClipping,
   setCommonGuardClipping,
   getGuardClipStats,
+  setVolumedB,
   setTrackPlayer,
   pausePlayer,
   resumePlayer,
