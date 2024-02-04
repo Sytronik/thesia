@@ -55,7 +55,7 @@ tokio = {version = "1.35.1", features = ["rt-multi-thread", "sync", "time"]}
 openblas-src = {version = "0.10.8", features = ["cblas", "static", "system"]}
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-openblas-src = {version = "0.10.8", features = ["cblas", "static"]}
+openblas-src = {version = "0.10.8", features = ["cache", "cblas", "static"]}
 
 [target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
 mimalloc = "0.1.39"
