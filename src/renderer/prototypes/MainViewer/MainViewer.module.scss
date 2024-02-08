@@ -33,7 +33,7 @@
 
 /* Right Track Elements */
 .trackRightHeader {
-  display: flex;
+  right: 0px;
 }
 
 .stickyHeader {
@@ -63,7 +63,8 @@
 
 .trackRight {
   position: relative;
-  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .chCanvases {
