@@ -64,6 +64,7 @@
 .trackRight {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
 }
 
