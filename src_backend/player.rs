@@ -401,6 +401,39 @@ fn main_loop(
                     }
                     noti_tx.send(PlayerNotification::Ok(state)).unwrap();
                 }
+                let new_device = Device::Default.name();
+                if let Ok(new_device) = new_device {
+                    if new_device != *device_name.borrow() {
+                        let sr = match get_optimal_sr(
+                            &new_device,
+                            current_sr.load(atomic::Ordering::Acquire),
+                        ) {
+                            Ok(sr) => sr,
+                            Err(err) => {
+                                noti_err(&noti_tx, err);
+                                continue;
+                            }
+                        };
+                        mixer = init_mixer(sr, true);
+                        sound_handle.pause();
+
+                        let state = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
+                            Some(state.clone())
+                        } else {
+                            None
+                        };
+                        if let Some(state) = state {
+                            set_track(
+                                &mut mixer,
+                                &mut sound_handle,
+                                Some(current_track_id.load(atomic::Ordering::Acquire)),
+                                state.position_sec_elapsed(),
+                                state.is_playing,
+                            );
+                        }
+                        continue;
+                    }
+                }
                 std::thread::sleep(*PLAYER_NOTI_INTERVAL);
             }
             Poll::Ready(None) => {
