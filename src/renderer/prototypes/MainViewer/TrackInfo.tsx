@@ -13,7 +13,7 @@ type TrackInfoProps = {
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
-  selectTrack: (e: Event | React.MouseEvent, id: number) => void;
+  onClick: (e: React.MouseEvent) => void;
 };
 
 const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
@@ -29,7 +29,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     channelHeight,
     imgHeight,
     isSelected,
-    selectTrack,
+    onClick,
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
 
@@ -51,7 +51,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       ref={trackInfoElem}
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
-      onClick={(e) => selectTrack(e, trackId)} // TODO: need optimization?
+      onClick={onClick}
       onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: need optimization?
       style={{
         margin: `${VERTICAL_AXIS_PADDING}px 0`,

@@ -3,6 +3,8 @@ type IdChannel = import("../api").IdChannel;
 type IdChArr = IdChannel[];
 type IdChMap = Map<number, IdChArr>;
 
+type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | React.KeyboardEvent;
+
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
 
 type SplitViewHandleElement = {

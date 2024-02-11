@@ -1,11 +1,9 @@
-import React from "react";
-
 function isApple() {
   const expression = /(Mac|iPhone|iPod|iPad)/i;
   return expression.test(navigator.platform);
 }
 
-export function isCommand(event: KeyboardEvent | React.KeyboardEvent) {
+export function isCommand(event: MouseOrKeyboardEvent) {
   // Returns true if Ctrl or cmd keys were pressed.
   if (isApple()) {
     return event.metaKey;
@@ -13,7 +11,7 @@ export function isCommand(event: KeyboardEvent | React.KeyboardEvent) {
   return event.ctrlKey; // Windows, Linux, UNIX
 }
 
-export function isCommandOnly(event: KeyboardEvent | React.KeyboardEvent) {
+export function isCommandOnly(event: MouseOrKeyboardEvent) {
   // Returns true if Ctrl or cmd keys were pressed.
   if (isApple()) {
     return event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
