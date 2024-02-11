@@ -415,7 +415,12 @@ function MainViewer(props: MainViewerProps) {
           break;
         case "ArrowUp":
           e.preventDefault();
-          selectTrack(e, trackIds[Math.max(trackIds.indexOf(selectedTrackIds[0]) - 1, 0)]);
+          selectTrack(
+            e,
+            trackIds[
+              Math.max(trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]) - 1, 0)
+            ],
+          );
           break;
         case "ArrowRight":
           e.preventDefault();
