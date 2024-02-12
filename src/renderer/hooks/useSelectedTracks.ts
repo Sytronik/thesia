@@ -52,6 +52,17 @@ function useSelectedTracks() {
     setSelectedTrackIds([id]);
   });
 
+  const selectAllTracks = useEvent((trackIds: number[]) => {
+    if (
+      trackIds.length === selectedTrackIds.length &&
+      trackIds.every((id) => selectedTrackIds.includes(id))
+    ) {
+      return;
+    }
+    setPivotId(trackIds[-1]);
+    setSelectedTrackIds(trackIds);
+  });
+
   const selectTrackAfterAddTracks = useEvent((prevTrackIds: number[], newTrackIds: number[]) => {
     const newSelected = newTrackIds.filter((id) => !prevTrackIds.includes(id));
     if (newSelected.length === 0) return;
@@ -96,6 +107,7 @@ function useSelectedTracks() {
   return {
     selectedTrackIds,
     selectTrack,
+    selectAllTracks,
     selectTrackAfterAddTracks,
     selectTrackAfterRemoveTracks,
   };

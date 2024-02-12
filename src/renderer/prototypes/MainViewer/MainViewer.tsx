@@ -58,6 +58,7 @@ type MainViewerProps = {
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
   selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
+  selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
 };
 
@@ -76,6 +77,7 @@ function MainViewer(props: MainViewerProps) {
     reloadTracks,
     removeTracks,
     selectTrack,
+    selectAllTracks,
     finishRefreshTracks,
   } = props;
 
@@ -390,6 +392,10 @@ function MainViewer(props: MainViewerProps) {
         case "ArrowLeft":
           e.preventDefault();
           updateLensParams({pxPerSec: pxPerSecRef.current - calcPxPerSecDelta()});
+          break;
+        case "a":
+          e.preventDefault();
+          selectAllTracks(trackIds);
           break;
         default:
           break;

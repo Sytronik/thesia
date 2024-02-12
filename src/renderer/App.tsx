@@ -36,8 +36,13 @@ function MyApp() {
     setCommonGuardClipping,
     finishRefreshTracks,
   } = useTracks();
-  const {selectedTrackIds, selectTrack, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks} =
-    useSelectedTracks();
+  const {
+    selectedTrackIds,
+    selectTrack,
+    selectAllTracks,
+    selectTrackAfterAddTracks,
+    selectTrackAfterRemoveTracks,
+  } = useSelectedTracks();
 
   const prevTrackIds = useRef<number[]>([]);
 
@@ -161,6 +166,7 @@ function MyApp() {
             reloadTracks={reloadTracks}
             removeTracks={removeTracks}
             selectTrack={selectTrack}
+            selectAllTracks={selectAllTracks}
             finishRefreshTracks={finishRefreshTracks}
           />
         </DevicePixelRatioProvider>
