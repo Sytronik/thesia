@@ -42,7 +42,7 @@ import {
   FIT_TOLERANCE_SEC,
   DEFAULT_AMP_RANGE,
 } from "../constants/tracks";
-import isCommand from "../../utils/commandKey";
+import {isCommandOnly} from "../../utils/commandKey";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -372,7 +372,7 @@ function MainViewer(props: MainViewerProps) {
 
   const handleKeyDown = useEvent(async (e: KeyboardEvent) => {
     if ((e.target as HTMLElement | null)?.tagName !== "BODY") return;
-    if (isCommand(e)) {
+    if (isCommandOnly(e)) {
       const calcPxPerSecDelta = () => 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 1);
       switch (e.key) {
         case "ArrowDown":
