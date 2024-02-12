@@ -52,7 +52,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
       onClick={onClick}
-      onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: need optimization?
+      onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: if (!isSelected), show highlight instead
       style={{
         margin: `${VERTICAL_AXIS_PADDING}px 0`,
         height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,

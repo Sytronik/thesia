@@ -53,12 +53,10 @@ function useSelectedTracks() {
   });
 
   const selectTrackAfterAddTracks = useEvent((prevTrackIds: number[], newTrackIds: number[]) => {
-    const nextSelectedTrackIndex = prevTrackIds.length;
-    if (newTrackIds.length > nextSelectedTrackIndex) {
-      const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
-      setPivotId(nextSelectedTrackId);
-      setSelectedTrackIds([nextSelectedTrackId]);
-    }
+    const newSelected = newTrackIds.filter((id) => !prevTrackIds.includes(id));
+    if (newSelected.length === 0) return;
+    setPivotId(newSelected[newSelected.length - 1]);
+    setSelectedTrackIds(newSelected);
   });
 
   const selectTrackAfterRemoveTracks = useEvent((prevTrackIds: number[], newTrackIds: number[]) => {
@@ -67,16 +65,32 @@ function useSelectedTracks() {
       setSelectedTrackIds([]);
       return;
     }
-    let nextSelectedTrackIndex = newTrackIds.length - 1;
-    selectedTrackIds.forEach((id) => {
-      nextSelectedTrackIndex = Math.min(nextSelectedTrackIndex, prevTrackIds.indexOf(id));
-    });
-    const nextSelectedTrackId = newTrackIds[nextSelectedTrackIndex];
-
-    if (nextSelectedTrackId !== selectedTrackIds[0]) {
-      setPivotId(nextSelectedTrackId);
-      setSelectedTrackIds([nextSelectedTrackId]);
+    // check retains
+    const newSelected = selectedTrackIds.filter((id) => newTrackIds.includes(id));
+    if (newSelected.length > 0) {
+      if (!newSelected.includes(pivotId)) setPivotId(newSelected[newSelected.length - 1]);
+      setSelectedTrackIds(newSelected);
+      return;
     }
+    // select the nearest id from the (previous) pivot
+    const prevIndexOfPivot = prevTrackIds.indexOf(pivotId);
+    for (let i = 1; i < prevTrackIds.length; i += 1) {
+      let id = prevTrackIds[prevIndexOfPivot - i];
+      if (newTrackIds.includes(id)) {
+        setPivotId(id);
+        setSelectedTrackIds([id]);
+        return;
+      }
+      id = prevTrackIds[prevIndexOfPivot + i];
+      if (newTrackIds.includes(id)) {
+        setPivotId(id);
+        setSelectedTrackIds([id]);
+        return;
+      }
+    }
+    // unreachable, but defensive
+    setPivotId(newTrackIds[0]);
+    setSelectedTrackIds([newTrackIds[0]]);
   });
 
   return {

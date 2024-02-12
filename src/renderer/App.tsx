@@ -100,15 +100,18 @@ function MyApp() {
     };
   }, [addTracks, reloadTracks, refreshTracks]);
 
+  const removeSelectedTracks = useEvent(async (_, targetTrackId) => {
+    if (selectedTrackIds.includes(targetTrackId)) removeTracks(selectedTrackIds);
+    else removeTracks([targetTrackId]);
+    await refreshTracks();
+  });
+
   useEffect(() => {
-    ipcRenderer.on("delete-track", async (_, targetTrackId) => {
-      removeTracks([targetTrackId]);
-      await refreshTracks();
-    });
+    ipcRenderer.on("delete-track", removeSelectedTracks);
     return () => {
       ipcRenderer.removeAllListeners("delete-track");
     };
-  }, [removeTracks, refreshTracks]);
+  }, [removeSelectedTracks]);
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;
