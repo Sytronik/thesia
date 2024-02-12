@@ -43,29 +43,27 @@ ipcMain.on("show-open-dialog", async (event, supportedTypes) => {
 ipcMain.on(
   "show-file-open-err-msg",
   async (event, unsupportedPaths, invalidPaths, supportedTypes) => {
+    const msgUnsupported = unsupportedPaths.length
+      ? `-- Not Supported Type --
+      ${unsupportedPaths.join("\n")}
+      `
+      : "";
+    const msgInvalid = invalidPaths.length
+      ? `-- Not Valid Format --
+      ${invalidPaths.join("\n")}
+      `
+      : "";
     await dialog.showMessageBox({
       type: "error",
-      buttons: [],
+      buttons: ["OK"],
       defaultId: 0,
       title: "File Open Error",
       message: "The following files could not be opened",
-      detail: `${
-        unsupportedPaths.length
-          ? `-- Not Supported Type --
-        ${unsupportedPaths.join("\n")}
-        `
-          : ""
-      }\
-    ${
-      invalidPaths.length
-        ? `-- Not Valid Format --
-        ${invalidPaths.join("\n")}
-        `
-        : ""
-    }\
+      detail: `${msgUnsupported}\
+        ${msgInvalid}\
 
-    Please ensure that the file properties are correct and that it is a supported file type.
-    Only files with the following extensions are allowed: ${supportedTypes.join(", ")}`,
+        Please ensure that the file properties are correct and that it is a supported file type.
+        Only files with the following extensions are allowed: ${supportedTypes.join(", ")}`,
       cancelId: 0,
       noLink: false,
       normalizeAccessKeys: false,
