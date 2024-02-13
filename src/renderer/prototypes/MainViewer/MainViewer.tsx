@@ -409,31 +409,20 @@ function MainViewer(props: MainViewerProps) {
         e.preventDefault();
         await deleteSelectedTracks(e);
         break;
-      case "ArrowDown":
+      case "ArrowDown": {
         e.preventDefault();
-        // this can't handle cmd+arrow
-        selectTrack(
-          e,
-          trackIds[
-            Math.min(
-              trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]) + 1,
-              trackIds.length - 1,
-            )
-          ],
-          trackIds,
-        );
+        const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
+        const nextTrackId = trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)];
+        selectTrack(e, nextTrackId, trackIds); // this can't handle cmd+arrow
         break;
-      case "ArrowUp":
+      }
+      case "ArrowUp": {
         e.preventDefault();
-        // this can't handle cmd+arrow
-        selectTrack(
-          e,
-          trackIds[
-            Math.max(trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]) - 1, 0)
-          ],
-          trackIds,
-        );
+        const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
+        const prevTrackId = trackIds[Math.max(recentSelectedIdx - 1, 0)];
+        selectTrack(e, prevTrackId, trackIds); // this can't handle cmd+arrow
         break;
+      }
       case "ArrowRight":
         e.preventDefault();
         updateLensParams({startSec: startSecRef.current + 10 / pxPerSecRef.current});
