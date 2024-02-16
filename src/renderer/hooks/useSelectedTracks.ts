@@ -39,8 +39,9 @@ function useSelectedTracks() {
       if (indexOfId > indexOfPivot) addingIds = trackIds.slice(indexOfPivot + 1, indexOfId + 1);
       else addingIds = trackIds.slice(indexOfId, indexOfPivot);
       // if newSelected has some of addingIds, remove them first
-      newSelected = newSelected.filter((selectedId) => !addingIds.includes(selectedId));
-      newSelected.push(...addingIds);
+      newSelected = newSelected
+        .filter((selectedId) => !addingIds.includes(selectedId))
+        .concat(addingIds);
       setSelectedTrackIds(newSelected);
       return;
     }
