@@ -59,7 +59,7 @@ function useSelectedTracks() {
     ) {
       return;
     }
-    setPivotId(trackIds[-1]);
+    setPivotId(trackIds[trackIds.length - 1]);
     setSelectedTrackIds(trackIds);
   });
 
