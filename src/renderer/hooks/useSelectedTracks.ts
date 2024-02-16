@@ -10,8 +10,8 @@ function useSelectedTracks() {
     e.preventDefault();
 
     if (isCommand(e)) {
-      const selectedIndexOfId = selectedTrackIds.indexOf(id);
-      if (selectedIndexOfId === -1) {
+      const idxInSelectedIds = selectedTrackIds.indexOf(id);
+      if (idxInSelectedIds === -1) {
         // add id
         setPivotId(id);
         setSelectedTrackIds(selectedTrackIds.concat([id]));
@@ -20,8 +20,8 @@ function useSelectedTracks() {
       if (selectedTrackIds.length === 1) return;
       // remove id
       const newSelected = selectedTrackIds
-        .slice(0, selectedIndexOfId)
-        .concat(selectedTrackIds.slice(selectedIndexOfId + 1, undefined));
+        .slice(0, idxInSelectedIds)
+        .concat(selectedTrackIds.slice(idxInSelectedIds + 1, undefined));
       if (pivotId === id) setPivotId(newSelected[newSelected.length - 1]);
       setSelectedTrackIds(newSelected);
       return;
