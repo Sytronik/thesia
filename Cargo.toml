@@ -13,31 +13,31 @@ crate-type = ["cdylib"]
 path = "src_backend/lib.rs"
 
 [dependencies]
-napi = {version = "2.14.1", features = ["async", "serde-json"]}
-napi-derive = "2.14.6"
+napi = {version = "2.15.1", features = ["async", "serde-json"]}
+napi-derive = "2.15.1"
 
 approx = "0.5.1"
-blas-src = {version = "0.9.0", features = ["openblas"]}
-cached = "0.46.1"
-chrono = "0.4.31"
+blas-src = {version = "0.10.0", features = ["openblas"]}
+cached = "0.48.1"
+chrono = "0.4.34"
 dashmap = "5.5.3"
 ebur128 = "0.1.8"
 fast_image_resize = "3.0.4"
 futures = "0.3.30"
-itertools = "0.12.0"
+itertools = "0.12.1"
 lazy_static = "1.4.0"
 ndarray = {version = "0.15.6", features = ["approx", "blas", "rayon"]}
 ndarray-stats = "0.5.1"
-num-traits = "0.2.17"
+num-traits = "0.2.18"
 num_cpus = "1.16.0"
 parking_lot = "0.12.1"
-rayon = "1.8.0"
-readonly = "0.2.11"
+rayon = "1.8.1"
+readonly = "0.2.12"
 realfft = "3.3.0"
 rgb = "0.8.37"
-rustfft = "6.1.0"
-serde = {version = "1.0.193", features = ["derive"]}
-serde_json = "1.0.109"
+rustfft = "6.2.0"
+serde = {version = "1.0.196", features = ["derive"]}
+serde_json = "1.0.113"
 symphonia = {version = "0.5.3", features = [
   "aac",
   "alac",
@@ -48,23 +48,23 @@ symphonia = {version = "0.5.3", features = [
   "ogg",
   "vorbis",
 ]}
-tiny-skia = "0.11.3"
-tokio = {version = "1.35.1", features = ["rt-multi-thread", "sync", "time"]}
+tiny-skia = "0.11.4"
+tokio = {version = "1.36.0", features = ["rt-multi-thread", "sync", "time"]}
 
 [target.'cfg(target_os = "windows")'.dependencies]
-openblas-src = {version = "0.10.8", features = ["cblas", "static", "system"]}
+openblas-src = {version = "0.10.9", features = ["cblas", "static", "system"]}
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-openblas-src = {version = "0.10.8", features = ["cache", "cblas", "static"]}
+openblas-src = {version = "0.10.9", features = ["cache", "cblas", "static"]}
 
 [target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
 mimalloc = "0.1.39"
 
 [dev-dependencies]
 hound = "3.5.1"
-image = "0.24.7"
+image = "0.24.8"
 ndarray-rand = "0.14.0"
-resize = "0.8.3"
+resize = "0.8.4"
 
 [build-dependencies]
 napi-build = "2.1.0"
