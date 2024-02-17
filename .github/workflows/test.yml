@@ -37,6 +37,11 @@ jobs:
         run: |
           .\.vcpkg\vcpkg install openblas --triplet x64-windows-static
 
+      - name: cargo test
+        run: |
+          cargo clippy
+          cargo test
+
       - name: npm install
         run: |
           npm install --global @napi-rs/cli

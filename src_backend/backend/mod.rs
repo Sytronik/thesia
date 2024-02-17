@@ -17,8 +17,8 @@ mod windows;
 
 pub use dynamics::{GuardClippingMode, NormalizeTarget};
 pub use spectrogram::SpecSetting;
-pub use utils::{Pad, PadMode};
-pub use visualize::{AxisMarkers, CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer};
+pub use utils::Pad;
+pub use visualize::{CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
