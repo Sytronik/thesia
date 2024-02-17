@@ -76,6 +76,7 @@ function MyApp({userSettings}: AppProps) {
   );
 
   const prevTrackIds = useRef<number[]>([]); // includes hidden tracks
+  const windowScroll = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const addDroppedFile = useEvent(async (item: {files: File[]}, index: number) => {
     const newPaths: string[] = [];
@@ -196,6 +197,25 @@ function MyApp({userSettings}: AppProps) {
 
     prevTrackIds.current = trackIds.concat(hiddenTrackIds);
   }, [trackIds, hiddenTrackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
+
+  const hideScrollbar = useEvent(() => {
+    if (!windowScroll.current) {
+      document.documentElement.classList.remove("scroll-hidden");
+    }
+
+    clearTimeout(windowScroll.current);
+    windowScroll.current = setTimeout(() => {
+      windowScroll.current = undefined;
+      document.documentElement.classList.add("scroll-hidden");
+    }, 800);
+  });
+
+  useEffect(() => {
+    window.addEventListener("wheel", hideScrollbar);
+    return () => {
+      window.removeEventListener("wheel", hideScrollbar);
+    };
+  }, [hideScrollbar]);
 
   return (
     <div id="App" className="App">

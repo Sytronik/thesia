@@ -54,7 +54,7 @@
 /* Right Track Elements */
 .trackRightHeader {
   // supporting sticky header + preventing pops out when RightPane is resized
-  right: $colorbar-width + $component-gap * 1.5;
+  right: $colorbar-width + $component-gap * 1.5 + $scrollbar-size;
   z-index: 3;
 }
 
