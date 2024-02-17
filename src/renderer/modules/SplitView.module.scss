@@ -5,6 +5,7 @@
   margin: $component-gap * 0.5;
 
   overflow-y: scroll;
+  scrollbar-gutter: stable;
 }
 
 .Scrolled {
