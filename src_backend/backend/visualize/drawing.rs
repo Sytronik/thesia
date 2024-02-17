@@ -486,10 +486,10 @@ fn colorize_resize_grey(
         .unwrap();
         src_image
             .set_crop_box(CropBox {
-                left: trim_left as u32,
-                top: 0,
-                width: NonZeroU32::new(trim_width as u32).unwrap(),
-                height: src_image.height(),
+                left: trim_left as f64,
+                top: 0.,
+                width: trim_width as f64,
+                height: u32::from(src_image.height()) as f64,
             })
             .unwrap();
         let mut resizer = Resizer::new(ResizeAlg::Convolution(if fast_resize {
