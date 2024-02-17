@@ -572,7 +572,15 @@ mod tests {
         let (width, height) = (50, 500);
         let colormap: Vec<u8> = COLORMAP.iter().rev().flatten().cloned().collect();
         let mut imvec = vec![0u8; width * height * 3];
-        let mut resizer = resize::new(1, 10, width, height, RGB8, resize::Type::Triangle).unwrap();
+        let mut resizer = resize::new(
+            1,
+            COLORMAP.len(),
+            width,
+            height,
+            RGB8,
+            resize::Type::Triangle,
+        )
+        .unwrap();
         resizer
             .resize(&colormap.as_rgb(), imvec.as_rgb_mut())
             .unwrap();
