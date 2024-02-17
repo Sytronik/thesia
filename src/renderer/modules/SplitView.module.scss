@@ -7,6 +7,7 @@
 
   display: flex;
   overflow-y: scroll;
+  scrollbar-gutter: stable;
   flex-direction: row;
   align-items: flex-start;
 }
