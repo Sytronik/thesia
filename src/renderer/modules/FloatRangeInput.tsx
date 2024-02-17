@@ -47,15 +47,19 @@ const FloatRangeInput = forwardRef(
           } ${rangeRatio * 100}%)`;
     };
 
-    const getTextElemSize = () =>
-      textElem.current?.value.length || initialValue.toFixed(precision).length;
+    const getTextElemSize = () => {
+      const numCharacters =
+        textElem.current?.value.length || initialValue.toFixed(precision).length;
+      const correctByDot = precision > 0 ? 0.5 : 0;
+      return `${numCharacters + 0.5 - correctByDot}ch`;
+    };
 
     const updateStyle = useEvent(() => {
       if (rangeElem.current) {
         rangeElem.current.style.background = getRangeBackground();
       }
       if (textElem.current) {
-        textElem.current.size = getTextElemSize();
+        textElem.current.style.width = getTextElemSize();
       }
     });
 
@@ -170,12 +174,12 @@ const FloatRangeInput = forwardRef(
           id={`${id}Text`}
           type="text"
           inputMode="decimal"
-          size={getTextElemSize()}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onFocus={onTextFocus}
           onBlur={onTextBlur}
           onKeyDown={onTextKeyDown}
+          style={{width: getTextElemSize()}}
         />
         <label htmlFor={`${id}Text`}>{unit}</label>
       </div>
