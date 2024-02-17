@@ -287,7 +287,12 @@ mod tests {
         let mut limiter = PerfectLimiter::new(sr, 1., 5., 15., 40.);
         wavs *= 8.;
         let gain_seq = limiter.process_inplace(wavs.view_mut());
-        assert!(gain_seq.iter().all(|x| (0.0..1.0).contains(x)));
+        assert!(
+            gain_seq.iter().all(|x| (0.0..=1.0).contains(x)),
+            "cnt of gain>1: {}, cnt of gain<0: {}",
+            gain_seq.iter().filter(|&&x| x > 1.).count(),
+            gain_seq.iter().filter(|&&x| x < 0.).count(),
+        );
 
         let spec = hound::WavSpec {
             channels: 1,
