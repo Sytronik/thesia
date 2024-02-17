@@ -17,6 +17,8 @@
   flex-direction: column;
   flex: 0 0 auto;
   min-height: 100%;
+  z-index: 2;
+  background-color: $bg-main;
 
   > div {
     background-color: $bg-primary;
