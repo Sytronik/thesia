@@ -14,7 +14,7 @@
   $margin: $spacer * 1.5;
 
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   width: calc(100% - #{$margin * 2});
   height: calc(100% - #{$margin * 2});
   margin: $margin;
@@ -31,15 +31,9 @@
   margin: $component-gap * 0.5;
 }
 
-/* Right Track Elements */
-.trackRightHeader {
-  // supporting sticky header + preventing pops out when RightPane is resized
-  right: $colorbar-width + $component-gap * 1.5;
-}
-
 .stickyHeader {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   background-color: $bg-main;
   height: $time-ruler-height + $track-margin;
   min-width: 1px;
@@ -60,6 +54,13 @@
   &:not(:nth-last-of-type(1)) {
     margin-right: 2px;
   }
+}
+
+/* Right Track Elements */
+.trackRightHeader {
+  // supporting sticky header + preventing pops out when RightPane is resized
+  right: $colorbar-width + $component-gap * 1.5;
+  z-index: 1;
 }
 
 .trackRight {
