@@ -48,6 +48,7 @@ import {
   SHIFT_PX,
   PLAY_JUMP_SEC,
   PLAY_BIG_JUMP_SEC,
+  TINY_MARGIN,
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
 
@@ -493,11 +494,14 @@ function MainViewer(props: MainViewerProps) {
         } else {
           const locatorElemPos = Math.floor(locatorPos) - 1;
           const drawPos = locatorPos - locatorElemPos;
-          const lineHeight = mainViewerElem.current?.getBoundingClientRect().height ?? 500;
+          const lineHeight =
+            (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2;
           if (locatorElem.current.style.visibility !== "")
             locatorElem.current.style.visibility = "";
           if (locatorElem.current.style.left !== `${locatorElemPos + rect.left}px`)
             locatorElem.current.style.left = `${locatorElemPos + rect.left}px`;
+          if (locatorElem.current.style.height !== `${lineHeight}px`)
+            locatorElem.current.style.height = `${lineHeight}px`;
           locatorElem.current.width = 5 * devicePixelRatio;
           locatorElem.current.height = lineHeight * devicePixelRatio;
           const ctx = locatorCtxRef.current;
@@ -507,7 +511,7 @@ function MainViewer(props: MainViewerProps) {
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.setLineDash([5, 5]);
-          ctx.moveTo(drawPos + 0.5, 0);
+          ctx.moveTo(drawPos + 0.5, TINY_MARGIN * 2);
           ctx.lineTo(drawPos + 0.5, lineHeight);
           ctx.stroke();
         }
