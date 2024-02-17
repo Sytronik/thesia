@@ -35,3 +35,4 @@ Cargo.lock
 
 # Samples
 **/*.wav
+samples/*.png
