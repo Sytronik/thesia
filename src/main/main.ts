@@ -8,6 +8,7 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
+import os from "os";
 import path from "path";
 import fs from "fs";
 import {app, BrowserWindow, shell} from "electron";
@@ -129,7 +130,7 @@ const createWindow = async (pathsToOpen: string[]) => {
   mainWindow = new BrowserWindow({
     show: false,
     width: 1280,
-    height: 768,
+    height: os.platform() === "win32" ? 768 + 55 : 768,
     minWidth: 640,
     minHeight: 400,
     icon: getAssetPath("icon.png"),
