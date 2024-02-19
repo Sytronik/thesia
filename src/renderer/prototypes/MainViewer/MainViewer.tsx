@@ -57,7 +57,8 @@ type MainViewerProps = {
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
-  selectTrack: (e: Event | React.MouseEvent, id: number) => void;
+  selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
+  selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
 };
 
@@ -76,6 +77,7 @@ function MainViewer(props: MainViewerProps) {
     reloadTracks,
     removeTracks,
     selectTrack,
+    selectAllTracks,
     finishRefreshTracks,
   } = props;
 
@@ -391,43 +393,46 @@ function MainViewer(props: MainViewerProps) {
           e.preventDefault();
           updateLensParams({pxPerSec: pxPerSecRef.current - calcPxPerSecDelta()});
           break;
-        default:
-          break;
-      }
-    } else {
-      switch (e.key) {
-        case "Delete":
-        case "Backspace":
+        case "a":
           e.preventDefault();
-          await deleteSelectedTracks(e);
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          selectTrack(
-            e,
-            trackIds[
-              Math.min(
-                trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]) + 1,
-                trackIds.length - 1,
-              )
-            ],
-          );
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          selectTrack(e, trackIds[Math.max(trackIds.indexOf(selectedTrackIds[0]) - 1, 0)]);
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          updateLensParams({startSec: startSecRef.current + 10 / pxPerSecRef.current});
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          updateLensParams({startSec: startSecRef.current - 10 / pxPerSecRef.current});
+          selectAllTracks(trackIds);
           break;
         default:
           break;
       }
+      return;
+    }
+    // no modifiers
+    switch (e.key) {
+      case "Delete":
+      case "Backspace":
+        e.preventDefault();
+        await deleteSelectedTracks(e);
+        break;
+      case "ArrowDown": {
+        e.preventDefault();
+        const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
+        const nextTrackId = trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)];
+        selectTrack(e, nextTrackId, trackIds); // this can't handle cmd+arrow
+        break;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
+        const prevTrackId = trackIds[Math.max(recentSelectedIdx - 1, 0)];
+        selectTrack(e, prevTrackId, trackIds); // this can't handle cmd+arrow
+        break;
+      }
+      case "ArrowRight":
+        e.preventDefault();
+        updateLensParams({startSec: startSecRef.current + 10 / pxPerSecRef.current});
+        break;
+      case "ArrowLeft":
+        e.preventDefault();
+        updateLensParams({startSec: startSecRef.current - 10 / pxPerSecRef.current});
+        break;
+      default:
+        break;
     }
   });
 
@@ -483,7 +488,7 @@ function MainViewer(props: MainViewerProps) {
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
-            selectTrack={selectTrack}
+            onClick={(e) => selectTrack(e, trackId, trackIds)}
           />
         );
       })}
@@ -524,7 +529,7 @@ function MainViewer(props: MainViewerProps) {
                 className={styles.chCanvases}
                 role="presentation"
                 onClick={(e) => {
-                  selectTrack(e, id);
+                  selectTrack(e, id, trackIds);
                 }}
               >
                 <ImgCanvas
