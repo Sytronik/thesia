@@ -42,7 +42,7 @@ import {
   FIT_TOLERANCE_SEC,
   DEFAULT_AMP_RANGE,
 } from "../constants/tracks";
-import {isCommandOnly} from "../../utils/commandKey";
+import {isCommand, isCommandOnly} from "../../utils/commandKey";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -402,7 +402,8 @@ function MainViewer(props: MainViewerProps) {
       }
       return;
     }
-    // no modifiers
+    if (isCommand(e) || e.ctrlKey || e.altKey) return;
+    // shift + e.key or no modifiers
     switch (e.key) {
       case "Delete":
       case "Backspace":
