@@ -59,7 +59,7 @@ impl TrackManager {
                 f_overlap: 1,
                 freq_scale: FreqScale::Mel,
             },
-            dB_range: 120.,
+            dB_range: 100.,
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: HashMap::new(),
             no_grey_ids: Vec::new(),
