@@ -41,6 +41,8 @@ import {
   MAX_PX_PER_SEC,
   FIT_TOLERANCE_SEC,
   DEFAULT_AMP_RANGE,
+  BIG_SHIFT_PX,
+  SHIFT_PX,
 } from "../constants/tracks";
 import {isCommand, isCommandOnly} from "../../utils/commandKey";
 
@@ -425,13 +427,14 @@ function MainViewer(props: MainViewerProps) {
         break;
       }
       case "ArrowRight":
+      case "ArrowLeft": {
         e.preventDefault();
-        updateLensParams({startSec: startSecRef.current + 10 / pxPerSecRef.current});
+        const shiftPx = e.shiftKey ? BIG_SHIFT_PX : SHIFT_PX;
+        let shiftSec = shiftPx / pxPerSecRef.current;
+        if (e.key === "ArrowLeft") shiftSec = -shiftSec;
+        updateLensParams({startSec: startSecRef.current + shiftSec});
         break;
-      case "ArrowLeft":
-        e.preventDefault();
-        updateLensParams({startSec: startSecRef.current - 10 / pxPerSecRef.current});
-        break;
+      }
       default:
         break;
     }

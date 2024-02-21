@@ -17,6 +17,9 @@ export const SUPPORTED_MIME = [
   "audio/x-wav",
 ];
 
+export const SHIFT_PX = 10; // css px
+export const BIG_SHIFT_PX = 50; // css px
+
 // axis
 const createBoundaries = (tickScaleTable: TickScaleTable) => {
   return Object.keys(tickScaleTable)
