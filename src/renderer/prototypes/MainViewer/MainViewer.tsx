@@ -44,7 +44,7 @@ import {
   BIG_SHIFT_PX,
   SHIFT_PX,
 } from "../constants/tracks";
-import {isCommand, isCommandOnly} from "../../utils/commandKey";
+import {isApple, isCommand, isCommandOnly} from "../../utils/osSpecifics";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -311,7 +311,8 @@ function MainViewer(props: MainViewerProps) {
 
     let horizontal: boolean;
     let delta: number;
-    if (e.ctrlKey) {
+    const isApplePinch = isApple() && e.ctrlKey;
+    if (isApplePinch) {
       horizontal = !e.shiftKey;
       if (horizontal) delta = -12 * e.deltaY;
       else delta = -6 * e.deltaY;
@@ -323,7 +324,7 @@ function MainViewer(props: MainViewerProps) {
       delta = e.deltaY;
     }
 
-    if (!e.altKey && !e.ctrlKey && !horizontal) {
+    if (!e.altKey && !isApplePinch && !horizontal) {
       // vertical scroll (native)
       updateVScrollAnchorInfo(e.clientY);
       return;
@@ -335,7 +336,7 @@ function MainViewer(props: MainViewerProps) {
     if (e.clientX > (anImgBoundngRect?.right ?? 0) || e.clientX < (anImgBoundngRect?.x ?? 0))
       return;
 
-    if (e.ctrlKey || e.altKey) {
+    if (isApplePinch || e.altKey) {
       // zoom
       if (horizontal) {
         // horizontal zoom
