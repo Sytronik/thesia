@@ -260,7 +260,7 @@ function Control(props: ControlProps) {
               precision={0}
               detents={DB_RANGE_DETENTS}
               initialValue={dBRange}
-              doubleClickValue={DB_RANGE_MIN_MAX[1]}
+              doubleClickValue={DB_RANGE_DETENTS[DB_RANGE_DETENTS.length - 2]}
               onChangeValue={throttledSetdBRange}
             />
           </div>
