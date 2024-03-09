@@ -1,6 +1,6 @@
 import {useState} from "react";
 import useEvent from "react-use-event-hook";
-import {isCommand} from "renderer/utils/commandKey";
+import {isCommand} from "renderer/utils/osSpecifics";
 
 function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
