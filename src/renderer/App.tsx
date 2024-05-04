@@ -10,7 +10,8 @@ import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
-import {DevicePixelRatioProvider} from "./contexts";
+import {DevicePixelRatioProvider, StoreProvider} from "./contexts";
+import Store from "./Store";
 
 function MyApp() {
   const {
@@ -151,7 +152,7 @@ function MyApp() {
           commonNormalize={commonNormalize}
           setCommonNormalize={setCommonNormalize}
         />
-        <DevicePixelRatioProvider>
+        <StoreProvider value={new Store()}>
           <MainViewer
             trackIds={trackIds}
             erroredTrackIds={erroredTrackIds}
@@ -169,7 +170,7 @@ function MyApp() {
             selectAllTracks={selectAllTracks}
             finishRefreshTracks={finishRefreshTracks}
           />
-        </DevicePixelRatioProvider>
+        </StoreProvider>
       </div>
     </div>
   );

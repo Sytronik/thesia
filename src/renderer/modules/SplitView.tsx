@@ -1,4 +1,6 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
+import {observer} from "mobx-react-lite";
+import useStore from "renderer/hooks/useStore";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants/tracks";
 import styles from "./SplitView.module.scss";
@@ -10,12 +12,12 @@ const MAX_WIDTH = 480 + 32;
 type SplitViewProps = {
   createLeft: (leftWidth: number) => React.ReactElement;
   right: React.ReactElement;
-  setCanvasWidth: (value: number) => void;
   className?: string;
 };
 
 const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) => {
-  const {createLeft, right, setCanvasWidth} = props;
+  const {createLeft, right} = props;
+  const store = useStore();
 
   const [leftWidth, setLeftWidth] = useState<number>(MIN_WIDTH);
   const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
@@ -77,10 +79,10 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
     new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const {target} = entries[0];
       if (target.clientWidth > AXIS_SPACE) {
-        setCanvasWidth(target.clientWidth - AXIS_SPACE);
+        store.setWidth(target.clientWidth - AXIS_SPACE);
         setRightVisibility(true);
       } else {
-        setCanvasWidth(AXIS_SPACE - TINY_MARGIN);
+        store.setWidth(AXIS_SPACE - TINY_MARGIN);
         setRightVisibility(false);
       }
     }),
@@ -149,4 +151,4 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
 
 SplitView.displayName = "SplitView";
 
-export default SplitView;
+export default observer(SplitView);

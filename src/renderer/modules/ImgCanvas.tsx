@@ -1,13 +1,12 @@
-import React, {forwardRef, useRef, useImperativeHandle, useState, useContext} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useState} from "react";
+import {observer} from "mobx-react-lite";
+import useStore from "renderer/hooks/useStore";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
-import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 
 type ImgCanvasProps = {
-  width: number;
-  height: number;
   maxTrackSec: number;
   canvasIsFit: boolean;
 };
@@ -19,8 +18,11 @@ const calcTooltipPos = (e: React.MouseEvent) => {
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, maxTrackSec, canvasIsFit} = props;
-  const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const {maxTrackSec, canvasIsFit} = props;
+  const store = useStore();
+  const width = store.getWidth();
+  const height = store.getHeight();
+  const devicePixelRatio = store.getDPR();
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(1);
@@ -128,4 +130,4 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 });
 ImgCanvas.displayName = "ImgCanvas";
 
-export default React.memo(ImgCanvas);
+export default observer(ImgCanvas);

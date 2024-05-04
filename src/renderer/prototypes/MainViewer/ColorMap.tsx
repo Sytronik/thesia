@@ -1,4 +1,5 @@
 import React, {useRef, useEffect, useState} from "react";
+import {observer} from "mobx-react-lite";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import ColorBarCanvas from "renderer/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.module.scss";
@@ -59,4 +60,4 @@ function ColorMap(props: ColorMapProps) {
   );
 }
 
-export default React.memo(ColorMap);
+export default observer(ColorMap);

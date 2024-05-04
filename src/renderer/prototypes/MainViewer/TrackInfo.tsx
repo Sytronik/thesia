@@ -1,4 +1,5 @@
 import React, {forwardRef, useImperativeHandle, useRef} from "react";
+import useStore from "renderer/hooks/useStore";
 import {showElectronContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
@@ -10,8 +11,6 @@ type TrackInfoProps = {
   trackId: number;
   trackIdChArr: IdChArr;
   trackSummary: TrackSummaryData;
-  channelHeight: number;
-  imgHeight: number;
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
 };
@@ -22,16 +21,10 @@ const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
 };
 
 const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
-  const {
-    trackId,
-    trackIdChArr: trackIdCh,
-    trackSummary,
-    channelHeight,
-    imgHeight,
-    isSelected,
-    onClick,
-  } = props;
+  const {trackId, trackIdChArr: trackIdCh, trackSummary, isSelected, onClick} = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
+  const channelHeight = useStore().getHeight();
+  const imgHeight = useStore().getImgHeight();
 
   const channels = trackIdCh.map((idChStr, ch) => {
     return (
