@@ -130,6 +130,7 @@ function MainViewer(props: MainViewerProps) {
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
   const [trackInfosRef, registerTrackInfos] = useRefs<TrackInfoElement>();
 
+  const needFollowCursor = useRef<boolean>(true);
   const prevCursorClientY = useRef<number>(0);
   const vScrollAnchorInfoRef = useRef<VScrollAnchorInfo>({
     imgIndex: 0,
@@ -235,26 +236,31 @@ function MainViewer(props: MainViewerProps) {
     Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC),
   );
 
-  const updateLensParams = useEvent((params: OptionalLensParams) => {
-    let startSec = params.startSec ?? startSecRef.current;
-    let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
+  const updateLensParams = useEvent(
+    (params: OptionalLensParams, turnOffFollowCursor: boolean = true) => {
+      if (player.isPlaying && turnOffFollowCursor) {
+        needFollowCursor.current = false;
+      }
+      let startSec = params.startSec ?? startSecRef.current;
+      let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
 
-    if (startSec !== startSecRef.current)
-      startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-    if (pxPerSec !== pxPerSecRef.current) pxPerSec = normalizePxPerSec(pxPerSec, startSec);
+      if (startSec !== startSecRef.current)
+        startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
+      if (pxPerSec !== pxPerSecRef.current) pxPerSec = normalizePxPerSec(pxPerSec, startSec);
 
-    startSecRef.current = startSec;
-    pxPerSecRef.current = pxPerSec;
-    setCanvasIsFit(
-      startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec,
-    );
+      startSecRef.current = startSec;
+      pxPerSecRef.current = pxPerSec;
+      setCanvasIsFit(
+        startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec,
+      );
 
-    Object.values(imgCanvasesRef.current).forEach((value) =>
-      value?.updateLensParams({startSec, pxPerSec}),
-    );
-    throttledSetImgState(getIdChArr(), width, imgHeight);
-    throttledSetTimeMarkersAndUnit();
-  });
+      Object.values(imgCanvasesRef.current).forEach((value) =>
+        value?.updateLensParams({startSec, pxPerSec}),
+      );
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+      throttledSetTimeMarkersAndUnit();
+    },
+  );
 
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
     const lensDurationSec = width / pxPerSecRef.current;
@@ -471,6 +477,18 @@ function MainViewer(props: MainViewerProps) {
   }, [scrollTop]);
 
   const drawCanvas = useEvent(async () => {
+    if (player.isPlaying) {
+      if (
+        needFollowCursor.current &&
+        player.positionSecRef.current !== null &&
+        (calcEndSec() < player.positionSecRef.current ||
+          startSecRef.current > player.positionSecRef.current)
+      ) {
+        updateLensParams({startSec: player.positionSecRef.current}, false);
+      }
+    } else {
+      needFollowCursor.current = true;
+    }
     getIdChArr().forEach((idChStr) => {
       ampCanvasesRef.current[idChStr]?.draw(ampMarkersAndLengthRef.current);
       freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);
