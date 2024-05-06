@@ -1,5 +1,5 @@
 import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
-import React, {useEffect, useRef} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
@@ -10,7 +10,7 @@ import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
-import {DevicePixelRatioProvider, StoreProvider} from "./contexts";
+import {StoreProvider} from "./contexts";
 import Store from "./Store";
 
 function MyApp() {
@@ -136,6 +136,8 @@ function MyApp() {
     prevTrackIds.current = trackIds;
   }, [trackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
 
+  const [store] = useState(new Store());
+
   return (
     <div id="App" className="App">
       <PlayerControl />
@@ -152,7 +154,7 @@ function MyApp() {
           commonNormalize={commonNormalize}
           setCommonNormalize={setCommonNormalize}
         />
-        <StoreProvider value={new Store()}>
+        <StoreProvider value={store}>
           <MainViewer
             trackIds={trackIds}
             erroredTrackIds={erroredTrackIds}
