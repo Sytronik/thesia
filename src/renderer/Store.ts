@@ -1,4 +1,3 @@
-import {useMemo} from "react";
 import {makeAutoObservable} from "mobx";
 import {useDevicePixelRatio} from "use-device-pixel-ratio";
 import {VERTICAL_AXIS_PADDING} from "./prototypes/constants/tracks";
@@ -13,8 +12,8 @@ export default class Store {
     makeAutoObservable(this);
     this.width = 600;
     this.height = 250;
-    this.imgHeight = useMemo(() => this.height - 2 * VERTICAL_AXIS_PADDING, [this.height]);
-    this.devicePixelRatio = useDevicePixelRatio();
+    this.imgHeight = 250 - 2 * VERTICAL_AXIS_PADDING;
+    this.devicePixelRatio = useDevicePixelRatio(); // eslint-disable-line react-hooks/rules-of-hooks
   }
 
   public getWidth(): number {
@@ -35,8 +34,6 @@ export default class Store {
   }
   public setHeight(h: number): void {
     this.height = h;
-  }
-  public setImgHeight(imgH: number): void {
-    this.imgHeight = imgH;
+    this.imgHeight = h - 2 * VERTICAL_AXIS_PADDING;
   }
 }

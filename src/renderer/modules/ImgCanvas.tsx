@@ -21,7 +21,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {maxTrackSec, canvasIsFit} = props;
   const store = useStore();
   const width = store.getWidth();
-  const height = store.getHeight();
+  const height = store.getImgHeight();
   const devicePixelRatio = store.getDPR();
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const startSecRef = useRef<number>(0);
