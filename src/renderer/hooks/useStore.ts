@@ -1,6 +1,6 @@
 import {useContext} from "react";
-import {StoreContext} from "../contexts";
 import Store from "renderer/Store";
+import {StoreContext} from "../contexts";
 
 const useStore = (): Store => useContext(StoreContext);
 

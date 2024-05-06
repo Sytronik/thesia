@@ -1,12 +1,4 @@
-import React, {
-  forwardRef,
-  useRef,
-  useImperativeHandle,
-  useEffect,
-  useCallback,
-  useContext,
-} from "react";
-import {observer} from "mobx-react-lite";
+import React, {forwardRef, useRef, useImperativeHandle, useEffect, useCallback} from "react";
 import useStore from "renderer/hooks/useStore";
 import useEvent from "react-use-event-hook";
 import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants/tracks";
