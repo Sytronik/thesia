@@ -75,8 +75,7 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
     document.addEventListener("touchend", onMouseUp, {once: true});
   };
 
-  const onRightResize = useEvent((entries: ResizeObserverEntry[]) => {
-    const {target} = entries[0];
+  const onRightResize = useEvent((target: Element) => {
     if (target.clientWidth > AXIS_SPACE) {
       store.setWidth(target.clientWidth - AXIS_SPACE);
       setRightVisibility(true);
@@ -87,7 +86,7 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
   });
 
   const [rightResizeObserver, _setRightResizeObserver] = useState(
-    new ResizeObserver((entries) => onRightResize(entries)),
+    new ResizeObserver((entries) => onRightResize(entries[0].target)),
   );
 
   const [resizeObserver, _setResizeObserver] = useState(
@@ -114,12 +113,13 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
   useEffect(() => {
     if (rightPaneElem.current) {
       rightResizeObserver.observe(rightPaneElem.current);
+      store.setWidth(rightPaneElem.current.clientWidth - AXIS_SPACE);
     }
 
     return () => {
       rightResizeObserver.disconnect();
     };
-  }, [rightResizeObserver]);
+  }, [rightResizeObserver, store]);
 
   useEffect(() => {
     if (splitPaneElem.current) {
