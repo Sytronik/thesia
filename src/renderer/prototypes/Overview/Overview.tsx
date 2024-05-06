@@ -4,11 +4,11 @@ import React, {
   useMemo,
   forwardRef,
   useImperativeHandle,
-  useContext,
   useCallback,
 } from "react";
+import {observer} from "mobx-react-lite";
+import useStore from "renderer/hooks/useStore";
 import useEvent from "react-use-event-hook";
-import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.module.scss";
 import BackendAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants/tracks";
@@ -34,7 +34,7 @@ type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 
 const Overview = forwardRef((props: OverviewProps, ref) => {
   const {selectedTrackId, maxTrackSec, moveLens, resizeLensLeft, resizeLensRight} = props;
-  const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const devicePixelRatio = useStore().getDPR();
   const durationSec = useMemo(
     () => (selectedTrackId !== null ? BackendAPI.getLengthSec(selectedTrackId) : 0),
     [selectedTrackId],
@@ -262,4 +262,4 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
 });
 Overview.displayName = "Overview";
 
-export default React.memo(Overview);
+export default observer(Overview);

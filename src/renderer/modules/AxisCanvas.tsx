@@ -1,13 +1,6 @@
-import React, {
-  forwardRef,
-  useRef,
-  useImperativeHandle,
-  useEffect,
-  useCallback,
-  useContext,
-} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useEffect, useCallback} from "react";
+import useStore from "renderer/hooks/useStore";
 import useEvent from "react-use-event-hook";
-import {DevicePixelRatioContext} from "renderer/contexts";
 import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants/tracks";
 import styles from "./AxisCanvas.module.scss";
 
@@ -34,7 +27,7 @@ type AxisCanvasProps = {
 
 const AxisCanvas = forwardRef((props: AxisCanvasProps, ref) => {
   const {width, height, axisPadding, markerPos, direction, className, shiftWhenResize} = props;
-  const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const devicePixelRatio = useStore().getDPR();
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const prevMarkersAndLengthRef = useRef<[Markers, number]>([[], 1]);

@@ -1,7 +1,7 @@
-import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react";
+import React, {useMemo, useRef, useCallback, useEffect} from "react";
+import useStore from "renderer/hooks/useStore";
 import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH} from "renderer/prototypes/constants/tracks";
-import {DevicePixelRatioContext} from "renderer/contexts";
 import BackendAPI from "../../api";
 import styles from "./ColorBarCanvas.module.scss";
 
@@ -14,7 +14,7 @@ const COLORBAR_CENTER = COLORBAR_CANVAS_WIDTH / 2;
 
 function ColorBarCanvas(props: ColorBarCanvasProps) {
   const {width, height} = props;
-  const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const devicePixelRatio = useStore().getDPR();
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const requestRef = useRef<number | null>(null);

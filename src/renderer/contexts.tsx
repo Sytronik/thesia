@@ -1,11 +1,6 @@
-import React, {createContext} from "react";
-import {useDevicePixelRatio} from "use-device-pixel-ratio";
+import {createContext} from "react";
+import Store from "./Store";
 
-export const DevicePixelRatioContext = createContext(1);
+export const StoreContext = createContext<Store>({} as Store);
 
-export function DevicePixelRatioProvider({children}: {children: React.ReactElement}) {
-  const dpr = useDevicePixelRatio(); // TODO: no round?
-  return (
-    <DevicePixelRatioContext.Provider value={dpr}>{children}</DevicePixelRatioContext.Provider>
-  );
-}
+export const StoreProvider = StoreContext.Provider;

@@ -7,14 +7,15 @@ import React, {
   useContext,
   useLayoutEffect,
 } from "react";
+import {observer} from "mobx-react-lite";
 import {throttle} from "throttle-debounce";
+import useStore from "renderer/hooks/useStore";
 import useDropzone from "renderer/hooks/useDropzone";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
-import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -93,11 +94,12 @@ function MainViewer(props: MainViewerProps) {
 
   const requestRef = useRef<number>(0);
 
-  const devicePixelRatio = useContext(DevicePixelRatioContext);
-  const [width, setWidth] = useState(600);
-  const [height, setHeight] = useState(250);
+  const store = useStore();
+  const width = store.getWidth();
+  const height = store.getHeight();
+  const imgHeight = store.getImgHeight();
+  const devicePixelRatio = store.getDPR();
   const [scrollTop, setScrollTop] = useState(0);
-  const imgHeight = useMemo(() => height - 2 * VERTICAL_AXIS_PADDING, [height]);
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = useMemo(
     () => colorMapHeight - 2 * VERTICAL_AXIS_PADDING,
@@ -266,7 +268,7 @@ function MainViewer(props: MainViewerProps) {
     const newHeight = Math.round(
       Math.min(Math.max(height * (1 + delta / 1000), MIN_HEIGHT), MAX_HEIGHT),
     );
-    setHeight(newHeight);
+    store.setHeight(newHeight);
     return newHeight;
   });
 
@@ -494,8 +496,6 @@ function MainViewer(props: MainViewerProps) {
             trackId={trackId}
             trackIdChArr={trackIdChMap.get(trackId) || []}
             trackSummary={trackSummaryArr[i]}
-            channelHeight={height}
-            imgHeight={imgHeight}
             isSelected={isSelected}
             onClick={(e) => selectTrack(e, trackId, trackIds)}
           />
@@ -511,7 +511,6 @@ function MainViewer(props: MainViewerProps) {
         <TimeAxis
           key="time_axis"
           ref={timeCanvasElem}
-          width={width}
           shiftWhenResize={!canvasIsFit}
           startSecRef={startSecRef}
           pxPerSecRef={pxPerSecRef}
@@ -543,18 +542,15 @@ function MainViewer(props: MainViewerProps) {
               >
                 <ImgCanvas
                   ref={registerImgCanvas(idChStr)}
-                  width={width}
-                  height={imgHeight}
                   maxTrackSec={maxTrackSec}
                   canvasIsFit={canvasIsFit}
                 />
                 <AmpAxis
                   ref={registerAmpCanvas(idChStr)}
-                  height={height}
                   ampRangeRef={ampRangeRef}
                   setAmpRange={setAmpRange}
                 />
-                <FreqAxis ref={registerFreqCanvas(idChStr)} height={height} />
+                <FreqAxis ref={registerFreqCanvas(idChStr)} />
               </div>
             );
           })}
@@ -708,12 +704,7 @@ function MainViewer(props: MainViewerProps) {
         onMouseMove={onMouseMove}
       >
         {isDropzoneActive && <div className={styles.dropzone} />}
-        <SplitView
-          ref={splitViewElem}
-          createLeft={createLeftPane}
-          right={rightPane}
-          setCanvasWidth={setWidth}
-        />
+        <SplitView ref={splitViewElem} createLeft={createLeftPane} right={rightPane} />
         <ColorMap
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
@@ -725,4 +716,4 @@ function MainViewer(props: MainViewerProps) {
   );
 }
 
-export default MainViewer;
+export default observer(MainViewer);

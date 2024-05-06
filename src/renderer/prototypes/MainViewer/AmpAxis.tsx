@@ -1,7 +1,9 @@
 import React, {RefObject, forwardRef, useCallback, useMemo, useRef} from "react";
+import {observer} from "mobx-react-lite";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
+import useStore from "renderer/hooks/useStore";
 import useEvent from "react-use-event-hook";
 import {
   AMP_CANVAS_WIDTH,
@@ -13,7 +15,6 @@ import {
 } from "../constants/tracks";
 
 type AmpAxisProps = {
-  height: number;
   ampRangeRef: RefObject<[number, number]>;
   setAmpRange: (newRange: [number, number]) => void;
 };
@@ -45,7 +46,8 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
-  const {height, ampRangeRef, setAmpRange} = props;
+  const {ampRangeRef, setAmpRange} = props;
+  const height = useStore().getHeight();
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
 
   const calcLimitedCursorRatio = (
@@ -171,4 +173,4 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
 
 AmpAxis.displayName = "AmpAxis";
 
-export default AmpAxis;
+export default observer(AmpAxis);
