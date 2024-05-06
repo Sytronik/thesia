@@ -4,8 +4,11 @@ import {VERTICAL_AXIS_PADDING} from "./prototypes/constants/tracks";
 
 export default class Store {
   private width: number;
+
   private height: number;
+
   private imgHeight: number;
+
   private devicePixelRatio: number;
 
   constructor() {
