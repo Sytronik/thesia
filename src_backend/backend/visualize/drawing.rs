@@ -1,9 +1,9 @@
-use std::num::NonZeroU32;
 use std::ops::Neg;
 // use std::time::Instant;
 
+use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::pixels::U16;
-use fast_image_resize::{CropBox, FilterType, ImageView, ImageViewMut, ResizeAlg, Resizer};
+use fast_image_resize::{FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
 use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -478,42 +478,36 @@ fn colorize_resize_grey(
     // let start = Instant::now();
     let (grey, trim_left, trim_width) = (grey.arr, grey.index, grey.length);
     let resized = {
-        let mut src_image = ImageView::from_pixels(
-            NonZeroU32::new(grey.shape()[1] as u32).unwrap(),
-            NonZeroU32::new(grey.shape()[0] as u32).unwrap(),
+        let mut resizer = Resizer::new();
+        let src_image = TypedImageRef::new(
+            grey.shape()[1] as u32,
+            grey.shape()[0] as u32,
             grey.as_slice().unwrap(),
         )
         .unwrap();
-        src_image
-            .set_crop_box(CropBox {
-                left: trim_left as f64,
-                top: 0.,
-                width: trim_width as f64,
-                height: u32::from(src_image.height()) as f64,
-            })
-            .unwrap();
-        let mut resizer = Resizer::new(ResizeAlg::Convolution(if fast_resize {
-            FilterType::Bilinear
-        } else {
-            FilterType::Lanczos3
-        }));
+        let resize_opt = ResizeOptions::new()
+            .crop(
+                trim_left as f64,
+                0.,
+                trim_width as f64,
+                src_image.height() as f64,
+            )
+            .resize_alg(ResizeAlg::Convolution(if fast_resize {
+                FilterType::Bilinear
+            } else {
+                FilterType::Lanczos3
+            }));
 
-        let mut dst_vec = vec![U16::new(0); width as usize * height as usize];
-        let dst_image = ImageViewMut::from_pixels(
-            NonZeroU32::new(width).unwrap(),
-            NonZeroU32::new(height).unwrap(),
-            &mut dst_vec,
-        )
-        .unwrap();
-
+        let mut dst_image = TypedImage::<U16>::new(width, height);
         resizer
-            .resize(&src_image.into(), &mut dst_image.into())
+            .resize_typed(&src_image, &mut dst_image, Some(&resize_opt))
             .unwrap();
-        dst_vec
+        dst_image
     };
 
     resized
-        .into_iter()
+        .pixels()
+        .iter()
         .flat_map(|x| map_grey_to_color(x.0).into_iter().chain(Some(u8::MAX)))
         .collect()
     // println!("drawing spec: {:?}", start.elapsed());
