@@ -16,6 +16,7 @@ import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
+import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -402,6 +403,9 @@ function MainViewer(props: MainViewerProps) {
     },
     {preventDefault: true},
   );
+
+  // Track Add/Delete Hotkeys
+  useHotkeys("mod+o", showElectronOpenDialog);
   useHotkeys("Delete, Backspace", async () => {
     if (selectedTrackIds.length) {
       await removeAndRefreshTracks(selectedTrackIds);
