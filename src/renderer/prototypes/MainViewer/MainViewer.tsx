@@ -15,6 +15,7 @@ import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
+import {useHotkeys} from "react-hotkeys-hook";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -44,7 +45,7 @@ import {
   BIG_SHIFT_PX,
   SHIFT_PX,
 } from "../constants/tracks";
-import {isApple, isCommand, isCommandOnly} from "../../utils/osSpecifics";
+import {isApple} from "../../utils/osSpecifics";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -372,76 +373,38 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
-  const deleteSelectedTracks = useEvent(async (e: KeyboardEvent) => {
-    e.preventDefault();
-    if (selectedTrackIds.length) {
-      await removeAndRefreshTracks(selectedTrackIds);
-    }
+  // Browsing Hotkeys
+  useHotkeys("right, left, shift+right, shift+left", (_, hotkey) => {
+    const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
+    let shiftSec = shiftPx / pxPerSecRef.current;
+    if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
+    updateLensParams({startSec: startSecRef.current + shiftSec});
+  });
+  useHotkeys("mod+down", () => zoomHeight(100), {preventDefault: true});
+  useHotkeys("mod+up", () => zoomHeight(-100), {preventDefault: true});
+  useHotkeys("mod+right,mod+left", (_, hotkey) => {
+    let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 1);
+    if (hotkey.keys?.join("") === "left") pxPerSecDelta = -pxPerSecDelta;
+    updateLensParams({pxPerSec: pxPerSecRef.current + pxPerSecDelta});
   });
 
-  const handleKeyDown = useEvent(async (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement | null)?.tagName !== "BODY") return;
-    if (isCommandOnly(e)) {
-      const calcPxPerSecDelta = () => 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 1);
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          zoomHeight(100);
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          zoomHeight(-100);
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          updateLensParams({pxPerSec: pxPerSecRef.current + calcPxPerSecDelta()});
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          updateLensParams({pxPerSec: pxPerSecRef.current - calcPxPerSecDelta()});
-          break;
-        case "a":
-          e.preventDefault();
-          selectAllTracks(trackIds);
-          break;
-        default:
-          break;
-      }
-      return;
-    }
-    if (isCommand(e) || e.ctrlKey || e.altKey) return;
-    // shift + e.key or no modifiers
-    switch (e.key) {
-      case "Delete":
-      case "Backspace":
-        e.preventDefault();
-        await deleteSelectedTracks(e);
-        break;
-      case "ArrowDown": {
-        e.preventDefault();
-        const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
-        const nextTrackId = trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)];
-        selectTrack(e, nextTrackId, trackIds); // this can't handle cmd+arrow
-        break;
-      }
-      case "ArrowUp": {
-        e.preventDefault();
-        const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
-        const prevTrackId = trackIds[Math.max(recentSelectedIdx - 1, 0)];
-        selectTrack(e, prevTrackId, trackIds); // this can't handle cmd+arrow
-        break;
-      }
-      case "ArrowRight":
-      case "ArrowLeft": {
-        e.preventDefault();
-        const shiftPx = e.shiftKey ? BIG_SHIFT_PX : SHIFT_PX;
-        let shiftSec = shiftPx / pxPerSecRef.current;
-        if (e.key === "ArrowLeft") shiftSec = -shiftSec;
-        updateLensParams({startSec: startSecRef.current + shiftSec});
-        break;
-      }
-      default:
-        break;
+  // Track Selection Hotkeys
+  useHotkeys("mod+a", () => selectAllTracks(trackIds), {preventDefault: true});
+  useHotkeys(
+    "down, up, shift+down, shift+up",
+    (e, hotkey) => {
+      const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
+      const newSelectId =
+        hotkey.keys?.join("") === "down"
+          ? trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)]
+          : trackIds[Math.max(recentSelectedIdx - 1, 0)];
+      selectTrack(e, newSelectId, trackIds);
+    },
+    {preventDefault: true},
+  );
+  useHotkeys("Delete, Backspace", async () => {
+    if (selectedTrackIds.length) {
+      await removeAndRefreshTracks(selectedTrackIds);
     }
   });
 
@@ -677,14 +640,6 @@ function MainViewer(props: MainViewerProps) {
     },
     [handleWheel],
   );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleKeyDown]);
 
   return (
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
