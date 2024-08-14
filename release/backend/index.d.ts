@@ -22,39 +22,39 @@ export interface DrawOption {
   pxPerSec: number
   height: number
 }
-export function init(): void
-export function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
-export function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
-export function removeTracks(trackIds: Array<number>): void
-export function applyTrackListChanges(): Promise<Array<string>>
-export function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
-export function getdBRange(): number
-export function setdBRange(dBRange: number): void
-export function getSpecSetting(): SpecSetting
-export function setSpecSetting(specSetting: SpecSetting): Promise<void>
-export function getCommonGuardClipping(): GuardClippingMode
-export function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
-export function getCommonNormalize(): any
-export function setCommonNormalize(target: any): Promise<void>
-export function getImages(): Record<string, Buffer>
-export function findIdByPath(path: string): Promise<number>
-export function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
-export function getHzAt(y: number, height: number): Promise<number>
-export function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
-export function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
-export function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
-export function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
-export function getMaxdB(): number
-export function getMindB(): number
-export function getLongestTrackLengthSec(): number
-export function getChannelCounts(trackId: number): number
-export function getLengthSec(trackId: number): number
-export function getSampleRate(trackId: number): number
-export function getSampleFormat(trackId: number): string
-export function getGlobalLUFS(trackId: number): number
-export function getRMSdB(trackId: number): number
-export function getMaxPeakdB(trackId: number): number
-export function getGuardClipStats(trackId: number): string
-export function getPath(trackId: number): string
-export function getFileName(trackId: number): string
-export function getColorMap(): Buffer
+export declare function init(): void
+export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
+export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
+export declare function removeTracks(trackIds: Array<number>): void
+export declare function applyTrackListChanges(): Promise<Array<string>>
+export declare function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
+export declare function getdBRange(): number
+export declare function setdBRange(dBRange: number): void
+export declare function getSpecSetting(): SpecSetting
+export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
+export declare function getCommonGuardClipping(): GuardClippingMode
+export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
+export declare function getCommonNormalize(): any
+export declare function setCommonNormalize(target: any): Promise<void>
+export declare function getImages(): Record<string, Buffer>
+export declare function findIdByPath(path: string): Promise<number>
+export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
+export declare function getHzAt(y: number, height: number): Promise<number>
+export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
+export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
+export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
+export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
+export declare function getMaxdB(): number
+export declare function getMindB(): number
+export declare function getLongestTrackLengthSec(): number
+export declare function getChannelCounts(trackId: number): number
+export declare function getLengthSec(trackId: number): number
+export declare function getSampleRate(trackId: number): number
+export declare function getSampleFormat(trackId: number): string
+export declare function getGlobalLUFS(trackId: number): number
+export declare function getRMSdB(trackId: number): number
+export declare function getMaxPeakdB(trackId: number): number
+export declare function getGuardClipStats(trackId: number): string
+export declare function getPath(trackId: number): string
+export declare function getFileName(trackId: number): string
+export declare function getColorMap(): Buffer
