@@ -178,13 +178,12 @@ fn crop_caches(
 
             let pad_right = width as usize - width_eff as usize - pad_left;
             if pad_left + pad_right == 0 {
-                Some((*tup, (img_slice.to_owned().into_raw_vec(), (0, width))))
+                let (img_slice_vec, _) = img_slice.to_owned().into_raw_vec_and_offset();
+                Some((*tup, (img_slice_vec, (0, width))))
             } else {
-                let arr = img_slice.pad((pad_left, pad_right), Axis(1), Default::default());
-                Some((
-                    *tup,
-                    (arr.into_raw_vec(), (pad_left as u32, width_eff as u32)),
-                ))
+                let img_pad = img_slice.pad((pad_left, pad_right), Axis(1), Default::default());
+                let (img_pad_vec, _) = img_pad.into_raw_vec_and_offset();
+                Some((*tup, (img_pad_vec, (pad_left as u32, width_eff as u32))))
             }
         })
         .collect();

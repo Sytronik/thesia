@@ -218,12 +218,11 @@ impl TrackDrawer for TrackManager {
             }
             let margin_l = ((start_sec - start_sec_with_margin) * px_per_sec).round() as isize;
             arr.slice_collapse(s![.., margin_l..(margin_l + width as isize), ..]);
-            let arr = if arr.is_standard_layout() {
-                arr
-            } else {
-                arr.as_standard_layout().into_owned()
-            };
-            ((id, ch), arr.into_raw_vec())
+            let (vec, _) = arr
+                .as_standard_layout()
+                .to_owned()
+                .into_raw_vec_and_offset();
+            ((id, ch), vec)
         });
         result.par_extend(par_iter);
 
@@ -352,7 +351,7 @@ impl TrackDrawer for TrackManager {
         if width != drawing_width {
             arr = arr.pad((pad_left, pad_right), Axis(1), Default::default());
         }
-        arr.into_raw_vec()
+        arr.into_raw_vec_and_offset().0
     }
 }
 

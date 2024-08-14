@@ -120,7 +120,7 @@ impl GuardClipping<Ix2> for Audio {
         let gain_seq = if peak > 1. {
             let mut limiter = get_cached_limiter(self.sr);
             let gain_seq = limiter.process_inplace(self.wavs.view_mut());
-            gain_seq.into_shape(gain_shape).unwrap()
+            gain_seq.into_shape_with_order(gain_shape).unwrap()
         } else {
             Array2::ones(gain_shape)
         };

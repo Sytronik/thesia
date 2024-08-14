@@ -26,8 +26,8 @@ fast_image_resize = "4.2.1"
 futures = "0.3.30"
 itertools = "0.13.0"
 lazy_static = "1.5.0"
-ndarray = {version = "0.15.6", features = ["approx", "blas", "rayon"]}
-ndarray-stats = "0.5.1"
+ndarray = {version = "0.16.0", features = ["approx", "blas", "rayon"]}
+ndarray-stats = {git = "https://github.com/Sytronik/ndarray-stats.git", rev = "34f246c"}
 num-traits = "0.2.19"
 num_cpus = "1.16.0"
 parking_lot = "0.12.3"
@@ -63,7 +63,7 @@ mimalloc = "0.1.43"
 [dev-dependencies]
 hound = "3.5.1"
 image = "0.25.2"
-ndarray-rand = "0.14.0"
+ndarray-rand = "0.15.0"
 resize = "0.8.5"
 
 [build-dependencies]
