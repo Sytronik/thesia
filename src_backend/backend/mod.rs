@@ -332,15 +332,16 @@ mod tests {
         for ((id, ch), spec) in spec_imgs {
             let sr_str = tags[id];
             let width = spec.shape()[1] as u32;
-            let img = RgbaImage::from_vec(width, option.height, spec.into_raw_vec()).unwrap();
+            let img = RgbaImage::from_vec(width, option.height, spec.into_raw_vec_and_offset().0)
+                .unwrap();
             img.save(format!("samples/spec_{}_{}.png", sr_str, ch))
                 .unwrap();
-            let wav_img = wav_imgs
+            let (wav_img, _) = wav_imgs
                 .iter()
                 .find_map(|(id_ch, v)| (*id_ch == (id, ch)).then_some(v))
                 .unwrap()
                 .to_owned()
-                .into_raw_vec();
+                .into_raw_vec_and_offset();
 
             let img = RgbaImage::from_vec(width, option.height, wav_img).unwrap();
             img.save(format!("samples/wav_{}_{}.png", sr_str, ch))
