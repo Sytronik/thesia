@@ -16,6 +16,7 @@ import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
+import {Player} from "renderer/hooks/usePlayer";
 import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
@@ -45,6 +46,9 @@ import {
   DEFAULT_AMP_RANGE,
   BIG_SHIFT_PX,
   SHIFT_PX,
+  PLAY_JUMP_SEC,
+  PLAY_BIG_JUMP_SEC,
+  TINY_MARGIN,
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
 
@@ -56,6 +60,7 @@ type MainViewerProps = {
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
   blend: number;
+  player: Player;
   addDroppedFile: (e: DragEvent) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -75,6 +80,7 @@ function MainViewer(props: MainViewerProps) {
     needRefreshTrackIdChArr,
     maxTrackSec,
     blend,
+    player,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -112,12 +118,19 @@ function MainViewer(props: MainViewerProps) {
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const locatorElem = useRef<HTMLCanvasElement | null>(null);
+  const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
+    locatorElem.current = node;
+    locatorCtxRef.current = node?.getContext("2d") ?? null;
+  }, []);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
   const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
   const [trackInfosRef, registerTrackInfos] = useRefs<TrackInfoElement>();
 
+  const needFollowCursor = useRef<boolean>(true);
   const prevCursorClientY = useRef<number>(0);
   const vScrollAnchorInfoRef = useRef<VScrollAnchorInfo>({
     imgIndex: 0,
@@ -137,6 +150,7 @@ function MainViewer(props: MainViewerProps) {
     removeTracks(ids);
     await refreshTracks();
   });
+  const calcEndSec = useEvent(() => startSecRef.current + width / pxPerSecRef.current);
 
   const {
     markersAndLengthRef: timeMarkersAndLengthRef,
@@ -151,13 +165,13 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetTimeMarkersAndUnit = useCallback(() => {
     throttledSetTimeMarkers(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
-      endSec: startSecRef.current + width / pxPerSecRef.current,
+      endSec: calcEndSec(),
     });
     const [markers] = timeMarkersAndLengthRef.current;
     if (markers.length === 0) return;
     const timeUnit = markers[markers.length - 1][1];
     setTimeUnitLabel(timeUnit);
-  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef]);
+  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec]);
 
   const unsetTimeMarkersAndUnit = useEvent(() => {
     resetTimeMarkers();
@@ -222,26 +236,31 @@ function MainViewer(props: MainViewerProps) {
     Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC),
   );
 
-  const updateLensParams = useEvent((params: OptionalLensParams) => {
-    let startSec = params.startSec ?? startSecRef.current;
-    let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
+  const updateLensParams = useEvent(
+    (params: OptionalLensParams, turnOffFollowCursor: boolean = true) => {
+      if (player.isPlaying && turnOffFollowCursor) {
+        needFollowCursor.current = false;
+      }
+      let startSec = params.startSec ?? startSecRef.current;
+      let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
 
-    if (startSec !== startSecRef.current)
-      startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-    if (pxPerSec !== pxPerSecRef.current) pxPerSec = normalizePxPerSec(pxPerSec, startSec);
+      if (startSec !== startSecRef.current)
+        startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
+      if (pxPerSec !== pxPerSecRef.current) pxPerSec = normalizePxPerSec(pxPerSec, startSec);
 
-    startSecRef.current = startSec;
-    pxPerSecRef.current = pxPerSec;
-    setCanvasIsFit(
-      startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec,
-    );
+      startSecRef.current = startSec;
+      pxPerSecRef.current = pxPerSec;
+      setCanvasIsFit(
+        startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec,
+      );
 
-    Object.values(imgCanvasesRef.current).forEach((value) =>
-      value?.updateLensParams({startSec, pxPerSec}),
-    );
-    throttledSetImgState(getIdChArr(), width, imgHeight);
-    throttledSetTimeMarkersAndUnit();
-  });
+      Object.values(imgCanvasesRef.current).forEach((value) =>
+        value?.updateLensParams({startSec, pxPerSec}),
+      );
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+      throttledSetTimeMarkersAndUnit();
+    },
+  );
 
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
     const lensDurationSec = width / pxPerSecRef.current;
@@ -249,7 +268,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
-    const endSec = startSecRef.current + width / pxPerSecRef.current;
+    const endSec = calcEndSec();
     const startSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
     const pxPerSec = normalizePxPerSec(width / (endSec - startSec), startSec);
 
@@ -374,6 +393,22 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
+  const throttledSeek = useMemo(() => throttle(1000 / 30, player.seek), [player]);
+
+  // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
+  const handleSeek = useEvent(async (e: React.MouseEvent | MouseEvent) => {
+    const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
+    if (rect === null) return;
+    e.preventDefault();
+    const cursorX = e.clientX - rect.left;
+    if (cursorX < 0 || cursorX >= width) return;
+    throttledSeek(startSecRef.current + cursorX / pxPerSecRef.current);
+  });
+
+  const handleLocatorDragEnd = useEvent(() => {
+    document.removeEventListener("mousemove", handleSeek);
+  });
+
   // Browsing Hotkeys
   useHotkeys("right, left, shift+right, shift+left", (_, hotkey) => {
     const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
@@ -412,11 +447,48 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
+  // Player Hotkeys
+  useHotkeys("space", player.togglePlay, {preventDefault: true});
+  useHotkeys("comma,period,shift+comma,shift+period", async (_, hotkey) => {
+    let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
+    if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
+    const sec = Math.min(Math.max((player.positionSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
+    await player.seek(sec);
+    // TODO: nicer way
+    setTimeout(() => {
+      if (sec >= calcEndSec() || sec < startSecRef.current) {
+        updateLensParams({startSec: startSecRef.current + jumpSec});
+      }
+    }, 1000 / 60);
+  });
+  useHotkeys(
+    "enter",
+    async () => {
+      await player.seek(0);
+      if (startSecRef.current > 0) {
+        updateLensParams({startSec: 0});
+      }
+    },
+    {preventDefault: true},
+  );
+
   useEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
   }, [scrollTop]);
 
   const drawCanvas = useEvent(async () => {
+    if (player.isPlaying) {
+      if (
+        needFollowCursor.current &&
+        player.positionSecRef.current !== null &&
+        (calcEndSec() < player.positionSecRef.current ||
+          startSecRef.current > player.positionSecRef.current)
+      ) {
+        updateLensParams({startSec: player.positionSecRef.current}, false);
+      }
+    } else {
+      needFollowCursor.current = true;
+    }
     getIdChArr().forEach((idChStr) => {
       ampCanvasesRef.current[idChStr]?.draw(ampMarkersAndLengthRef.current);
       freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);
@@ -428,6 +500,41 @@ function MainViewer(props: MainViewerProps) {
     Object.entries(images).forEach(([idChStr, buf]) => {
       imgCanvasesRef.current[idChStr]?.draw(buf);
     });
+    if (timeCanvasElem.current !== null && locatorElem.current !== null) {
+      const rect = timeCanvasElem.current.getBoundingClientRect();
+      if (rect !== null) {
+        const locatorPos =
+          ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current;
+
+        if (locatorPos <= -1.5 || locatorPos >= rect.width + 0.5) {
+          if (locatorElem.current.style.visibility !== "hidden")
+            locatorElem.current.style.visibility = "hidden";
+        } else {
+          const locatorElemPos = Math.floor(locatorPos) - 1;
+          const drawPos = locatorPos - locatorElemPos;
+          const lineHeight =
+            (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2;
+          if (locatorElem.current.style.visibility !== "")
+            locatorElem.current.style.visibility = "";
+          if (locatorElem.current.style.left !== `${locatorElemPos + rect.left}px`)
+            locatorElem.current.style.left = `${locatorElemPos + rect.left}px`;
+          if (locatorElem.current.style.height !== `${lineHeight}px`)
+            locatorElem.current.style.height = `${lineHeight}px`;
+          locatorElem.current.width = 5 * devicePixelRatio;
+          locatorElem.current.height = lineHeight * devicePixelRatio;
+          const ctx = locatorCtxRef.current;
+          if (!ctx) return;
+          ctx.scale(devicePixelRatio, devicePixelRatio);
+          ctx.strokeStyle = "#999999";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.setLineDash([5, 5]);
+          ctx.moveTo(drawPos + 0.5, TINY_MARGIN * 2);
+          ctx.lineTo(drawPos + 0.5, lineHeight);
+          ctx.stroke();
+        }
+      }
+    }
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
   });
@@ -665,6 +772,8 @@ function MainViewer(props: MainViewerProps) {
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
+        onClick={handleSeek}
+        role="presentation"
       >
         {isDropzoneActive && <div className={styles.dropzone} />}
         <SplitView
@@ -672,6 +781,14 @@ function MainViewer(props: MainViewerProps) {
           createLeft={createLeftPane}
           right={rightPane}
           setCanvasWidth={setWidth}
+        />
+        <canvas
+          ref={locatorElemCallback}
+          className={styles.locator}
+          onMouseDown={() => {
+            document.addEventListener("mousemove", handleSeek);
+            document.addEventListener("mouseup", handleLocatorDragEnd, {once: true});
+          }}
         />
         <ColorMap
           height={colorMapHeight}

@@ -40,6 +40,7 @@ export declare function getImages(): Record<string, Buffer>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
 export declare function getHzAt(y: number, height: number): Promise<number>
+export declare function secondsToLabel(sec: number): string
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
 export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
 export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
@@ -58,3 +59,9 @@ export declare function getGuardClipStats(trackId: number): string
 export declare function getPath(trackId: number): string
 export declare function getFileName(trackId: number): string
 export declare function getColorMap(): Buffer
+export declare function setVolumedB(volumeDB: number): Promise<void>
+export declare function setTrackPlayer(trackId: number, sec?: number | undefined | null): Promise<void>
+export declare function seekPlayer(sec: number): Promise<void>
+export declare function pausePlayer(): Promise<void>
+export declare function resumePlayer(): Promise<void>
+export declare function getPlayerState(): any

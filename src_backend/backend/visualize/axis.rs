@@ -65,6 +65,18 @@ impl CalcAxisMarkers for TrackManager {
     }
 }
 
+pub fn convert_sec_to_label(sec: f64) -> String {
+    let sec_floor = sec.floor() as u32;
+    let milli = (sec * 1000. - (sec_floor * 1000) as f64).floor() as u32;
+    let sec_u32 = sec_floor + milli / 1000;
+    let milli = milli - milli / 1000 * 1000;
+    let nano: u32 = milli * 1_000_000;
+    NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
+        .unwrap()
+        .format("%H:%M:%S%.3f")
+        .to_string()
+}
+
 fn calc_time_axis_markers(
     start_sec: f64,
     end_sec: f64,
@@ -117,8 +129,9 @@ fn calc_time_axis_markers(
                 return (x, String::new());
             }
             let sec_floor = sec.floor() as u32;
-            let milli = ((sec - sec_floor as f64) * 1000.).round() as u32;
+            let milli = (sec * 1000. - (sec_floor * 1000) as f64).floor() as u32;
             let sec_u32 = sec_floor + milli / 1000;
+            let milli = milli - milli / 1000 * 1000;
             let nano = if milli_format.is_empty() {
                 0
             } else {
@@ -370,16 +383,59 @@ mod tests {
 
     use approx::assert_abs_diff_eq;
 
+    fn assert_axis_eq(a: &[(f32, String)], b: &[(f32, &str)]) {
+        a.into_iter()
+            .zip(b.into_iter())
+            .for_each(|((y0, s0), (y1, s1))| {
+                assert_abs_diff_eq!(*y0, *y1);
+                assert_eq!(s0, s1);
+            });
+    }
+
+    #[test]
+    fn sec_to_label_floor_works() {
+        assert_eq!(convert_sec_to_label(1.999), "00:00:01.999");
+        assert_eq!(convert_sec_to_label(1.9991), "00:00:01.999");
+        assert_eq!(convert_sec_to_label(1.9999), "00:00:01.999");
+        assert_eq!(
+            convert_sec_to_label(2.0 - std::f64::EPSILON),
+            "00:00:01.999"
+        );
+        assert_eq!(convert_sec_to_label(2.0), "00:00:02.000");
+        assert_eq!(
+            convert_sec_to_label(2.0 + std::f64::EPSILON),
+            "00:00:02.000"
+        );
+    }
+
+    #[test]
+    fn time_axis_works() {
+        dbg!(calc_time_axis_markers(1.999, 2.0015, 0.0005, 1, 59.));
+        assert_axis_eq(
+            &calc_time_axis_markers(1.999, 2.0015, 0.0005, 1, 59.),
+            &[
+                (-0.2, "1.998"),
+                (0.0, "1.999"),
+                (0.2, "1.999"),
+                (0.4, "2"),
+                (0.6, "2"),
+                (0.8, "2.001"),
+                (i32::MIN as f32, "ss.xxx"),
+            ],
+        );
+        assert_axis_eq(
+            &calc_time_axis_markers(1.999, 2.001, 0.001, 1, 60.),
+            &[
+                (-0.5, "00:01.998"),
+                (0.0, "00:01.999"),
+                (0.5, "00:02"),
+                (i32::MIN as f32, "mm:ss.xxx"),
+            ],
+        );
+    }
+
     #[test]
     fn freq_axis_works() {
-        let assert_axis_eq = |a: &[(f32, String)], b: &[(f32, &str)]| {
-            a.into_iter()
-                .zip(b.into_iter())
-                .for_each(|((y0, s0), (y1, s1))| {
-                    assert_abs_diff_eq!(*y0, *y1);
-                    assert_eq!(s0, s1);
-                });
-        };
         assert_axis_eq(
             &calc_freq_axis_markers(FreqScale::Linear, 24000, 2, 2),
             &vec![(1., "0"), (0., "12k")],
@@ -459,14 +515,6 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn dB_axis_works() {
-        let assert_axis_eq = |a: &[(f32, String)], b: &[(f32, &str)]| {
-            a.into_iter()
-                .zip(b.into_iter())
-                .for_each(|((y0, s0), (y1, s1))| {
-                    assert_eq!(y0, y1);
-                    assert_eq!(s0, s1);
-                });
-        };
         assert_axis_eq(
             &calc_dB_axis_markers(2, 2, (-100., 0.)),
             &vec![(0., "0"), (1., "-100")],

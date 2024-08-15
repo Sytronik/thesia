@@ -15,10 +15,12 @@ mod utils;
 pub mod visualize;
 mod windows;
 
-pub use dynamics::{GuardClippingMode, NormalizeTarget};
+pub use dynamics::{DeciBel, GuardClippingMode, NormalizeTarget};
 pub use spectrogram::SpecSetting;
 pub use utils::Pad;
-pub use visualize::{CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer};
+pub use visualize::{
+    convert_sec_to_label, CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer,
+};
 
 pub type IdChVec = Vec<(usize, usize)>;
 pub type IdChArr = [(usize, usize)];
@@ -104,8 +106,9 @@ impl TrackManager {
         );
     }
 
-    pub fn apply_track_list_changes(&mut self) -> HashSet<usize> {
-        self.update_greys(false)
+    pub fn apply_track_list_changes(&mut self) -> (HashSet<usize>, u32) {
+        let set = self.update_greys(false);
+        (set, self.max_sr)
     }
 
     #[inline]
@@ -315,7 +318,7 @@ mod tests {
         assert_eq!(tm.tracklist.all_ids().len(), id_list.len());
 
         assert_eq!(tm.spec_greys.len(), 0);
-        let mut updated_ids: Vec<usize> = tm.apply_track_list_changes().into_iter().collect();
+        let mut updated_ids: Vec<usize> = tm.apply_track_list_changes().0.into_iter().collect();
         updated_ids.sort();
         assert_eq!(updated_ids, id_list);
 
@@ -369,7 +372,7 @@ mod tests {
         im.save("samples/wav_part.png").unwrap();
 
         tm.remove_tracks(&[0]);
-        let updated_ids = tm.apply_track_list_changes();
+        let (updated_ids, _) = tm.apply_track_list_changes();
         assert!(updated_ids.is_empty());
     }
 }
