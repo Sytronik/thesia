@@ -364,20 +364,23 @@ pub fn get_colormap_rgb() -> Vec<u8> {
         .collect()
 }
 
+#[allow(non_snake_case)]
 pub fn convert_spec_to_grey(
     spec: ArrayView2<f32>,
-    up_ratio: f32,
-    max: f32,
-    min: f32,
+    i_freq_range: (usize, usize),
+    dB_range: (f32, f32),
 ) -> Array2<U16> {
     // spec: T x F
     // return: grey image with F(inverted) x T
+    let (i_freq_start, i_freq_end) = i_freq_range;
+    let dB_span = dB_range.1 - dB_range.0;
     let width = spec.shape()[0];
-    let height = (spec.shape()[1] as f32 * up_ratio).round() as usize;
+    let height = i_freq_end - i_freq_start;
     Array2::from_shape_fn((height, width), |(i, j)| {
-        if height - 1 - i < spec.raw_dim()[1] {
+        let i_freq = i_freq_start + height - 1 - i;
+        if i_freq < spec.raw_dim()[1] {
             U16::new(
-                ((spec[[j, height - 1 - i]] - min) * (u16::MAX - 1) as f32 / (max - min) + 1.)
+                ((spec[[j, i_freq]] - dB_range.0) * (u16::MAX - 1) as f32 / dB_span + 1.)
                     .clamp(1., u16::MAX as f32)
                     .round() as u16,
             )

@@ -1,5 +1,4 @@
 use approx::abs_diff_ne;
-use cached::proc_macro::cached;
 use chrono::naive::NaiveTime;
 use num_traits::Zero;
 
@@ -52,8 +51,8 @@ impl CalcAxisMarkers for TrackManager {
 
     fn freq_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers {
         calc_freq_axis_markers(
+            self.get_hz_range(),
             self.setting.freq_scale,
-            self.max_sr,
             max_num_ticks,
             max_num_labels,
         )
@@ -154,13 +153,13 @@ fn calc_time_axis_markers(
         .collect()
 }
 
-#[cached(size = 3)]
 fn calc_freq_axis_markers(
+    hz_range: (f32, f32),
     freq_scale: FreqScale,
-    sr: u32,
     max_num_ticks: u32,
     _max_num_labels: u32,
 ) -> AxisMarkers {
+    // TODO: use hz_range.0
     // TODO: max_num_labels
     fn coarse_band(fine_band: f32) -> f32 {
         if fine_band <= 100. {
@@ -176,12 +175,11 @@ fn calc_freq_axis_markers(
 
     let mut result = Vec::with_capacity(max_num_ticks as usize);
     result.push((1., freq_to_str(0.)));
-    let max_freq = sr as f32 / 2.;
 
     if max_num_ticks >= 3 {
         match freq_scale {
-            FreqScale::Mel if max_freq > 1000. => {
-                let max_mel = mel::from_hz(max_freq);
+            FreqScale::Mel if hz_range.1 > 1000. => {
+                let max_mel = mel::from_hz(hz_range.1);
                 let mel_1k = mel::MIN_LOG_MEL as f32;
                 let fine_band_mel = max_mel / (max_num_ticks as f32 - 1.);
                 if max_num_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
@@ -197,7 +195,7 @@ fn calc_freq_axis_markers(
                 }
                 result.push((1. - mel_1k / max_mel, freq_to_str(1000.)));
                 if max_num_ticks >= 4 {
-                    // divide [1kHz, max_freq] region
+                    // divide [1kHz, hz_range.1] region
                     let ratio_step =
                         2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
                     let mut freq = ratio_step as f32 * 1000.;
@@ -211,18 +209,18 @@ fn calc_freq_axis_markers(
                 }
             }
             _ => {
-                let fine_band = max_freq / (max_num_ticks as f32 - 1.);
+                let fine_band = hz_range.1 / (max_num_ticks as f32 - 1.);
                 let band = coarse_band(fine_band);
                 let mut freq = band;
-                while freq < max_freq - fine_band + 1. {
-                    result.push((1. - freq / max_freq, freq_to_str(freq)));
+                while freq < hz_range.1 - fine_band + 1. {
+                    result.push((1. - freq / hz_range.1, freq_to_str(freq)));
                     freq += band;
                 }
             }
         }
     }
 
-    result.push((0., freq_to_str(max_freq)));
+    result.push((0., freq_to_str(hz_range.1)));
     result
 }
 
@@ -437,11 +435,11 @@ mod tests {
     #[test]
     fn freq_axis_works() {
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Linear, 24000, 2, 2),
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 2, 2),
             &vec![(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Linear, 24000, 8, 8),
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 8, 8),
             &vec![
                 (1., "0"),
                 (5. / 6., "2k"),
@@ -453,15 +451,15 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Linear, 24000, 24, 24)[..3],
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 24, 24)[..3],
             &vec![(1., "0"), (11. / 12., "1k"), (10. / 12., "2k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Linear, 24000, 25, 25)[..3],
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 25, 25)[..3],
             &vec![(1., "0"), (23. / 24., "500"), (22. / 24., "1k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Linear, 22050, 24, 24)[20..],
+            &calc_freq_axis_markers((0., 11025.), FreqScale::Linear, 24, 24)[20..],
             &vec![
                 (1. - 10000. / 11025., "10k"),
                 (1. - 10500. / 11025., "10.5k"),
@@ -469,11 +467,11 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Mel, 24000, 2, 2),
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 2, 2),
             &vec![(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Mel, 24000, 3, 3),
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 3, 3),
             &vec![
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
@@ -481,7 +479,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Mel, 3000, 4, 4),
+            &calc_freq_axis_markers((0., 1500.), FreqScale::Mel, 4, 4),
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(1500.), "500"),
@@ -490,7 +488,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Mel, 24000, 8, 8),
+            &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 8, 8),
             &vec![
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(12000.), "500"),
@@ -501,7 +499,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers(FreqScale::Mel, 96000, 6, 6),
+            &calc_freq_axis_markers((0., 48000.), FreqScale::Mel, 6, 6),
             &vec![
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(48000.), "1k"),

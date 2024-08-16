@@ -30,6 +30,8 @@ export declare function applyTrackListChanges(): Promise<Array<string>>
 export declare function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
 export declare function getdBRange(): number
 export declare function setdBRange(dBRange: number): void
+export declare function getHzRange(): number[]
+export declare function setHzRange(minHz?: number | undefined | null, maxHz?: number | undefined | null): void
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): GuardClippingMode

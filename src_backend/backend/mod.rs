@@ -42,6 +42,7 @@ pub struct TrackManager {
     pub spec_greys: IdChMap<Array2<U16>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
+    hz_range: (f32, f32),
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
@@ -62,6 +63,7 @@ impl TrackManager {
                 freq_scale: FreqScale::Mel,
             },
             dB_range: 100.,
+            hz_range: (0., f32::INFINITY),
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: HashMap::new(),
             no_grey_ids: Vec::new(),
@@ -132,7 +134,7 @@ impl TrackManager {
     pub fn calc_hz_of(&self, y: u32, height: u32) -> f32 {
         self.setting
             .freq_scale
-            .relative_freq_to_hz(1. - y as f32 / height as f32, self.max_sr)
+            .relative_freq_to_hz(1. - y as f32 / height as f32, self.get_hz_range())
     }
 
     #[inline]
@@ -194,6 +196,20 @@ impl TrackManager {
     #[allow(non_snake_case)]
     pub fn set_dB_range(&mut self, dB_range: f32) {
         self.dB_range = dB_range;
+        self.update_greys(true);
+    }
+
+    pub fn get_hz_range(&self) -> (f32, f32) {
+        let max_hz = if self.hz_range.1.is_finite() {
+            self.hz_range.1
+        } else {
+            self.max_sr as f32 / 2.
+        };
+        (self.hz_range.0, max_hz)
+    }
+
+    pub fn set_hz_range(&mut self, hz_range: (f32, f32)) {
+        self.hz_range = hz_range;
         self.update_greys(true);
     }
 
@@ -267,15 +283,16 @@ impl TrackManager {
             let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
             new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
                 if ids_need_update.contains(&id) {
-                    let up_ratio = self
-                        .setting
-                        .freq_scale
-                        .spec_height_ratio(self.tracklist[id].sr(), self.max_sr);
+                    let sr = self.tracklist[id].sr();
+                    let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
+                        self.get_hz_range(),
+                        sr,
+                        spec.shape()[1],
+                    );
                     let grey = visualize::convert_spec_to_grey(
                         spec.view(),
-                        up_ratio,
-                        self.max_dB,
-                        self.min_dB,
+                        i_freq_range,
+                        (self.min_dB, self.max_dB),
                     );
                     Some(((id, ch), grey))
                 } else {

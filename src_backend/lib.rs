@@ -59,15 +59,12 @@ fn init() -> Result<()> {
 
 #[napi]
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
-    // let id_list: Vec<usize> = vec_usize_from(&ctx, 0)?;
-    // let path_list: Vec<String> = vec_str_from(&ctx, 1)?;
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
     let added_ids = TM
         .write()
         .await
         .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
-    // convert_usize_arr_to_jsarr(ctx.env, &added_ids)
     added_ids.into_iter().map(|x| x as u32).collect()
 }
 
@@ -153,6 +150,25 @@ fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
     let mut tm = TM.blocking_write();
     tm.set_dB_range(dB_range as f32);
+    remove_all_imgs(tm);
+}
+
+#[napi]
+fn get_hz_range() -> [f64; 2] {
+    let hz_range = TM.blocking_read().get_hz_range();
+    [hz_range.0 as f64, hz_range.1 as f64]
+}
+
+#[napi]
+fn set_hz_range(min_hz: Option<f64>, max_hz: Option<f64>) {
+    let min_hz = min_hz.unwrap_or(0.0);
+    let max_hz = max_hz.unwrap_or(f64::INFINITY);
+    assert!(min_hz >= 0.);
+    assert!(max_hz > 0.);
+    assert!(min_hz < max_hz);
+    assert!(min_hz == 0., "Currently, only support min_hz == 0!"); // TODO
+    let mut tm = TM.blocking_write();
+    tm.set_hz_range((min_hz as f32, max_hz as f32));
     remove_all_imgs(tm);
 }
 

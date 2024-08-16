@@ -29,19 +29,41 @@ pub enum FreqScale {
 
 impl FreqScale {
     #[inline]
-    pub fn spec_height_ratio(&self, sr: u32, target_sr: u32) -> f32 {
+    pub fn relative_freq_to_hz(&self, relative_freq: f32, hz_range: (f32, f32)) -> f32 {
         match self {
-            FreqScale::Linear => target_sr as f32 / sr as f32,
-            FreqScale::Mel => mel::from_hz(target_sr as f32 / 2.) / mel::from_hz(sr as f32 / 2.),
+            FreqScale::Linear => (hz_range.1 - hz_range.0) * relative_freq + hz_range.0,
+            FreqScale::Mel => {
+                let mel_range = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
+                mel::to_hz((mel_range.1 - mel_range.0) * relative_freq + mel_range.0)
+            }
         }
     }
 
-    pub fn relative_freq_to_hz(&self, relative_freq: f32, sr: u32) -> f32 {
+    #[inline]
+    pub fn hz_to_relative_freq(&self, hz: f32, sr: u32) -> f32 {
         let half_sr = sr as f32 / 2.;
         match self {
-            FreqScale::Linear => half_sr * relative_freq,
-            FreqScale::Mel => mel::to_hz(mel::from_hz(half_sr) * relative_freq),
+            FreqScale::Linear => hz / half_sr,
+            FreqScale::Mel => mel::from_hz(hz) / mel::from_hz(half_sr),
         }
+    }
+
+    #[inline]
+    pub fn hz_range_to_idx(
+        &self,
+        hz_range: (f32, f32),
+        sr: u32,
+        n_freqs_or_mels: usize,
+    ) -> (usize, usize) {
+        if hz_range.0 >= hz_range.1 {
+            return (0, 0);
+        }
+        let min_rel_freq = self.hz_to_relative_freq(hz_range.0, sr);
+        let max_rel_freq = self.hz_to_relative_freq(hz_range.1, sr);
+        let min_idx = ((min_rel_freq * n_freqs_or_mels as f32).floor() as usize).max(0);
+        let max_idx = (max_rel_freq * n_freqs_or_mels as f32).ceil() as usize;
+
+        (min_idx, max_idx)
     }
 }
 

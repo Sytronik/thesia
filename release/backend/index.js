@@ -295,7 +295,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, secondsToLabel, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getHzRange, setHzRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, getHzAt, secondsToLabel, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -307,6 +307,8 @@ module.exports.applyTrackListChanges = applyTrackListChanges
 module.exports.setImageState = setImageState
 module.exports.getdBRange = getdBRange
 module.exports.setdBRange = setdBRange
+module.exports.getHzRange = getHzRange
+module.exports.setHzRange = setHzRange
 module.exports.getSpecSetting = getSpecSetting
 module.exports.setSpecSetting = setSpecSetting
 module.exports.getCommonGuardClipping = getCommonGuardClipping
