@@ -40,7 +40,7 @@ impl FreqScale {
     }
 
     #[inline]
-    pub fn hz_to_relative_freq(&self, hz: f32, sr: u32) -> f32 {
+    fn calc_ratio_to_max_freq(&self, hz: f32, sr: u32) -> f32 {
         let half_sr = sr as f32 / 2.;
         match self {
             FreqScale::Linear => hz / half_sr,
@@ -58,10 +58,10 @@ impl FreqScale {
         if hz_range.0 >= hz_range.1 {
             return (0, 0);
         }
-        let min_rel_freq = self.hz_to_relative_freq(hz_range.0, sr);
-        let max_rel_freq = self.hz_to_relative_freq(hz_range.1, sr);
-        let min_idx = ((min_rel_freq * n_freqs_or_mels as f32).floor() as usize).max(0);
-        let max_idx = (max_rel_freq * n_freqs_or_mels as f32).ceil() as usize;
+        let min_ratio = self.calc_ratio_to_max_freq(hz_range.0, sr);
+        let max_ratio = self.calc_ratio_to_max_freq(hz_range.1, sr);
+        let min_idx = ((min_ratio * n_freqs_or_mels as f32).floor() as usize).max(0);
+        let max_idx = (max_ratio * n_freqs_or_mels as f32).ceil() as usize;
 
         (min_idx, max_idx)
     }

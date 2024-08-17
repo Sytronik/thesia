@@ -228,6 +228,16 @@ function MainViewer(props: MainViewerProps) {
     throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
   });
 
+  const throttledSetHzRange = useMemo(
+    () =>
+      throttle(1000 / 70, (minHz: number | null, maxHz: number | null) => {
+        BackendAPI.setHzRange(minHz, maxHz);
+        throttledSetImgState(getIdChArr(), width, imgHeight);
+        throttledSetFreqMarkers(imgHeight, imgHeight, {});
+      }),
+    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight],
+  );
+
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
     return Math.min(Math.max(startSec, 0), maxEndSec - width / pxPerSec);
   });
@@ -628,7 +638,11 @@ function MainViewer(props: MainViewerProps) {
                   ampRangeRef={ampRangeRef}
                   setAmpRange={setAmpRange}
                 />
-                <FreqAxis ref={registerFreqCanvas(idChStr)} height={height} />
+                <FreqAxis
+                  ref={registerFreqCanvas(idChStr)}
+                  height={height}
+                  setHzRange={throttledSetHzRange}
+                />
               </div>
             );
           })}

@@ -131,10 +131,11 @@ impl TrackManager {
     }
 
     #[inline]
-    pub fn calc_hz_of(&self, y: u32, height: u32) -> f32 {
+    pub fn calc_hz_of(&self, y: i32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
+        let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
         self.setting
             .freq_scale
-            .relative_freq_to_hz(1. - y as f32 / height as f32, self.get_hz_range())
+            .relative_freq_to_hz(1. - y as f32 / height as f32, hz_range)
     }
 
     #[inline]

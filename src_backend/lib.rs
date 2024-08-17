@@ -246,10 +246,11 @@ async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffe
 }
 
 #[napi]
-async fn get_hz_at(y: u32, height: u32) -> f64 {
-    assert!(height >= 1 && y <= height);
+async fn get_hz_at(y: i32, height: u32, hz_range: Option<(f64, f64)>) -> f64 {
+    assert!(height >= 1);
 
-    TM.read().await.calc_hz_of(y, height) as f64
+    let hz_range = hz_range.and_then(|(x, y)| Some((x as f32, y as f32)));
+    TM.read().await.calc_hz_of(y, height, hz_range) as f64
 }
 
 #[napi]
@@ -319,6 +320,11 @@ fn get_max_dB() -> f64 {
 #[allow(non_snake_case)]
 fn get_min_dB() -> f64 {
     TM.blocking_read().min_dB as f64
+}
+
+#[napi]
+fn get_max_track_hz() -> f64 {
+    TM.blocking_read().max_sr as f64 / 2.
 }
 
 #[napi]

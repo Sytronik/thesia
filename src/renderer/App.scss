@@ -91,6 +91,10 @@ body.textCursor * {
   cursor: text !important;
 }
 
+body.rowResizeCursor * {
+  cursor: row-resize !important;
+}
+
 body.colResizeCursor * {
   cursor: col-resize !important;
 }

@@ -41,7 +41,7 @@ export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getImages(): Record<string, Buffer>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
-export declare function getHzAt(y: number, height: number): Promise<number>
+export declare function getHzAt(y: number, height: number, hzRange?: [number, number] | undefined | null): Promise<number>
 export declare function secondsToLabel(sec: number): string
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
 export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
@@ -49,6 +49,7 @@ export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: num
 export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
 export declare function getMaxdB(): number
 export declare function getMindB(): number
+export declare function getMaxTrackHz(): number
 export declare function getLongestTrackLengthSec(): number
 export declare function getChannelCounts(trackId: number): number
 export declare function getLengthSec(trackId: number): number
