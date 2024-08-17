@@ -84,12 +84,29 @@ const FloatRangeInput = forwardRef(
     };
 
     const onTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = Number.parseFloat(e.target.value);
-      if (e.target.value !== "" && value >= min && value <= max) {
-        if (rangeElem.current) rangeElem.current.value = value.toFixed(precision);
-        onChangeValue(value);
-        updateStyle();
+      let value = Number.parseFloat(e.target.value);
+      if (Number.isNaN(value)) {
+        if (rangeElem.current) {
+          value = Number.parseFloat(rangeElem.current.value);
+          if (Number.isNaN(value)) value = initialValue;
+        } else {
+          value = initialValue;
+        }
       }
+      const clamppedValue = Math.min(Math.max(value, min), max);
+      if (rangeElem.current) rangeElem.current.value = clamppedValue.toFixed(precision);
+      onChangeValue(clamppedValue);
+      updateStyle();
+    };
+
+    const onTextBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (rangeElem.current?.value ?? e.target.value !== "" ?? "") {
+        e.target.value = rangeElem.current?.value ?? "";
+      }
+    };
+
+    const onTextKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === "Escape") (e.target as HTMLInputElement).blur();
     };
 
     useEffect(() => {
@@ -139,6 +156,8 @@ const FloatRangeInput = forwardRef(
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onChange={onTextChange}
+          onBlur={onTextBlur}
+          onKeyDown={onTextKeyDown}
         />
         <label htmlFor={`${id}Text`}>{unit}</label>
       </div>

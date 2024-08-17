@@ -86,6 +86,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
+    (e.target as HTMLDivElement).parentElement?.focus();
     if (!divElem.current) return;
     e.preventDefault();
     updateCursorState(e);
@@ -123,7 +124,13 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   };
 
   return (
-    <div role="presentation" ref={divElem} onMouseDown={onMouseDown} onMouseMove={onMouseMove}>
+    <div
+      role="presentation"
+      ref={divElem}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      tabIndex={-1}
+    >
       {children}
     </div>
   );
