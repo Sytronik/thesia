@@ -7,7 +7,7 @@ import BackendAPI from "../../api";
 
 type FreqAxisProps = {
   height: number;
-  setHzRange: (minHz: number | null, maxHz: number | null) => void;
+  setHzRange: (minHz: number, maxHz: number) => void;
 };
 
 type FreqAxisCursorState = "control-max-hz" | "shift-hz-range" | "control-min-hz";

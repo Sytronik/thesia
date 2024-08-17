@@ -160,9 +160,7 @@ fn get_hz_range() -> [f64; 2] {
 }
 
 #[napi]
-fn set_hz_range(min_hz: Option<f64>, max_hz: Option<f64>) {
-    let min_hz = min_hz.unwrap_or(0.0);
-    let max_hz = max_hz.unwrap_or(f64::INFINITY);
+fn set_hz_range(min_hz: f64, max_hz: f64) {
     assert!(min_hz >= 0.);
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
