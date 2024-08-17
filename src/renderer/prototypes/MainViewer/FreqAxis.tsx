@@ -78,7 +78,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     e.preventDefault();
     if (e.button === 0 && e.detail === 2) {
       e.stopPropagation();
-      setHzRange(0, Infinity);
+      setTimeout(() => setHzRange(0, Infinity));
     }
   });
 
