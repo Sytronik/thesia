@@ -90,6 +90,11 @@ function Control(props: ControlProps) {
     }
   };
 
+  const onWinMillisecBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (specSetting.winMillisec !== Number.parseFloat(e.target.value))
+      e.target.value = specSetting.winMillisec.toFixed(1);
+  };
+
   const onTOverlapChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const tOverlap = Number.parseFloat(e.target.value);
     if (e.target.value !== "" && tOverlap > 0) {
@@ -275,6 +280,7 @@ function Control(props: ControlProps) {
               className={styles.winMillisecInput}
               defaultValue={specSetting.winMillisec.toFixed(1)}
               onChange={onWinMillisecChange}
+              onBlur={onWinMillisecBlur}
             />
             ms
           </div>
