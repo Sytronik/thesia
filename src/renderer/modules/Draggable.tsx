@@ -130,6 +130,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       tabIndex={-1}
+      style={{outline: "none"}}
     >
       {children}
     </div>
