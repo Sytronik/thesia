@@ -164,7 +164,6 @@ fn set_hz_range(min_hz: f64, max_hz: f64) {
     assert!(min_hz >= 0.);
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
-    assert!(min_hz == 0., "Currently, only support min_hz == 0!"); // TODO
     let mut tm = TM.blocking_write();
     tm.set_hz_range((min_hz as f32, max_hz as f32));
     remove_all_imgs(tm);
@@ -244,11 +243,22 @@ async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffe
 }
 
 #[napi]
-async fn get_hz_at(y: i32, height: u32, hz_range: Option<(f64, f64)>) -> f64 {
+async fn convert_freq_pos_to_hz(y: f64, height: u32, hz_range: Option<(f64, f64)>) -> f64 {
     assert!(height >= 1);
 
     let hz_range = hz_range.and_then(|(x, y)| Some((x as f32, y as f32)));
-    TM.read().await.calc_hz_of(y, height, hz_range) as f64
+    TM.read()
+        .await
+        .convert_freq_pos_to_hz(y as f32, height, hz_range) as f64
+}
+
+#[napi]
+fn convert_freq_hz_to_pos(hz: f64, height: u32, hz_range: Option<(f64, f64)>) -> f64 {
+    assert!(height >= 1);
+
+    let hz_range = hz_range.and_then(|(x, y)| Some((x as f32, y as f32)));
+    TM.blocking_read()
+        .convert_freq_hz_to_pos(hz as f32, height, hz_range) as f64
 }
 
 #[napi]

@@ -31,7 +31,7 @@ export declare function setImageState(idChStrs: Array<string>, startSec: number,
 export declare function getdBRange(): number
 export declare function setdBRange(dBRange: number): void
 export declare function getHzRange(): number[]
-export declare function setHzRange(minHz?: number | undefined | null, maxHz?: number | undefined | null): void
+export declare function setHzRange(minHz: number, maxHz: number): void
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): GuardClippingMode
@@ -41,7 +41,8 @@ export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getImages(): Record<string, Buffer>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
-export declare function getHzAt(y: number, height: number, hzRange?: [number, number] | undefined | null): Promise<number>
+export declare function convertFreqPosToHz(y: number, height: number, hzRange?: [number, number] | undefined | null): Promise<number>
+export declare function convertFreqHzToPos(hz: number, height: number, hzRange?: [number, number] | undefined | null): number
 export declare function secondsToLabel(sec: number): string
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
 export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>

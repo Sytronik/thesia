@@ -27,16 +27,16 @@ where
 }
 
 #[inline]
-pub fn from_hz<A: Float + 'static>(freq: A) -> A
+pub fn from_hz<A: Float + 'static>(hz: A) -> A
 where
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
     let min_log_hz = MIN_LOG_HZ.as_();
-    if freq < min_log_hz {
-        freq / LINEARSCALE.as_()
+    if hz < min_log_hz {
+        hz / LINEARSCALE.as_()
     } else {
-        MIN_LOG_MEL.as_() + (freq / min_log_hz).ln() / LOGSTEP.as_()
+        MIN_LOG_MEL.as_() + (hz / min_log_hz).ln() / LOGSTEP.as_()
     }
 }
 

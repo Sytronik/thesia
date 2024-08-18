@@ -159,7 +159,6 @@ fn calc_freq_axis_markers(
     max_num_ticks: u32,
     _max_num_labels: u32,
 ) -> AxisMarkers {
-    // TODO: use hz_range.0
     // TODO: max_num_labels
     fn coarse_band(fine_band: f32) -> f32 {
         if fine_band <= 100. {
@@ -174,46 +173,60 @@ fn calc_freq_axis_markers(
     }
 
     let mut result = Vec::with_capacity(max_num_ticks as usize);
-    result.push((1., freq_to_str(0.)));
+    result.push((1., freq_to_str(hz_range.0)));
 
     if max_num_ticks >= 3 {
         match freq_scale {
             FreqScale::Mel if hz_range.1 > 1000. => {
-                let max_mel = mel::from_hz(hz_range.1);
+                let (min_mel, max_mel) = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
+                let mel_interval = max_mel - min_mel;
+                let mel_to_pos = |m| (max_mel - m) / mel_interval;
                 let mel_1k = mel::MIN_LOG_MEL as f32;
-                let fine_band_mel = max_mel / (max_num_ticks as f32 - 1.);
-                if max_num_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
-                    // divide [0, 1kHz] region
+                let fine_band_mel = mel_interval / (max_num_ticks as f32 - 1.);
+                if hz_range.0 < 1000. {
                     let fine_band = mel::to_hz(fine_band_mel);
-                    let band = coarse_band(fine_band);
-                    let mut freq = band;
-                    let max_minus_band = 1000. - fine_band + 1.;
-                    while freq < max_minus_band {
-                        result.push((1. - mel::from_hz(freq) / max_mel, freq_to_str(freq)));
-                        freq += band;
+                    if max_num_ticks >= 4 && fine_band_mel <= mel_1k / 2. {
+                        // divide [min, 1kHz] region
+                        let band = coarse_band(fine_band);
+                        let mut freq = band;
+                        let max_minus_band = 1000. - fine_band * 0.66;
+                        while freq < max_minus_band {
+                            if freq > hz_range.0 + fine_band * 0.66 {
+                                result.push((mel_to_pos(mel::from_hz(freq)), freq_to_str(freq)));
+                            }
+                            freq += band;
+                        }
                     }
+                    if hz_range.0 > fine_band * 0.33 && 1000. <= hz_range.0 + fine_band * 0.66 {
+                        result.pop();
+                    }
+                    result.push((mel_to_pos(mel_1k), freq_to_str(1000.)));
                 }
-                result.push((1. - mel_1k / max_mel, freq_to_str(1000.)));
-                if max_num_ticks >= 4 {
-                    // divide [1kHz, hz_range.1] region
+                if max_num_ticks as usize - result.len() - 1 >= 1 {
+                    // divide [1kHz, max] region
                     let ratio_step =
                         2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
                     let mut freq = ratio_step as f32 * 1000.;
                     let mut mel_f = mel::from_hz(freq);
-                    let max_mel_minus_band = max_mel - fine_band_mel + 0.01;
+                    let max_mel_minus_band = max_mel - fine_band_mel * 0.66;
                     while mel_f < max_mel_minus_band {
-                        result.push((1. - mel_f / max_mel, freq_to_str(freq)));
+                        if mel_f > min_mel + fine_band_mel * 0.66 {
+                            result.push((mel_to_pos(mel_f), freq_to_str(freq)));
+                        }
                         freq *= ratio_step as f32;
                         mel_f = mel::from_hz(freq);
                     }
                 }
             }
             _ => {
-                let fine_band = hz_range.1 / (max_num_ticks as f32 - 1.);
+                let hz_interval = hz_range.1 - hz_range.0;
+                let fine_band = hz_interval / (max_num_ticks as f32 - 1.);
                 let band = coarse_band(fine_band);
                 let mut freq = band;
-                while freq < hz_range.1 - fine_band + 1. {
-                    result.push((1. - freq / hz_range.1, freq_to_str(freq)));
+                while freq < hz_range.1 - fine_band * 0.66 {
+                    if freq > hz_range.0 + fine_band * 0.66 {
+                        result.push(((hz_range.1 - freq) / hz_interval, freq_to_str(freq)));
+                    }
                     freq += band;
                 }
             }
@@ -495,6 +508,7 @@ mod tests {
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
                 (1. - mel::from_hz(2000.) / mel::from_hz(12000.), "2k"),
                 (1. - mel::from_hz(4000.) / mel::from_hz(12000.), "4k"),
+                (1. - mel::from_hz(8000.) / mel::from_hz(12000.), "8k"),
                 (0., "12k"),
             ],
         );

@@ -29,12 +29,23 @@ pub enum FreqScale {
 
 impl FreqScale {
     #[inline]
-    pub fn relative_freq_to_hz(&self, relative_freq: f32, hz_range: (f32, f32)) -> f32 {
+    pub fn relative_freq_to_hz(&self, rel_freq: f32, hz_range: (f32, f32)) -> f32 {
         match self {
-            FreqScale::Linear => (hz_range.1 - hz_range.0) * relative_freq + hz_range.0,
+            FreqScale::Linear => (hz_range.1 - hz_range.0) * rel_freq + hz_range.0,
             FreqScale::Mel => {
                 let mel_range = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
-                mel::to_hz((mel_range.1 - mel_range.0) * relative_freq + mel_range.0)
+                mel::to_hz((mel_range.1 - mel_range.0) * rel_freq + mel_range.0)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn hz_to_relative_freq(&self, hz: f32, hz_range: (f32, f32)) -> f32 {
+        match self {
+            FreqScale::Linear => (hz - hz_range.0) / (hz_range.1 - hz_range.0),
+            FreqScale::Mel => {
+                let mel_range = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
+                (mel::from_hz(hz) - mel_range.0) / (mel_range.1 - mel_range.0)
             }
         }
     }

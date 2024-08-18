@@ -131,11 +131,24 @@ impl TrackManager {
     }
 
     #[inline]
-    pub fn calc_hz_of(&self, y: i32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
+    pub fn convert_freq_pos_to_hz(&self, y: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
         let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
+        let rel_freq = 1. - y / height as f32;
         self.setting
             .freq_scale
-            .relative_freq_to_hz(1. - y as f32 / height as f32, hz_range)
+            .relative_freq_to_hz(rel_freq, hz_range)
+    }
+
+    #[inline]
+    pub fn convert_freq_hz_to_pos(
+        &self,
+        hz: f32,
+        height: u32,
+        hz_range: Option<(f32, f32)>,
+    ) -> f32 {
+        let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
+        let rel_freq = self.setting.freq_scale.hz_to_relative_freq(hz, hz_range);
+        (1. - rel_freq) * height as f32
     }
 
     #[inline]
