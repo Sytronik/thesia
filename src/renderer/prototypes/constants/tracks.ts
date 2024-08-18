@@ -208,4 +208,7 @@ export const COMMON_NORMALIZE_DB_DETENTS = [-26, -18, 0];
 export const DB_RANGE_MIN_MAX = [40, 120];
 export const DB_RANGE_DETENTS = [40, 70, 100, 120];
 
+export const MIN_HZ_RANGE = 100;
+export const MIN_DIST_FROM_0_FOR_DRAG = 0.01;
+
 export const T_OVERLAP_VALUES = [1, 2, 4, 8, 16, 32];

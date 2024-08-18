@@ -1,5 +1,5 @@
 import React, {RefObject, forwardRef, useCallback, useMemo, useRef} from "react";
-import AxisCanvas from "renderer/modules/AxisCanvas";
+import AxisCanvas, {getAxisHeight} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
@@ -10,6 +10,7 @@ import {
   MIN_ABS_AMP_RANGE,
   MAX_ABS_AMP_RANGE,
   VERTICAL_AXIS_PADDING,
+  MIN_DIST_FROM_0_FOR_DRAG,
 } from "../constants/tracks";
 
 type AmpAxisProps = {
@@ -29,9 +30,7 @@ type AmpAxisDragAnchor = {
   ampRange: [number, number];
 };
 const DEFAULT_DRAG_ANCHOR: AmpAxisDragAnchor = {cursorRatio: 0.5, ampRange: DEFAULT_AMP_RANGE};
-const MIN_DISTANCE_CURSOR_N_ZERO = 0.01;
 
-const getAxisHeight = (rect: DOMRect) => rect.height - 2 * VERTICAL_AXIS_PADDING;
 const calcIntervalZeroRatio = (ampRange: [number, number]) => {
   const interval = ampRange[1] - ampRange[0];
   const zeroRatio = ampRange[1] / interval;
@@ -56,9 +55,9 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     const cursorRatio = cursorPos / getAxisHeight(rect);
     const [_interval, zeroRatio] = calcIntervalZeroRatio(ampRangeRef.current ?? DEFAULT_AMP_RANGE);
     if (cursorState === "positive") {
-      return Math.min(cursorRatio, zeroRatio - MIN_DISTANCE_CURSOR_N_ZERO);
+      return Math.min(cursorRatio, zeroRatio - MIN_DIST_FROM_0_FOR_DRAG);
     }
-    return Math.max(cursorRatio, zeroRatio + MIN_DISTANCE_CURSOR_N_ZERO);
+    return Math.max(cursorRatio, zeroRatio + MIN_DIST_FROM_0_FOR_DRAG);
   };
 
   const calcDragAnchor = useEvent(

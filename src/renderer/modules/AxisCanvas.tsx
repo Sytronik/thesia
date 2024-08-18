@@ -8,10 +8,17 @@ import React, {
 } from "react";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import {AXIS_STYLE, LABEL_HEIGHT_ADJUSTMENT} from "../prototypes/constants/tracks";
+import {
+  AXIS_STYLE,
+  LABEL_HEIGHT_ADJUSTMENT,
+  VERTICAL_AXIS_PADDING,
+} from "../prototypes/constants/tracks";
 import styles from "./AxisCanvas.module.scss";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
+
+export const getAxisHeight = (rect: DOMRect) => rect.height - 2 * VERTICAL_AXIS_PADDING;
+export const getAxisPos = (pos: number) => pos - VERTICAL_AXIS_PADDING;
 
 type MarkerPosition = {
   MAJOR_TICK_POS: number;

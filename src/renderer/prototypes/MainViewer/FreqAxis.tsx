@@ -1,8 +1,13 @@
 import React, {forwardRef, useCallback, useMemo, useRef} from "react";
-import AxisCanvas from "renderer/modules/AxisCanvas";
+import AxisCanvas, {getAxisHeight, getAxisPos} from "renderer/modules/AxisCanvas";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
-import {FREQ_CANVAS_WIDTH, FREQ_MARKER_POS, VERTICAL_AXIS_PADDING} from "../constants/tracks";
+import {
+  FREQ_CANVAS_WIDTH,
+  FREQ_MARKER_POS,
+  MIN_HZ_RANGE,
+  VERTICAL_AXIS_PADDING,
+} from "../constants/tracks";
 import BackendAPI from "../../api";
 
 type FreqAxisProps = {
@@ -24,13 +29,9 @@ type FreqAxisDragAnchor = {
   maxTrackHzPos?: number;
 };
 const DEFAULT_DRAG_ANCHOR: FreqAxisDragAnchor = {
-  cursorAxisPos: 0,
+  cursorAxisPos: 0.0,
   hzRange: [0, Infinity],
 };
-const MIN_HZ_RANGE = 100;
-
-const getAxisHeight = (rect: DOMRect) => rect.height - 2 * VERTICAL_AXIS_PADDING;
-const getAxisPos = (pos: number) => pos - VERTICAL_AXIS_PADDING;
 
 const clampMaxHz = (maxHz: number, minHz: number) => {
   if (maxHz > BackendAPI.getMaxTrackHz()) return Infinity;
