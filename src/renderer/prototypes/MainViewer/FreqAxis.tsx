@@ -83,7 +83,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         case "control-min-hz": {
           const minHz = await BackendAPI.convertFreqPosToHz(
             anchorAxisPos,
-            cursorAxisPos,
+            Math.max(cursorAxisPos, 1),
             anchorHzRange,
           );
           setHzRange(clampMinHz(minHz, anchorHzRange[1]), anchorHzRange[1]);
