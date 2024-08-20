@@ -69,6 +69,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
       const {cursorAxisPos: anchorAxisPos, hzRange: anchorHzRange} = dragAnchorValue;
       const axisHeight = getAxisHeight(rect);
       const cursorAxisPos = getAxisPos(cursorPos);
+      let hzRange = [anchorHzRange[0], anchorHzRange[1]];
       switch (cursorState) {
         case "control-max-hz": {
           const ratio = (anchorAxisPos - cursorAxisPos) / (axisHeight - anchorAxisPos);
@@ -77,7 +78,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
             axisHeight,
             anchorHzRange,
           );
-          setHzRange(anchorHzRange[0], clampMaxHz(maxHz, anchorHzRange[0]));
+          hzRange[1] = clampMaxHz(maxHz, anchorHzRange[0]);
           break;
         }
         case "control-min-hz": {
@@ -86,7 +87,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
             Math.max(cursorAxisPos, 1),
             anchorHzRange,
           );
-          setHzRange(clampMinHz(minHz, anchorHzRange[1]), anchorHzRange[1]);
+          hzRange[0] = clampMinHz(minHz, anchorHzRange[1]);
           break;
         }
         case "shift-hz-range": {
@@ -103,19 +104,20 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
             minHzPos += maxTrackHzPos - maxHzPos;
             maxHzPos = maxTrackHzPos;
           }
-          if (minHzPos <= zeroHzPos) {
-            setHzRange(
-              await BackendAPI.convertFreqPosToHz(minHzPos, axisHeight, anchorHzRange),
-              await BackendAPI.convertFreqPosToHz(maxHzPos, axisHeight, anchorHzRange),
-            );
-          } else {
-            setHzRange(0, Infinity);
+          if (minHzPos > zeroHzPos) {
+            hzRange = [0, Infinity];
+            break;
           }
+          hzRange = [
+            await BackendAPI.convertFreqPosToHz(minHzPos, axisHeight, anchorHzRange),
+            await BackendAPI.convertFreqPosToHz(maxHzPos, axisHeight, anchorHzRange),
+          ];
           break;
         }
         default:
           break;
       }
+      setHzRange(hzRange[0], hzRange[1]);
     },
   );
 

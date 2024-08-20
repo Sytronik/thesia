@@ -231,8 +231,9 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetHzRange = useMemo(
     () =>
       throttle(1000 / 70, (minHz: number, maxHz: number) => {
-        BackendAPI.setHzRange(minHz, maxHz);
-        throttledSetImgState(getIdChArr(), width, imgHeight);
+        if (BackendAPI.setHzRange(minHz, maxHz)) {
+          throttledSetImgState(getIdChArr(), width, imgHeight);
+        }
         throttledSetFreqMarkers(imgHeight, imgHeight, {});
       }),
     [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight],

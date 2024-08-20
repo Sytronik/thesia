@@ -31,7 +31,7 @@ export declare function setImageState(idChStrs: Array<string>, startSec: number,
 export declare function getdBRange(): number
 export declare function setdBRange(dBRange: number): void
 export declare function getHzRange(): number[]
-export declare function setHzRange(minHz: number, maxHz: number): void
+export declare function setHzRange(minHz: number, maxHz: number): boolean
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): GuardClippingMode

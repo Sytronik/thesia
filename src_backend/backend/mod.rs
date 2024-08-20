@@ -223,9 +223,17 @@ impl TrackManager {
         (self.hz_range.0, max_hz)
     }
 
-    pub fn set_hz_range(&mut self, hz_range: (f32, f32)) {
+    /// set self.hz_range.
+    /// If it's different from the existing value, update greys and return true.
+    /// else, return false.
+    pub fn set_hz_range(&mut self, hz_range: (f32, f32)) -> bool {
+        let prev_hz_range = self.get_hz_range();
         self.hz_range = hz_range;
+        if prev_hz_range == hz_range {
+            return false;
+        }
         self.update_greys(true);
+        true
     }
 
     fn update_specs(&mut self, id_ch_tuples: IdChVec, framing_params: Option<&HashSet<SrWinNfft>>) {

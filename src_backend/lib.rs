@@ -160,13 +160,16 @@ fn get_hz_range() -> [f64; 2] {
 }
 
 #[napi]
-fn set_hz_range(min_hz: f64, max_hz: f64) {
+fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(min_hz >= 0.);
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
     let mut tm = TM.blocking_write();
-    tm.set_hz_range((min_hz as f32, max_hz as f32));
-    remove_all_imgs(tm);
+    let need_update = tm.set_hz_range((min_hz as f32, max_hz as f32));
+    if need_update {
+        remove_all_imgs(tm);
+    }
+    need_update
 }
 
 #[napi]
