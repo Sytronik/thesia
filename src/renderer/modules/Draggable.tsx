@@ -96,7 +96,6 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
       calcCursorPosFunc(e, rect),
       rect,
     );
-    onDragging(e);
 
     const bodyElem = document.querySelector("body");
     if (bodyElem) {

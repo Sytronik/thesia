@@ -101,7 +101,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     e.preventDefault();
     if (e.button === 0 && e.detail === 2) {
       e.stopPropagation();
-      setAmpRange([...DEFAULT_AMP_RANGE]);
+      setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE]));
     }
   });
 
