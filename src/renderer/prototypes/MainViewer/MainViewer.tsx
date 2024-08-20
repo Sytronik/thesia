@@ -468,17 +468,18 @@ function MainViewer(props: MainViewerProps) {
     // TODO: nicer way
     setTimeout(() => {
       if (sec >= calcEndSec() || sec < startSecRef.current) {
-        updateLensParams({startSec: startSecRef.current + jumpSec});
+        let startSec = startSecRef.current + jumpSec;
+        if (sec >= calcEndSec() + jumpSec || sec < startSec)
+          startSec = sec - (0.5 * width) / pxPerSecRef.current;
+        updateLensParams({startSec});
       }
-    }, 1000 / 60);
+    }, 1000 / 30);
   });
   useHotkeys(
     "enter",
     async () => {
       await player.seek(0);
-      if (startSecRef.current > 0) {
-        updateLensParams({startSec: 0});
-      }
+      if (startSecRef.current > 0) updateLensParams({startSec: 0});
     },
     {preventDefault: true},
   );
