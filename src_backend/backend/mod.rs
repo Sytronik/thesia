@@ -106,6 +106,7 @@ impl TrackManager {
             &self.tracklist.construct_all_sr_win_nfft_set(&self.setting),
             self.setting.freq_scale,
         );
+        self.set_hz_range((0., f32::INFINITY));
     }
 
     pub fn apply_track_list_changes(&mut self) -> (HashSet<usize>, u32) {
