@@ -127,7 +127,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
 
       // TODO: control minHz
       const hzRange = BackendAPI.getHzRange();
-      const maxHz = await BackendAPI.convertFreqPosToHz(e.deltaY, 500);
+      const maxHz = await BackendAPI.convertFreqPosToHz(e.deltaY, 500, [hzRange[0], hzRange[1]]);
       setHzRange(hzRange[0], clampMaxHz(maxHz, hzRange[0]));
     }
   });
