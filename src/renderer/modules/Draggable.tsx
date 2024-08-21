@@ -106,6 +106,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
       });
     }
     draggedRef.current = false;
+    onDragging(e);
     document.addEventListener("mousemove", onDragging);
     document.addEventListener("mouseup", onMouseUp, {once: true});
   };
