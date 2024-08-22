@@ -18,6 +18,7 @@ import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
 import {showElectronOpenDialog} from "renderer/lib/electron-sender";
+import Locator from "renderer/modules/Locator";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -118,12 +119,6 @@ function MainViewer(props: MainViewerProps) {
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const locatorElem = useRef<HTMLCanvasElement | null>(null);
-  const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
-    locatorElem.current = node;
-    locatorCtxRef.current = node?.getContext("2d") ?? null;
-  }, []);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
@@ -512,43 +507,26 @@ function MainViewer(props: MainViewerProps) {
     Object.entries(images).forEach(([idChStr, buf]) => {
       imgCanvasesRef.current[idChStr]?.draw(buf);
     });
-    if (timeCanvasElem.current !== null && locatorElem.current !== null) {
-      const rect = timeCanvasElem.current.getBoundingClientRect();
-      if (rect !== null) {
-        const locatorPos =
-          ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current;
-
-        if (locatorPos <= -1.5 || locatorPos >= rect.width + 0.5) {
-          if (locatorElem.current.style.visibility !== "hidden")
-            locatorElem.current.style.visibility = "hidden";
-        } else {
-          const locatorElemPos = Math.floor(locatorPos) - 1;
-          const drawPos = locatorPos - locatorElemPos;
-          const lineHeight =
-            (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2;
-          if (locatorElem.current.style.visibility !== "")
-            locatorElem.current.style.visibility = "";
-          if (locatorElem.current.style.left !== `${locatorElemPos + rect.left}px`)
-            locatorElem.current.style.left = `${locatorElemPos + rect.left}px`;
-          if (locatorElem.current.style.height !== `${lineHeight}px`)
-            locatorElem.current.style.height = `${lineHeight}px`;
-          locatorElem.current.width = 5 * devicePixelRatio;
-          locatorElem.current.height = lineHeight * devicePixelRatio;
-          const ctx = locatorCtxRef.current;
-          if (!ctx) return;
-          ctx.scale(devicePixelRatio, devicePixelRatio);
-          ctx.strokeStyle = "#999999";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.setLineDash([5, 5]);
-          ctx.moveTo(drawPos + 0.5, TINY_MARGIN * 2);
-          ctx.lineTo(drawPos + 0.5, lineHeight);
-          ctx.stroke();
-        }
-      }
-    }
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
+  });
+
+  // locator
+  const getLocatorHeight = useEvent(
+    () => (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2,
+  );
+  const getLocatorBoundingLeftWidth: () => [number, number] | null = useEvent(() => {
+    if (timeCanvasElem.current === null) return null;
+    const rect = timeCanvasElem.current.getBoundingClientRect();
+    if (rect === null) return null;
+    return [rect.left, rect.width];
+  });
+  const calcLocatorPos = useEvent(
+    () => ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
+  );
+  const onLocatorMouseDown = useEvent(() => {
+    document.addEventListener("mousemove", handleSeek);
+    document.addEventListener("mouseup", handleLocatorDragEnd, {once: true});
   });
 
   const trackSummaryArr = useMemo(
@@ -798,13 +776,11 @@ function MainViewer(props: MainViewerProps) {
           right={rightPane}
           setCanvasWidth={setWidth}
         />
-        <canvas
-          ref={locatorElemCallback}
-          className={styles.locator}
-          onMouseDown={() => {
-            document.addEventListener("mousemove", handleSeek);
-            document.addEventListener("mouseup", handleLocatorDragEnd, {once: true});
-          }}
+        <Locator
+          getHeight={getLocatorHeight}
+          getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+          calcLocatorPos={calcLocatorPos}
+          onMouseDown={onLocatorMouseDown}
         />
         <ColorMap
           height={colorMapHeight}
