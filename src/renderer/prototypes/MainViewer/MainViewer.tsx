@@ -406,6 +406,7 @@ function MainViewer(props: MainViewerProps) {
     const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
     e.preventDefault();
+    if (trackIds.length === 0) return;
     const cursorX = e.clientX - rect.left;
     if (cursorX < 0 || cursorX >= width) return;
     throttledSeek(startSecRef.current + cursorX / pxPerSecRef.current);
