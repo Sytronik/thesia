@@ -246,22 +246,30 @@ async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffe
 }
 
 #[napi]
-async fn convert_freq_pos_to_hz(y: f64, height: u32, hz_range: Option<(f64, f64)>) -> f64 {
+async fn freq_pos_to_hz_on_current_range(y: f64, height: u32) -> f64 {
     assert!(height >= 1);
 
-    let hz_range = hz_range.and_then(|(x, y)| Some((x as f32, y as f32)));
     TM.read()
         .await
-        .convert_freq_pos_to_hz(y as f32, height, hz_range) as f64
+        .convert_freq_pos_to_hz(y as f32, height, None) as f64
 }
 
 #[napi]
-fn convert_freq_hz_to_pos(hz: f64, height: u32, hz_range: Option<(f64, f64)>) -> f64 {
+fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, f64)) -> f64 {
     assert!(height >= 1);
 
-    let hz_range = hz_range.and_then(|(x, y)| Some((x as f32, y as f32)));
+    let hz_range = (hz_range.0 as f32, hz_range.1 as f32);
     TM.blocking_read()
-        .convert_freq_hz_to_pos(hz as f32, height, hz_range) as f64
+        .convert_freq_pos_to_hz(y as f32, height, Some(hz_range)) as f64
+}
+
+#[napi]
+fn freq_hz_to_pos(hz: f64, height: u32, hz_range: (f64, f64)) -> f64 {
+    assert!(height >= 1);
+
+    let hz_range = (hz_range.0 as f32, hz_range.1 as f32);
+    TM.blocking_read()
+        .convert_freq_hz_to_pos(hz as f32, height, Some(hz_range)) as f64
 }
 
 #[napi]
