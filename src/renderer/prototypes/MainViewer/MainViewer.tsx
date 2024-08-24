@@ -97,6 +97,7 @@ function MainViewer(props: MainViewerProps) {
 
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(100);
+  const selectSecRef = useRef<number>(0);
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
@@ -399,21 +400,19 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
-  const throttledSeek = useMemo(() => throttle(1000 / 30, player.seek), [player]);
-
   // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
-  const handleSeek = useEvent(async (e: React.MouseEvent | MouseEvent) => {
+  const changeSelectSecByMouse = useEvent(async (e: React.MouseEvent | MouseEvent) => {
     const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
     e.preventDefault();
     if (trackIds.length === 0) return;
     const cursorX = e.clientX - rect.left;
     if (cursorX < 0 || cursorX >= width) return;
-    throttledSeek(startSecRef.current + cursorX / pxPerSecRef.current);
+    selectSecRef.current = startSecRef.current + cursorX / pxPerSecRef.current;
   });
 
-  const handleLocatorDragEnd = useEvent(() => {
-    document.removeEventListener("mousemove", handleSeek);
+  const endSelectLocatorDrag = useEvent(() => {
+    document.removeEventListener("mousemove", changeSelectSecByMouse);
   });
 
   // Browsing Hotkeys
@@ -455,26 +454,37 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // Player Hotkeys
-  useHotkeys("space", player.togglePlay, {preventDefault: true});
+  useHotkeys(
+    "space",
+    () => {
+      player.seek(selectSecRef.current);
+      player.togglePlay();
+    },
+    {preventDefault: true},
+  );
   useHotkeys("comma,period,shift+comma,shift+period", async (_, hotkey) => {
     let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
     if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
-    const sec = Math.min(Math.max((player.positionSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
-    await player.seek(sec);
-    // TODO: nicer way
-    setTimeout(() => {
-      if (sec >= calcEndSec() || sec < startSecRef.current) {
-        let startSec = startSecRef.current + jumpSec;
-        if (sec >= calcEndSec() + jumpSec || sec < startSec)
-          startSec = sec - (0.5 * width) / pxPerSecRef.current;
-        updateLensParams({startSec});
-      }
-    }, 1000 / 30);
+    let sec;
+    if (player.isPlaying) {
+      sec = Math.min(Math.max((player.positionSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
+      await player.seek(sec);
+    } else {
+      sec = Math.min(Math.max((selectSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
+      selectSecRef.current = sec;
+    }
+    if (sec >= calcEndSec() || sec < startSecRef.current) {
+      let startSec = startSecRef.current + jumpSec;
+      if (sec >= calcEndSec() + jumpSec || sec < startSec)
+        startSec = sec - (0.5 * width) / pxPerSecRef.current;
+      updateLensParams({startSec}, false);
+    }
   });
   useHotkeys(
     "enter",
     async () => {
-      await player.seek(0);
+      if (player.isPlaying) await player.seek(0);
+      else selectSecRef.current = 0;
       if (startSecRef.current > 0) updateLensParams({startSec: 0});
     },
     {preventDefault: true},
@@ -522,12 +532,17 @@ function MainViewer(props: MainViewerProps) {
     if (rect === null) return null;
     return [rect.left, rect.width];
   });
-  const calcLocatorPos = useEvent(
-    () => ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
+  const calcPlayheadPos = useEvent(() =>
+    player.isPlaying
+      ? ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current
+      : -Infinity,
   );
-  const onLocatorMouseDown = useEvent(() => {
-    document.addEventListener("mousemove", handleSeek);
-    document.addEventListener("mouseup", handleLocatorDragEnd, {once: true});
+  const calcSelectLocatorPos = useEvent(
+    () => ((selectSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
+  );
+  const onSelectLocatorMouseDown = useEvent(() => {
+    document.addEventListener("mousemove", changeSelectSecByMouse);
+    document.addEventListener("mouseup", endSelectLocatorDrag, {once: true});
   });
 
   const trackSummaryArr = useMemo(
@@ -767,7 +782,7 @@ function MainViewer(props: MainViewerProps) {
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
-        onClick={handleSeek}
+        onClick={changeSelectSecByMouse}
         role="presentation"
       >
         {isDropzoneActive && <div className={styles.dropzone} />}
@@ -778,10 +793,17 @@ function MainViewer(props: MainViewerProps) {
           setCanvasWidth={setWidth}
         />
         <Locator
+          locatorStyle="playhead"
           getHeight={getLocatorHeight}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}
-          calcLocatorPos={calcLocatorPos}
-          onMouseDown={onLocatorMouseDown}
+          calcLocatorPos={calcPlayheadPos}
+        />
+        <Locator
+          locatorStyle="selection"
+          getHeight={getLocatorHeight}
+          getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+          calcLocatorPos={calcSelectLocatorPos}
+          onMouseDown={onSelectLocatorMouseDown}
         />
         <ColorMap
           height={colorMapHeight}

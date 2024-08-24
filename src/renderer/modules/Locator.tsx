@@ -4,14 +4,15 @@ import {TINY_MARGIN} from "renderer/prototypes/constants/tracks";
 import styles from "./Locator.module.scss";
 
 type LocatorProps = {
+  locatorStyle: "selection" | "playhead";
   getHeight: () => number;
   getBoundingLeftWidth: () => [number, number] | null;
   calcLocatorPos: () => number;
-  onMouseDown: (e: React.MouseEvent) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
 };
 
 function Locator(props: LocatorProps) {
-  const {getHeight, getBoundingLeftWidth, calcLocatorPos, onMouseDown} = props;
+  const {locatorStyle, getHeight, getBoundingLeftWidth, calcLocatorPos, onMouseDown} = props;
   const locatorElem = useRef<HTMLCanvasElement | null>(null);
   const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
@@ -20,13 +21,42 @@ function Locator(props: LocatorProps) {
   }, []);
   const requestRef = useRef<number>(0);
 
+  const lineWidth = locatorStyle === "selection" ? 2 : 1;
+  const lineOffset = lineWidth % 2 === 0 ? 0 : 0.5;
+
+  const drawLine = useEvent(
+    (ctx: CanvasRenderingContext2D, drawPos: number, lineHeight: number) => {
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      ctx.lineWidth = lineWidth;
+      switch (locatorStyle) {
+        case "selection":
+          ctx.strokeStyle = "#999999";
+          ctx.beginPath();
+          ctx.setLineDash([5, 5]);
+          break;
+        case "playhead":
+          ctx.strokeStyle = "#DDDDDD";
+          ctx.beginPath();
+          break;
+        default:
+          break;
+      }
+      ctx.moveTo(drawPos + lineOffset, TINY_MARGIN * 2);
+      ctx.lineTo(drawPos + lineOffset, lineHeight);
+      ctx.stroke();
+    },
+  );
+
   const draw = useEvent(() => {
     const leftWidth = getBoundingLeftWidth();
     if (leftWidth !== null && locatorElem.current !== null) {
       const [left, width] = leftWidth;
       const locatorPos = calcLocatorPos();
 
-      if (locatorPos <= -1.5 || locatorPos >= width + 0.5) {
+      if (
+        locatorPos <= -lineOffset - lineWidth / 2 ||
+        locatorPos >= width + lineWidth / 2 - lineOffset
+      ) {
         if (locatorElem.current.style.visibility !== "hidden")
           locatorElem.current.style.visibility = "hidden";
       } else {
@@ -41,16 +71,7 @@ function Locator(props: LocatorProps) {
         locatorElem.current.width = 5 * devicePixelRatio;
         locatorElem.current.height = lineHeight * devicePixelRatio;
         const ctx = locatorCtxRef.current;
-        if (ctx !== null) {
-          ctx.scale(devicePixelRatio, devicePixelRatio);
-          ctx.strokeStyle = "#999999";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.setLineDash([5, 5]);
-          ctx.moveTo(drawPos + 0.5, TINY_MARGIN * 2);
-          ctx.lineTo(drawPos + 0.5, lineHeight);
-          ctx.stroke();
-        }
+        if (ctx !== null) drawLine(ctx, drawPos, lineHeight);
       }
     }
     requestRef.current = requestAnimationFrame(draw);
@@ -61,7 +82,14 @@ function Locator(props: LocatorProps) {
     return () => cancelAnimationFrame(requestRef.current);
   }, [draw]);
 
-  return <canvas ref={locatorElemCallback} className={styles.locator} onMouseDown={onMouseDown} />;
+  return (
+    <canvas
+      ref={locatorElemCallback}
+      className={styles.locator}
+      onMouseDown={onMouseDown}
+      style={onMouseDown ? {cursor: "col-resize"} : {pointerEvents: "none"}}
+    />
+  );
 }
 
 export default Locator;
