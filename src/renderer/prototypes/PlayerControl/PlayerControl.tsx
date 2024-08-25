@@ -73,7 +73,7 @@ function PlayerControl(props: PlayerControlProps) {
         <button
           type="button"
           onClick={async () => {
-            player.seek(selectSecRef.current ?? 0);
+            if (!player.isPlaying) player.seek(selectSecRef.current ?? 0);
             player.togglePlay();
           }}
         >

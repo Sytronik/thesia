@@ -472,7 +472,7 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys(
     "space",
     () => {
-      player.seek(selectSecRef.current ?? 0);
+      if (!player.isPlaying) player.seek(selectSecRef.current ?? 0);
       player.togglePlay();
     },
     {preventDefault: true},
