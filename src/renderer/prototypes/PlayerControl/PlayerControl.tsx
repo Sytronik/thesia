@@ -1,4 +1,4 @@
-import React, {MutableRefObject, useEffect, useRef} from "react";
+import React, {RefObject, useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
@@ -14,12 +14,12 @@ import {PLAY_JUMP_SEC} from "../constants/tracks";
 
 type PlayerControlProps = {
   player: Player;
-  selectSecRef: MutableRefObject<number>;
-  maxTrackSec: number;
+  selectSecRef: RefObject<number>;
+  setSelectSec: (sec: number) => void;
 };
 
 function PlayerControl(props: PlayerControlProps) {
-  const {player, selectSecRef, maxTrackSec} = props;
+  const {player, selectSecRef, setSelectSec} = props;
   const prevPosSecRef = useRef<number>(0);
   const posLabelElem = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<number | null>(null);
@@ -55,7 +55,7 @@ function PlayerControl(props: PlayerControlProps) {
           type="button"
           onClick={async () => {
             if (player.isPlaying) await player.seek(0);
-            else selectSecRef.current = 0;
+            else setSelectSec(0);
           }}
         >
           <img src={skipToBeginningIcon} alt="skip to beginning icon" />
@@ -64,8 +64,8 @@ function PlayerControl(props: PlayerControlProps) {
           type="button"
           onClick={async () => {
             if (player.isPlaying)
-              await player.seek(Math.max((player.positionSecRef.current ?? 0) - PLAY_JUMP_SEC, 0));
-            else selectSecRef.current = Math.max(selectSecRef.current - PLAY_JUMP_SEC, 0);
+              await player.seek((player.positionSecRef.current ?? 0) - PLAY_JUMP_SEC);
+            else setSelectSec((selectSecRef.current ?? 0) - PLAY_JUMP_SEC);
           }}
         >
           <img src={rewindBackIcon} alt="rewind back icon" />
@@ -73,7 +73,7 @@ function PlayerControl(props: PlayerControlProps) {
         <button
           type="button"
           onClick={async () => {
-            player.seek(selectSecRef.current);
+            player.seek(selectSecRef.current ?? 0);
             player.togglePlay();
           }}
         >
@@ -92,10 +92,8 @@ function PlayerControl(props: PlayerControlProps) {
           type="button"
           onClick={async () => {
             if (player.isPlaying)
-              await player.seek(
-                Math.min((player.positionSecRef.current ?? 0) + PLAY_JUMP_SEC, maxTrackSec),
-              );
-            else selectSecRef.current = Math.min(selectSecRef.current + PLAY_JUMP_SEC, maxTrackSec);
+              await player.seek((player.positionSecRef.current ?? 0) + PLAY_JUMP_SEC);
+            else setSelectSec((selectSecRef.current ?? 0) + PLAY_JUMP_SEC);
           }}
         >
           <img src={rewindForwardIcon} alt="rewind forward icon" />

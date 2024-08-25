@@ -6,7 +6,7 @@ import React, {
   useState,
   useContext,
   useLayoutEffect,
-  MutableRefObject,
+  RefObject,
 } from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -63,7 +63,8 @@ type MainViewerProps = {
   maxTrackSec: number;
   blend: number;
   player: Player;
-  selectSecRef: MutableRefObject<number>;
+  selectSecRef: RefObject<number>;
+  setSelectSec: (sec: number) => void;
   addDroppedFile: (e: DragEvent) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -85,6 +86,7 @@ function MainViewer(props: MainViewerProps) {
     blend,
     player,
     selectSecRef,
+    setSelectSec,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -96,6 +98,7 @@ function MainViewer(props: MainViewerProps) {
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
+  const throttledSetSelectSec = throttle(1000 / 70, setSelectSec);
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
@@ -404,14 +407,14 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
-  const changeSelectSecByMouse = useEvent(async (e: React.MouseEvent | MouseEvent) => {
+  const changeSelectSecByMouse = useEvent((e: React.MouseEvent | MouseEvent) => {
     const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
     e.preventDefault();
     if (trackIds.length === 0) return;
     const cursorX = e.clientX - rect.left;
     if (cursorX < 0 || cursorX >= width) return;
-    selectSecRef.current = startSecRef.current + cursorX / pxPerSecRef.current;
+    throttledSetSelectSec(startSecRef.current + cursorX / pxPerSecRef.current);
   });
 
   const endSelectLocatorDrag = useEvent(() => {
@@ -460,7 +463,7 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys(
     "space",
     () => {
-      player.seek(selectSecRef.current);
+      player.seek(selectSecRef.current ?? 0);
       player.togglePlay();
     },
     {preventDefault: true},
@@ -470,18 +473,18 @@ function MainViewer(props: MainViewerProps) {
     if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
     let sec;
     if (player.isPlaying) {
-      sec = Math.min(Math.max((player.positionSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
+      sec = (player.positionSecRef.current ?? 0) + jumpSec;
       await player.seek(sec);
     } else {
-      sec = Math.min(Math.max((selectSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
-      selectSecRef.current = sec;
+      sec = (selectSecRef.current ?? 0) + jumpSec;
+      setSelectSec(sec);
     }
   });
   useHotkeys(
     "enter",
     async () => {
       if (player.isPlaying) await player.seek(0);
-      else selectSecRef.current = 0;
+      else setSelectSec(0);
     },
     {preventDefault: true},
   );
@@ -491,6 +494,7 @@ function MainViewer(props: MainViewerProps) {
   }, [scrollTop]);
 
   const drawCanvas = useEvent(async () => {
+    const selectSec = selectSecRef.current ?? 0;
     if (player.isPlaying) {
       if (
         needFollowCursor.current &&
@@ -503,20 +507,17 @@ function MainViewer(props: MainViewerProps) {
     } else {
       needFollowCursor.current = true;
       const endSec = calcEndSec();
-      const diff = selectSecRef.current - prevSelectSecRef.current;
-      if (
-        diff !== 0 &&
-        (endSec < selectSecRef.current || startSecRef.current > selectSecRef.current)
-      ) {
+      const diff = selectSec - prevSelectSecRef.current;
+      if (diff !== 0 && (endSec < selectSec || startSecRef.current > selectSec)) {
         let newStartSec = startSecRef.current + diff;
         const newEndSec = endSec + diff;
 
-        if (newEndSec < selectSecRef.current || newStartSec > selectSecRef.current)
-          newStartSec = selectSecRef.current - width / pxPerSecRef.current / 2;
+        if (newEndSec < selectSec || newStartSec > selectSec)
+          newStartSec = selectSec - width / pxPerSecRef.current / 2;
         updateLensParams({startSec: newStartSec}, false);
       }
     }
-    prevSelectSecRef.current = selectSecRef.current;
+    prevSelectSecRef.current = selectSec;
     getIdChArr().forEach((idChStr) => {
       ampCanvasesRef.current[idChStr]?.draw(ampMarkersAndLengthRef.current);
       freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);
