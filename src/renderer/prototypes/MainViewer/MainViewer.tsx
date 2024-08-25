@@ -412,9 +412,7 @@ function MainViewer(props: MainViewerProps) {
     if (rect === null) return;
     e.preventDefault();
     if (trackIds.length === 0) return;
-    const cursorX = e.clientX - rect.left;
-    if (cursorX < 0 || cursorX >= width) return;
-    throttledSetSelectSec(startSecRef.current + cursorX / pxPerSecRef.current);
+    throttledSetSelectSec(startSecRef.current + (e.clientX - rect.left) / pxPerSecRef.current);
   });
 
   const endSelectLocatorDrag = useEvent(() => {
