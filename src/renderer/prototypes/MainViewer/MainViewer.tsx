@@ -51,6 +51,7 @@ import {
   PLAY_JUMP_SEC,
   PLAY_BIG_JUMP_SEC,
   TINY_MARGIN,
+  TIME_CANVAS_HEIGHT,
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
 
@@ -532,20 +533,18 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // locator
-  const getLocatorHeight = useEvent(
-    () => (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2,
-  );
   const getLocatorBoundingLeftWidth: () => [number, number] | null = useEvent(() => {
     if (timeCanvasElem.current === null) return null;
     const rect = timeCanvasElem.current.getBoundingClientRect();
     if (rect === null) return null;
     return [rect.left, rect.width];
   });
-  const calcPlayheadPos = useEvent(() =>
-    player.isPlaying
-      ? ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current
-      : -Infinity,
-  );
+
+  // select locator
+  const getSelectLocatorTopBottom: () => [number, number] = useEvent(() => [
+    TINY_MARGIN * 2,
+    (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2,
+  ]);
   const calcSelectLocatorPos = useEvent(
     () => ((selectSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
   );
@@ -553,6 +552,28 @@ function MainViewer(props: MainViewerProps) {
     document.addEventListener("mousemove", changeSelectSecByMouse);
     document.addEventListener("mouseup", endSelectLocatorDrag, {once: true});
   });
+
+  // playhead
+  const getTimeAxisPlayheadTopBottom = useEvent(
+    () => [TINY_MARGIN * 2, TIME_CANVAS_HEIGHT + TINY_MARGIN * 2] as [number, number],
+  );
+  const getTrackPlayheadTopBottom: () => [number, number] = useEvent(() => {
+    const idChArr = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1]);
+    if (idChArr === undefined) return [0, 0];
+    const firstChImgRect = imgCanvasesRef.current[idChArr[0]].getBoundingClientRect();
+    const lastChImgRect =
+      imgCanvasesRef.current[idChArr[idChArr.length - 1]].getBoundingClientRect();
+    const splitViewTop = splitViewElem.current?.getBoundingClientRect()?.top ?? 0;
+    const mainViewBottom = mainViewerElem.current?.getBoundingClientRect().bottom ?? 0;
+    const top = firstChImgRect.top - splitViewTop + TINY_MARGIN * 2;
+    const bottom = Math.min(lastChImgRect.bottom + TINY_MARGIN * 2, mainViewBottom) - splitViewTop;
+    return [top, bottom];
+  });
+  const calcPlayheadPos = useEvent(() =>
+    player.isPlaying
+      ? ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current
+      : -Infinity,
+  );
 
   const trackSummaryArr = useMemo(
     () =>
@@ -801,15 +822,22 @@ function MainViewer(props: MainViewerProps) {
           right={rightPane}
           setCanvasWidth={setWidth}
         />
-        <Locator
+        <Locator // on time axis
           locatorStyle="playhead"
-          getHeight={getLocatorHeight}
+          getTopBottom={getTimeAxisPlayheadTopBottom}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}
           calcLocatorPos={calcPlayheadPos}
         />
+        <Locator // on track img
+          locatorStyle="playhead"
+          getTopBottom={getTrackPlayheadTopBottom}
+          getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+          calcLocatorPos={calcPlayheadPos}
+          zIndex={0}
+        />
         <Locator
           locatorStyle="selection"
-          getHeight={getLocatorHeight}
+          getTopBottom={getSelectLocatorTopBottom}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}
           calcLocatorPos={calcSelectLocatorPos}
           onMouseDown={onSelectLocatorMouseDown}
