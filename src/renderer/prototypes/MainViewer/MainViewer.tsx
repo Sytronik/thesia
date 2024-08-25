@@ -6,6 +6,7 @@ import React, {
   useState,
   useContext,
   useLayoutEffect,
+  MutableRefObject,
 } from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -62,6 +63,7 @@ type MainViewerProps = {
   maxTrackSec: number;
   blend: number;
   player: Player;
+  selectSecRef: MutableRefObject<number>;
   addDroppedFile: (e: DragEvent) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -82,6 +84,7 @@ function MainViewer(props: MainViewerProps) {
     maxTrackSec,
     blend,
     player,
+    selectSecRef,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -97,7 +100,7 @@ function MainViewer(props: MainViewerProps) {
 
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(100);
-  const selectSecRef = useRef<number>(0);
+  const prevSelectSecRef = useRef<number>(0);
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
 
@@ -473,19 +476,12 @@ function MainViewer(props: MainViewerProps) {
       sec = Math.min(Math.max((selectSecRef.current ?? 0) + jumpSec, 0), maxTrackSec);
       selectSecRef.current = sec;
     }
-    if (sec >= calcEndSec() || sec < startSecRef.current) {
-      let startSec = startSecRef.current + jumpSec;
-      if (sec >= calcEndSec() + jumpSec || sec < startSec)
-        startSec = sec - (0.5 * width) / pxPerSecRef.current;
-      updateLensParams({startSec}, false);
-    }
   });
   useHotkeys(
     "enter",
     async () => {
       if (player.isPlaying) await player.seek(0);
       else selectSecRef.current = 0;
-      if (startSecRef.current > 0) updateLensParams({startSec: 0});
     },
     {preventDefault: true},
   );
@@ -506,7 +502,21 @@ function MainViewer(props: MainViewerProps) {
       }
     } else {
       needFollowCursor.current = true;
+      const endSec = calcEndSec();
+      const diff = selectSecRef.current - prevSelectSecRef.current;
+      if (
+        diff !== 0 &&
+        (endSec < selectSecRef.current || startSecRef.current > selectSecRef.current)
+      ) {
+        let newStartSec = startSecRef.current + diff;
+        const newEndSec = endSec + diff;
+
+        if (newEndSec < selectSecRef.current || newStartSec > selectSecRef.current)
+          newStartSec = selectSecRef.current - width / pxPerSecRef.current / 2;
+        updateLensParams({startSec: newStartSec}, false);
+      }
     }
+    prevSelectSecRef.current = selectSecRef.current;
     getIdChArr().forEach((idChStr) => {
       ampCanvasesRef.current[idChStr]?.draw(ampMarkersAndLengthRef.current);
       freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);

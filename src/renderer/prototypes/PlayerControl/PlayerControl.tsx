@@ -1,6 +1,6 @@
-import React, {useEffect, useRef} from "react";
+import React, {MutableRefObject, useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
-import backend from "renderer/api";
+import BackendAPI from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
 import FloatRangeInput from "renderer/modules/FloatRangeInput";
 import styles from "./PlayerControl.module.scss";
@@ -10,8 +10,16 @@ import rewindBackIcon from "../../../../assets/buttons/rewind-back.svg";
 import rewindForwardIcon from "../../../../assets/buttons/rewind-forward.svg";
 import skipToBeginningIcon from "../../../../assets/buttons/skip-to-beginning.svg";
 import volumeIcon from "../../../../assets/buttons/volume.svg";
+import {PLAY_JUMP_SEC} from "../constants/tracks";
 
-function PlayerControl({player}: {player: Player}) {
+type PlayerControlProps = {
+  player: Player;
+  selectSecRef: MutableRefObject<number>;
+  maxTrackSec: number;
+};
+
+function PlayerControl(props: PlayerControlProps) {
+  const {player, selectSecRef, maxTrackSec} = props;
   const prevPosSecRef = useRef<number>(0);
   const posLabelElem = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<number | null>(null);
@@ -22,7 +30,7 @@ function PlayerControl({player}: {player: Player}) {
       posLabelElem.current !== null &&
       prevPosSecRef.current.toFixed(3) !== positionSec.toFixed(3)
     ) {
-      const positionLabel = backend.secondsToLabel(positionSec);
+      const positionLabel = BackendAPI.secondsToLabel(positionSec);
       const {childNodes: positionLabelNodes} = posLabelElem.current;
       if (positionLabelNodes.length > 0) positionLabelNodes.item(0).nodeValue = positionLabel;
       prevPosSecRef.current = positionSec;
@@ -40,13 +48,14 @@ function PlayerControl({player}: {player: Player}) {
   return (
     <div className={`flex-container-row ${styles.PlayerControl}`}>
       <div ref={posLabelElem} className={styles.positionLabel}>
-        {backend.secondsToLabel(player.positionSecRef.current ?? 0)}
+        {BackendAPI.secondsToLabel(player.positionSecRef.current ?? 0)}
       </div>
       <div className={styles.playerButton}>
         <button
           type="button"
           onClick={async () => {
-            await player.seek(0);
+            if (player.isPlaying) await player.seek(0);
+            else selectSecRef.current = 0;
           }}
         >
           <img src={skipToBeginningIcon} alt="skip to beginning icon" />
@@ -54,7 +63,9 @@ function PlayerControl({player}: {player: Player}) {
         <button
           type="button"
           onClick={async () => {
-            await player.seek(Math.max((player.positionSecRef.current ?? 0) - 5, 0));
+            if (player.isPlaying)
+              await player.seek(Math.max((player.positionSecRef.current ?? 0) - PLAY_JUMP_SEC, 0));
+            else selectSecRef.current = Math.max(selectSecRef.current - PLAY_JUMP_SEC, 0);
           }}
         >
           <img src={rewindBackIcon} alt="rewind back icon" />
@@ -62,6 +73,7 @@ function PlayerControl({player}: {player: Player}) {
         <button
           type="button"
           onClick={async () => {
+            player.seek(selectSecRef.current);
             player.togglePlay();
           }}
         >
@@ -79,7 +91,11 @@ function PlayerControl({player}: {player: Player}) {
         <button
           type="button"
           onClick={async () => {
-            await player.seek((player.positionSecRef.current ?? 0) + 5);
+            if (player.isPlaying)
+              await player.seek(
+                Math.min((player.positionSecRef.current ?? 0) + PLAY_JUMP_SEC, maxTrackSec),
+              );
+            else selectSecRef.current = Math.min(selectSecRef.current + PLAY_JUMP_SEC, maxTrackSec);
           }}
         >
           <img src={rewindForwardIcon} alt="rewind forward icon" />
@@ -98,7 +114,7 @@ function PlayerControl({player}: {player: Player}) {
         initialValue={0.0}
         doubleClickValue={0.0}
         onChangeValue={async (volume) => {
-          await backend.setVolumedB(volume);
+          await BackendAPI.setVolumedB(volume);
         }}
       />
     </div>
