@@ -408,16 +408,26 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
-  const changeSelectSecByMouse = useEvent((e: React.MouseEvent | MouseEvent) => {
-    const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
-    if (rect === null) return;
-    e.preventDefault();
-    if (trackIds.length === 0) return;
-    throttledSetSelectSec(startSecRef.current + (e.clientX - rect.left) / pxPerSecRef.current);
-  });
+  const changeLocatorByMouse = useEvent(
+    (
+      e: React.MouseEvent | MouseEvent,
+      isPlayhead: boolean = false,
+      allowOutside: boolean = true,
+    ) => {
+      const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
+      if (rect === null) return;
+      e.preventDefault();
+      if (trackIds.length === 0) return;
+      const cursorX = e.clientX - rect.left;
+      if (!allowOutside && (cursorX < 0 || cursorX >= width)) return;
+      const sec = startSecRef.current + cursorX / pxPerSecRef.current;
+      if (isPlayhead) player.seek(sec);
+      else throttledSetSelectSec(sec);
+    },
+  );
 
   const endSelectLocatorDrag = useEvent(() => {
-    document.removeEventListener("mousemove", changeSelectSecByMouse);
+    document.removeEventListener("mousemove", changeLocatorByMouse);
   });
 
   // Browsing Hotkeys
@@ -549,7 +559,7 @@ function MainViewer(props: MainViewerProps) {
     () => ((selectSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
   );
   const onSelectLocatorMouseDown = useEvent(() => {
-    document.addEventListener("mousemove", changeSelectSecByMouse);
+    document.addEventListener("mousemove", changeLocatorByMouse);
     document.addEventListener("mouseup", endSelectLocatorDrag, {once: true});
   });
 
@@ -812,7 +822,7 @@ function MainViewer(props: MainViewerProps) {
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
         onMouseMove={onMouseMove}
-        onClick={changeSelectSecByMouse}
+        onClick={(e) => changeLocatorByMouse(e, player.isPlaying, false)}
         role="presentation"
       >
         {isDropzoneActive && <div className={styles.dropzone} />}
