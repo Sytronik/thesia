@@ -673,11 +673,13 @@ function MainViewer(props: MainViewerProps) {
                   height={height}
                   ampRangeRef={ampRangeRef}
                   setAmpRange={setAmpRange}
+                  enableInteraction={blend < 1}
                 />
                 <FreqAxis
                   ref={registerFreqCanvas(idChStr)}
                   height={height}
                   setHzRange={throttledSetHzRange}
+                  enableInteraction={blend > 0}
                 />
               </div>
             );

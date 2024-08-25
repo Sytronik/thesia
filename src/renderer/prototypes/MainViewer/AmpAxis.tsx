@@ -17,6 +17,7 @@ type AmpAxisProps = {
   height: number;
   ampRangeRef: RefObject<[number, number]>;
   setAmpRange: (newRange: [number, number]) => void;
+  enableInteraction: boolean;
 };
 
 type AmpAxisCursorState = "positive" | "negative";
@@ -44,7 +45,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
-  const {height, ampRangeRef, setAmpRange} = props;
+  const {height, ampRangeRef, setAmpRange, enableInteraction} = props;
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
 
   const calcLimitedCursorRatio = (
@@ -145,26 +146,33 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     [onWheel, onClick],
   );
 
+  const axisCanvas = (
+    <AxisCanvas
+      ref={ref}
+      width={AMP_CANVAS_WIDTH}
+      height={height}
+      axisPadding={VERTICAL_AXIS_PADDING}
+      markerPos={AMP_MARKER_POS}
+      direction="V"
+      className="ampAxis"
+      endInclusive
+    />
+  );
   return (
     <div ref={wrapperDivElemCallback} className={styles.ampAxisWrapper}>
-      <Draggable
-        cursorStateInfos={cursorStateInfos}
-        calcCursorPos="y"
-        determineCursorStates={determineCursorStates}
-        calcDragAnchor={calcDragAnchor}
-        dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
-      >
-        <AxisCanvas
-          ref={ref}
-          width={AMP_CANVAS_WIDTH}
-          height={height}
-          axisPadding={VERTICAL_AXIS_PADDING}
-          markerPos={AMP_MARKER_POS}
-          direction="V"
-          className="ampAxis"
-          endInclusive
-        />
-      </Draggable>
+      {enableInteraction ? (
+        <Draggable
+          cursorStateInfos={cursorStateInfos}
+          calcCursorPos="y"
+          determineCursorStates={determineCursorStates}
+          calcDragAnchor={calcDragAnchor}
+          dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
+        >
+          {axisCanvas}
+        </Draggable>
+      ) : (
+        axisCanvas
+      )}
     </div>
   );
 });

@@ -13,6 +13,7 @@ import BackendAPI from "../../api";
 type FreqAxisProps = {
   height: number;
   setHzRange: (minHz: number, maxHz: number) => void;
+  enableInteraction: boolean;
 };
 
 type FreqAxisCursorState = "control-max-hz" | "shift-hz-range" | "control-min-hz";
@@ -57,7 +58,7 @@ const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rec
 };
 
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
-  const {height, setHzRange} = props;
+  const {height, setHzRange, enableInteraction} = props;
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
 
   const handleDragging = useEvent(
@@ -188,26 +189,33 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     [onWheel, onClick],
   );
 
+  const axisCanvas = (
+    <AxisCanvas
+      ref={ref}
+      width={FREQ_CANVAS_WIDTH}
+      height={height}
+      axisPadding={VERTICAL_AXIS_PADDING}
+      markerPos={FREQ_MARKER_POS}
+      direction="V"
+      className="freqAxis"
+      endInclusive
+    />
+  );
   return (
     <div ref={wrapperDivElemCallback}>
-      <Draggable
-        cursorStateInfos={cursorStateInfos}
-        calcCursorPos="y"
-        determineCursorStates={determineCursorStates}
-        calcDragAnchor={calcDragAnchor}
-        dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
-      >
-        <AxisCanvas
-          ref={ref}
-          width={FREQ_CANVAS_WIDTH}
-          height={height}
-          axisPadding={VERTICAL_AXIS_PADDING}
-          markerPos={FREQ_MARKER_POS}
-          direction="V"
-          className="freqAxis"
-          endInclusive
-        />
-      </Draggable>
+      {enableInteraction ? (
+        <Draggable
+          cursorStateInfos={cursorStateInfos}
+          calcCursorPos="y"
+          determineCursorStates={determineCursorStates}
+          calcDragAnchor={calcDragAnchor}
+          dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
+        >
+          {axisCanvas}
+        </Draggable>
+      ) : (
+        axisCanvas
+      )}
     </div>
   );
 });
