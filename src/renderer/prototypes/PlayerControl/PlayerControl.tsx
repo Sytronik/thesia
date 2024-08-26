@@ -18,7 +18,8 @@ function PlayerControl({player}: {player: Player}) {
   const requestRef = useRef<number | null>(null);
 
   const updatePosLabel = useEvent(() => {
-    const positionSec = player.positionSecRef.current ?? 0;
+    const positionSec =
+      (player.isPlaying ? player.positionSecRef.current : player.selectSecRef.current) ?? 0;
     if (
       posLabelElem.current !== null &&
       prevPosSecRef.current.toFixed(3) !== positionSec.toFixed(3)
