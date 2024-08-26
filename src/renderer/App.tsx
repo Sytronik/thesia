@@ -47,10 +47,6 @@ function MyApp() {
   const player = usePlayer(
     selectedTrackIds.length > 0 ? selectedTrackIds[selectedTrackIds.length - 1] : -1,
   );
-  const selectSecRef = useRef<number>(0);
-  const setSelectSec = useEvent((sec: number) => {
-    selectSecRef.current = Math.min(Math.max(sec, 0), maxTrackSec);
-  });
 
   const prevTrackIds = useRef<number[]>([]);
 
@@ -145,7 +141,7 @@ function MyApp() {
 
   return (
     <div id="App" className="App">
-      <PlayerControl player={player} selectSecRef={selectSecRef} setSelectSec={setSelectSec} />
+      <PlayerControl player={player} />
       <div className="flex-container-row flex-item-auto">
         <Control
           specSetting={specSetting}
@@ -169,8 +165,6 @@ function MyApp() {
             maxTrackSec={maxTrackSec}
             blend={blend}
             player={player}
-            selectSecRef={selectSecRef}
-            setSelectSec={setSelectSec}
             addDroppedFile={addDroppedFile}
             ignoreError={ignoreError}
             refreshTracks={refreshTracks}

@@ -6,7 +6,6 @@ import React, {
   useState,
   useContext,
   useLayoutEffect,
-  RefObject,
 } from "react";
 import {throttle} from "throttle-debounce";
 import useDropzone from "renderer/hooks/useDropzone";
@@ -64,8 +63,6 @@ type MainViewerProps = {
   maxTrackSec: number;
   blend: number;
   player: Player;
-  selectSecRef: RefObject<number>;
-  setSelectSec: (sec: number) => void;
   addDroppedFile: (e: DragEvent) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -86,8 +83,6 @@ function MainViewer(props: MainViewerProps) {
     maxTrackSec,
     blend,
     player,
-    selectSecRef,
-    setSelectSec,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -99,7 +94,7 @@ function MainViewer(props: MainViewerProps) {
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
-  const throttledSetSelectSec = throttle(1000 / 70, setSelectSec);
+  const throttledSetSelectSec = throttle(1000 / 70, player.setSelectSec);
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
@@ -469,14 +464,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // Player Hotkeys
-  useHotkeys(
-    "space",
-    () => {
-      if (!player.isPlaying) player.seek(selectSecRef.current ?? 0);
-      player.togglePlay();
-    },
-    {preventDefault: true},
-  );
+  useHotkeys("space", player.togglePlay, {preventDefault: true});
   useHotkeys("comma,period,shift+comma,shift+period", async (_, hotkey) => {
     let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
     if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
@@ -485,15 +473,15 @@ function MainViewer(props: MainViewerProps) {
       sec = (player.positionSecRef.current ?? 0) + jumpSec;
       await player.seek(sec);
     } else {
-      sec = (selectSecRef.current ?? 0) + jumpSec;
-      setSelectSec(sec);
+      sec = (player.selectSecRef.current ?? 0) + jumpSec;
+      player.setSelectSec(sec);
     }
   });
   useHotkeys(
     "enter",
     async () => {
       if (player.isPlaying) await player.seek(0);
-      else setSelectSec(0);
+      else player.setSelectSec(0);
     },
     {preventDefault: true},
   );
@@ -503,7 +491,7 @@ function MainViewer(props: MainViewerProps) {
   }, [scrollTop]);
 
   const drawCanvas = useEvent(async () => {
-    const selectSec = selectSecRef.current ?? 0;
+    const selectSec = player.selectSecRef.current ?? 0;
     if (player.isPlaying) {
       if (
         needFollowCursor.current &&
@@ -556,7 +544,7 @@ function MainViewer(props: MainViewerProps) {
     (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2,
   ]);
   const calcSelectLocatorPos = useEvent(
-    () => ((selectSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
+    () => ((player.selectSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
   );
   const onSelectLocatorMouseDown = useEvent(() => {
     document.addEventListener("mousemove", changeLocatorByMouse);

@@ -5,6 +5,8 @@ import BackendAPI from "renderer/api";
 export type Player = {
   isPlaying: boolean;
   positionSecRef: RefObject<number>;
+  selectSecRef: RefObject<number>;
+  setSelectSec: (sec: number) => void;
   togglePlay: () => Promise<void>;
   seek: (sec: number) => Promise<void>;
 };
@@ -14,6 +16,11 @@ function usePlayer(selectedTrackId: number) {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const positionSecRef = useRef<number>(0);
+  const selectSecRef = useRef<number>(0);
+  const setSelectSec = useEvent((sec: number) => {
+    selectSecRef.current = Math.min(Math.max(sec, 0), BackendAPI.getLongestTrackLengthSec());
+  });
+
   const requestRef = useRef<number>(0);
 
   const updatePlayerStates = useEvent(() => {
@@ -38,8 +45,12 @@ function usePlayer(selectedTrackId: number) {
   });
 
   const togglePlay = useEvent(async () => {
-    if (isPlaying) await BackendAPI.pausePlayer();
-    else await BackendAPI.resumePlayer();
+    if (isPlaying) {
+      await BackendAPI.pausePlayer();
+    } else {
+      BackendAPI.seekPlayer(selectSecRef.current);
+      await BackendAPI.resumePlayer();
+    }
   });
 
   useEffect(() => {
@@ -49,6 +60,8 @@ function usePlayer(selectedTrackId: number) {
   return {
     isPlaying,
     positionSecRef,
+    selectSecRef,
+    setSelectSec,
     togglePlay,
     seek: BackendAPI.seekPlayer,
   } as Player;

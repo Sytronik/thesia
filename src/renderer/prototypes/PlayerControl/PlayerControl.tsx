@@ -1,4 +1,4 @@
-import React, {RefObject, useEffect, useRef} from "react";
+import React, {useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
@@ -12,14 +12,7 @@ import skipToBeginningIcon from "../../../../assets/buttons/skip-to-beginning.sv
 import volumeIcon from "../../../../assets/buttons/volume.svg";
 import {PLAY_JUMP_SEC} from "../constants/tracks";
 
-type PlayerControlProps = {
-  player: Player;
-  selectSecRef: RefObject<number>;
-  setSelectSec: (sec: number) => void;
-};
-
-function PlayerControl(props: PlayerControlProps) {
-  const {player, selectSecRef, setSelectSec} = props;
+function PlayerControl({player}: {player: Player}) {
   const prevPosSecRef = useRef<number>(0);
   const posLabelElem = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<number | null>(null);
@@ -55,7 +48,7 @@ function PlayerControl(props: PlayerControlProps) {
           type="button"
           onClick={async () => {
             if (player.isPlaying) await player.seek(0);
-            else setSelectSec(0);
+            else player.setSelectSec(0);
           }}
         >
           <img src={skipToBeginningIcon} alt="skip to beginning icon" />
@@ -65,18 +58,12 @@ function PlayerControl(props: PlayerControlProps) {
           onClick={async () => {
             if (player.isPlaying)
               await player.seek((player.positionSecRef.current ?? 0) - PLAY_JUMP_SEC);
-            else setSelectSec((selectSecRef.current ?? 0) - PLAY_JUMP_SEC);
+            else player.setSelectSec((player.selectSecRef.current ?? 0) - PLAY_JUMP_SEC);
           }}
         >
           <img src={rewindBackIcon} alt="rewind back icon" />
         </button>
-        <button
-          type="button"
-          onClick={async () => {
-            if (!player.isPlaying) player.seek(selectSecRef.current ?? 0);
-            player.togglePlay();
-          }}
-        >
+        <button type="button" onClick={player.togglePlay}>
           <img
             src={playIcon}
             alt="play button icon"
@@ -93,7 +80,7 @@ function PlayerControl(props: PlayerControlProps) {
           onClick={async () => {
             if (player.isPlaying)
               await player.seek((player.positionSecRef.current ?? 0) + PLAY_JUMP_SEC);
-            else setSelectSec((selectSecRef.current ?? 0) + PLAY_JUMP_SEC);
+            else player.setSelectSec((player.selectSecRef.current ?? 0) + PLAY_JUMP_SEC);
           }}
         >
           <img src={rewindForwardIcon} alt="rewind forward icon" />
