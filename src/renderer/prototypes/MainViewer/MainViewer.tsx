@@ -413,6 +413,7 @@ function MainViewer(props: MainViewerProps) {
       if (rect === null) return;
       e.preventDefault();
       if (trackIds.length === 0) return;
+      if (e.clientY < rect.top) return; // when cursor is between Overview and TimeAxis
       const cursorX = e.clientX - rect.left;
       if (!allowOutside) {
         if (cursorX < 0 || cursorX >= width) return;
