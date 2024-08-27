@@ -419,9 +419,11 @@ function MainViewer(props: MainViewerProps) {
         if (cursorX < 0 || cursorX >= width) return;
         if (isPlayhead) {
           const lastTrackIdChArr = trackIdChMap.get(trackIds[trackIds.length - 1]);
-          const lastIdCh = lastTrackIdChArr[lastTrackIdChArr.length - 1];
-          const lastChImgRect = imgCanvasesRef.current[lastIdCh].getBoundingClientRect();
-          if (e.clientY > lastChImgRect.bottom) return;
+          if (lastTrackIdChArr) {
+            const lastIdCh = lastTrackIdChArr[lastTrackIdChArr.length - 1];
+            const lastChImgRect = imgCanvasesRef.current[lastIdCh].getBoundingClientRect();
+            if (e.clientY > lastChImgRect.bottom) return;
+          }
         }
       }
       const sec = startSecRef.current + cursorX / pxPerSecRef.current;
