@@ -414,7 +414,15 @@ function MainViewer(props: MainViewerProps) {
       e.preventDefault();
       if (trackIds.length === 0) return;
       const cursorX = e.clientX - rect.left;
-      if (!allowOutside && (cursorX < 0 || cursorX >= width)) return;
+      if (!allowOutside) {
+        if (cursorX < 0 || cursorX >= width) return;
+        if (isPlayhead) {
+          const lastTrackIdChArr = trackIdChMap.get(trackIds[trackIds.length - 1]);
+          const lastIdCh = lastTrackIdChArr[lastTrackIdChArr.length - 1];
+          const lastChImgRect = imgCanvasesRef.current[lastIdCh].getBoundingClientRect();
+          if (e.clientY > lastChImgRect.bottom) return;
+        }
+      }
       const sec = startSecRef.current + cursorX / pxPerSecRef.current;
       if (isPlayhead) player.seek(sec);
       else throttledSetSelectSec(sec);
@@ -645,9 +653,7 @@ function MainViewer(props: MainViewerProps) {
                 key={idChStr}
                 className={styles.chCanvases}
                 role="presentation"
-                onClick={(e) => {
-                  selectTrack(e, id, trackIds);
-                }}
+                onClick={(e) => selectTrack(e, id, trackIds)}
               >
                 <ImgCanvas
                   ref={registerImgCanvas(idChStr)}
