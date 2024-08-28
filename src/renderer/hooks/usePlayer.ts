@@ -55,7 +55,11 @@ function usePlayer(selectedTrackId: number) {
 
   useEffect(() => {
     setPlayingTrack(selectedTrackId);
-  }, [selectedTrackId, setPlayingTrack]);
+    if (selectedTrackId < 0) {
+      setSelectSec(0);
+      BackendAPI.seekPlayer(0);
+    }
+  }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
   return {
     isPlaying,
