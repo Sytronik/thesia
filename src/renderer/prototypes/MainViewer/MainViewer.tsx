@@ -574,8 +574,8 @@ function MainViewer(props: MainViewerProps) {
       imgCanvasesRef.current[idChArr[idChArr.length - 1]].getBoundingClientRect();
     const splitViewTop = splitViewElem.current?.getBoundingClientRect()?.top ?? 0;
     const mainViewBottom = mainViewerElem.current?.getBoundingClientRect().bottom ?? 0;
-    const top = firstChImgRect.top - splitViewTop + TINY_MARGIN * 2;
-    const bottom = Math.min(lastChImgRect.bottom + TINY_MARGIN * 2, mainViewBottom) - splitViewTop;
+    const top = firstChImgRect.top - splitViewTop;
+    const bottom = Math.min(lastChImgRect.bottom, mainViewBottom - TINY_MARGIN * 2) - splitViewTop;
     return [top, bottom];
   });
   const calcPlayheadPos = useEvent(() =>
@@ -683,6 +683,13 @@ function MainViewer(props: MainViewerProps) {
           })}
         </div>
       ))}
+      <Locator // on track img
+        locatorStyle="playhead"
+        getTopBottom={getTrackPlayheadTopBottom}
+        getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+        calcLocatorPos={calcPlayheadPos}
+        zIndex={0}
+      />
     </>
   );
 
@@ -836,13 +843,6 @@ function MainViewer(props: MainViewerProps) {
           getTopBottom={getTimeAxisPlayheadTopBottom}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}
           calcLocatorPos={calcPlayheadPos}
-        />
-        <Locator // on track img
-          locatorStyle="playhead"
-          getTopBottom={getTrackPlayheadTopBottom}
-          getBoundingLeftWidth={getLocatorBoundingLeftWidth}
-          calcLocatorPos={calcPlayheadPos}
-          zIndex={0}
         />
         <Locator
           locatorStyle="selection"

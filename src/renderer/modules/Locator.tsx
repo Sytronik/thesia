@@ -67,10 +67,9 @@ function Locator(props: LocatorProps) {
         if (locatorElem.current.style.visibility !== "") locatorElem.current.style.visibility = "";
         if (locatorElem.current.style.left !== `${locatorElemPos + left}px`)
           locatorElem.current.style.left = `${locatorElemPos + left}px`;
-        if (locatorElem.current.style.height !== `${lineBottom}px`)
-          locatorElem.current.style.height = `${lineBottom}px`;
-        locatorElem.current.width = 5 * devicePixelRatio;
-        locatorElem.current.height = lineBottom * devicePixelRatio;
+        const rect = locatorElem.current.getBoundingClientRect();
+        locatorElem.current.width = rect.width * devicePixelRatio;
+        locatorElem.current.height = rect.height * devicePixelRatio;
         const ctx = locatorCtxRef.current;
         if (ctx !== null) drawLine(ctx, drawPos, lineTop, lineBottom);
       }
