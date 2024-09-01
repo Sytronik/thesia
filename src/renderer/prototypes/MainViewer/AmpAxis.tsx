@@ -88,6 +88,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
   );
 
   const onWheel = useEvent((e: WheelEvent) => {
+    if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -100,6 +101,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
   });
 
   const onClick = useEvent((e: MouseEvent) => {
+    if (!enableInteraction) return;
     if (e.button === 0 && e.altKey && e.detail === 1) {
       e.preventDefault();
       setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE]));
@@ -151,7 +153,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     [onWheel, onClick],
   );
 
-  const onEndEditingTextInput = useEvent((v: string | null) => {
+  const onEndEditingFloatingInput = useEvent((v: string | null) => {
     if (v !== null) {
       const num = Number(v);
       if (!Number.isNaN(num)) {
@@ -166,7 +168,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     <>
       <FloatingUserInput
         value={ampRangeRef.current?.[1].toFixed(1) ?? "0.0"}
-        onEndEditing={onEndEditingTextInput}
+        onEndEditing={onEndEditingFloatingInput}
         hidden={floatingInputHidden}
         top={0}
         left={0}

@@ -120,6 +120,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   );
 
   const onWheel = useEvent((e: WheelEvent) => {
+    if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -133,6 +134,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   });
 
   const onClick = useEvent((e: MouseEvent) => {
+    if (!enableInteraction) return;
     e.preventDefault();
     if (e.button === 0 && e.detail === 2) {
       e.stopPropagation();
