@@ -1,8 +1,9 @@
-import React, {RefObject, forwardRef, useCallback, useMemo, useRef} from "react";
+import React, {RefObject, forwardRef, useCallback, useMemo, useRef, useState} from "react";
 import AxisCanvas, {getAxisHeight} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
+import FloatingUserInput from "renderer/modules/FloatingUserInput";
 import {
   AMP_CANVAS_WIDTH,
   AMP_MARKER_POS,
@@ -47,6 +48,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
   const {height, ampRangeRef, setAmpRange, enableInteraction} = props;
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
+  const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
   const calcLimitedCursorRatio = (
     cursorState: AmpAxisCursorState,
@@ -98,10 +100,13 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
   });
 
   const onClick = useEvent((e: MouseEvent) => {
-    e.preventDefault();
-    if (e.button === 0 && e.detail === 2) {
-      e.stopPropagation();
+    if (e.button === 0 && e.altKey && e.detail === 1) {
+      e.preventDefault();
       setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE]));
+    }
+    if (e.button === 0 && e.detail === 2) {
+      e.preventDefault();
+      setFloatingInputHidden(false);
     }
   });
 
@@ -146,20 +151,49 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     [onWheel, onClick],
   );
 
+  const onEndEditingTextInput = useEvent((v: string | null) => {
+    if (v !== null) {
+      const num = Number(v);
+      if (!Number.isNaN(num)) {
+        const absValue = Math.abs(num);
+        if (absValue > MIN_ABS_AMP_RANGE) setAmpRange(clampAmpRange([-absValue, absValue]));
+      }
+    }
+    setFloatingInputHidden(true);
+  });
+
   const axisCanvas = (
-    <AxisCanvas
-      ref={ref}
-      width={AMP_CANVAS_WIDTH}
-      height={height}
-      axisPadding={VERTICAL_AXIS_PADDING}
-      markerPos={AMP_MARKER_POS}
-      direction="V"
-      className="ampAxis"
-      endInclusive
-    />
+    <>
+      <FloatingUserInput
+        value={ampRangeRef.current?.[1].toFixed(1) ?? "0.0"}
+        onEndEditing={onEndEditingTextInput}
+        hidden={floatingInputHidden}
+        top={0}
+        left={0}
+      />
+      <AxisCanvas
+        ref={ref}
+        width={AMP_CANVAS_WIDTH}
+        height={height}
+        axisPadding={VERTICAL_AXIS_PADDING}
+        markerPos={AMP_MARKER_POS}
+        direction="V"
+        className="ampAxis"
+        endInclusive
+      />
+    </>
   );
   return (
-    <div ref={wrapperDivElemCallback} className={styles.ampAxisWrapper}>
+    <div
+      ref={wrapperDivElemCallback}
+      className={styles.ampAxisWrapper}
+      role="presentation"
+      onMouseDown={(e) => {
+        if ((e.button === 0 && e.detail === 1) || e.button !== 0) {
+          setFloatingInputHidden(true);
+        }
+      }}
+    >
       {enableInteraction ? (
         <Draggable
           cursorStateInfos={cursorStateInfos}

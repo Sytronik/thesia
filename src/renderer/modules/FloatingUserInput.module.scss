@@ -1,0 +1,15 @@
+@import "../styles/index.scss";
+
+.floatingInput {
+  @include input-text-basic($spacer-1, 2em);
+  position: absolute;
+  z-index: 255;
+
+  border: 0px;
+  font-size: $body-font-size-xsmall;
+
+  min-width: 0px;
+  margin: 0 ($spacer-2 - 2px) 0 $spacer-2;
+
+  padding: 0 0 0 $em-spacer-2;
+}
