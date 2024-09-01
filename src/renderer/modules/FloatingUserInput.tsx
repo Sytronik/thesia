@@ -5,12 +5,15 @@ type FloatingUserInputProps = {
   value: string;
   onEndEditing: (v: string | null) => void;
   hidden: boolean;
-  top: number;
-  left: number;
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+  width?: string;
 };
 
 function FloatingUserInput(props: FloatingUserInputProps) {
-  const {value, onEndEditing: endEditingCallback, hidden, top, left} = props;
+  const {value, onEndEditing: endEditingCallback, hidden, top, right, bottom, left, width} = props;
   const changedRef = useRef<boolean>(false);
   const inputElem = useRef<HTMLInputElement>(null);
 
@@ -29,7 +32,7 @@ function FloatingUserInput(props: FloatingUserInputProps) {
       ref={inputElem}
       hidden={hidden}
       className={styles.floatingInput}
-      style={{top, left}}
+      style={{top, right, bottom, left, width}}
       defaultValue={value}
       tabIndex={-1}
       onMouseDown={(e) => {

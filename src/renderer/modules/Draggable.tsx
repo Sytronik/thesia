@@ -13,6 +13,7 @@ type DraggingProps<T extends string, U> = {
   determineCursorStates: (cursorPos: number, rect: DOMRect) => T;
   calcDragAnchor: (cursorState: T, cursorPos: number, rect: DOMRect) => U;
   dragAnchorDefault: U;
+  onCursorStateChange?: (cursorState: T) => void;
   children: ReactNode;
 };
 
@@ -35,6 +36,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     determineCursorStates,
     calcDragAnchor,
     dragAnchorDefault,
+    onCursorStateChange: cursorStateChangeCallback,
     children,
   } = props;
   const dragAnchorRef = useRef<U>(dragAnchorDefault);
@@ -52,6 +54,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     const rect = divElem.current.getBoundingClientRect();
     const cursorPos = calcCursorPosFunc(e, rect);
     cursorStateRef.current = determineCursorStates(cursorPos, rect);
+    if (cursorStateChangeCallback !== undefined) cursorStateChangeCallback(cursorStateRef.current);
   };
 
   const onDragging = useEvent((e: React.MouseEvent | MouseEvent) => {

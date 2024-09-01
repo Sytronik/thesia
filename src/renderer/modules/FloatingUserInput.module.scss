@@ -8,8 +8,8 @@
   border: 0px;
   font-size: $body-font-size-xsmall;
 
-  min-width: 0px;
-  margin: 0 ($spacer-2 - 2px) 0 $spacer-2;
+  min-width: 2em;
+  margin: 0 ($spacer-2 - 2px) 2px ($spacer-2 - 2px);
 
   padding: 0 0 0 $em-spacer-2;
 }

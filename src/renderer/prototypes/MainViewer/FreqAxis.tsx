@@ -1,7 +1,8 @@
-import React, {forwardRef, useCallback, useMemo, useRef} from "react";
+import React, {forwardRef, useCallback, useMemo, useRef, useState} from "react";
 import AxisCanvas, {getAxisHeight, getAxisPos} from "renderer/modules/AxisCanvas";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
+import FloatingUserInput from "renderer/modules/FloatingUserInput";
 import {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
@@ -60,6 +61,9 @@ const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rec
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   const {height, setHzRange, enableInteraction} = props;
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
+  const [minHzInputHidden, setMinHzInputHidden] = useState(true);
+  const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
+  const cursorStateRef = useRef<FreqAxisCursorState>("shift-hz-range");
 
   const handleDragging = useEvent(
     (
@@ -135,10 +139,14 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
 
   const onClick = useEvent((e: MouseEvent) => {
     if (!enableInteraction) return;
-    e.preventDefault();
-    if (e.button === 0 && e.detail === 2) {
-      e.stopPropagation();
+    if (e.button === 0 && e.altKey && e.detail === 1) {
+      e.preventDefault();
       setTimeout(() => setHzRange(0, Infinity));
+    }
+    if (e.button === 0 && e.detail === 2) {
+      e.preventDefault();
+      if (cursorStateRef.current === "control-max-hz") setMaxHzInputHidden(false);
+      if (cursorStateRef.current === "control-min-hz") setMinHzInputHidden(false);
     }
   });
 
@@ -191,20 +199,72 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     [onWheel, onClick],
   );
 
+  const hzRangeLabel = BackendAPI.getHzRange().map((hz) => BackendAPI.hzToLabel(hz));
+
+  const onCursorStateChange = useEvent((cursorState) => {
+    cursorStateRef.current = cursorState;
+  });
+
+  const onEndEditingFloatingInput = (v: string | null, idx: number) => {
+    if (v !== null) {
+      const num = Number(v);
+      if (!Number.isNaN(num)) {
+        const hzRange = BackendAPI.getHzRange();
+        const hz = idx === 0 ? clampMinHz(num, hzRange[1]) : clampMaxHz(num, hzRange[0]);
+        hzRange[idx] = hz;
+
+        setHzRange(hzRange[0], hzRange[1]);
+      }
+    }
+    if (idx === 0) setMinHzInputHidden(true);
+    else setMaxHzInputHidden(true);
+  };
+  const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
+  const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
+
   const axisCanvas = (
-    <AxisCanvas
-      ref={ref}
-      width={FREQ_CANVAS_WIDTH}
-      height={height}
-      axisPadding={VERTICAL_AXIS_PADDING}
-      markerPos={FREQ_MARKER_POS}
-      direction="V"
-      className="freqAxis"
-      endInclusive
-    />
+    <>
+      <FloatingUserInput
+        value={hzRangeLabel[0]}
+        onEndEditing={onEndEditingMinHzInput}
+        hidden={minHzInputHidden}
+        bottom="0%"
+        left="0px"
+        width="3.3em"
+      />
+      <FloatingUserInput
+        value={hzRangeLabel[1]}
+        onEndEditing={onEndEditingMaxHzInput}
+        hidden={maxHzInputHidden}
+        top="0%"
+        left="0px"
+        width="3.3em"
+      />
+      <AxisCanvas
+        ref={ref}
+        width={FREQ_CANVAS_WIDTH}
+        height={height}
+        axisPadding={VERTICAL_AXIS_PADDING}
+        markerPos={FREQ_MARKER_POS}
+        direction="V"
+        className="freqAxis"
+        endInclusive
+      />
+    </>
   );
+
   return (
-    <div ref={wrapperDivElemCallback}>
+    <div
+      ref={wrapperDivElemCallback}
+      style={{position: "relative"}}
+      role="presentation"
+      onMouseDown={(e) => {
+        if ((e.button === 0 && e.detail === 1) || e.button !== 0) {
+          setMinHzInputHidden(true);
+          setMaxHzInputHidden(true);
+        }
+      }}
+    >
       {enableInteraction ? (
         <Draggable
           cursorStateInfos={cursorStateInfos}
@@ -212,6 +272,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
           determineCursorStates={determineCursorStates}
           calcDragAnchor={calcDragAnchor}
           dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
+          onCursorStateChange={onCursorStateChange}
         >
           {axisCanvas}
         </Draggable>
