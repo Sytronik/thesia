@@ -278,6 +278,11 @@ fn seconds_to_label(sec: f64) -> String {
 }
 
 #[napi]
+fn hz_to_label(hz: f64) -> String {
+    convert_hz_to_label(hz as f32)
+}
+
+#[napi]
 async fn get_time_axis_markers(
     start_sec: f64,
     end_sec: f64,

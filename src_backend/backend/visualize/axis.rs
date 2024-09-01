@@ -173,7 +173,7 @@ fn calc_freq_axis_markers(
     }
 
     let mut result = Vec::with_capacity(max_num_ticks as usize);
-    result.push((1., freq_to_str(hz_range.0)));
+    result.push((1., convert_hz_to_label(hz_range.0)));
 
     if max_num_ticks >= 3 {
         match freq_scale {
@@ -192,7 +192,10 @@ fn calc_freq_axis_markers(
                         let max_minus_band = 1000. - fine_band * 0.66;
                         while freq < max_minus_band {
                             if freq > hz_range.0 + fine_band * 0.66 {
-                                result.push((mel_to_pos(mel::from_hz(freq)), freq_to_str(freq)));
+                                result.push((
+                                    mel_to_pos(mel::from_hz(freq)),
+                                    convert_hz_to_label(freq),
+                                ));
                             }
                             freq += band;
                         }
@@ -200,7 +203,7 @@ fn calc_freq_axis_markers(
                     if hz_range.0 > fine_band * 0.33 && 1000. <= hz_range.0 + fine_band * 0.66 {
                         result.pop();
                     }
-                    result.push((mel_to_pos(mel_1k), freq_to_str(1000.)));
+                    result.push((mel_to_pos(mel_1k), convert_hz_to_label(1000.)));
                 }
                 if max_num_ticks as usize - result.len() - 1 >= 1 {
                     // divide [1kHz, max] region
@@ -211,7 +214,7 @@ fn calc_freq_axis_markers(
                     let max_mel_minus_band = max_mel - fine_band_mel * 0.66;
                     while mel_f < max_mel_minus_band {
                         if mel_f > min_mel + fine_band_mel * 0.66 {
-                            result.push((mel_to_pos(mel_f), freq_to_str(freq)));
+                            result.push((mel_to_pos(mel_f), convert_hz_to_label(freq)));
                         }
                         freq *= ratio_step as f32;
                         mel_f = mel::from_hz(freq);
@@ -225,7 +228,7 @@ fn calc_freq_axis_markers(
                 let mut freq = band;
                 while freq < hz_range.1 - fine_band * 0.66 {
                     if freq > hz_range.0 + fine_band * 0.66 {
-                        result.push(((hz_range.1 - freq) / hz_interval, freq_to_str(freq)));
+                        result.push(((hz_range.1 - freq) / hz_interval, convert_hz_to_label(freq)));
                     }
                     freq += band;
                 }
@@ -233,7 +236,7 @@ fn calc_freq_axis_markers(
         }
     }
 
-    result.push((0., freq_to_str(hz_range.1)));
+    result.push((0., convert_hz_to_label(hz_range.1)));
     result
 }
 
@@ -345,7 +348,7 @@ fn omit_labels_from_linear_axis<Y>(
     })
 }
 
-fn freq_to_str(freq: f32) -> String {
+pub fn convert_hz_to_label(freq: f32) -> String {
     let freq = freq.round().max(0.);
     let freq_int = freq as usize;
     if freq_int >= 1000 {

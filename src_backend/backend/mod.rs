@@ -19,7 +19,8 @@ pub use dynamics::{DeciBel, GuardClippingMode, NormalizeTarget};
 pub use spectrogram::SpecSetting;
 pub use utils::Pad;
 pub use visualize::{
-    convert_sec_to_label, CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer,
+    convert_hz_to_label, convert_sec_to_label, CalcAxisMarkers, DrawOption, DrawOptionForWav,
+    TrackDrawer,
 };
 
 pub type IdChVec = Vec<(usize, usize)>;
