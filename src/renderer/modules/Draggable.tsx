@@ -86,6 +86,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
     (e.target as HTMLDivElement).parentElement?.focus();
     if (!divElem.current) return;
     e.preventDefault();
@@ -112,8 +113,8 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   };
 
   const onMouseMove = (e: React.MouseEvent) => {
+    if (e.buttons !== 0) return;
     e.preventDefault();
-    if (e.buttons === 1) return;
     updateCursorState(e);
 
     cursorStateInfos.forEach((value, key) => {
