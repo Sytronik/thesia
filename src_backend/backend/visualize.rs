@@ -4,7 +4,9 @@ mod drawing_wav;
 mod img_slice;
 mod resample;
 
-pub use axis::{convert_hz_to_label, convert_sec_to_label, CalcAxisMarkers};
+pub use axis::{
+    convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, CalcAxisMarkers,
+};
 pub use drawing::{
     blend_img_to, convert_spec_to_grey, get_colormap_rgb, make_opaque, DrawOption, ImageKind,
     TrackDrawer,

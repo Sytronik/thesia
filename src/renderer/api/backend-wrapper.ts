@@ -153,6 +153,7 @@ export const {
   freqHzToPos,
   secondsToLabel,
   hzToLabel,
+  freqLabelToHz,
   getMaxdB,
   getMindB,
   getMaxTrackHz,

@@ -46,6 +46,7 @@ export declare function freqPosToHz(y: number, height: number, hzRange: [number,
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
 export declare function secondsToLabel(sec: number): string
 export declare function hzToLabel(hz: number): string
+export declare function freqLabelToHz(label: string): number
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
 export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
 export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>

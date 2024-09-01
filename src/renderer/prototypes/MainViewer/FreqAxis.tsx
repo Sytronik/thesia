@@ -207,12 +207,10 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
 
   const onEndEditingFloatingInput = (v: string | null, idx: number) => {
     if (v !== null) {
-      const num = Number(v);
-      if (!Number.isNaN(num)) {
+      const hz = BackendAPI.freqLabelToHz(v);
+      if (!Number.isNaN(hz)) {
         const hzRange = BackendAPI.getHzRange();
-        const hz = idx === 0 ? clampMinHz(num, hzRange[1]) : clampMaxHz(num, hzRange[0]);
-        hzRange[idx] = hz;
-
+        hzRange[idx] = idx === 0 ? clampMinHz(hz, hzRange[1]) : clampMaxHz(hz, hzRange[0]);
         setHzRange(hzRange[0], hzRange[1]);
       }
     }

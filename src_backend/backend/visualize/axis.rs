@@ -1,3 +1,6 @@
+use std::num::ParseFloatError;
+use std::str::FromStr;
+
 use approx::abs_diff_ne;
 use chrono::naive::NaiveTime;
 use num_traits::Zero;
@@ -364,6 +367,24 @@ pub fn convert_hz_to_label(freq: f32) -> String {
     } else {
         format!("{}", freq_int)
     }
+}
+
+pub fn convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Err> {
+    let label = label.trim();
+    if label.starts_with("k") || label.starts_with("-k") || label.starts_with(".") {
+        return "k".parse::<f32>(); // Error
+    }
+    let parsed = if let Some(khz) = label.strip_suffix("k") {
+        khz.parse::<f32>().and_then(|x| Ok(x * 1000.))
+    } else if label.contains("k") && !label.contains(".") {
+        label
+            .replace("k", ".")
+            .parse::<f32>()
+            .and_then(|x| Ok(x * 1000.))
+    } else {
+        label.parse::<f32>()
+    };
+    parsed.and_then(|x| if x >= 0. { Ok(x) } else { "err".parse() })
 }
 
 fn format_ticklabel(value: f32, unit_exponent: Option<i32>) -> String {

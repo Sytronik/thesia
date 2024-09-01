@@ -283,6 +283,11 @@ fn hz_to_label(hz: f64) -> String {
 }
 
 #[napi]
+fn freq_label_to_hz(label: String) -> f64 {
+    convert_freq_label_to_hz(&label).unwrap_or(f32::NAN) as f64
+}
+
+#[napi]
 async fn get_time_axis_markers(
     start_sec: f64,
     end_sec: f64,
