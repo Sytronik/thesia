@@ -24,6 +24,7 @@ function Locator(props: LocatorProps) {
 
   const lineWidth = locatorStyle === "selection" ? 2 : 1;
   const lineOffset = lineWidth % 2 === 0 ? 0 : 0.5;
+  const moveElem = onMouseDown !== undefined;
 
   const drawLine = useEvent(
     (ctx: CanvasRenderingContext2D, drawPos: number, lineTop: number, lineBottom: number) => {
@@ -61,7 +62,7 @@ function Locator(props: LocatorProps) {
         if (locatorElem.current.style.visibility !== "hidden")
           locatorElem.current.style.visibility = "hidden";
       } else {
-        const locatorElemPos = Math.floor(locatorPos) - 1;
+        const locatorElemPos = moveElem ? Math.floor(locatorPos) - 1 : 0;
         const drawPos = locatorPos - locatorElemPos;
         const [lineTop, lineBottom] = getTopBottom();
         if (locatorElem.current.style.visibility !== "") locatorElem.current.style.visibility = "";
@@ -85,9 +86,9 @@ function Locator(props: LocatorProps) {
   return (
     <canvas
       ref={locatorElemCallback}
-      className={styles.locator}
+      className={onMouseDown ? styles.interactiveLocator : styles.nonInteractiveLocator}
       onMouseDown={onMouseDown}
-      style={onMouseDown ? {cursor: "col-resize", zIndex} : {pointerEvents: "none", zIndex}}
+      style={{zIndex}}
     />
   );
 }
