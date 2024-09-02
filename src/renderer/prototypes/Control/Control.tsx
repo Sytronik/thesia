@@ -57,13 +57,12 @@ function Control(props: ControlProps) {
     setBlend(Number.parseFloat(e.target.value));
   };
 
-  const onBlendDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
-    if (e.button === 0) {
-      if (e.detail === 2) {
-        e.preventDefault();
-        setBlend(0.5);
-        (e.target as HTMLInputElement).value = "0.5";
-      }
+  const onBlendClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (e.button !== 0) return;
+    if (e.detail === 2 || (e.detail === 1 && e.altKey)) {
+      e.preventDefault();
+      setBlend(0.5);
+      (e.target as HTMLInputElement).value = "0.5";
     }
   };
 
@@ -218,7 +217,7 @@ function Control(props: ControlProps) {
                 step="0.01"
                 defaultValue={blend}
                 onChange={onBlendChange}
-                onClick={onBlendDoubleClick}
+                onClick={onBlendClick}
                 list="blend-detents"
               />
               <datalist id="blend-detents">

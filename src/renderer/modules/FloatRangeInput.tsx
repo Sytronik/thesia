@@ -74,12 +74,15 @@ const FloatRangeInput = forwardRef(
       updateStyle();
     };
 
-    const onRangeDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
-      if (e.button === 0 && e.detail === 2 && doubleClickValue !== null) {
-        if (rangeElem.current) rangeElem.current.value = doubleClickValue.toFixed(precision);
-        if (textElem.current) textElem.current.value = doubleClickValue.toFixed(precision);
-        onChangeValue(doubleClickValue);
-        updateStyle();
+    const onRangeClick = (e: React.MouseEvent<HTMLInputElement>) => {
+      if (e.button !== 0) return;
+      if (e.detail === 2 || (e.detail === 1 && e.altKey)) {
+        if (doubleClickValue !== null) {
+          if (rangeElem.current) rangeElem.current.value = doubleClickValue.toFixed(precision);
+          if (textElem.current) textElem.current.value = doubleClickValue.toFixed(precision);
+          onChangeValue(doubleClickValue);
+          updateStyle();
+        }
       }
     };
 
@@ -135,7 +138,7 @@ const FloatRangeInput = forwardRef(
           defaultValue={initialValue}
           disabled={disabled}
           onChange={onRangeChange}
-          onClick={onRangeDoubleClick}
+          onClick={onRangeClick}
           list={`${id}Detents`}
         />
         <datalist id={`${id}Detents`}>
