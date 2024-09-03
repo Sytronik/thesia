@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
+import {showAxisContextMenu} from "renderer/lib/electron-sender";
 import {
   AXIS_STYLE,
   LABEL_HEIGHT_ADJUSTMENT,
@@ -33,7 +34,7 @@ type AxisCanvasProps = {
   axisPadding: number;
   markerPos: MarkerPosition;
   direction: "H" | "V"; // stands for horizontal and vertical
-  className: "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
+  className: AxisKind;
   endInclusive?: boolean;
 
   // after resized and before new markers are calculated, old markers should be shifted or zoomed?
@@ -161,6 +162,10 @@ const AxisCanvas = forwardRef(
         className={`AxisCanvas ${styles[className]}`}
         ref={canvasElemCallback}
         style={{width, height}}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          showAxisContextMenu(className);
+        }}
       />
     );
   },

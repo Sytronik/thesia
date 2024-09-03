@@ -51,3 +51,5 @@ type FloatRangeInputElement = {
 type TrackInfoElement = {
   getBoundingClientRect: () => DOMRect | null;
 };
+
+type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";

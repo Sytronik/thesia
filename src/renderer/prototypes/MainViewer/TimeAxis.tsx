@@ -10,6 +10,7 @@ type TimeAxisProps = {
   startSecRef: RefObject<number>;
   pxPerSecRef: RefObject<number>;
   moveLens: (sec: number, dragAnchor: number) => void;
+  setCanvasIsFit: (canvasIsFit: boolean) => void;
 };
 type TimeAxisCursorState = "drag";
 type TimeAxisDragAnchor = {
@@ -20,7 +21,7 @@ const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
 const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
-  const {width, shiftWhenResize, startSecRef, pxPerSecRef, moveLens} = props;
+  const {width, shiftWhenResize, startSecRef, pxPerSecRef, moveLens, setCanvasIsFit} = props;
   const calcDragAnchor = useEvent(
     (cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
@@ -55,24 +56,31 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
   );
 
   return (
-    <Draggable
-      cursorStateInfos={cursorStateInfos}
-      calcCursorPos="x"
-      determineCursorStates={determineCursorStates}
-      calcDragAnchor={calcDragAnchor}
-      dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
+    <div
+      role="presentation"
+      onClick={(e) => {
+        if (e.altKey && e.button === 0 && e.detail === 1) setCanvasIsFit(true);
+      }}
     >
-      <AxisCanvas
-        ref={ref}
-        width={width}
-        height={TIME_CANVAS_HEIGHT}
-        axisPadding={HORIZONTAL_AXIS_PADDING}
-        markerPos={TIME_MARKER_POS}
-        direction="H"
-        className="timeRuler"
-        shiftWhenResize={shiftWhenResize}
-      />
-    </Draggable>
+      <Draggable
+        cursorStateInfos={cursorStateInfos}
+        calcCursorPos="x"
+        determineCursorStates={determineCursorStates}
+        calcDragAnchor={calcDragAnchor}
+        dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
+      >
+        <AxisCanvas
+          ref={ref}
+          width={width}
+          height={TIME_CANVAS_HEIGHT}
+          axisPadding={HORIZONTAL_AXIS_PADDING}
+          markerPos={TIME_MARKER_POS}
+          direction="H"
+          className="timeRuler"
+          shiftWhenResize={shiftWhenResize}
+        />
+      </Draggable>
+    </div>
   );
 });
 

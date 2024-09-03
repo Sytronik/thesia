@@ -1,5 +1,5 @@
 import React, {forwardRef, useImperativeHandle, useRef} from "react";
-import {showElectronContextMenu} from "renderer/lib/electron-sender";
+import {showTrackContextMenu} from "renderer/lib/electron-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
@@ -14,11 +14,6 @@ type TrackInfoProps = {
   imgHeight: number;
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
-};
-
-const showTrackContextMenu = (e: React.MouseEvent, trackId: number) => {
-  e.preventDefault();
-  showElectronContextMenu(trackId);
 };
 
 const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
@@ -52,7 +47,10 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
       onClick={onClick}
-      onContextMenu={(e) => showTrackContextMenu(e, trackId)} // TODO: if (!isSelected), show highlight instead
+      onContextMenu={(e) => {
+        e.preventDefault();
+        showTrackContextMenu(trackId);
+      }} // TODO: if (!isSelected), show highlight instead
       style={{
         margin: `${VERTICAL_AXIS_PADDING}px 0`,
         height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,

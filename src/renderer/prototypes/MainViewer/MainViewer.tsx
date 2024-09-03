@@ -19,6 +19,7 @@ import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
 import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import Locator from "renderer/modules/Locator";
+import {ipcRenderer} from "electron";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -409,6 +410,7 @@ function MainViewer(props: MainViewerProps) {
       isPlayhead: boolean = false,
       allowOutside: boolean = true,
     ) => {
+      if (e.altKey) return;
       const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
       e.preventDefault();
@@ -496,6 +498,29 @@ function MainViewer(props: MainViewerProps) {
     },
     {preventDefault: true},
   );
+
+  const resetAxisRange = useEvent((_, axisKind: AxisKind) => {
+    switch (axisKind) {
+      case "freqAxis":
+        setTimeout(() => throttledSetHzRange(0, Infinity));
+        break;
+      case "ampAxis":
+        setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE]));
+        break;
+      case "timeRuler":
+        setCanvasIsFit(true);
+        break;
+      default:
+        break;
+    }
+  });
+
+  useEffect(() => {
+    ipcRenderer.on("reset-axis-range", resetAxisRange);
+    return () => {
+      ipcRenderer.removeAllListeners("reset-axis-range");
+    };
+  });
 
   useEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
@@ -635,6 +660,7 @@ function MainViewer(props: MainViewerProps) {
           startSecRef={startSecRef}
           pxPerSecRef={pxPerSecRef}
           moveLens={moveLens}
+          setCanvasIsFit={setCanvasIsFit}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>

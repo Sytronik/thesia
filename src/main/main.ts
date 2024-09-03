@@ -84,6 +84,19 @@ ipcMain.on("show-track-context-menu", (event, trackId) => {
   menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
 });
 
+ipcMain.on("show-axis-context-menu", (event, axisKind) => {
+  const template = [
+    {
+      label: "Reset Range",
+      click: () => {
+        event.sender.send("reset-axis-range", axisKind);
+      },
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
+});
+
 if (process.env.NODE_ENV === "production") {
   const sourceMapSupport = require("source-map-support");
   sourceMapSupport.install();
