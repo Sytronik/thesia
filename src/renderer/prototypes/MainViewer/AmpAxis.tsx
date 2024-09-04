@@ -18,6 +18,7 @@ type AmpAxisProps = {
   height: number;
   ampRangeRef: RefObject<[number, number]>;
   setAmpRange: (newRange: [number, number]) => void;
+  resetAmpRange: () => void;
   enableInteraction: boolean;
 };
 
@@ -46,7 +47,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
-  const {height, ampRangeRef, setAmpRange, enableInteraction} = props;
+  const {height, ampRangeRef, setAmpRange, resetAmpRange, enableInteraction} = props;
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
@@ -104,7 +105,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     if (!enableInteraction) return;
     if (e.button === 0 && e.altKey && e.detail === 1) {
       e.preventDefault();
-      setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE]));
+      resetAmpRange();
     }
     if (e.button === 0 && e.detail === 2) {
       e.preventDefault();

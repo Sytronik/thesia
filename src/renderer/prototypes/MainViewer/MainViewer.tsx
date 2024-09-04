@@ -499,16 +499,19 @@ function MainViewer(props: MainViewerProps) {
     {preventDefault: true},
   );
 
+  const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
+  const resetAmpRange = useEvent(() => setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE])));
+  const resetTimeAxis = useEvent(() => setCanvasIsFit(true));
   const resetAxisRange = useEvent((_, axisKind: AxisKind) => {
     switch (axisKind) {
       case "freqAxis":
-        setTimeout(() => throttledSetHzRange(0, Infinity));
+        resetHzRange();
         break;
       case "ampAxis":
-        setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE]));
+        resetAmpRange();
         break;
       case "timeRuler":
-        setCanvasIsFit(true);
+        resetTimeAxis();
         break;
       default:
         break;
@@ -660,7 +663,7 @@ function MainViewer(props: MainViewerProps) {
           startSecRef={startSecRef}
           pxPerSecRef={pxPerSecRef}
           moveLens={moveLens}
-          setCanvasIsFit={setCanvasIsFit}
+          resetTimeAxis={resetTimeAxis}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
@@ -696,12 +699,14 @@ function MainViewer(props: MainViewerProps) {
                   height={height}
                   ampRangeRef={ampRangeRef}
                   setAmpRange={setAmpRange}
+                  resetAmpRange={resetAmpRange}
                   enableInteraction={blend < 1}
                 />
                 <FreqAxis
                   ref={registerFreqCanvas(idChStr)}
                   height={height}
                   setHzRange={throttledSetHzRange}
+                  resetHzRange={resetHzRange}
                   enableInteraction={blend > 0}
                 />
               </div>

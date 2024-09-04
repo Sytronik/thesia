@@ -14,6 +14,7 @@ import BackendAPI from "../../api";
 type FreqAxisProps = {
   height: number;
   setHzRange: (minHz: number, maxHz: number) => void;
+  resetHzRange: () => void;
   enableInteraction: boolean;
 };
 
@@ -59,7 +60,7 @@ const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rec
 };
 
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
-  const {height, setHzRange, enableInteraction} = props;
+  const {height, setHzRange, resetHzRange, enableInteraction} = props;
   const wrapperDivElem = useRef<HTMLDivElement | null>(null);
   const [minHzInputHidden, setMinHzInputHidden] = useState(true);
   const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
@@ -141,7 +142,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     if (!enableInteraction) return;
     if (e.button === 0 && e.altKey && e.detail === 1) {
       e.preventDefault();
-      setTimeout(() => setHzRange(0, Infinity));
+      resetHzRange();
     }
     if (e.button === 0 && e.detail === 2) {
       e.preventDefault();

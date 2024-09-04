@@ -10,7 +10,7 @@ type TimeAxisProps = {
   startSecRef: RefObject<number>;
   pxPerSecRef: RefObject<number>;
   moveLens: (sec: number, dragAnchor: number) => void;
-  setCanvasIsFit: (canvasIsFit: boolean) => void;
+  resetTimeAxis: () => void;
 };
 type TimeAxisCursorState = "drag";
 type TimeAxisDragAnchor = {
@@ -21,7 +21,7 @@ const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
 const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
-  const {width, shiftWhenResize, startSecRef, pxPerSecRef, moveLens, setCanvasIsFit} = props;
+  const {width, shiftWhenResize, startSecRef, pxPerSecRef, moveLens, resetTimeAxis} = props;
   const calcDragAnchor = useEvent(
     (cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
@@ -59,7 +59,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     <div
       role="presentation"
       onClick={(e) => {
-        if (e.altKey && e.button === 0 && e.detail === 1) setCanvasIsFit(true);
+        if (e.altKey && e.button === 0 && e.detail === 1) resetTimeAxis();
       }}
     >
       <Draggable
