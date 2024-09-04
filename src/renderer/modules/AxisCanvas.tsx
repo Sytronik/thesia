@@ -39,25 +39,35 @@ type AxisCanvasProps = {
 
   // after resized and before new markers are calculated, old markers should be shifted or zoomed?
   shiftWhenResize?: boolean;
+
+  onWheel?: (e: WheelEvent) => void;
+  onClick?: (e: MouseEvent) => void;
 };
 
 const AxisCanvas = forwardRef(
   ({endInclusive = false, shiftWhenResize = false, ...props}: AxisCanvasProps, ref) => {
-    const {width, height, axisPadding, markerPos, direction, className} = props;
+    const {width, height, axisPadding, markerPos, direction, className, onWheel, onClick} = props;
     const devicePixelRatio = useContext(DevicePixelRatioContext);
     const canvasElem = useRef<HTMLCanvasElement | null>(null);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
     const prevMarkersAndLengthRef = useRef<[Markers, number]>([[], 1]);
     const bgColor = useRef<string>("");
 
-    const canvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
-      if (!elem) {
-        canvasElem.current = null;
-        return;
-      }
-      bgColor.current = window.getComputedStyle(elem).backgroundColor;
-      canvasElem.current = elem;
-    }, []);
+    const canvasElemCallback = useCallback(
+      (elem: HTMLCanvasElement | null) => {
+        if (!elem) {
+          if (onWheel) canvasElem.current?.removeEventListener("wheel", onWheel);
+          if (onClick) canvasElem.current?.removeEventListener("click", onClick);
+          canvasElem.current = null;
+          return;
+        }
+        bgColor.current = window.getComputedStyle(elem).backgroundColor;
+        if (onWheel) elem.addEventListener("wheel", onWheel, {passive: false});
+        if (onClick) elem.addEventListener("click", onClick);
+        canvasElem.current = elem;
+      },
+      [onWheel, onClick],
+    );
 
     const correctMarkerPos = useEvent((x: number, axisLength: number) => {
       const endCorrected = endInclusive ? (x * (axisLength - LINE_WIDTH)) / axisLength : x;

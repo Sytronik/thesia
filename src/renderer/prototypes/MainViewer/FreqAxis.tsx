@@ -1,4 +1,4 @@
-import React, {forwardRef, useCallback, useMemo, useRef, useState} from "react";
+import React, {forwardRef, useMemo, useRef, useState} from "react";
 import AxisCanvas, {getAxisHeight, getAxisPos} from "renderer/modules/AxisCanvas";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
@@ -61,7 +61,6 @@ const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rec
 
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   const {height, setHzRange, resetHzRange, enableInteraction} = props;
-  const wrapperDivElem = useRef<HTMLDivElement | null>(null);
   const [minHzInputHidden, setMinHzInputHidden] = useState(true);
   const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
   const cursorStateRef = useRef<FreqAxisCursorState>("shift-hz-range");
@@ -149,6 +148,10 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
       if (cursorStateRef.current === "control-max-hz") setMaxHzInputHidden(false);
       if (cursorStateRef.current === "control-min-hz") setMinHzInputHidden(false);
     }
+    if ((e.button === 0 && e.detail === 1) || e.button !== 0) {
+      setMinHzInputHidden(true);
+      setMaxHzInputHidden(true);
+    }
   });
 
   const cursorStateInfos: Map<
@@ -183,21 +186,6 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         ],
       ]),
     [handleDragging],
-  );
-
-  const wrapperDivElemCallback = useCallback(
-    (elem: HTMLDivElement) => {
-      if (!elem) {
-        wrapperDivElem.current?.removeEventListener("wheel", onWheel);
-        wrapperDivElem.current?.removeEventListener("click", onClick);
-        wrapperDivElem.current = null;
-        return;
-      }
-      elem.addEventListener("wheel", onWheel, {passive: false});
-      elem.addEventListener("click", onClick);
-      wrapperDivElem.current = elem;
-    },
-    [onWheel, onClick],
   );
 
   const hzRangeLabel = BackendAPI.getHzRange().map((hz) => BackendAPI.hzToLabel(hz));
@@ -248,22 +236,14 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         direction="V"
         className="freqAxis"
         endInclusive
+        onWheel={onWheel}
+        onClick={onClick}
       />
     </>
   );
 
   return (
-    <div
-      ref={wrapperDivElemCallback}
-      style={{position: "relative"}}
-      role="presentation"
-      onMouseDown={(e) => {
-        if ((e.button === 0 && e.detail === 1) || e.button !== 0) {
-          setMinHzInputHidden(true);
-          setMaxHzInputHidden(true);
-        }
-      }}
-    >
+    <div style={{position: "relative"}}>
       {enableInteraction ? (
         <Draggable
           cursorStateInfos={cursorStateInfos}

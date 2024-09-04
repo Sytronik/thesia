@@ -55,32 +55,30 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     [handleDragging],
   );
 
+  const onClick = useEvent((e: MouseEvent) => {
+    if (e.altKey && e.button === 0 && e.detail === 1) resetTimeAxis();
+  });
+
   return (
-    <div
-      role="presentation"
-      onClick={(e) => {
-        if (e.altKey && e.button === 0 && e.detail === 1) resetTimeAxis();
-      }}
+    <Draggable
+      cursorStateInfos={cursorStateInfos}
+      calcCursorPos="x"
+      determineCursorStates={determineCursorStates}
+      calcDragAnchor={calcDragAnchor}
+      dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
     >
-      <Draggable
-        cursorStateInfos={cursorStateInfos}
-        calcCursorPos="x"
-        determineCursorStates={determineCursorStates}
-        calcDragAnchor={calcDragAnchor}
-        dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
-      >
-        <AxisCanvas
-          ref={ref}
-          width={width}
-          height={TIME_CANVAS_HEIGHT}
-          axisPadding={HORIZONTAL_AXIS_PADDING}
-          markerPos={TIME_MARKER_POS}
-          direction="H"
-          className="timeRuler"
-          shiftWhenResize={shiftWhenResize}
-        />
-      </Draggable>
-    </div>
+      <AxisCanvas
+        ref={ref}
+        width={width}
+        height={TIME_CANVAS_HEIGHT}
+        axisPadding={HORIZONTAL_AXIS_PADDING}
+        markerPos={TIME_MARKER_POS}
+        direction="H"
+        className="timeRuler"
+        shiftWhenResize={shiftWhenResize}
+        onClick={onClick}
+      />
+    </Draggable>
   );
 });
 

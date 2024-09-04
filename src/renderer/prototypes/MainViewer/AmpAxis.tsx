@@ -1,4 +1,4 @@
-import React, {RefObject, forwardRef, useCallback, useMemo, useRef, useState} from "react";
+import React, {RefObject, forwardRef, useMemo, useState} from "react";
 import AxisCanvas, {getAxisHeight} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
@@ -48,7 +48,6 @@ const clampAmpRange = (ampRange: [number, number]) => {
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
   const {height, ampRangeRef, setAmpRange, resetAmpRange, enableInteraction} = props;
-  const wrapperDivElem = useRef<HTMLDivElement | null>(null);
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
   const calcLimitedCursorRatio = (
@@ -111,6 +110,9 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
       e.preventDefault();
       setFloatingInputHidden(false);
     }
+    if ((e.button === 0 && e.detail === 1) || e.button !== 0) {
+      setFloatingInputHidden(true);
+    }
   });
 
   const cursorStateInfos: Map<
@@ -137,21 +139,6 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
         ],
       ]),
     [handleDragging],
-  );
-
-  const wrapperDivElemCallback = useCallback(
-    (elem: HTMLDivElement) => {
-      if (!elem) {
-        wrapperDivElem.current?.removeEventListener("wheel", onWheel);
-        wrapperDivElem.current?.removeEventListener("click", onClick);
-        wrapperDivElem.current = null;
-        return;
-      }
-      elem.addEventListener("wheel", onWheel, {passive: false});
-      elem.addEventListener("click", onClick);
-      wrapperDivElem.current = elem;
-    },
-    [onWheel, onClick],
   );
 
   const onEndEditingFloatingInput = useEvent((v: string | null) => {
@@ -183,20 +170,13 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
         direction="V"
         className="ampAxis"
         endInclusive
+        onWheel={onWheel}
+        onClick={onClick}
       />
     </>
   );
   return (
-    <div
-      ref={wrapperDivElemCallback}
-      className={styles.ampAxisWrapper}
-      role="presentation"
-      onMouseDown={(e) => {
-        if ((e.button === 0 && e.detail === 1) || e.button !== 0) {
-          setFloatingInputHidden(true);
-        }
-      }}
-    >
+    <div className={styles.ampAxisWrapper}>
       {enableInteraction ? (
         <Draggable
           cursorStateInfos={cursorStateInfos}
