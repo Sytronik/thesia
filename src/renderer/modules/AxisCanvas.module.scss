@@ -12,9 +12,36 @@
   position: relative;
 }
 
+.ampFloatingInput {
+  @include floating-input;
+
+  top: 0px;
+  left: 0px;
+}
+
 .ampAxis {
   flex: 0 0 auto;
   background-color: $bg-main;
+}
+
+.freqAxisWrapper {
+  position: relative;
+}
+
+.minHzFloatingInput {
+  @include floating-input;
+
+  bottom: 0%;
+  left: 0px;
+  width: 3.3em;
+}
+
+.maxHzFloatingInput {
+  @include floating-input;
+
+  top: 0%;
+  left: 0px;
+  width: 3.3em;
 }
 
 .freqAxis {

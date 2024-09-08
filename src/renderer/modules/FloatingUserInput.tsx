@@ -1,5 +1,4 @@
 import React, {forwardRef, useEffect, useImperativeHandle, useRef} from "react";
-import styles from "./FloatingUserInput.module.scss";
 
 type FloatingUserInputProps = {
   value: string;
@@ -39,7 +38,7 @@ const FloatingUserInput = forwardRef(
         type="text"
         ref={inputElem}
         hidden={hidden}
-        className={className || styles.floatingInput}
+        className={className}
         style={style}
         defaultValue={value}
         tabIndex={-1}

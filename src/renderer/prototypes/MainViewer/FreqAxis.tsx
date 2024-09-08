@@ -1,5 +1,6 @@
 import React, {forwardRef, useMemo, useRef, useState} from "react";
 import AxisCanvas, {getAxisHeight, getAxisPos} from "renderer/modules/AxisCanvas";
+import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "renderer/modules/FloatingUserInput";
@@ -215,13 +216,13 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         value={hzRangeLabel[0]}
         onEndEditing={onEndEditingMinHzInput}
         hidden={minHzInputHidden}
-        style={{bottom: "0%", left: "0px", width: "3.3em"}}
+        className={styles.minHzFloatingInput}
       />
       <FloatingUserInput
         value={hzRangeLabel[1]}
         onEndEditing={onEndEditingMaxHzInput}
         hidden={maxHzInputHidden}
-        style={{top: "0%", left: "0px", width: "3.3em"}}
+        className={styles.maxHzFloatingInput}
       />
       <AxisCanvas
         ref={ref}
@@ -239,7 +240,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   );
 
   return (
-    <div style={{position: "relative"}}>
+    <div className={styles.freqAxisWrapper}>
       {enableInteraction ? (
         <Draggable
           cursorStateInfos={cursorStateInfos}
