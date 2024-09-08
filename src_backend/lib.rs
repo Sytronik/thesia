@@ -278,6 +278,11 @@ fn seconds_to_label(sec: f64) -> String {
 }
 
 #[napi]
+fn time_label_to_seconds(label: String) -> f64 {
+    convert_time_label_to_sec(&label).unwrap_or(f64::NAN)
+}
+
+#[napi]
 fn hz_to_label(hz: f64) -> String {
     convert_hz_to_label(hz as f32)
 }

@@ -1,4 +1,3 @@
-use std::num::ParseFloatError;
 use std::str::FromStr;
 
 use approx::abs_diff_ne;
@@ -65,18 +64,6 @@ impl CalcAxisMarkers for TrackManager {
     fn dB_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers {
         calc_dB_axis_markers(max_num_ticks, max_num_labels, (self.min_dB, self.max_dB))
     }
-}
-
-pub fn convert_sec_to_label(sec: f64) -> String {
-    let sec_floor = sec.floor() as u32;
-    let milli = (sec * 1000. - (sec_floor * 1000) as f64).floor() as u32;
-    let sec_u32 = sec_floor + milli / 1000;
-    let milli = milli - milli / 1000 * 1000;
-    let nano: u32 = milli * 1_000_000;
-    NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
-        .unwrap()
-        .format("%H:%M:%S%.3f")
-        .to_string()
 }
 
 fn calc_time_axis_markers(
@@ -349,6 +336,38 @@ fn omit_labels_from_linear_axis<Y>(
             (y, String::new())
         }
     })
+}
+
+pub fn convert_sec_to_label(sec: f64) -> String {
+    let sec_floor = sec.floor() as u32;
+    let milli = (sec * 1000. - (sec_floor * 1000) as f64).floor() as u32;
+    let sec_u32 = sec_floor + milli / 1000;
+    let milli = milli - milli / 1000 * 1000;
+    let nano: u32 = milli * 1_000_000;
+    NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
+        .unwrap()
+        .format("%H:%M:%S%.3f")
+        .to_string()
+}
+
+pub fn convert_time_label_to_sec(label: &str) -> Result<f64, <f64 as FromStr>::Err> {
+    let split: Vec<_> = label.trim().rsplit(":").collect();
+    let mut parsed = split[0].parse::<f64>();
+    match split.len() {
+        1 => parsed,
+        2..=3 => {
+            for i in (1..split.len()).into_iter() {
+                parsed = parsed.and_then(|sec| {
+                    split[i]
+                        .parse::<u32>()
+                        .and_then(|x| Ok(sec + 60f64.powi(i as i32) * x as f64))
+                        .or_else(|_| "err".parse::<f64>())
+                });
+            }
+            parsed
+        }
+        _ => "err".parse(),
+    }
 }
 
 pub fn convert_hz_to_label(freq: f32) -> String {
