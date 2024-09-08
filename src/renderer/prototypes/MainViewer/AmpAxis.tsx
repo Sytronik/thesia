@@ -158,8 +158,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
         value={ampRangeRef.current?.[1].toFixed(1) ?? "0.0"}
         onEndEditing={onEndEditingFloatingInput}
         hidden={floatingInputHidden}
-        top="0px"
-        left="0px"
+        style={{top: "0px", left: "0px"}}
       />
       <AxisCanvas
         ref={ref}

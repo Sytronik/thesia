@@ -16,9 +16,13 @@
   height: 20px;
 }
 
-.positionLabel {
+.positionInput {
+  @include input-text-transparent();
+
   margin: $component-gap;
-  width: 6em;
+  width: 6.1em;
+
+  font-size: $body-font-size-large;
 }
 
 .playerButton {

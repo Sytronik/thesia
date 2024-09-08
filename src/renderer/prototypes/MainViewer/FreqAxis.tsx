@@ -215,17 +215,13 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         value={hzRangeLabel[0]}
         onEndEditing={onEndEditingMinHzInput}
         hidden={minHzInputHidden}
-        bottom="0%"
-        left="0px"
-        width="3.3em"
+        style={{bottom: "0%", left: "0px", width: "3.3em"}}
       />
       <FloatingUserInput
         value={hzRangeLabel[1]}
         onEndEditing={onEndEditingMaxHzInput}
         hidden={maxHzInputHidden}
-        top="0%"
-        left="0px"
-        width="3.3em"
+        style={{top: "0%", left: "0px", width: "3.3em"}}
       />
       <AxisCanvas
         ref={ref}

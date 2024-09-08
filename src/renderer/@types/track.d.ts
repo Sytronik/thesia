@@ -1,3 +1,4 @@
+type RefObject<T> = import("react").RefObject<T>;
 type Markers = import("../api").Markers;
 type IdChannel = import("../api").IdChannel;
 type IdChArr = IdChannel[];
@@ -46,6 +47,11 @@ type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffs
 
 type FloatRangeInputElement = {
   setValue: (value: number) => void;
+};
+
+type FloatingUserInputElement = {
+  setValue: (value: string) => void;
+  isEditing: () => boolean;
 };
 
 type TrackInfoElement = {

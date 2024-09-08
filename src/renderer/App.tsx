@@ -141,7 +141,7 @@ function MyApp() {
 
   return (
     <div id="App" className="App">
-      <PlayerControl player={player} />
+      <PlayerControl player={player} isTrackEmpty={trackIds.length === 0} />
       <div className="flex-container-row flex-item-auto">
         <Control
           specSetting={specSetting}

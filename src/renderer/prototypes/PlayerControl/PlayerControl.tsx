@@ -3,6 +3,7 @@ import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
 import FloatRangeInput from "renderer/modules/FloatRangeInput";
+import FloatingUserInput from "renderer/modules/FloatingUserInput";
 import styles from "./PlayerControl.module.scss";
 import playIcon from "../../../../assets/buttons/play.svg";
 import pauseIcon from "../../../../assets/buttons/pause.svg";
@@ -12,21 +13,27 @@ import skipToBeginningIcon from "../../../../assets/buttons/skip-to-beginning.sv
 import volumeIcon from "../../../../assets/buttons/volume.svg";
 import {PLAY_JUMP_SEC} from "../constants/tracks";
 
-function PlayerControl({player}: {player: Player}) {
+type PlayerControlProps = {
+  player: Player;
+  isTrackEmpty: boolean;
+};
+
+function PlayerControl(props: PlayerControlProps) {
+  const {player, isTrackEmpty} = props;
   const prevPosSecRef = useRef<number>(0);
-  const posLabelElem = useRef<HTMLDivElement | null>(null);
+  const posInputElem = useRef<FloatingUserInputElement | null>(null);
   const requestRef = useRef<number | null>(null);
 
   const updatePosLabel = useEvent(() => {
     const positionSec =
       (player.isPlaying ? player.positionSecRef.current : player.selectSecRef.current) ?? 0;
     if (
-      posLabelElem.current !== null &&
+      posInputElem.current !== null &&
+      !posInputElem.current.isEditing() &&
       prevPosSecRef.current.toFixed(3) !== positionSec.toFixed(3)
     ) {
       const positionLabel = BackendAPI.secondsToLabel(positionSec);
-      const {childNodes: positionLabelNodes} = posLabelElem.current;
-      if (positionLabelNodes.length > 0) positionLabelNodes.item(0).nodeValue = positionLabel;
+      posInputElem.current.setValue(positionLabel);
       prevPosSecRef.current = positionSec;
     }
     requestRef.current = requestAnimationFrame(updatePosLabel);
@@ -39,11 +46,25 @@ function PlayerControl({player}: {player: Player}) {
     };
   }, [updatePosLabel]);
 
+  const onEndEditing = useEvent((v: string | null) => {
+    if (v === null) return;
+    const sec = BackendAPI.timeLabelToSeconds(v);
+    if (Number.isNaN(sec)) return;
+    if (player.isPlaying) player.seek(sec);
+    else player.setSelectSec(sec);
+  });
+
   return (
     <div className={`flex-container-row ${styles.PlayerControl}`}>
-      <div ref={posLabelElem} className={styles.positionLabel}>
-        {BackendAPI.secondsToLabel(player.positionSecRef.current ?? 0)}
-      </div>
+      <FloatingUserInput
+        ref={posInputElem}
+        className={styles.positionInput}
+        value={BackendAPI.secondsToLabel(player.positionSecRef.current ?? 0)}
+        onEndEditing={onEndEditing}
+        hidden={false}
+        focusOnShow={false}
+        style={{pointerEvents: isTrackEmpty ? "none" : undefined}}
+      />
       <div className={styles.playerButton}>
         <button
           type="button"
