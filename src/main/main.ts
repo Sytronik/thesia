@@ -12,6 +12,7 @@ import path from "path";
 import {app, BrowserWindow, shell, ipcMain, dialog, Menu} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
+import os from "os";
 import MenuBuilder from "./menu";
 import {resolveHtmlPath} from "./util";
 
@@ -74,7 +75,7 @@ ipcMain.on(
 ipcMain.on("show-track-context-menu", (event, trackId) => {
   const template = [
     {
-      label: "Delete Track",
+      label: `Delete Track    (${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
       click: () => {
         event.sender.send("delete-track", trackId);
       },
@@ -87,7 +88,7 @@ ipcMain.on("show-track-context-menu", (event, trackId) => {
 ipcMain.on("show-axis-context-menu", (event, axisKind) => {
   const template = [
     {
-      label: "Reset Range",
+      label: `Reset Range    (${os.platform() === "darwin" ? "⌥+Click" : "Alt+Click"})`,
       click: () => {
         event.sender.send("reset-axis-range", axisKind);
       },
