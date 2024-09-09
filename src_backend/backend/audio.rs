@@ -193,7 +193,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
     // Use the default options for the decoder.
     let mut decoder = symphonia::default::get_codecs().make(&codec_params, &Default::default())?;
 
-    let n_ch = codec_params.channels.unwrap_or_default().count();
+    let mut n_ch = codec_params.channels.unwrap_or_default().count();
     let mut temp_buf: Option<AudioBuffer<f32>> = None;
     let mut vec_channels = vec![Vec::new(); n_ch];
     // The decode loop.
@@ -242,6 +242,15 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
                 };
                 let buf_ref = temp_buf.as_mut().unwrap();
                 _decoded.convert(buf_ref);
+                let found_n_ch = buf_ref.spec().channels.count();
+                if found_n_ch != n_ch {
+                    if n_ch > found_n_ch {
+                        vec_channels.truncate(found_n_ch);
+                    } else {
+                        vec_channels.extend((0..found_n_ch - n_ch).map(|_| Vec::new()));
+                    }
+                    n_ch = found_n_ch;
+                }
                 for (ch, vec) in vec_channels.iter_mut().enumerate() {
                     vec.extend(buf_ref.chan(ch));
                 }
@@ -266,6 +275,12 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
         (vec.len()..n_ch).for_each(|_| vec.push(0.));
     }
 
+    if n_ch == 0 {
+        return Err(SymphoniaError::IoError(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "no audio channels found",
+        )));
+    }
     let shape = (n_ch, vec.len() / n_ch);
     vec.truncate(shape.0 * shape.1); // defensive code
     let wavs = Array2::from_shape_vec(shape, vec).unwrap();
