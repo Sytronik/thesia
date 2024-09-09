@@ -664,6 +664,7 @@ function MainViewer(props: MainViewerProps) {
           pxPerSecRef={pxPerSecRef}
           moveLens={moveLens}
           resetTimeAxis={resetTimeAxis}
+          enableInteraction={trackIds.length > 0}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>

@@ -11,6 +11,7 @@ type TimeAxisProps = {
   pxPerSecRef: RefObject<number>;
   moveLens: (sec: number, dragAnchor: number) => void;
   resetTimeAxis: () => void;
+  enableInteraction: boolean;
 };
 type TimeAxisCursorState = "drag";
 type TimeAxisDragAnchor = {
@@ -21,7 +22,15 @@ const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
 const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
-  const {width, shiftWhenResize, startSecRef, pxPerSecRef, moveLens, resetTimeAxis} = props;
+  const {
+    width,
+    shiftWhenResize,
+    startSecRef,
+    pxPerSecRef,
+    moveLens,
+    resetTimeAxis,
+    enableInteraction,
+  } = props;
   const calcDragAnchor = useEvent(
     (cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
@@ -56,10 +65,25 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
   );
 
   const onClick = useEvent((e: MouseEvent) => {
+    if (!enableInteraction) return;
     if (e.altKey && e.button === 0 && e.detail === 1) resetTimeAxis();
   });
 
-  return (
+  const axis = (
+    <AxisCanvas
+      ref={ref}
+      width={width}
+      height={TIME_CANVAS_HEIGHT}
+      axisPadding={HORIZONTAL_AXIS_PADDING}
+      markerPos={TIME_MARKER_POS}
+      direction="H"
+      className="timeRuler"
+      shiftWhenResize={shiftWhenResize}
+      onClick={onClick}
+    />
+  );
+
+  return enableInteraction ? (
     <Draggable
       cursorStateInfos={cursorStateInfos}
       calcCursorPos="x"
@@ -67,18 +91,10 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
       calcDragAnchor={calcDragAnchor}
       dragAnchorDefault={DEFAULT_DRAG_ANCHOR}
     >
-      <AxisCanvas
-        ref={ref}
-        width={width}
-        height={TIME_CANVAS_HEIGHT}
-        axisPadding={HORIZONTAL_AXIS_PADDING}
-        markerPos={TIME_MARKER_POS}
-        direction="H"
-        className="timeRuler"
-        shiftWhenResize={shiftWhenResize}
-        onClick={onClick}
-      />
+      {axis}
     </Draggable>
+  ) : (
+    axis
   );
 });
 
