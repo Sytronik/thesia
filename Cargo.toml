@@ -17,12 +17,12 @@ napi = {version = "2.16.9", features = ["async", "serde-json"]}
 napi-derive = "2.16.11"
 
 approx = "0.5.1"
-atomic_float = "1.0.0"
+atomic_float = "1.1.0"
 blas-src = {version = "0.10.0", features = ["openblas"]}
 cached = "0.53.1"
 chrono = "0.4.38"
 cpal = "0.15.3"
-dashmap = "6.0.1"
+dashmap = "6.1.0"
 ebur128 = "0.1.9"
 fast_image_resize = "4.2.1"
 futures = "0.3.30"
@@ -31,17 +31,17 @@ kittyaudio = {git = "https://github.com/Sytronik/kittyaudio.git", branch = "mast
 lazy_static = "1.5.0"
 log = "0.4.22"
 ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"]}
-ndarray-stats = {git = "https://github.com/Sytronik/ndarray-stats.git", rev = "34f246c"}
+ndarray-stats = "0.6.0"
 num-traits = "0.2.19"
 num_cpus = "1.16.0"
 parking_lot = "0.12.3"
 rayon = "1.10.0"
 readonly = "0.2.12"
 realfft = "3.3.0"
-rgb = "0.8.48"
+rgb = "0.8.50"
 rustfft = "6.2.0"
-serde = {version = "1.0.208", features = ["derive"]}
-serde_json = "1.0.125"
+serde = {version = "1.0.210", features = ["derive"]}
+serde_json = "1.0.128"
 simple_logger = "5.0.0"
 symphonia = {version = "0.5.4", features = [
   "aac",
@@ -55,7 +55,7 @@ symphonia = {version = "0.5.4", features = [
   "vorbis",
 ]}
 tiny-skia = "0.11.4"
-tokio = {version = "1.39.3", features = ["rt-multi-thread", "sync", "time"]}
+tokio = {version = "1.40.0", features = ["rt-multi-thread", "sync", "time"]}
 
 [target.'cfg(target_os = "windows")'.dependencies]
 openblas-src = {version = "0.10.9", features = ["cblas", "static", "system"]}
@@ -70,7 +70,7 @@ mimalloc = "0.1.43"
 hound = "3.5.1"
 image = "0.25.2"
 ndarray-rand = "0.15.0"
-resize = "0.8.5"
+resize = "0.8.7"
 
 [build-dependencies]
 napi-build = "2.1.3"
