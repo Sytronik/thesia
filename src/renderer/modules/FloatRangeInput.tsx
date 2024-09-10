@@ -34,6 +34,7 @@ const FloatRangeInput = forwardRef(
     const {id, unit, min, max, step, precision, initialValue, detents} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
+    const prevValueRef = useRef<number>(initialValue);
 
     const getRangeBackground = () => {
       const rangeRatio = Math.min(
@@ -86,30 +87,45 @@ const FloatRangeInput = forwardRef(
       }
     };
 
-    const onTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      let value = Number.parseFloat(e.target.value);
+    const onTextFocus = () => {
+      let value = Number.parseFloat(textElem.current?.value ?? "");
       if (Number.isNaN(value)) {
-        if (rangeElem.current) {
-          value = Number.parseFloat(rangeElem.current.value);
-          if (Number.isNaN(value)) value = initialValue;
-        } else {
-          value = initialValue;
-        }
+        value = Number.parseFloat(rangeElem.current?.value ?? "");
+        if (Number.isNaN(value)) value = initialValue;
       }
-      const clamppedValue = Math.min(Math.max(value, min), max);
-      if (rangeElem.current) rangeElem.current.value = clamppedValue.toFixed(precision);
-      onChangeValue(clamppedValue);
-      updateStyle();
+      prevValueRef.current = value;
     };
 
     const onTextBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      let value = Number.parseFloat(e.target.value);
+      if (Number.isNaN(value)) {
+        value = Number.parseFloat(rangeElem.current?.value ?? "");
+        if (Number.isNaN(value)) value = prevValueRef.current;
+      }
+      const clamppedValue = Math.min(Math.max(value, min), max);
+      if (clamppedValue !== prevValueRef.current) {
+        if (rangeElem.current) rangeElem.current.value = clamppedValue.toFixed(precision);
+        onChangeValue(clamppedValue);
+        updateStyle();
+      }
+
       if (rangeElem.current?.value ?? e.target.value !== "" ?? "") {
         e.target.value = rangeElem.current?.value ?? "";
       }
     };
 
     const onTextKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === "Escape") (e.target as HTMLInputElement).blur();
+      switch (e.key) {
+        case "Enter":
+          (e.target as HTMLInputElement).blur();
+          break;
+        case "Escape":
+          (e.target as HTMLInputElement).value = prevValueRef.current.toFixed(precision);
+          (e.target as HTMLInputElement).blur();
+          break;
+        default:
+          break;
+      }
     };
 
     useEffect(() => {
@@ -158,7 +174,7 @@ const FloatRangeInput = forwardRef(
           size={getTextElemSize()}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
-          onChange={onTextChange}
+          onFocus={onTextFocus}
           onBlur={onTextBlur}
           onKeyDown={onTextKeyDown}
         />
