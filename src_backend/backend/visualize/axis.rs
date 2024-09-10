@@ -195,7 +195,7 @@ fn calc_freq_axis_markers(
                     }
                     result.push((mel_to_pos(mel_1k), convert_hz_to_label(1000.)));
                 }
-                if max_num_ticks as usize - result.len() - 1 >= 1 {
+                if max_num_ticks as usize - result.len() > 1 {
                     // divide [1kHz, max] region
                     let ratio_step =
                         2u32.pow((fine_band_mel / mel::MEL_DIFF_2K_1K).ceil().max(1.) as u32);
@@ -356,11 +356,11 @@ pub fn convert_time_label_to_sec(label: &str) -> Result<f64, <f64 as FromStr>::E
     match split.len() {
         1 => parsed,
         2..=3 => {
-            for i in (1..split.len()).into_iter() {
+            for (i, split_item) in split.iter().enumerate().skip(1) {
                 parsed = parsed.and_then(|sec| {
-                    split[i]
+                    split_item
                         .parse::<u32>()
-                        .and_then(|x| Ok(sec + 60f64.powi(i as i32) * x as f64))
+                        .map(|x| sec + 60f64.powi(i as i32) * x as f64)
                         .or_else(|_| "err".parse::<f64>())
                 });
             }
@@ -394,12 +394,9 @@ pub fn convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Er
         return "k".parse::<f32>(); // Error
     }
     let parsed = if let Some(khz) = label.strip_suffix("k") {
-        khz.parse::<f32>().and_then(|x| Ok(x * 1000.))
+        khz.parse::<f32>().map(|x| x * 1000.)
     } else if label.contains("k") && !label.contains(".") {
-        label
-            .replace("k", ".")
-            .parse::<f32>()
-            .and_then(|x| Ok(x * 1000.))
+        label.replace("k", ".").parse::<f32>().map(|x| x * 1000.)
     } else {
         label.parse::<f32>()
     };

@@ -143,10 +143,13 @@ where
     fn dB_from_amp_inplace(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
     fn dB_from_power_inplace(&mut self, reference: DeciBelRef<Self::A>, amin: Self::A);
     fn dB_from_amp_inplace_default(&mut self);
+    #[allow(dead_code)]
     fn dB_from_power_inplace_default(&mut self);
     fn amp_from_dB_inplace(&mut self, ref_value: Self::A);
     fn power_from_dB_inplace(&mut self, ref_value: Self::A);
+    #[allow(dead_code)]
     fn amp_from_dB_inplace_default(&mut self);
+    #[allow(dead_code)]
     fn power_from_dB_inplace_default(&mut self);
 }
 
