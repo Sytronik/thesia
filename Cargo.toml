@@ -51,6 +51,7 @@ symphonia = {version = "0.5.4", features = [
   "mp3",
   "mpa",
   "ogg",
+  "opt-simd",
   "vorbis",
 ]}
 tiny-skia = "0.11.4"
