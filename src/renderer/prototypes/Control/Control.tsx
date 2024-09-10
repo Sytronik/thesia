@@ -1,4 +1,4 @@
-import React, {useMemo, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {
@@ -10,6 +10,7 @@ import {
   NormalizeOnTypeValues,
 } from "renderer/api/backend-wrapper";
 import FloatRangeInput from "renderer/modules/FloatRangeInput";
+import FloatingUserInput from "renderer/modules/FloatingUserInput";
 import styles from "./Control.module.scss";
 import {
   COMMON_NORMALIZE_DB_DETENTS,
@@ -51,6 +52,7 @@ function Control(props: ControlProps) {
   const [commonNormalizedB, setCommonNormalizedB] = useState<number>(-18.0);
   const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(false);
 
+  const winMillisecElem = useRef<FloatingUserInputElement>(null);
   const commonNormalizedBInputElem = useRef<FloatRangeInputElement>(null);
 
   const onBlendChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,20 +81,20 @@ function Control(props: ControlProps) {
 
   const throttledSetdBRange = useMemo(() => throttle(1000 / 70, setdBRange), [setdBRange]);
 
-  const onWinMillisecChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const winMillisec = Number.parseFloat(e.target.value);
-    if (e.target.value !== "" && winMillisec > 0) {
-      setSpecSetting({
-        ...specSetting,
-        winMillisec,
-      });
+  const onWinMillisecEndEditing = useEvent((v: string | null) => {
+    if (v === null) {
+      winMillisecElem.current?.setValue(specSetting.winMillisec.toFixed(1));
+      return;
     }
-  };
+    const winMillisec = Number.parseFloat(v);
+    if (winMillisec > 0) {
+      setSpecSetting({...specSetting, winMillisec});
+    }
+  });
 
-  const onWinMillisecBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    if (specSetting.winMillisec !== Number.parseFloat(e.target.value))
-      e.target.value = specSetting.winMillisec.toFixed(1);
-  };
+  useEffect(() => {
+    winMillisecElem.current?.setValue(specSetting.winMillisec.toFixed(1));
+  }, [specSetting]);
 
   const onTOverlapChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const tOverlap = Number.parseFloat(e.target.value);
@@ -272,14 +274,13 @@ function Control(props: ControlProps) {
         <div className={styles.sectionContainer}>
           <div className={styles.itemContainer}>
             <label htmlFor="winMillisec">Window Size</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              id="winMillisec"
+            <FloatingUserInput
+              ref={winMillisecElem}
+              value={specSetting.winMillisec.toFixed(1)}
+              onEndEditing={onWinMillisecEndEditing}
+              hidden={false}
               className={styles.winMillisecInput}
-              defaultValue={specSetting.winMillisec.toFixed(1)}
-              onChange={onWinMillisecChange}
-              onBlur={onWinMillisecBlur}
+              focusOnShow={false}
             />
             ms
           </div>
