@@ -122,7 +122,7 @@ const installExtensions = async () => {
     .catch(console.log);
 };
 
-const createWindow = async () => {
+const createWindow = async (pathsToOpen: string[]) => {
   if (isDebug) {
     await installExtensions();
   }
@@ -131,8 +131,8 @@ const createWindow = async () => {
     ? path.join(process.resourcesPath, "assets")
     : path.join(__dirname, "../../assets");
 
-  const getAssetPath = (...paths: string[]): string => {
-    return path.join(RESOURCES_PATH, ...paths);
+  const getAssetPath = (...assetPaths: string[]): string => {
+    return path.join(RESOURCES_PATH, ...assetPaths);
   };
 
   mainWindow = new BrowserWindow({
@@ -165,6 +165,20 @@ const createWindow = async () => {
     }
   });
 
+  mainWindow.on("show", () => {
+    if (
+      process.platform === "win32" &&
+      process.env.NODE_ENV !== "development" &&
+      process.argv.length > 1
+    )
+      mainWindow?.webContents.send("open-dialog-closed", {
+        canceled: false,
+        filePaths: process.argv.slice(1),
+      });
+    else if (process.platform === "darwin" && pathsToOpen.length > 0)
+      mainWindow?.webContents.send("open-dialog-closed", {canceled: false, filePaths: pathsToOpen});
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -195,14 +209,30 @@ app.on("window-all-closed", () => {
   }
 });
 
+const pathsToOpenAfterLaunch: string[] = [];
+
+app.on("will-finish-launching", () => {
+  app.on("open-file", (e, filePath) => {
+    e.preventDefault();
+    pathsToOpenAfterLaunch.push(filePath);
+  });
+});
+
 app
   .whenReady()
   .then(() => {
-    createWindow();
+    createWindow(pathsToOpenAfterLaunch);
+
+    app.on("open-file", (e, filePath) => {
+      e.preventDefault();
+      if (mainWindow === null) createWindow([filePath]);
+      else
+        mainWindow.webContents.send("open-dialog-closed", {canceled: false, filePaths: [filePath]});
+    });
     app.on("activate", () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
-      if (mainWindow === null) createWindow();
+      if (mainWindow === null) createWindow([]);
     });
   })
   .catch(console.log);

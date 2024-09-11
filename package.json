@@ -215,6 +215,36 @@
       "node_modules",
       "package.json"
     ],
+    "fileAssociations": [
+      {
+        "ext": "wav",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mp3",
+        "role": "Viewer"
+      },
+      {
+        "ext": "flac",
+        "role": "Viewer"
+      },
+      {
+        "ext": "m4a",
+        "role": "Viewer"
+      },
+      {
+        "ext": "ogg",
+        "role": "Viewer"
+      },
+      {
+        "ext": "oga",
+        "role": "Viewer"
+      },
+      {
+        "ext": "aac",
+        "role": "Viewer"
+      }
+    ],
     "afterSign": ".erb/scripts/notarize.js",
     "mac": {
       "target": {
