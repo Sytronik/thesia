@@ -13,8 +13,9 @@ import {app, BrowserWindow, shell, ipcMain, dialog, Menu} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
 import os from "os";
-import MenuBuilder from "./menu";
+import MenuBuilder, {showOpenDialog} from "./menu";
 import {resolveHtmlPath} from "./util";
+import {SUPPORTED_TYPES} from "./constants";
 
 class AppUpdater {
   constructor() {
@@ -26,58 +27,45 @@ class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
-ipcMain.on("show-open-dialog", async (event, supportedTypes) => {
-  const result = await dialog.showOpenDialog({
-    title: "Select the File to be uploaded",
-    defaultPath: path.join(__dirname, "../../samples/"),
-    filters: [
-      {
-        name: "Audio Files",
-        extensions: supportedTypes,
-      },
-    ],
-    properties: ["openFile", "multiSelections"],
-  });
+ipcMain.on("show-open-dialog", async (event) => {
+  const result = await showOpenDialog();
   event.reply("open-dialog-closed", result);
 });
 
-ipcMain.on(
-  "show-file-open-err-msg",
-  async (event, unsupportedPaths, invalidPaths, supportedTypes) => {
-    const msgUnsupported = unsupportedPaths.length
-      ? `-- Not Supported Type --
+ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
+  const msgUnsupported = unsupportedPaths.length
+    ? `-- Not Supported Type --
       ${unsupportedPaths.join("\n")}
       `
-      : "";
-    const msgInvalid = invalidPaths.length
-      ? `-- Not Valid Format --
+    : "";
+  const msgInvalid = invalidPaths.length
+    ? `-- Not Valid Format --
       ${invalidPaths.join("\n")}
       `
-      : "";
-    await dialog.showMessageBox({
-      type: "error",
-      buttons: ["OK"],
-      defaultId: 0,
-      title: "File Open Error",
-      message: "The following files could not be opened",
-      detail: `${msgUnsupported}\
+    : "";
+  await dialog.showMessageBox({
+    type: "error",
+    buttons: ["OK"],
+    defaultId: 0,
+    title: "File Open Error",
+    message: "The following files could not be opened",
+    detail: `${msgUnsupported}\
         ${msgInvalid}\
 
         Please ensure that the file properties are correct and that it is a supported file type.
-        Only files with the following extensions are allowed: ${supportedTypes.join(", ")}`,
-      cancelId: 0,
-      noLink: false,
-      normalizeAccessKeys: false,
-    });
-  },
-);
+        Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
+    cancelId: 0,
+    noLink: false,
+    normalizeAccessKeys: false,
+  });
+});
 
-ipcMain.on("show-track-context-menu", (event, trackId) => {
+ipcMain.on("show-track-context-menu", (event) => {
   const template = [
     {
       label: `Delete Track    (${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
       click: () => {
-        event.sender.send("delete-track", trackId);
+        event.sender.send("delete-track");
       },
     },
   ];

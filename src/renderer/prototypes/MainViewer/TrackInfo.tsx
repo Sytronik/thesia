@@ -7,7 +7,6 @@ import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
 const MemoizedTrackSummary = React.memo(TrackSummary);
 
 type TrackInfoProps = {
-  trackId: number;
   trackIdChArr: IdChArr;
   trackSummary: TrackSummaryData;
   channelHeight: number;
@@ -18,7 +17,6 @@ type TrackInfoProps = {
 
 const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   const {
-    trackId,
     trackIdChArr: trackIdCh,
     trackSummary,
     channelHeight,
@@ -49,7 +47,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       onClick={onClick}
       onContextMenu={(e) => {
         e.preventDefault();
-        showTrackContextMenu(trackId);
+        showTrackContextMenu();
       }} // TODO: if (!isSelected), show highlight instead
       style={{
         margin: `${VERTICAL_AXIS_PADDING}px 0`,

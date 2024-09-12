@@ -8,7 +8,6 @@ export const CHANNEL = [
   ["L", "R"], // stereo
 ];
 
-export const SUPPORTED_TYPES = ["flac", "mp3", "oga", "ogg", "wav", "m4a", "aac"];
 export const SUPPORTED_MIME = [
   "audio/aac",
   "audio/x-flac",

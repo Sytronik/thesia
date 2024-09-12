@@ -1,12 +1,11 @@
 import {ipcRenderer} from "electron";
-import {SUPPORTED_TYPES} from "renderer/prototypes/constants/tracks";
 
 export function showElectronOpenDialog() {
-  ipcRenderer.send("show-open-dialog", SUPPORTED_TYPES);
+  ipcRenderer.send("show-open-dialog");
 }
 
-export function showTrackContextMenu(trackId: number) {
-  ipcRenderer.send("show-track-context-menu", trackId);
+export function showTrackContextMenu() {
+  ipcRenderer.send("show-track-context-menu");
 }
 
 export function showAxisContextMenu(axisKind: AxisKind) {
@@ -15,5 +14,5 @@ export function showAxisContextMenu(axisKind: AxisKind) {
 }
 
 export function showElectronFileOpenErrorMsg(unsupportedPaths: string[], invalidPaths: string[]) {
-  ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths, SUPPORTED_TYPES);
+  ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths);
 }

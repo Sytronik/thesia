@@ -17,7 +17,6 @@ import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
-import {showElectronOpenDialog} from "renderer/lib/electron-sender";
 import Locator from "renderer/modules/Locator";
 import {ipcRenderer} from "electron";
 import styles from "./MainViewer.module.scss";
@@ -468,14 +467,6 @@ function MainViewer(props: MainViewerProps) {
     {preventDefault: true},
   );
 
-  // Track Add/Delete Hotkeys
-  useHotkeys("mod+o", showElectronOpenDialog);
-  useHotkeys("Delete, Backspace", async () => {
-    if (selectedTrackIds.length) {
-      await removeAndRefreshTracks(selectedTrackIds);
-    }
-  });
-
   // Player Hotkeys
   useHotkeys("space", player.togglePlay, {preventDefault: true});
   useHotkeys("comma,period,shift+comma,shift+period", async (_, hotkey) => {
@@ -638,7 +629,6 @@ function MainViewer(props: MainViewerProps) {
           <TrackInfo
             ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
-            trackId={trackId}
             trackIdChArr={trackIdChMap.get(trackId) || []}
             trackSummary={trackSummaryArr[i]}
             channelHeight={height}

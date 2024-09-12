@@ -109,9 +109,9 @@ function MyApp() {
     };
   }, [addTracks, reloadTracks, refreshTracks]);
 
-  const removeSelectedTracks = useEvent(async (_, targetTrackId) => {
-    if (selectedTrackIds.includes(targetTrackId)) removeTracks(selectedTrackIds);
-    else removeTracks([targetTrackId]);
+  const removeSelectedTracks = useEvent(async () => {
+    if (selectedTrackIds.length === 0) return;
+    removeTracks(selectedTrackIds);
     await refreshTracks();
   });
 

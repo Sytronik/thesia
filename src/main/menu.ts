@@ -1,4 +1,33 @@
-import {app, Menu, shell, BrowserWindow, MenuItemConstructorOptions} from "electron";
+import {
+  app,
+  Menu,
+  shell,
+  BrowserWindow,
+  MenuItemConstructorOptions,
+  dialog,
+  MenuItem,
+} from "electron";
+import path from "path";
+import {SUPPORTED_TYPES} from "./constants";
+
+export const showOpenDialog = () =>
+  dialog.showOpenDialog({
+    title: "Select the audio files to be open",
+    defaultPath: path.join(__dirname, "../../samples/"),
+    filters: [
+      {
+        name: "Audio Files",
+        extensions: SUPPORTED_TYPES,
+      },
+    ],
+    properties: ["openFile", "multiSelections"],
+  });
+
+const clickOpenMenu = async (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
+  browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
+
+const clickRemoveTrackMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
+  browserWindow?.webContents.send("delete-track");
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
   selector?: string;
@@ -73,19 +102,30 @@ export default class MenuBuilder {
         },
       ],
     };
-    const subMenuEdit: DarwinMenuItemConstructorOptions = {
-      label: "Edit",
+    const subMenuFile: DarwinMenuItemConstructorOptions = {
+      label: "File",
       submenu: [
-        {label: "Undo", accelerator: "Command+Z", selector: "undo:"},
-        {label: "Redo", accelerator: "Shift+Command+Z", selector: "redo:"},
-        {type: "separator"},
-        {label: "Cut", accelerator: "Command+X", selector: "cut:"},
-        {label: "Copy", accelerator: "Command+C", selector: "copy:"},
-        {label: "Paste", accelerator: "Command+V", selector: "paste:"},
         {
-          label: "Select All",
-          accelerator: "Command+A",
-          selector: "selectAll:",
+          label: "Open Audio Tracks...",
+          accelerator: "Command+O",
+          selector: "open:",
+          click: clickOpenMenu,
+        },
+        {
+          label: "Remove Selected Tracks",
+          accelerator: "Backspace",
+          click: clickRemoveTrackMenu,
+        },
+        {
+          label: "Remove Selected Tracks (Hidden)",
+          accelerator: "Delete",
+          visible: false,
+          acceleratorWorksWhenHidden: true,
+          click: clickRemoveTrackMenu,
+        },
+        {type: "separator"},
+        {
+          role: "close",
         },
       ],
     };
@@ -175,17 +215,31 @@ export default class MenuBuilder {
         ? subMenuViewDev
         : subMenuViewProd;
 
-    return [subMenuAbout, subMenuEdit, subMenuView, subMenuWindow, subMenuHelp];
+    return [subMenuAbout, subMenuFile, subMenuView, subMenuWindow, subMenuHelp];
   }
 
   buildDefaultTemplate() {
-    const templateDefault = [
+    const templateDefault: MenuItemConstructorOptions[] = [
       {
         label: "&File",
         submenu: [
           {
-            label: "&Open",
+            label: "&Open Audio Tracks...",
             accelerator: "Ctrl+O",
+            click: async (menuItem, browserWindow) =>
+              browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog()),
+          },
+          {
+            label: "&Remove Selected Tracks",
+            accelerator: "Delete",
+            click: clickRemoveTrackMenu,
+          },
+          {
+            label: "Remove Selected Tracks (Hidden)",
+            accelerator: "Backspace",
+            visible: false,
+            acceleratorWorksWhenHidden: true,
+            click: clickRemoveTrackMenu,
           },
           {
             label: "&Close",
