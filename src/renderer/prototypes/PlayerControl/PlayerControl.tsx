@@ -12,7 +12,6 @@ import rewindBackIcon from "../../../../assets/buttons/rewind-back.svg";
 import rewindForwardIcon from "../../../../assets/buttons/rewind-forward.svg";
 import skipToBeginningIcon from "../../../../assets/buttons/skip-to-beginning.svg";
 import volumeIcon from "../../../../assets/buttons/volume.svg";
-import {PLAY_JUMP_SEC} from "../constants/tracks";
 
 type PlayerControlProps = {
   player: Player;
@@ -67,23 +66,10 @@ function PlayerControl(props: PlayerControlProps) {
         style={{pointerEvents: isTrackEmpty ? "none" : undefined}}
       />
       <div className={styles.playerButton}>
-        <button
-          type="button"
-          onClick={async () => {
-            if (player.isPlaying) await player.seek(0);
-            else player.setSelectSec(0);
-          }}
-        >
+        <button type="button" onClick={player.rewindToFront}>
           <img src={skipToBeginningIcon} alt="skip to beginning icon" />
         </button>
-        <button
-          type="button"
-          onClick={async () => {
-            if (player.isPlaying)
-              await player.seek((player.positionSecRef.current ?? 0) - PLAY_JUMP_SEC);
-            else player.setSelectSec((player.selectSecRef.current ?? 0) - PLAY_JUMP_SEC);
-          }}
-        >
+        <button type="button" onClick={() => player.jump(-PLAY_JUMP_SEC)}>
           <img src={rewindBackIcon} alt="rewind back icon" />
         </button>
         <button type="button" onClick={player.togglePlay}>
@@ -98,14 +84,7 @@ function PlayerControl(props: PlayerControlProps) {
             style={{display: player.isPlaying ? "inline-block" : "none"}}
           />
         </button>
-        <button
-          type="button"
-          onClick={async () => {
-            if (player.isPlaying)
-              await player.seek((player.positionSecRef.current ?? 0) + PLAY_JUMP_SEC);
-            else player.setSelectSec((player.selectSecRef.current ?? 0) + PLAY_JUMP_SEC);
-          }}
-        >
+        <button type="button" onClick={() => player.jump(PLAY_JUMP_SEC)}>
           <img src={rewindForwardIcon} alt="rewind forward icon" />
         </button>
       </div>

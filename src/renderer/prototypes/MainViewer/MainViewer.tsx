@@ -19,7 +19,6 @@ import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
 import Locator from "renderer/modules/Locator";
 import {ipcRenderer} from "electron";
-import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "main/constants";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -465,46 +464,6 @@ function MainViewer(props: MainViewerProps) {
     },
     {preventDefault: true},
   );
-
-  // Player Hotkeys
-  useHotkeys("space", player.togglePlay, {preventDefault: true});
-  useEffect(() => {
-    ipcRenderer.on("toggle-play", player.togglePlay);
-    return () => {
-      ipcRenderer.removeAllListeners("toggle-play");
-    };
-  });
-
-  const jumpPlayer = useEvent(async (jumpSec: number) => {
-    if (player.isPlaying) {
-      await player.seek((player.positionSecRef.current ?? 0) + jumpSec);
-      return;
-    }
-    player.setSelectSec((player.selectSecRef.current ?? 0) + jumpSec);
-  });
-  useHotkeys("comma,period,shift+comma,shift+period", (_, hotkey) => {
-    let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
-    if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
-    jumpPlayer(jumpSec);
-  });
-  useEffect(() => {
-    ipcRenderer.on("jump-player", (_, jumpSec) => jumpPlayer(jumpSec));
-    return () => {
-      ipcRenderer.removeAllListeners("jump-player");
-    };
-  });
-
-  const rewindToFront = useEvent(async () => {
-    if (player.isPlaying) await player.seek(0);
-    else player.setSelectSec(0);
-  });
-  useHotkeys("enter", rewindToFront, {preventDefault: true});
-  useEffect(() => {
-    ipcRenderer.on("rewind-to-front", rewindToFront);
-    return () => {
-      ipcRenderer.removeAllListeners("rewind-to-front");
-    };
-  });
 
   const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
   const resetAmpRange = useEvent(() => setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE])));

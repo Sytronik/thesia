@@ -1,7 +1,9 @@
 import {ipcRenderer} from "electron";
 import {RefObject, useEffect, useRef, useState} from "react";
+import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "main/constants";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
+import {useHotkeys} from "react-hotkeys-hook";
 
 export type Player = {
   isPlaying: boolean;
@@ -10,6 +12,8 @@ export type Player = {
   setSelectSec: (sec: number) => void;
   togglePlay: () => Promise<void>;
   seek: (sec: number) => Promise<void>;
+  jump: (jumpSec: number) => Promise<void>;
+  rewindToFront: () => Promise<void>;
 };
 
 function usePlayer(selectedTrackId: number) {
@@ -62,6 +66,46 @@ function usePlayer(selectedTrackId: number) {
     }
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
+  // Player Hotkeys
+  useHotkeys("space", togglePlay, {preventDefault: true});
+  useEffect(() => {
+    ipcRenderer.on("toggle-play", togglePlay);
+    return () => {
+      ipcRenderer.removeAllListeners("toggle-play");
+    };
+  });
+
+  const jump = useEvent(async (jumpSec: number) => {
+    if (isPlaying) {
+      await BackendAPI.seekPlayer((positionSecRef.current ?? 0) + jumpSec);
+      return;
+    }
+    setSelectSec((selectSecRef.current ?? 0) + jumpSec);
+  });
+  useHotkeys("comma,period,shift+comma,shift+period", (_, hotkey) => {
+    let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
+    if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
+    jump(jumpSec);
+  });
+  useEffect(() => {
+    ipcRenderer.on("jump-player", (_, jumpSec) => jump(jumpSec));
+    return () => {
+      ipcRenderer.removeAllListeners("jump-player");
+    };
+  });
+
+  const rewindToFront = useEvent(async () => {
+    if (isPlaying) await BackendAPI.seekPlayer(0);
+    else setSelectSec(0);
+  });
+  useHotkeys("enter", rewindToFront, {preventDefault: true});
+  useEffect(() => {
+    ipcRenderer.on("rewind-to-front", rewindToFront);
+    return () => {
+      ipcRenderer.removeAllListeners("rewind-to-front");
+    };
+  });
+
   useEffect(() => {
     if (isPlaying) ipcRenderer.send("show-pause-menu");
     else ipcRenderer.send("show-play-menu");
@@ -74,6 +118,8 @@ function usePlayer(selectedTrackId: number) {
     setSelectSec,
     togglePlay,
     seek: BackendAPI.seekPlayer,
+    jump,
+    rewindToFront,
   } as Player;
 }
 
