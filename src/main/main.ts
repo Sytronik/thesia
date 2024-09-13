@@ -70,9 +70,9 @@ ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPath
 ipcMain.on("show-track-context-menu", (event) => {
   const template = [
     {
-      label: `Delete Track    (${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
+      label: `Remove Selected Tracks    (${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
       click: () => {
-        event.sender.send("delete-track");
+        event.sender.send("remove-selected-tracks");
       },
     },
   ];
@@ -114,6 +114,16 @@ ipcMain.on("show-axis-context-menu", (event, axisKind) => {
   const menu = Menu.buildFromTemplate(template);
   menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
 });
+
+ipcMain
+  .on("enable-remove-track-menu", () => {
+    const removeTrackMenu = Menu.getApplicationMenu()?.getMenuItemById("remove-selected-tracks");
+    if (removeTrackMenu) removeTrackMenu.enabled = true;
+  })
+  .on("disable-remove-track-menu", () => {
+    const removeTrackMenu = Menu.getApplicationMenu()?.getMenuItemById("remove-selected-tracks");
+    if (removeTrackMenu) removeTrackMenu.enabled = false;
+  });
 
 if (process.env.NODE_ENV === "production") {
   const sourceMapSupport = require("source-map-support");

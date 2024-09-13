@@ -123,9 +123,9 @@ function MyApp() {
   });
 
   useEffect(() => {
-    ipcRenderer.on("delete-track", removeSelectedTracks);
+    ipcRenderer.on("remove-selected-tracks", removeSelectedTracks);
     return () => {
-      ipcRenderer.removeAllListeners("delete-track");
+      ipcRenderer.removeAllListeners("remove-selected-tracks");
     };
   }, [removeSelectedTracks]);
 
@@ -133,9 +133,10 @@ function MyApp() {
     const prevTrackIdsCount = prevTrackIds.current.length;
     const currTrackIdsCount = trackIds.length;
 
-    if (prevTrackIdsCount === currTrackIdsCount) {
-      return;
-    }
+    if (prevTrackIdsCount === currTrackIdsCount) return;
+
+    if (currTrackIdsCount > 0) ipcRenderer.send("enable-remove-track-menu");
+    else ipcRenderer.send("disable-remove-track-menu");
 
     if (prevTrackIdsCount < currTrackIdsCount) {
       selectTrackAfterAddTracks(prevTrackIds.current, trackIds);

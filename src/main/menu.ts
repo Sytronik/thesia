@@ -19,7 +19,7 @@ const clickOpenMenu = async (menuItem: MenuItem, browserWindow: BrowserWindow | 
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
 
 const clickRemoveTrackMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
-  browserWindow?.webContents.send("delete-track");
+  browserWindow?.webContents.send("remove-selected-tracks");
 
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
@@ -68,9 +68,11 @@ export default class MenuBuilder {
           click: clickOpenMenu,
         },
         {
+          id: "remove-selected-tracks",
           label: "Remove Selected Tracks",
           accelerator: "Backspace",
           click: clickRemoveTrackMenu,
+          enabled: false,
         },
         {
           label: "Remove Selected Tracks (Hidden)",
@@ -172,9 +174,11 @@ export default class MenuBuilder {
               browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog()),
           },
           {
+            id: "remove-selected-tracks",
             label: "&Remove Selected Tracks",
             accelerator: "Delete",
             click: clickRemoveTrackMenu,
+            enabled: false,
           },
           {
             label: "Remove Selected Tracks (Hidden)",
