@@ -28,8 +28,7 @@ class AppUpdater {
 let mainWindow: BrowserWindow | null = null;
 
 ipcMain.on("show-open-dialog", async (event) => {
-  const result = await showOpenDialog();
-  event.reply("open-dialog-closed", result);
+  event.reply("open-dialog-closed", await showOpenDialog());
 });
 
 ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
@@ -159,12 +158,9 @@ const createWindow = async (pathsToOpen: string[]) => {
       process.env.NODE_ENV !== "development" &&
       process.argv.length > 1
     )
-      mainWindow?.webContents.send("open-dialog-closed", {
-        canceled: false,
-        filePaths: process.argv.slice(1),
-      });
+      mainWindow?.webContents.send("open-files", process.argv.slice(1));
     else if (process.platform === "darwin" && pathsToOpen.length > 0)
-      mainWindow?.webContents.send("open-dialog-closed", {canceled: false, filePaths: pathsToOpen});
+      mainWindow?.webContents.send("open-files", pathsToOpen);
   });
 
   mainWindow.on("closed", () => {
@@ -214,8 +210,7 @@ app
     app.on("open-file", (e, filePath) => {
       e.preventDefault();
       if (mainWindow === null) createWindow([filePath]);
-      else
-        mainWindow.webContents.send("open-dialog-closed", {canceled: false, filePaths: [filePath]});
+      else mainWindow.webContents.send("open-files", [filePath]);
     });
     app.on("activate", () => {
       // On macOS it's common to re-create a window in the app when the

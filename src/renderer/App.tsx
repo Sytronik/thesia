@@ -83,31 +83,38 @@ function MyApp() {
     await refreshTracks();
   });
 
+  const openFiles = useEvent(async (filePaths: string[]) => {
+    const unsupportedPaths: string[] = [];
+
+    const {existingIds, invalidPaths} = await addTracks(filePaths);
+
+    if (unsupportedPaths.length || invalidPaths.length) {
+      showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+    }
+
+    if (existingIds.length) {
+      await reloadTracks(existingIds);
+    }
+    await refreshTracks();
+  });
+
   useEffect(() => {
-    ipcRenderer.on("open-dialog-closed", async (_, file) => {
-      if (!file.canceled) {
-        const newPaths: string[] = file.filePaths;
-        const unsupportedPaths: string[] = [];
+    ipcRenderer.on("open-files", async (_, filePaths) => openFiles(filePaths));
+    return () => {
+      ipcRenderer.removeAllListeners("open-files");
+    };
+  }, [openFiles]);
 
-        const {existingIds, invalidPaths} = await addTracks(newPaths);
-
-        if (unsupportedPaths.length || invalidPaths.length) {
-          showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
-        }
-
-        if (existingIds.length) {
-          await reloadTracks(existingIds);
-        }
-        await refreshTracks();
-      } else {
-        console.log("file canceled: ", file.canceled);
-      }
+  useEffect(() => {
+    ipcRenderer.on("open-dialog-closed", async (_, dialogResult) => {
+      if (!dialogResult.canceled) openFiles(dialogResult.filePaths);
+      else console.log("file canceled: ", dialogResult.canceled);
     });
 
     return () => {
       ipcRenderer.removeAllListeners("open-dialog-closed");
     };
-  }, [addTracks, reloadTracks, refreshTracks]);
+  }, [openFiles]);
 
   const removeSelectedTracks = useEvent(async () => {
     if (selectedTrackIds.length === 0) return;
