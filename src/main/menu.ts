@@ -1,6 +1,6 @@
 import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, dialog, MenuItem} from "electron";
 import path from "path";
-import {SUPPORTED_TYPES} from "./constants";
+import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC, SUPPORTED_TYPES} from "./constants";
 
 export const showOpenDialog = () =>
   dialog.showOpenDialog({
@@ -27,12 +27,20 @@ const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
 const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("remove-selected-tracks");
 
-const clickTogglePlayMenu: MenuItemClick = (_, browserWindow) => {
-  browserWindow?.webContents.send("toggle-play");
+const clickTogglePlayMenu: MenuItemClick = (_, browserWindow, event) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("toggle-play");
 };
 
-const clickRewindToFront: MenuItemClick = (_, browserWindow) => {
-  browserWindow?.webContents.send("rewind-to-front");
+const clickRewindToFront: MenuItemClick = (_, browserWindow, event) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("rewind-to-front");
+};
+
+const clickJumpPlayerMenus = (
+  browserWindow: BrowserWindow | undefined,
+  event: Electron.KeyboardEvent,
+  jumpSec: number,
+) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("jump-player", jumpSec);
 };
 
 export default class MenuBuilder {
@@ -145,7 +153,6 @@ export default class MenuBuilder {
           label: "Play",
           accelerator: "Space",
           click: clickTogglePlayMenu,
-          registerAccelerator: false,
           enabled: false,
         },
         {
@@ -153,15 +160,47 @@ export default class MenuBuilder {
           label: "Pause",
           accelerator: "Space",
           click: clickTogglePlayMenu,
-          registerAccelerator: false,
           visible: false,
         },
+        {type: "separator"},
+        {
+          id: "rewind",
+          label: `Rewind ${PLAY_JUMP_SEC}s`,
+          accelerator: ",",
+          click: (_, browserWindow, event) =>
+            clickJumpPlayerMenus(browserWindow, event, -PLAY_JUMP_SEC),
+          enabled: false,
+        },
+        {
+          id: "fast-forward",
+          label: `Fast forward ${PLAY_JUMP_SEC}s`,
+          accelerator: ".",
+          click: (_, browserWindow, event) =>
+            clickJumpPlayerMenus(browserWindow, event, PLAY_JUMP_SEC),
+          enabled: false,
+        },
+        {
+          id: "rewind-big",
+          label: `Rewind ${PLAY_BIG_JUMP_SEC}s`,
+          accelerator: "Shift+,",
+          click: (_, browserWindow, event) =>
+            clickJumpPlayerMenus(browserWindow, event, -PLAY_BIG_JUMP_SEC),
+          enabled: false,
+        },
+        {
+          id: "fast-forward-big",
+          label: `Fast forward ${PLAY_BIG_JUMP_SEC}s`,
+          accelerator: "Shift+.",
+          click: (_, browserWindow, event) =>
+            clickJumpPlayerMenus(browserWindow, event, PLAY_BIG_JUMP_SEC),
+          enabled: false,
+        },
+        {type: "separator"},
         {
           id: "rewind-to-front",
           label: "Rewind To the Front",
           accelerator: "Enter",
           click: clickRewindToFront,
-          registerAccelerator: false,
           enabled: false,
         },
       ],
@@ -278,24 +317,62 @@ export default class MenuBuilder {
             label: "&Play",
             accelerator: "Space",
             click: clickTogglePlayMenu,
-            registerAccelerator: false,
             enabled: false,
+            registerAccelerator: false,
           },
           {
             id: "pause",
             label: "&Pause",
             accelerator: "Space",
             click: clickTogglePlayMenu,
-            registerAccelerator: false,
             visible: false,
+            registerAccelerator: false,
           },
+          {type: "separator"},
+          {
+            id: "rewind",
+            label: `Rewind ${PLAY_JUMP_SEC}s`,
+            accelerator: ",",
+            click: (_, browserWindow, event) =>
+              clickJumpPlayerMenus(browserWindow, event, -PLAY_JUMP_SEC),
+            enabled: false,
+            registerAccelerator: false,
+          },
+          {
+            id: "fast-forward",
+            label: `Fast forward ${PLAY_JUMP_SEC}s`,
+            accelerator: ".",
+            click: (_, browserWindow, event) =>
+              clickJumpPlayerMenus(browserWindow, event, PLAY_JUMP_SEC),
+            enabled: false,
+            registerAccelerator: false,
+          },
+          {
+            id: "rewind-big",
+            label: `Rewind ${PLAY_BIG_JUMP_SEC}s`,
+            accelerator: "Shift+,",
+            click: (_, browserWindow, event) =>
+              clickJumpPlayerMenus(browserWindow, event, -PLAY_BIG_JUMP_SEC),
+            enabled: false,
+            registerAccelerator: false,
+          },
+          {
+            id: "fast-forward-big",
+            label: `Fast forward ${PLAY_BIG_JUMP_SEC}s`,
+            accelerator: "Shift+.",
+            click: (_, browserWindow, event) =>
+              clickJumpPlayerMenus(browserWindow, event, PLAY_BIG_JUMP_SEC),
+            enabled: false,
+            registerAccelerator: false,
+          },
+          {type: "separator"},
           {
             id: "rewind-to-front",
             label: "&Rewind To the Front",
             accelerator: "Enter",
             click: clickRewindToFront,
-            registerAccelerator: false,
             enabled: false,
+            registerAccelerator: false,
           },
         ],
       },

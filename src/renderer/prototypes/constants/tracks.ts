@@ -22,8 +22,6 @@ export const SUPPORTED_MIME = [
 
 export const SHIFT_PX = 10; // css px
 export const BIG_SHIFT_PX = 50; // css px
-export const PLAY_JUMP_SEC = 1.0; // sec
-export const PLAY_BIG_JUMP_SEC = 5.0; // sec
 
 // axis
 const createBoundaries = (tickScaleTable: TickScaleTable) => {

@@ -4,6 +4,7 @@ import BackendAPI from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
 import FloatRangeInput from "renderer/modules/FloatRangeInput";
 import FloatingUserInput from "renderer/modules/FloatingUserInput";
+import {PLAY_JUMP_SEC} from "main/constants";
 import styles from "./PlayerControl.module.scss";
 import playIcon from "../../../../assets/buttons/play.svg";
 import pauseIcon from "../../../../assets/buttons/pause.svg";
