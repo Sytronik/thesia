@@ -68,12 +68,16 @@ ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPath
 });
 
 ipcMain.on("show-track-context-menu", (event) => {
-  const template = [
+  const template: MenuItemConstructorOptions[] = [
     {
-      label: `Remove Selected Tracks    (${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
+      label: `Remove Selected Tracks\t(${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
       click: () => {
         event.sender.send("remove-selected-tracks");
       },
+    },
+    {
+      label: `Select All Tracks\t\t\t(${os.platform() === "darwin" ? "⌘+A" : "Ctrl+A"})`,
+      click: () => event.sender.send("select-all-tracks"),
     },
   ];
   const menu = Menu.buildFromTemplate(template);
