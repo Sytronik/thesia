@@ -146,6 +146,7 @@ export default class MenuBuilder {
       ],
     };
     const subMenuPlay: MenuItemConstructorOptions = {
+      id: "play-menu",
       label: "Play",
       submenu: [
         {
@@ -310,6 +311,7 @@ export default class MenuBuilder {
               ],
       },
       {
+        id: "play-menu",
         label: "Play",
         submenu: [
           {

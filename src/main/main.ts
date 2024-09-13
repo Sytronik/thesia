@@ -143,42 +143,20 @@ ipcMain
     if (togglePauseMenu) togglePauseMenu.visible = true;
   })
   .on("enable-play-menu", () => {
-    const appMenu = Menu.getApplicationMenu();
-    if (appMenu === null) return;
-    const togglePlayMenu = appMenu.getMenuItemById("play");
-    if (togglePlayMenu) togglePlayMenu.enabled = true;
-    const togglePauseMenu = appMenu.getMenuItemById("pause");
-    if (togglePauseMenu) togglePauseMenu.enabled = true;
-
-    const rewindMenu = appMenu.getMenuItemById("rewind");
-    if (rewindMenu) rewindMenu.enabled = true;
-    const fastForwardMenu = appMenu.getMenuItemById("fast-forward");
-    if (fastForwardMenu) fastForwardMenu.enabled = true;
-    const rewindBigMenu = appMenu.getMenuItemById("rewind-big");
-    if (rewindBigMenu) rewindBigMenu.enabled = true;
-    const fastForwardBigMenu = appMenu.getMenuItemById("fast-forward-big");
-    if (fastForwardBigMenu) fastForwardBigMenu.enabled = true;
-    const rewindToFrontMenu = appMenu.getMenuItemById("rewind-to-front");
-    if (rewindToFrontMenu) rewindToFrontMenu.enabled = true;
+    const playMenu = Menu.getApplicationMenu()?.getMenuItemById("play-menu");
+    if (playMenu) {
+      playMenu.submenu?.items.forEach((item) => {
+        item.enabled = true;
+      });
+    }
   })
   .on("disable-play-menu", () => {
-    const appMenu = Menu.getApplicationMenu();
-    if (appMenu === null) return;
-    const togglePlayMenu = appMenu.getMenuItemById("play");
-    if (togglePlayMenu) togglePlayMenu.enabled = false;
-    const togglePauseMenu = appMenu.getMenuItemById("pause");
-    if (togglePauseMenu) togglePauseMenu.enabled = false;
-
-    const rewindMenu = appMenu.getMenuItemById("rewind");
-    if (rewindMenu) rewindMenu.enabled = false;
-    const fastForwardMenu = appMenu.getMenuItemById("fast-forward");
-    if (fastForwardMenu) fastForwardMenu.enabled = false;
-    const rewindBigMenu = appMenu.getMenuItemById("rewind-big");
-    if (rewindBigMenu) rewindBigMenu.enabled = false;
-    const fastForwardBigMenu = appMenu.getMenuItemById("fast-forward-big");
-    if (fastForwardBigMenu) fastForwardBigMenu.enabled = false;
-    const rewindToFrontMenu = appMenu.getMenuItemById("rewind-to-front");
-    if (rewindToFrontMenu) rewindToFrontMenu.enabled = false;
+    const playMenu = Menu.getApplicationMenu()?.getMenuItemById("play-menu");
+    if (playMenu) {
+      playMenu.submenu?.items.forEach((item) => {
+        item.enabled = false;
+      });
+    }
   });
 
 if (process.env.NODE_ENV === "production") {
