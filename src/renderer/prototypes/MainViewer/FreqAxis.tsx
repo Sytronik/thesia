@@ -1,9 +1,10 @@
-import React, {forwardRef, useMemo, useRef, useState} from "react";
+import React, {forwardRef, useEffect, useMemo, useRef, useState} from "react";
 import AxisCanvas, {getAxisHeight, getAxisPos} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "renderer/modules/FloatingUserInput";
+import {ipcRenderer} from "electron";
 import {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
@@ -209,6 +210,19 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   };
   const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
   const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
+
+  const onEditAxisRangeMenu = useEvent((_, axisKind, minOrMax) => {
+    if (axisKind !== "freqAxis") return;
+    if (minOrMax === "min") setMinHzInputHidden(false);
+    else setMaxHzInputHidden(false);
+  });
+
+  useEffect(() => {
+    ipcRenderer.on("edit-axis-range", onEditAxisRangeMenu);
+    return () => {
+      ipcRenderer.removeListener("edit-axis-range", onEditAxisRangeMenu);
+    };
+  }, [onEditAxisRangeMenu]);
 
   const axisCanvas = (
     <>

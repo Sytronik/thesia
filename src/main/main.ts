@@ -9,7 +9,15 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from "path";
-import {app, BrowserWindow, shell, ipcMain, dialog, Menu} from "electron";
+import {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  dialog,
+  Menu,
+  MenuItemConstructorOptions,
+} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
 import os from "os";
@@ -73,14 +81,36 @@ ipcMain.on("show-track-context-menu", (event) => {
 });
 
 ipcMain.on("show-axis-context-menu", (event, axisKind) => {
-  const template = [
-    {
-      label: `Reset Range    (${os.platform() === "darwin" ? "⌥+Click" : "Alt+Click"})`,
+  const template: MenuItemConstructorOptions[] = [];
+  if (axisKind === "ampAxis") {
+    template.push({
+      label: "Edit Range    (Double Click)",
       click: () => {
-        event.sender.send("reset-axis-range", axisKind);
+        event.sender.send("edit-axis-range", axisKind);
       },
+    });
+  } else if (axisKind === "freqAxis") {
+    template.push(
+      {
+        label: "Edit Upper Limit    (Double Click)",
+        click: () => {
+          event.sender.send("edit-axis-range", axisKind, "max");
+        },
+      },
+      {
+        label: "Edit Lower Limit    (Double Click)",
+        click: () => {
+          event.sender.send("edit-axis-range", axisKind, "min");
+        },
+      },
+    );
+  }
+  template.push({
+    label: `Reset Range    (${os.platform() === "darwin" ? "⌥+Click" : "Alt+Click"})`,
+    click: () => {
+      event.sender.send("reset-axis-range", axisKind);
     },
-  ];
+  });
   const menu = Menu.buildFromTemplate(template);
   menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
 });

@@ -1,9 +1,10 @@
-import React, {RefObject, forwardRef, useMemo, useState} from "react";
+import React, {RefObject, forwardRef, useEffect, useMemo, useState} from "react";
 import AxisCanvas, {getAxisHeight} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "renderer/modules/FloatingUserInput";
+import {ipcRenderer} from "electron";
 import {
   AMP_CANVAS_WIDTH,
   AMP_MARKER_POS,
@@ -151,6 +152,18 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     }
     setFloatingInputHidden(true);
   });
+
+  const onEditAxisRangeMenu = useEvent((_, axisKind) => {
+    if (axisKind !== "ampAxis") return;
+    setFloatingInputHidden(false);
+  });
+
+  useEffect(() => {
+    ipcRenderer.on("edit-axis-range", onEditAxisRangeMenu);
+    return () => {
+      ipcRenderer.removeListener("edit-axis-range", onEditAxisRangeMenu);
+    };
+  }, [onEditAxisRangeMenu]);
 
   const axisCanvas = (
     <>
