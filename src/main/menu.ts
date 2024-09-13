@@ -1,12 +1,4 @@
-import {
-  app,
-  Menu,
-  shell,
-  BrowserWindow,
-  MenuItemConstructorOptions,
-  dialog,
-  MenuItem,
-} from "electron";
+import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, dialog, MenuItem} from "electron";
 import path from "path";
 import {SUPPORTED_TYPES} from "./constants";
 
@@ -28,11 +20,6 @@ const clickOpenMenu = async (menuItem: MenuItem, browserWindow: BrowserWindow | 
 
 const clickRemoveTrackMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
   browserWindow?.webContents.send("delete-track");
-
-interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
-  selector?: string;
-  submenu?: DarwinMenuItemConstructorOptions[] | Menu;
-}
 
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
@@ -71,44 +58,13 @@ export default class MenuBuilder {
   }
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
-    const subMenuAbout: DarwinMenuItemConstructorOptions = {
-      label: "Electron",
-      submenu: [
-        {
-          label: "About Thesia",
-          selector: "orderFrontStandardAboutPanel:",
-        },
-        {type: "separator"},
-        {label: "Services", submenu: []},
-        {type: "separator"},
-        {
-          label: "Hide Thesia",
-          accelerator: "Command+H",
-          selector: "hide:",
-        },
-        {
-          label: "Hide Others",
-          accelerator: "Command+Shift+H",
-          selector: "hideOtherApplications:",
-        },
-        {label: "Show All", selector: "unhideAllApplications:"},
-        {type: "separator"},
-        {
-          label: "Quit",
-          accelerator: "Command+Q",
-          click: () => {
-            app.quit();
-          },
-        },
-      ],
-    };
-    const subMenuFile: DarwinMenuItemConstructorOptions = {
+    const subMenuAbout: MenuItemConstructorOptions = {role: "appMenu"};
+    const subMenuFile: MenuItemConstructorOptions = {
       label: "File",
       submenu: [
         {
           label: "Open Audio Tracks...",
           accelerator: "Command+O",
-          selector: "open:",
           click: clickOpenMenu,
         },
         {
@@ -124,9 +80,7 @@ export default class MenuBuilder {
           click: clickRemoveTrackMenu,
         },
         {type: "separator"},
-        {
-          role: "close",
-        },
+        {role: "close"},
       ],
     };
     const subMenuViewDev: MenuItemConstructorOptions = {
@@ -167,19 +121,7 @@ export default class MenuBuilder {
         },
       ],
     };
-    const subMenuWindow: DarwinMenuItemConstructorOptions = {
-      label: "Window",
-      submenu: [
-        {
-          label: "Minimize",
-          accelerator: "Command+M",
-          selector: "performMiniaturize:",
-        },
-        {label: "Close", accelerator: "Command+W", selector: "performClose:"},
-        {type: "separator"},
-        {label: "Bring All to Front", selector: "arrangeInFront:"},
-      ],
-    };
+    const subMenuWindow: MenuItemConstructorOptions = {role: "windowMenu"};
     const subMenuHelp: MenuItemConstructorOptions = {
       label: "Help",
       submenu: [
@@ -241,13 +183,7 @@ export default class MenuBuilder {
             acceleratorWorksWhenHidden: true,
             click: clickRemoveTrackMenu,
           },
-          {
-            label: "&Close",
-            accelerator: "Ctrl+W",
-            click: () => {
-              this.mainWindow.close();
-            },
-          },
+          {role: "close"},
         ],
       },
       {
