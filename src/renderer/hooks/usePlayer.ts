@@ -1,3 +1,4 @@
+import {ipcRenderer} from "electron";
 import {RefObject, useEffect, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
@@ -60,6 +61,11 @@ function usePlayer(selectedTrackId: number) {
       BackendAPI.seekPlayer(0);
     }
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
+
+  useEffect(() => {
+    if (isPlaying) ipcRenderer.send("show-pause-menu");
+    else ipcRenderer.send("show-play-menu");
+  }, [isPlaying]);
 
   return {
     isPlaying,

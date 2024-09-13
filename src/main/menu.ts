@@ -21,6 +21,10 @@ const clickOpenMenu = async (menuItem: MenuItem, browserWindow: BrowserWindow | 
 const clickRemoveTrackMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
   browserWindow?.webContents.send("remove-selected-tracks");
 
+const clickTogglePlayMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) => {
+  browserWindow?.webContents.send("toggle-play");
+};
+
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
 
@@ -123,6 +127,27 @@ export default class MenuBuilder {
         },
       ],
     };
+    const subMenuPlay: MenuItemConstructorOptions = {
+      label: "Play",
+      submenu: [
+        {
+          id: "play",
+          label: "Play",
+          accelerator: "Space",
+          click: clickTogglePlayMenu,
+          registerAccelerator: false,
+          enabled: false,
+        },
+        {
+          id: "pause",
+          label: "Pause",
+          accelerator: "Space",
+          click: clickTogglePlayMenu,
+          registerAccelerator: false,
+          visible: false,
+        },
+      ],
+    };
     const subMenuWindow: MenuItemConstructorOptions = {role: "windowMenu"};
     const subMenuHelp: MenuItemConstructorOptions = {
       label: "Help",
@@ -159,7 +184,7 @@ export default class MenuBuilder {
         ? subMenuViewDev
         : subMenuViewProd;
 
-    return [subMenuAbout, subMenuFile, subMenuView, subMenuWindow, subMenuHelp];
+    return [subMenuAbout, subMenuFile, subMenuView, subMenuPlay, subMenuWindow, subMenuHelp];
   }
 
   buildDefaultTemplate() {
@@ -226,6 +251,27 @@ export default class MenuBuilder {
                   },
                 },
               ],
+      },
+      {
+        label: "Play",
+        submenu: [
+          {
+            id: "play",
+            label: "&Play",
+            accelerator: "Space",
+            click: clickTogglePlayMenu,
+            registerAccelerator: false,
+            enabled: false,
+          },
+          {
+            id: "pause",
+            label: "&Pause",
+            accelerator: "Space",
+            click: clickTogglePlayMenu,
+            registerAccelerator: false,
+            visible: false,
+          },
+        ],
       },
       {
         label: "Help",

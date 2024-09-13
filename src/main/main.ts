@@ -125,6 +125,32 @@ ipcMain
     if (removeTrackMenu) removeTrackMenu.enabled = false;
   });
 
+ipcMain
+  .on("show-play-menu", () => {
+    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    if (togglePlayMenu) togglePlayMenu.visible = true;
+    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    if (togglePauseMenu) togglePauseMenu.visible = false;
+  })
+  .on("show-pause-menu", () => {
+    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    if (togglePlayMenu) togglePlayMenu.visible = false;
+    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    if (togglePauseMenu) togglePauseMenu.visible = true;
+  })
+  .on("enable-play-menu", () => {
+    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    if (togglePlayMenu) togglePlayMenu.enabled = true;
+    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    if (togglePauseMenu) togglePauseMenu.enabled = true;
+  })
+  .on("disable-play-menu", () => {
+    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    if (togglePlayMenu) togglePlayMenu.enabled = false;
+    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    if (togglePauseMenu) togglePauseMenu.enabled = false;
+  });
+
 if (process.env.NODE_ENV === "production") {
   const sourceMapSupport = require("source-map-support");
   sourceMapSupport.install();

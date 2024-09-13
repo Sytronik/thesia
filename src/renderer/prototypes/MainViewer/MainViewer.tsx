@@ -469,6 +469,12 @@ function MainViewer(props: MainViewerProps) {
 
   // Player Hotkeys
   useHotkeys("space", player.togglePlay, {preventDefault: true});
+  useEffect(() => {
+    ipcRenderer.on("toggle-play", player.togglePlay);
+    return () => {
+      ipcRenderer.removeAllListeners("toggle-play");
+    };
+  });
   useHotkeys("comma,period,shift+comma,shift+period", async (_, hotkey) => {
     let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
     if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;

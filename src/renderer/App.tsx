@@ -135,8 +135,13 @@ function MyApp() {
 
     if (prevTrackIdsCount === currTrackIdsCount) return;
 
-    if (currTrackIdsCount > 0) ipcRenderer.send("enable-remove-track-menu");
-    else ipcRenderer.send("disable-remove-track-menu");
+    if (currTrackIdsCount > 0) {
+      ipcRenderer.send("enable-remove-track-menu");
+      ipcRenderer.send("enable-play-menu");
+    } else {
+      ipcRenderer.send("disable-remove-track-menu");
+      ipcRenderer.send("disable-play-menu");
+    }
 
     if (prevTrackIdsCount < currTrackIdsCount) {
       selectTrackAfterAddTracks(prevTrackIds.current, trackIds);
