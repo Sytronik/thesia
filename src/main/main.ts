@@ -88,7 +88,7 @@ ipcMain.on("show-axis-context-menu", (event, axisKind) => {
   const template: MenuItemConstructorOptions[] = [];
   if (axisKind === "ampAxis") {
     template.push({
-      label: "Edit Range    (Double Click)",
+      label: "Edit Range\t\t(Double Click)",
       click: () => {
         event.sender.send("edit-axis-range", axisKind);
       },
@@ -96,13 +96,13 @@ ipcMain.on("show-axis-context-menu", (event, axisKind) => {
   } else if (axisKind === "freqAxis") {
     template.push(
       {
-        label: "Edit Upper Limit    (Double Click)",
+        label: "Edit Upper Limit\t(Double Click)",
         click: () => {
           event.sender.send("edit-axis-range", axisKind, "max");
         },
       },
       {
-        label: "Edit Lower Limit    (Double Click)",
+        label: "Edit Lower Limit\t(Double Click)",
         click: () => {
           event.sender.send("edit-axis-range", axisKind, "min");
         },
@@ -110,7 +110,7 @@ ipcMain.on("show-axis-context-menu", (event, axisKind) => {
     );
   }
   template.push({
-    label: `Reset Range    (${os.platform() === "darwin" ? "⌥+Click" : "Alt+Click"})`,
+    label: `Reset Range\t\t(${os.platform() === "darwin" ? "⌥+Click" : "Alt+Click"})`,
     click: () => {
       event.sender.send("reset-axis-range", axisKind);
     },
