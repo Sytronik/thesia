@@ -15,14 +15,24 @@ export const showOpenDialog = () =>
     properties: ["openFile", "multiSelections"],
   });
 
-const clickOpenMenu = async (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
+type MenuItemClick = (
+  menuItem: MenuItem,
+  browserWindow: BrowserWindow | undefined,
+  event: Electron.KeyboardEvent,
+) => void;
+
+const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
 
-const clickRemoveTrackMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) =>
+const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("remove-selected-tracks");
 
-const clickTogglePlayMenu = (menuItem: MenuItem, browserWindow: BrowserWindow | undefined) => {
+const clickTogglePlayMenu: MenuItemClick = (_, browserWindow) => {
   browserWindow?.webContents.send("toggle-play");
+};
+
+const clickRewindToFront: MenuItemClick = (_, browserWindow) => {
+  browserWindow?.webContents.send("rewind-to-front");
 };
 
 export default class MenuBuilder {
@@ -145,6 +155,14 @@ export default class MenuBuilder {
           click: clickTogglePlayMenu,
           registerAccelerator: false,
           visible: false,
+        },
+        {
+          id: "rewind-to-front",
+          label: "Rewind To the Front",
+          accelerator: "Enter",
+          click: clickRewindToFront,
+          registerAccelerator: false,
+          enabled: false,
         },
       ],
     };
@@ -270,6 +288,14 @@ export default class MenuBuilder {
             click: clickTogglePlayMenu,
             registerAccelerator: false,
             visible: false,
+          },
+          {
+            id: "rewind-to-front",
+            label: "&Rewind To the Front",
+            accelerator: "Enter",
+            click: clickRewindToFront,
+            registerAccelerator: false,
+            enabled: false,
           },
         ],
       },

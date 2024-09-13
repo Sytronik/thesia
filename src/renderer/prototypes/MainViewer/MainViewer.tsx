@@ -487,14 +487,17 @@ function MainViewer(props: MainViewerProps) {
       player.setSelectSec(sec);
     }
   });
-  useHotkeys(
-    "enter",
-    async () => {
-      if (player.isPlaying) await player.seek(0);
-      else player.setSelectSec(0);
-    },
-    {preventDefault: true},
-  );
+  const rewindToFront = useEvent(async () => {
+    if (player.isPlaying) await player.seek(0);
+    else player.setSelectSec(0);
+  });
+  useHotkeys("enter", rewindToFront, {preventDefault: true});
+  useEffect(() => {
+    ipcRenderer.on("rewind-to-front", rewindToFront);
+    return () => {
+      ipcRenderer.removeAllListeners("rewind-to-front");
+    };
+  });
 
   const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
   const resetAmpRange = useEvent(() => setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE])));

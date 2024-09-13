@@ -127,28 +127,40 @@ ipcMain
 
 ipcMain
   .on("show-play-menu", () => {
-    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    const appMenu = Menu.getApplicationMenu();
+    if (appMenu === null) return;
+    const togglePlayMenu = appMenu.getMenuItemById("play");
     if (togglePlayMenu) togglePlayMenu.visible = true;
-    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    const togglePauseMenu = appMenu.getMenuItemById("pause");
     if (togglePauseMenu) togglePauseMenu.visible = false;
   })
   .on("show-pause-menu", () => {
-    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    const appMenu = Menu.getApplicationMenu();
+    if (appMenu === null) return;
+    const togglePlayMenu = appMenu.getMenuItemById("play");
     if (togglePlayMenu) togglePlayMenu.visible = false;
-    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    const togglePauseMenu = appMenu.getMenuItemById("pause");
     if (togglePauseMenu) togglePauseMenu.visible = true;
   })
   .on("enable-play-menu", () => {
-    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    const appMenu = Menu.getApplicationMenu();
+    if (appMenu === null) return;
+    const togglePlayMenu = appMenu.getMenuItemById("play");
     if (togglePlayMenu) togglePlayMenu.enabled = true;
-    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    const togglePauseMenu = appMenu.getMenuItemById("pause");
     if (togglePauseMenu) togglePauseMenu.enabled = true;
+    const rewindToFrontMenu = appMenu.getMenuItemById("rewind-to-front");
+    if (rewindToFrontMenu) rewindToFrontMenu.enabled = true;
   })
   .on("disable-play-menu", () => {
-    const togglePlayMenu = Menu.getApplicationMenu()?.getMenuItemById("play");
+    const appMenu = Menu.getApplicationMenu();
+    if (appMenu === null) return;
+    const togglePlayMenu = appMenu.getMenuItemById("play");
     if (togglePlayMenu) togglePlayMenu.enabled = false;
-    const togglePauseMenu = Menu.getApplicationMenu()?.getMenuItemById("pause");
+    const togglePauseMenu = appMenu.getMenuItemById("pause");
     if (togglePauseMenu) togglePauseMenu.enabled = false;
+    const rewindToFrontMenu = appMenu.getMenuItemById("rewind-to-front");
+    if (rewindToFrontMenu) rewindToFrontMenu.enabled = false;
   });
 
 if (process.env.NODE_ENV === "production") {
