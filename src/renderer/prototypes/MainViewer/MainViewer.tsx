@@ -611,6 +611,119 @@ function MainViewer(props: MainViewerProps) {
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // canvas img and markers setting logic
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
+  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+
+  useEffect(() => {
+    if (!trackIds.length) return;
+
+    throttledSetFreqMarkers(imgHeight, imgHeight, {});
+  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+
+  useEffect(() => {
+    if (!trackIds.length) {
+      resetdBMarkers();
+      return;
+    }
+
+    throttledSetdBMarkers(colorBarHeight, colorBarHeight, {});
+  }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
+
+  useEffect(() => {
+    if (!trackIds.length) {
+      unsetTimeMarkersAndUnit();
+      return;
+    }
+
+    throttledSetTimeMarkersAndUnit();
+  }, [unsetTimeMarkersAndUnit, throttledSetTimeMarkersAndUnit, trackIds, needRefreshTrackIdChArr]);
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(drawCanvas);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [drawCanvas]);
+
+  useEffect(() => {
+    if (selectedTrackIds.length === 0) return;
+    const selectedIdUnderscore = `${selectedTrackIds[selectedTrackIds.length - 1]}_`;
+    if (needRefreshTrackIdChArr.some((idCh: string) => idCh.startsWith(selectedIdUnderscore)))
+      overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
+  }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (selectedTrackIds.length === 0) return;
+    const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
+    const trackInfo = trackInfosRef.current[selectedIdStr];
+    if (trackInfo === null) return;
+    const infoRect = trackInfo.getBoundingClientRect();
+    const viewElem = splitViewElem.current;
+    const viewRect = viewElem?.getBoundingClientRect() ?? null;
+    if (infoRect === null || viewElem === null || viewRect === null) return;
+    const infoMiddle = infoRect.top + infoRect.height / 2;
+    if (infoMiddle < viewRect.top) {
+      viewElem.scrollTo({top: infoRect.top - viewRect.top, behavior: "smooth"});
+    } else if (infoMiddle > viewRect.bottom) {
+      viewElem.scrollTo({top: infoRect.bottom - viewRect.bottom, behavior: "smooth"});
+    }
+  }, [selectedTrackIds, trackInfosRef]);
+
+  // set LensParams when track list or width change
+  useLayoutEffect(() => {
+    if (trackIds.length > 0) {
+      const startSec =
+        prevTrackCountRef.current === 0 || canvasIsFit
+          ? 0
+          : normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
+      const pxPerSec = canvasIsFit
+        ? width / maxTrackSec
+        : normalizePxPerSec(pxPerSecRef.current, startSec);
+      updateLensParams({startSec, pxPerSec});
+    }
+
+    prevTrackCountRef.current = trackIds.length;
+  }, [
+    trackIds,
+    width,
+    maxTrackSec,
+    canvasIsFit,
+    updateLensParams,
+    normalizeStartSec,
+    normalizePxPerSec,
+  ]);
+
+  useEffect(() => {
+    if (needRefreshTrackIdChArr.length > 0) {
+      throttledSetImgState(needRefreshTrackIdChArr, width, imgHeight);
+      finishRefreshTracks();
+    } else {
+      throttledSetImgState(getIdChArr(), width, imgHeight);
+    }
+  }, [
+    throttledSetImgState,
+    getIdChArr,
+    width,
+    imgHeight,
+    needRefreshTrackIdChArr,
+    finishRefreshTracks,
+  ]);
+
+  const mainViewerElemCallback = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node === null) {
+        mainViewerElem.current?.removeEventListener("wheel", handleWheel);
+        mainViewerElem.current = null;
+        return;
+      }
+      node.addEventListener("wheel", handleWheel, {passive: false});
+      mainViewerElem.current = node;
+    },
+    [handleWheel],
+  );
+
   const createLeftPane = (leftWidth: number) => (
     <>
       <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
@@ -707,121 +820,6 @@ function MainViewer(props: MainViewerProps) {
         zIndex={0}
       />
     </>
-  );
-
-  // canvas img and markers setting logic
-  useEffect(() => {
-    if (!trackIds.length) return;
-
-    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
-    if (!trackIds.length) return;
-
-    throttledSetFreqMarkers(imgHeight, imgHeight, {});
-  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
-    if (!trackIds.length) {
-      resetdBMarkers();
-      return;
-    }
-
-    throttledSetdBMarkers(colorBarHeight, colorBarHeight, {});
-  }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
-    if (!trackIds.length) {
-      unsetTimeMarkersAndUnit();
-      return;
-    }
-
-    throttledSetTimeMarkersAndUnit();
-  }, [unsetTimeMarkersAndUnit, throttledSetTimeMarkersAndUnit, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(drawCanvas);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [drawCanvas]);
-
-  useEffect(() => {
-    if (selectedTrackIds.length === 0) return;
-    const selectedIdUnderscore = `${selectedTrackIds[selectedTrackIds.length - 1]}_`;
-    if (needRefreshTrackIdChArr.some((idCh: string) => idCh.startsWith(selectedIdUnderscore)))
-      overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
-  }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (selectedTrackIds.length === 0) return;
-    const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
-    const trackInfo = trackInfosRef.current[selectedIdStr];
-    if (trackInfo === null) return;
-    const infoRect = trackInfo.getBoundingClientRect();
-    const viewElem = splitViewElem.current;
-    const viewRect = viewElem?.getBoundingClientRect() ?? null;
-    if (infoRect === null || viewElem === null || viewRect === null) return;
-    const infoMiddle = infoRect.top + infoRect.height / 2;
-    if (infoMiddle < viewRect.top) {
-      viewElem.scrollTo({top: infoRect.top - viewRect.top, behavior: "smooth"});
-    } else if (infoMiddle > viewRect.bottom) {
-      viewElem.scrollTo({top: infoRect.bottom - viewRect.bottom, behavior: "smooth"});
-    }
-  }, [selectedTrackIds, trackInfosRef]);
-
-  // set LensParams when track list or width change
-  useLayoutEffect(() => {
-    if (trackIds.length > 0) {
-      const startSec =
-        prevTrackCountRef.current === 0 || canvasIsFit
-          ? 0
-          : normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
-      const pxPerSec = canvasIsFit
-        ? width / maxTrackSec
-        : normalizePxPerSec(pxPerSecRef.current, startSec);
-      updateLensParams({startSec, pxPerSec});
-    }
-
-    prevTrackCountRef.current = trackIds.length;
-  }, [
-    trackIds,
-    width,
-    maxTrackSec,
-    canvasIsFit,
-    updateLensParams,
-    normalizeStartSec,
-    normalizePxPerSec,
-  ]);
-
-  const refreshImgs = useCallback(() => {
-    if (needRefreshTrackIdChArr.length > 0) {
-      throttledSetImgState(needRefreshTrackIdChArr, width, imgHeight);
-      finishRefreshTracks();
-    } else {
-      throttledSetImgState(getIdChArr(), width, imgHeight);
-    }
-  }, [
-    throttledSetImgState,
-    getIdChArr,
-    width,
-    imgHeight,
-    needRefreshTrackIdChArr,
-    finishRefreshTracks,
-  ]);
-
-  useEffect(refreshImgs, [refreshImgs]);
-
-  const mainViewerElemCallback = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (node === null) {
-        mainViewerElem.current?.removeEventListener("wheel", handleWheel);
-        mainViewerElem.current = null;
-        return;
-      }
-      node.addEventListener("wheel", handleWheel, {passive: false});
-      mainViewerElem.current = node;
-    },
-    [handleWheel],
   );
 
   return (
