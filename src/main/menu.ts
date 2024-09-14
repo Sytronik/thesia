@@ -16,11 +16,21 @@ type MenuItemClick = (
 const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
 
-const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
-  browserWindow?.webContents.send("remove-selected-tracks");
+const clickFreqZoomIn: MenuItemClick = (_, browserWindow) =>
+  browserWindow?.webContents.send("freq-zoom-in");
+const clickFreqZoomOut: MenuItemClick = (_, browserWindow) =>
+  browserWindow?.webContents.send("freq-zoom-out");
+
+const clickTimeZoomIn: MenuItemClick = (_, browserWindow) =>
+  browserWindow?.webContents.send("time-zoom-in");
+const clickTimeZoomOut: MenuItemClick = (_, browserWindow) =>
+  browserWindow?.webContents.send("time-zoom-out");
 
 const clickSelectAllTracks: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("select-all-tracks");
+
+const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
+  browserWindow?.webContents.send("remove-selected-tracks");
 
 const clickTogglePlayMenu: MenuItemClick = (_, browserWindow, event) => {
   if (!event.triggeredByAccelerator) browserWindow?.webContents.send("toggle-play");
@@ -102,43 +112,52 @@ export default class MenuBuilder {
         {label: "Select All", accelerator: "Command+A", selector: "selectAll:", enabled: false},
       ],
     };
-    const subMenuViewDev: MenuItemConstructorOptions = {
+    const commonSubMenusForView: MenuItemConstructorOptions[] = [
+      {label: "Frequency Zoom In", accelerator: "Command+Down", click: clickFreqZoomIn},
+      {label: "Frequency Zoom Out", accelerator: "Command+Up", click: clickFreqZoomOut},
+      {label: "Time Zoom In", accelerator: "Command+Right", click: clickTimeZoomIn},
+      {label: "Time Zoom Out", accelerator: "Command+Left", click: clickTimeZoomOut},
+      {type: "separator"},
+    ];
+    const devSubMenusForView: MenuItemConstructorOptions[] = [
+      {
+        label: "Reload",
+        accelerator: "Command+R",
+        click: () => {
+          this.mainWindow.webContents.reload();
+        },
+      },
+      {
+        label: "Toggle Full Screen",
+        accelerator: "Ctrl+Command+F",
+        click: () => {
+          this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
+        },
+      },
+      {
+        label: "Toggle Developer Tools",
+        accelerator: "Alt+Command+I",
+        click: () => {
+          this.mainWindow.webContents.toggleDevTools();
+        },
+      },
+    ];
+    const prodSubMenusForView: MenuItemConstructorOptions[] = [
+      {
+        label: "Toggle Full Screen",
+        accelerator: "Ctrl+Command+F",
+        click: () => {
+          this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
+        },
+      },
+    ];
+    const subMenuView: MenuItemConstructorOptions = {
       label: "View",
-      submenu: [
-        {
-          label: "Reload",
-          accelerator: "Command+R",
-          click: () => {
-            this.mainWindow.webContents.reload();
-          },
-        },
-        {
-          label: "Toggle Full Screen",
-          accelerator: "Ctrl+Command+F",
-          click: () => {
-            this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
-          },
-        },
-        {
-          label: "Toggle Developer Tools",
-          accelerator: "Alt+Command+I",
-          click: () => {
-            this.mainWindow.webContents.toggleDevTools();
-          },
-        },
-      ],
-    };
-    const subMenuViewProd: MenuItemConstructorOptions = {
-      label: "View",
-      submenu: [
-        {
-          label: "Toggle Full Screen",
-          accelerator: "Ctrl+Command+F",
-          click: () => {
-            this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
-          },
-        },
-      ],
+      submenu: commonSubMenusForView.concat(
+        process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true"
+          ? devSubMenusForView
+          : prodSubMenusForView,
+      ),
     };
     const subMenuTracks: MenuItemConstructorOptions = {
       label: "Tracks",
@@ -257,11 +276,6 @@ export default class MenuBuilder {
       ],
     };
 
-    const subMenuView =
-      process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true"
-        ? subMenuViewDev
-        : subMenuViewProd;
-
     return [
       subMenuAbout,
       subMenuFile,
@@ -275,6 +289,13 @@ export default class MenuBuilder {
   }
 
   buildDefaultTemplate() {
+    const commonSubMenusForView: MenuItemConstructorOptions[] = [
+      {label: "Frequency Zoom In", accelerator: "Ctrl+Down", click: clickFreqZoomIn},
+      {label: "Frequency Zoom Out", accelerator: "Ctrl+Up", click: clickFreqZoomOut},
+      {label: "Time Zoom In", accelerator: "Ctrl+Right", click: clickTimeZoomIn},
+      {label: "Time Zoom Out", accelerator: "Ctrl+Left", click: clickTimeZoomOut},
+      {type: "separator"},
+    ];
     const templateDefault: MenuItemConstructorOptions[] = [
       {
         label: "&File",
@@ -291,7 +312,7 @@ export default class MenuBuilder {
       },
       {
         label: "&View",
-        submenu:
+        submenu: commonSubMenusForView.concat(
           process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true"
             ? [
                 {
@@ -325,6 +346,7 @@ export default class MenuBuilder {
                   },
                 },
               ],
+        ),
       },
       {
         label: "Tracks",

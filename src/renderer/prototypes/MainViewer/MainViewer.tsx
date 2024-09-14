@@ -442,12 +442,26 @@ function MainViewer(props: MainViewerProps) {
     if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
     updateLensParams({startSec: startSecRef.current + shiftSec});
   });
-  useHotkeys("mod+down", () => zoomHeight(100), {preventDefault: true});
-  useHotkeys("mod+up", () => zoomHeight(-100), {preventDefault: true});
-  useHotkeys("mod+right,mod+left", (_, hotkey) => {
-    let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 1);
-    if (hotkey.keys?.join("") === "left") pxPerSecDelta = -pxPerSecDelta;
+  useEffect(() => {
+    ipcRenderer.on("freq-zoom-in", () => zoomHeight(100));
+    ipcRenderer.on("freq-zoom-out", () => zoomHeight(-100));
+    return () => {
+      ipcRenderer.removeAllListeners("freq-zoom-in");
+      ipcRenderer.removeAllListeners("freq-zoom-out");
+    };
+  }, [zoomHeight]);
+  const zoomLens = (isZoomOut: boolean) => {
+    let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
+    if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
     updateLensParams({pxPerSec: pxPerSecRef.current + pxPerSecDelta});
+  };
+  useEffect(() => {
+    ipcRenderer.on("time-zoom-in", () => zoomLens(false));
+    ipcRenderer.on("time-zoom-out", () => zoomLens(true));
+    return () => {
+      ipcRenderer.removeAllListeners("time-zoom-in");
+      ipcRenderer.removeAllListeners("time-zoom-out");
+    };
   });
 
   // Track Selection Hotkeys
