@@ -17,32 +17,28 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const requestRef = useRef<number | null>(null);
 
-  const colorBarGradientBuf = useMemo(() => BackendAPI.getColorMap(), []);
+  const colorBarGradientBuf = useMemo(
+    () => chunk([...new Uint8Array(BackendAPI.getColorMap())], 3).reverse(),
+    [],
+  );
 
   const draw = useCallback(() => {
-    requestRef.current = null;
-    if (colorBarGradientBuf.byteLength % 3 !== 0) return;
-
     const ctx = ctxRef.current;
     if (!ctx) return;
 
-    const gradientColors = new Uint8Array(colorBarGradientBuf);
-    const gradientColorMap = chunk([...gradientColors], 3).reverse();
     const colorGradient = ctx.createLinearGradient(COLORBAR_CENTER, 0, COLORBAR_CENTER, height);
 
-    gradientColorMap.forEach((color, idx) => {
+    colorBarGradientBuf.forEach((color, idx) => {
       const [r, g, b] = color;
       colorGradient.addColorStop(
-        (1 / (gradientColorMap.length - 1)) * idx,
+        (1 / (colorBarGradientBuf.length - 1)) * idx,
         `rgba(${r}, ${g}, ${b}, 1)`,
       );
     });
 
     ctx.fillStyle = colorGradient;
     ctx.fillRect(0, 0, COLORBAR_CANVAS_WIDTH, height);
-    requestRef.current = requestAnimationFrame(draw);
   }, [colorBarGradientBuf, height]);
 
   useEffect(() => {
