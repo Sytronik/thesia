@@ -3,6 +3,22 @@ import os from "os";
 import path from "path";
 import {SUPPORTED_TYPES} from "./constants";
 
+function labelAndSublabel(
+  label: string,
+  darwinAccelerator: string,
+  otherAccelerator?: string,
+  nTabs: number = 1,
+) {
+  let labelWithAcc = label;
+  const sublabel = otherAccelerator !== undefined ? otherAccelerator : darwinAccelerator;
+  if (os.platform() === "darwin") labelWithAcc += `${"\t".repeat(nTabs)}(${darwinAccelerator})`;
+  else
+    labelWithAcc += " ".repeat(
+      Math.max(Math.round(sublabel.length * 1.5 - labelWithAcc.length), 0),
+    );
+  return {label: labelWithAcc, sublabel};
+}
+
 export function showOpenDialog() {
   const defaultPath = app.isPackaged ? app.getPath("home") : path.join(__dirname, "../../samples/");
 
@@ -55,13 +71,11 @@ export default function addIPCListeners() {
   ipcMain.on("show-track-context-menu", (event) => {
     const menu = Menu.buildFromTemplate([
       {
-        label: `Remove Selected Tracks\t(${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
-        click: () => {
-          event.sender.send("remove-selected-tracks");
-        },
+        ...labelAndSublabel("Remove Selected Tracks", "⌫ | ⌦", "Del | Backspace"),
+        click: () => event.sender.send("remove-selected-tracks"),
       },
       {
-        label: `Select All Tracks\t\t\t(${os.platform() === "darwin" ? "⌘+A" : "Ctrl+A"})`,
+        ...labelAndSublabel("Select All Tracks", "(⌘+A)", "Ctrl+A", 3),
         click: () => event.sender.send("select-all-tracks"),
       },
     ]);
@@ -72,32 +86,26 @@ export default function addIPCListeners() {
     const template: MenuItemConstructorOptions[] = [];
     if (axisKind === "ampAxis") {
       template.push({
-        label: "Edit Range\t\t(Double Click)",
-        click: () => {
-          event.sender.send("edit-axis-range", axisKind);
-        },
+        ...labelAndSublabel("Edit Range", "Double Cick", "Double Click", 2),
+        click: () => event.sender.send("edit-axis-range", axisKind),
       });
     } else if (axisKind === "freqAxis") {
       template.push(
         {
-          label: "Edit Upper Limit\t(Double Click)",
+          ...labelAndSublabel("Edit Upper Limit", "Double Click"),
           click: () => {
             event.sender.send("edit-axis-range", axisKind, "max");
           },
         },
         {
-          label: "Edit Lower Limit\t(Double Click)",
-          click: () => {
-            event.sender.send("edit-axis-range", axisKind, "min");
-          },
+          ...labelAndSublabel("Edit Lower Limit", "Double Click"),
+          click: () => event.sender.send("edit-axis-range", axisKind, "min"),
         },
       );
     }
     template.push({
-      label: `Reset Range\t\t(${os.platform() === "darwin" ? "⌥+Click" : "Alt+Click"})`,
-      click: () => {
-        event.sender.send("reset-axis-range", axisKind);
-      },
+      ...labelAndSublabel("Reset Range", "⌥+Click", "Alt+Click", 2),
+      click: () => event.sender.send("reset-axis-range", axisKind),
     });
     const menu = Menu.buildFromTemplate(template);
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
