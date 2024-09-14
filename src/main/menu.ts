@@ -232,7 +232,7 @@ export default class MenuBuilder {
         {type: "separator"},
         {
           id: "rewind-to-front",
-          label: "Rewind To the Front",
+          label: "Rewind to the Front",
           accelerator: "Enter",
           click: clickRewindToFront,
           enabled: false,
@@ -424,7 +424,7 @@ export default class MenuBuilder {
           {type: "separator"},
           {
             id: "rewind-to-front",
-            label: "&Rewind To the Front",
+            label: "&Rewind to the Front",
             accelerator: "Enter",
             click: clickRewindToFront,
             enabled: false,
