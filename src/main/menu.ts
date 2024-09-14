@@ -349,7 +349,7 @@ export default class MenuBuilder {
         ),
       },
       {
-        label: "Tracks",
+        label: "&Tracks",
         submenu: [
           {
             id: "select-all-tracks",
@@ -375,7 +375,7 @@ export default class MenuBuilder {
       },
       {
         id: "play-menu",
-        label: "Play",
+        label: "&Play",
         submenu: [
           {
             id: "play",
@@ -445,7 +445,7 @@ export default class MenuBuilder {
         label: "Help",
         submenu: [
           {
-            label: "Learn More",
+            label: "&Learn More",
             click() {
               shell.openExternal("https://github.com/Sytronik/thesia");
             },
@@ -463,7 +463,7 @@ export default class MenuBuilder {
             },
           }, */
           {
-            label: "Search Issues",
+            label: "&Search Issues",
             click() {
               shell.openExternal("https://github.com/Sytronik/thesia/issues");
             },
