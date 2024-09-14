@@ -369,6 +369,7 @@ function MainViewer(props: MainViewerProps) {
         delta = e.deltaY;
       }
       if (isNonAppleZoom) delta = -delta;
+      if (!isApple() && !isZoom && horizontal) delta *= 0.5;
     }
 
     if (!isZoom && !horizontal) {
