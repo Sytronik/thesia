@@ -68,7 +68,7 @@ ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPath
 });
 
 ipcMain.on("show-track-context-menu", (event) => {
-  const template: MenuItemConstructorOptions[] = [
+  const menu = Menu.buildFromTemplate([
     {
       label: `Remove Selected Tracks\t(${os.platform() === "darwin" ? "⌫|⌦" : "Delete|Backspace"})`,
       click: () => {
@@ -79,8 +79,7 @@ ipcMain.on("show-track-context-menu", (event) => {
       label: `Select All Tracks\t\t\t(${os.platform() === "darwin" ? "⌘+A" : "Ctrl+A"})`,
       click: () => event.sender.send("select-all-tracks"),
     },
-  ];
-  const menu = Menu.buildFromTemplate(template);
+  ]);
   menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
 });
 
@@ -118,6 +117,46 @@ ipcMain.on("show-axis-context-menu", (event, axisKind) => {
   const menu = Menu.buildFromTemplate(template);
   menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
 });
+
+ipcMain.on("show-edit-context-menu", (event) => {
+  const menu = Menu.buildFromTemplate([
+    {role: "undo"},
+    {role: "redo"},
+    {type: "separator"},
+    {role: "cut"},
+    {role: "copy"},
+    {role: "paste"},
+    {type: "separator"},
+    {role: "selectAll"},
+  ]);
+  menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
+});
+
+ipcMain
+  .on("enable-edit-menu", () => {
+    const appMenu = Menu.getApplicationMenu();
+    if (!appMenu) return;
+    const editMenu = appMenu.getMenuItemById("edit-menu");
+    if (editMenu) {
+      editMenu.submenu?.items.forEach((item) => {
+        item.enabled = true;
+      });
+    }
+    const selectAllTracksMenu = appMenu.getMenuItemById("select-all-tracks");
+    if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
+  })
+  .on("disable-edit-menu", () => {
+    const appMenu = Menu.getApplicationMenu();
+    if (!appMenu) return;
+    const editMenu = appMenu.getMenuItemById("edit-menu");
+    if (editMenu) {
+      editMenu.submenu?.items.forEach((item) => {
+        item.enabled = false;
+      });
+    }
+    const selectAllTracksMenu = appMenu.getMenuItemById("select-all-tracks");
+    if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
+  });
 
 ipcMain
   .on("enable-remove-track-menu", () => {

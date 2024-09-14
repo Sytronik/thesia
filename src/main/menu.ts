@@ -2,6 +2,17 @@ import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, dialog, MenuItem
 import path from "path";
 import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC, SUPPORTED_TYPES} from "./constants";
 
+interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
+  selector?: string;
+  submenu?: DarwinMenuItemConstructorOptions[] | Menu;
+}
+
+type MenuItemClick = (
+  menuItem: MenuItem,
+  browserWindow: BrowserWindow | undefined,
+  event: Electron.KeyboardEvent,
+) => void;
+
 export const showOpenDialog = () =>
   dialog.showOpenDialog({
     title: "Select the audio files to be open",
@@ -15,17 +26,14 @@ export const showOpenDialog = () =>
     properties: ["openFile", "multiSelections"],
   });
 
-type MenuItemClick = (
-  menuItem: MenuItem,
-  browserWindow: BrowserWindow | undefined,
-  event: Electron.KeyboardEvent,
-) => void;
-
 const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
 
 const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("remove-selected-tracks");
+
+const clickSelectAllTracks: MenuItemClick = (_, browserWindow) =>
+  browserWindow?.webContents.send("select-all-tracks");
 
 const clickTogglePlayMenu: MenuItemClick = (_, browserWindow, event) => {
   if (!event.triggeredByAccelerator) browserWindow?.webContents.send("toggle-play");
@@ -80,8 +88,8 @@ export default class MenuBuilder {
   }
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
-    const subMenuAbout: MenuItemConstructorOptions = {role: "appMenu"};
-    const subMenuFile: MenuItemConstructorOptions = {
+    const subMenuAbout: DarwinMenuItemConstructorOptions = {role: "appMenu"};
+    const subMenuFile: DarwinMenuItemConstructorOptions = {
       label: "File",
       submenu: [
         {
@@ -105,6 +113,20 @@ export default class MenuBuilder {
         },
         {type: "separator"},
         {role: "close"},
+      ],
+    };
+    const subMenuEdit: DarwinMenuItemConstructorOptions = {
+      id: "edit-menu",
+      label: "Edit",
+      submenu: [
+        {label: "Undo", accelerator: "Command+Z", selector: "undo:", enabled: false},
+        {label: "Redo", accelerator: "Shift+Command+Z", selector: "redo:", enabled: false},
+        {type: "separator"},
+        {label: "Cut", accelerator: "Command+X", selector: "cut:", enabled: false},
+        {label: "Copy", accelerator: "Command+C", selector: "copy:", enabled: false},
+        {label: "Paste", accelerator: "Command+V", selector: "paste:", enabled: false},
+        {label: "Delete", selector: "delete:", enabled: false},
+        {label: "Select All", accelerator: "Command+A", selector: "selectAll:", enabled: false},
       ],
     };
     const subMenuViewDev: MenuItemConstructorOptions = {
@@ -142,6 +164,17 @@ export default class MenuBuilder {
           click: () => {
             this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
           },
+        },
+      ],
+    };
+    const subMenuTracks: MenuItemConstructorOptions = {
+      label: "Tracks",
+      submenu: [
+        {
+          id: "select-all-tracks",
+          label: "Select All Tracks",
+          accelerator: "Command+A",
+          click: clickSelectAllTracks,
         },
       ],
     };
@@ -242,7 +275,16 @@ export default class MenuBuilder {
         ? subMenuViewDev
         : subMenuViewProd;
 
-    return [subMenuAbout, subMenuFile, subMenuView, subMenuPlay, subMenuWindow, subMenuHelp];
+    return [
+      subMenuAbout,
+      subMenuFile,
+      subMenuEdit,
+      subMenuView,
+      subMenuTracks,
+      subMenuPlay,
+      subMenuWindow,
+      subMenuHelp,
+    ];
   }
 
   buildDefaultTemplate() {
@@ -309,6 +351,17 @@ export default class MenuBuilder {
                   },
                 },
               ],
+      },
+      {
+        label: "Tracks",
+        submenu: [
+          {
+            id: "select-all-tracks",
+            label: "Select &All Tracks",
+            accelerator: "Ctrl+A",
+            click: clickSelectAllTracks,
+          },
+        ],
       },
       {
         id: "play-menu",

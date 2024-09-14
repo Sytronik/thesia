@@ -13,6 +13,49 @@ import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 
+const callDifferentFuncIfEditableNode = (
+  node: HTMLElement | null,
+  funcForEditable: () => void,
+  funcForNonEditable?: () => void,
+) => {
+  let ancestor = node;
+  let isEditable = false;
+  while (ancestor) {
+    if (ancestor.nodeName.match(/^(input|textarea)$/i) || ancestor.isContentEditable) {
+      funcForEditable();
+      isEditable = true;
+      break;
+    }
+    if (ancestor.parentNode === null) break;
+    ancestor = ancestor.parentNode as HTMLElement;
+  }
+  if (!isEditable && funcForNonEditable) funcForNonEditable();
+};
+
+const showEditContextMenu = (e: MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, () =>
+    ipcRenderer.send("show-edit-context-menu"),
+  );
+};
+
+const changeEditMenuForFocusIn = (e: FocusEvent) => {
+  callDifferentFuncIfEditableNode(
+    e.target as HTMLElement | null,
+    () => ipcRenderer.send("enable-edit-menu"),
+    () => ipcRenderer.send("disable-edit-menu"),
+  );
+};
+
+const changeEditMenuForFocusOut = (e: FocusEvent) => {
+  callDifferentFuncIfEditableNode(
+    e.relatedTarget as HTMLElement | null,
+    () => ipcRenderer.send("enable-edit-menu"),
+    () => ipcRenderer.send("disable-edit-menu"),
+  );
+};
+
 function MyApp() {
   const {
     trackIds,
@@ -128,6 +171,22 @@ function MyApp() {
       ipcRenderer.removeAllListeners("remove-selected-tracks");
     };
   }, [removeSelectedTracks]);
+
+  useEffect(() => {
+    document.body.addEventListener("contextmenu", showEditContextMenu);
+    return () => {
+      document.body.removeEventListener("contextmenu", showEditContextMenu);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.addEventListener("focusin", changeEditMenuForFocusIn);
+    document.body.addEventListener("focusout", changeEditMenuForFocusOut);
+    return () => {
+      document.body.removeEventListener("focusin", changeEditMenuForFocusIn);
+      document.body.removeEventListener("focusout", changeEditMenuForFocusOut);
+    };
+  }, []);
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;
