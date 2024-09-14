@@ -1,6 +1,6 @@
-import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, dialog, MenuItem} from "electron";
-import path from "path";
-import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC, SUPPORTED_TYPES} from "./constants";
+import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, MenuItem} from "electron";
+import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "./constants";
+import {showOpenDialog} from "./ipc";
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
   selector?: string;
@@ -12,19 +12,6 @@ type MenuItemClick = (
   browserWindow: BrowserWindow | undefined,
   event: Electron.KeyboardEvent,
 ) => void;
-
-export const showOpenDialog = () =>
-  dialog.showOpenDialog({
-    title: "Select the audio files to be open",
-    defaultPath: path.join(__dirname, "../../samples/"),
-    filters: [
-      {
-        name: "Audio Files",
-        extensions: SUPPORTED_TYPES,
-      },
-    ],
-    properties: ["openFile", "multiSelections"],
-  });
 
 const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
