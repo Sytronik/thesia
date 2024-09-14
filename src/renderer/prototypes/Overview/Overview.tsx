@@ -105,7 +105,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     if (
       forced ||
       prevArgsLensRef.current === null ||
-      prevArgsLensRef.current.some((v, i) => argsLens[i] !== v)
+      prevArgsLensRef.current.some((v, i) => Math.abs(argsLens[i] - v) > 1e-3)
     ) {
       drawLens(durationSec, startSec, lensDurationSec);
     }
@@ -118,7 +118,7 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
     if (
       forced ||
       prevArgsRef.current === null ||
-      prevArgsRef.current.some((v, i) => args[i] !== v)
+      prevArgsRef.current.some((v, i) => Math.abs(args[i] - v) > 1e-3)
     ) {
       let imbmp = null;
       if (width >= 1) {

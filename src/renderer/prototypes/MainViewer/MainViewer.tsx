@@ -244,9 +244,10 @@ function MainViewer(props: MainViewerProps) {
       let startSec = params.startSec ?? startSecRef.current;
       let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
 
-      if (startSec !== startSecRef.current)
+      if (Math.abs(startSec - startSecRef.current) > 1e-3)
         startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-      if (pxPerSec !== pxPerSecRef.current) pxPerSec = normalizePxPerSec(pxPerSec, startSec);
+      if (Math.abs(pxPerSec - pxPerSecRef.current) > 1e-6)
+        pxPerSec = normalizePxPerSec(pxPerSec, startSec);
 
       startSecRef.current = startSec;
       pxPerSecRef.current = pxPerSec;
@@ -322,7 +323,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const onMouseMove = (e: React.MouseEvent) => {
-    if (e.clientY === prevCursorClientY.current) return;
+    if (Math.abs(e.clientY - prevCursorClientY.current) < 1e-3) return;
     updateVScrollAnchorInfo(e.clientY);
     prevCursorClientY.current = e.clientY;
   };
@@ -522,7 +523,7 @@ function MainViewer(props: MainViewerProps) {
       needFollowCursor.current = true;
       const endSec = calcEndSec();
       const diff = selectSec - prevSelectSecRef.current;
-      if (diff !== 0 && (endSec < selectSec || startSecRef.current > selectSec)) {
+      if (diff > 1e-6 && (endSec < selectSec || startSecRef.current > selectSec)) {
         let newStartSec = startSecRef.current + diff;
         const newEndSec = endSec + diff;
 

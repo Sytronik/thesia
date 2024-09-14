@@ -61,8 +61,8 @@ function Locator(props: LocatorProps) {
       const rect = locatorElem.current.getBoundingClientRect();
       if (
         leftWidth !== null &&
-        (locatorPos !== prevLocatorPos.current ||
-          leftWidth.some((v, i) => v !== prevLeftWidth.current[i]) ||
+        (Math.abs(locatorPos - prevLocatorPos.current) > 1e-3 ||
+          leftWidth.some((v, i) => Math.abs(v - prevLeftWidth.current[i]) > 1e-1) ||
           !areDOMRectsEqual(rect, prevBoundingRect.current))
       ) {
         const [left, width] = leftWidth;

@@ -31,7 +31,7 @@ function PlayerControl(props: PlayerControlProps) {
     if (
       posInputElem.current !== null &&
       !posInputElem.current.isEditing() &&
-      prevPosSecRef.current.toFixed(3) !== positionSec.toFixed(3)
+      Math.abs(prevPosSecRef.current - positionSec) > 1e-4
     ) {
       const positionLabel = BackendAPI.secondsToLabel(positionSec);
       posInputElem.current.setValue(positionLabel);
