@@ -1,4 +1,4 @@
-import {useRef, useMemo} from "react";
+import {useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {MarkerDrawOption} from "../api";
@@ -29,22 +29,20 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
   const markersAndLengthRef = useRef<[Markers, number]>([[], 1]);
   const {scaleTable, boundaries, getMarkers} = params;
 
-  const throttledSetMarkers = useMemo(
-    () =>
-      throttle(
-        THRESHOLD,
-        async (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
-          const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
-          if (!tickScale) return;
+  const throttledSetMarkers = useEvent(
+    throttle(
+      THRESHOLD,
+      async (canvasLength: number, scaleDeterminant: number, drawOptions: MarkerDrawOption) => {
+        const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
+        if (!tickScale) return;
 
-          // time axis returns [size of minor unit, number of minor tick]
-          // instead of tick and lable count
-          const [maxTickCount, maxLabelCount] = tickScale;
-          const markers = await getMarkers(maxTickCount, maxLabelCount, drawOptions);
-          markersAndLengthRef.current = [markers, canvasLength];
-        },
-      ),
-    [boundaries, getMarkers, scaleTable],
+        // time axis returns [size of minor unit, number of minor tick]
+        // instead of tick and lable count
+        const [maxTickCount, maxLabelCount] = tickScale;
+        const markers = await getMarkers(maxTickCount, maxLabelCount, drawOptions);
+        markersAndLengthRef.current = [markers, canvasLength];
+      },
+    ),
   );
 
   const resetMarkers = useEvent(() => {
