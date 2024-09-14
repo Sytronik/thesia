@@ -1,12 +1,14 @@
-import path from "path";
-import {BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions} from "electron";
+import {BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions, app} from "electron";
 import os from "os";
+import path from "path";
 import {SUPPORTED_TYPES} from "./constants";
 
 export function showOpenDialog() {
+  const defaultPath = app.isPackaged ? app.getPath("home") : path.join(__dirname, "../../samples/");
+
   return dialog.showOpenDialog({
     title: "Select the audio files to be open",
-    defaultPath: path.join(__dirname, "../../samples/"),
+    defaultPath,
     filters: [
       {
         name: "Audio Files",
