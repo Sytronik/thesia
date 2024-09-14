@@ -487,19 +487,26 @@ async fn resume_player() {
     player::send(PlayerCommand::Resume).await;
 }
 
+#[napi(object)]
+struct PlayerState {
+    pub is_playing: bool,
+    pub position_sec: f64,
+    pub err: String,
+}
+
 #[napi]
-fn get_player_state() -> serde_json::Value {
+fn get_player_state() -> PlayerState {
     match player::recv() {
-        PlayerNotification::Ok(state) => {
-            json!({
-                "isPlaying": state.is_playing,
-                "positionSec": state.position_sec,
-                "err": "",
-            })
-        }
-        PlayerNotification::Err(e_str) => {
-            json!({"isPlaying": false, "positionSec": 0., "err": e_str})
-        }
+        PlayerNotification::Ok(state) => PlayerState {
+            is_playing: state.is_playing,
+            position_sec: state.position_sec,
+            err: "".to_string(),
+        },
+        PlayerNotification::Err(e_str) => PlayerState {
+            is_playing: false,
+            position_sec: 0.,
+            err: e_str,
+        },
     }
 }
 

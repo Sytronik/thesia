@@ -72,4 +72,9 @@ export declare function setTrackPlayer(trackId: number, sec?: number | undefined
 export declare function seekPlayer(sec: number): Promise<void>
 export declare function pausePlayer(): Promise<void>
 export declare function resumePlayer(): Promise<void>
-export declare function getPlayerState(): any
+export interface PlayerState {
+  isPlaying: boolean
+  positionSec: number
+  err: string
+}
+export declare function getPlayerState(): PlayerState
