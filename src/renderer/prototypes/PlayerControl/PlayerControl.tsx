@@ -12,6 +12,7 @@ import rewindBackIcon from "../../../../assets/buttons/rewind-back.svg";
 import rewindForwardIcon from "../../../../assets/buttons/rewind-forward.svg";
 import skipToBeginningIcon from "../../../../assets/buttons/skip-to-beginning.svg";
 import volumeIcon from "../../../../assets/buttons/volume.svg";
+import {MIN_VOLUME_dB} from "../constants/tracks";
 
 type PlayerControlProps = {
   player: Player;
@@ -93,7 +94,7 @@ function PlayerControl(props: PlayerControlProps) {
         id="volumeRangeInput"
         className={styles.volumeRangeInput}
         unit="dB"
-        min={-24}
+        min={MIN_VOLUME_dB}
         max={0}
         step={0.1}
         precision={1}

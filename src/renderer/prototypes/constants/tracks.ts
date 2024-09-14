@@ -213,3 +213,5 @@ export const MIN_HZ_RANGE = 100;
 export const MIN_DIST_FROM_0_FOR_DRAG = 0.01;
 
 export const T_OVERLAP_VALUES = [1, 2, 4, 8, 16, 32];
+
+export const MIN_VOLUME_dB = -36;
