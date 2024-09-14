@@ -35,9 +35,7 @@ if (process.env.NODE_ENV === "production") {
 
 const isDebug = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true";
 
-if (isDebug) {
-  require("electron-debug")();
-}
+if (isDebug) require("electron-debug")();
 
 const installExtensions = async () => {
   const installer = require("electron-devtools-assembler");
@@ -131,9 +129,7 @@ const createWindow = async (pathsToOpen: string[]) => {
 app.on("window-all-closed", () => {
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  if (process.platform !== "darwin") app.quit();
 });
 
 const pathsToOpenAfterLaunch: string[] = [];

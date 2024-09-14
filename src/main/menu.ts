@@ -56,9 +56,8 @@ export default class MenuBuilder {
   }
 
   buildMenu(): Menu {
-    if (process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true") {
+    if (process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true")
       this.setupDevelopmentEnvironment();
-    }
 
     const template =
       process.platform === "darwin" ? this.buildDarwinTemplate() : this.buildDefaultTemplate();
@@ -76,9 +75,7 @@ export default class MenuBuilder {
       Menu.buildFromTemplate([
         {
           label: "Inspect element",
-          click: () => {
-            this.mainWindow.webContents.inspectElement(x, y);
-          },
+          click: () => this.mainWindow.webContents.inspectElement(x, y),
         },
       ]).popup({window: this.mainWindow});
     });
@@ -89,11 +86,7 @@ export default class MenuBuilder {
     const subMenuFile: DarwinMenuItemConstructorOptions = {
       label: "File",
       submenu: [
-        {
-          label: "Open Audio Tracks...",
-          accelerator: "Command+O",
-          click: clickOpenMenu,
-        },
+        {label: "Open Audio Tracks...", accelerator: "Command+O", click: clickOpenMenu},
         {type: "separator"},
         {role: "close"},
       ],
@@ -123,32 +116,24 @@ export default class MenuBuilder {
       {
         label: "Reload",
         accelerator: "Command+R",
-        click: () => {
-          this.mainWindow.webContents.reload();
-        },
+        click: () => this.mainWindow.webContents.reload(),
       },
       {
         label: "Toggle Full Screen",
         accelerator: "Ctrl+Command+F",
-        click: () => {
-          this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
-        },
+        click: () => this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen()),
       },
       {
         label: "Toggle Developer Tools",
         accelerator: "Alt+Command+I",
-        click: () => {
-          this.mainWindow.webContents.toggleDevTools();
-        },
+        click: () => this.mainWindow.webContents.toggleDevTools(),
       },
     ];
     const prodSubMenusForView: MenuItemConstructorOptions[] = [
       {
         label: "Toggle Full Screen",
         accelerator: "Ctrl+Command+F",
-        click: () => {
-          this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
-        },
+        click: () => this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen()),
       },
     ];
     const subMenuView: MenuItemConstructorOptions = {
@@ -251,27 +236,19 @@ export default class MenuBuilder {
       submenu: [
         {
           label: "Learn More",
-          click() {
-            shell.openExternal("https://github.com/Sytronik/thesia");
-          },
+          click: () => shell.openExternal("https://github.com/Sytronik/thesia"),
         },
         /* {
           label: "Documentation",
-          click() {
-            shell.openExternal("https://github.com/Sytronik/thesia");
-          },
+          click: () => shell.openExternal("https://github.com/Sytronik/thesia"),
         }, */
         /* {
           label: "Community Discussions",
-          click() {
-            shell.openExternal("https://www.electronjs.org/community");
-          },
+          click: () => shell.openExternal("https://www.electronjs.org/community"),
         }, */
         {
           label: "Search Issues",
-          click() {
-            shell.openExternal("https://github.com/Sytronik/thesia/issues");
-          },
+          click: () => shell.openExternal("https://github.com/Sytronik/thesia/issues"),
         },
       ],
     };
@@ -303,7 +280,7 @@ export default class MenuBuilder {
           {
             label: "&Open Audio Tracks...",
             accelerator: "Ctrl+O",
-            click: async (menuItem, browserWindow) =>
+            click: async (_, browserWindow) =>
               browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog()),
           },
           {type: "separator"},
@@ -318,32 +295,24 @@ export default class MenuBuilder {
                 {
                   label: "&Reload",
                   accelerator: "Ctrl+R",
-                  click: () => {
-                    this.mainWindow.webContents.reload();
-                  },
+                  click: () => this.mainWindow.webContents.reload(),
                 },
                 {
                   label: "Toggle &Full Screen",
                   accelerator: "F11",
-                  click: () => {
-                    this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
-                  },
+                  click: () => this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen()),
                 },
                 {
                   label: "Toggle &Developer Tools",
                   accelerator: "Alt+Ctrl+I",
-                  click: () => {
-                    this.mainWindow.webContents.toggleDevTools();
-                  },
+                  click: () => this.mainWindow.webContents.toggleDevTools(),
                 },
               ]
             : [
                 {
                   label: "Toggle &Full Screen",
                   accelerator: "F11",
-                  click: () => {
-                    this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
-                  },
+                  click: () => this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen()),
                 },
               ],
         ),
@@ -446,27 +415,19 @@ export default class MenuBuilder {
         submenu: [
           {
             label: "&Learn More",
-            click() {
-              shell.openExternal("https://github.com/Sytronik/thesia");
-            },
+            click: () => shell.openExternal("https://github.com/Sytronik/thesia"),
           },
           /* {
             label: "Documentation",
-            click() {
-              shell.openExternal("https://github.com/Sytronik/thesia");
-            },
+            click: () => shell.openExternal("https://github.com/Sytronik/thesia"),
           }, */
           /* {
             label: "Community Discussions",
-            click() {
-              shell.openExternal("https://www.electronjs.org/community");
-            },
+            click: () => shell.openExternal("https://www.electronjs.org/community"),
           }, */
           {
             label: "&Search Issues",
-            click() {
-              shell.openExternal("https://github.com/Sytronik/thesia/issues");
-            },
+            click: () => shell.openExternal("https://github.com/Sytronik/thesia/issues"),
           },
         ],
       },
