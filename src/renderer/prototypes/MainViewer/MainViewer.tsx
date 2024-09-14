@@ -396,7 +396,7 @@ function MainViewer(props: MainViewerProps) {
       }
     } else if (horizontal) {
       // horizontal scroll
-      updateLensParams({startSec: startSecRef.current + delta / pxPerSecRef.current});
+      updateLensParams({startSec: startSecRef.current + (0.5 * delta) / pxPerSecRef.current});
     }
   });
 
