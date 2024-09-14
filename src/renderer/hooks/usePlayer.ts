@@ -4,6 +4,7 @@ import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "main/constants";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
 import {useHotkeys} from "react-hotkeys-hook";
+import {showPlayOrPauseMenu} from "renderer/lib/electron-sender";
 
 export type Player = {
   isPlaying: boolean;
@@ -107,8 +108,7 @@ function usePlayer(selectedTrackId: number) {
   });
 
   useEffect(() => {
-    if (isPlaying) ipcRenderer.send("show-pause-menu");
-    else ipcRenderer.send("show-play-menu");
+    showPlayOrPauseMenu(isPlaying);
   }, [isPlaying]);
 
   return {

@@ -5,7 +5,13 @@ import {ipcRenderer} from "electron";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
-import {showElectronFileOpenErrorMsg} from "./lib/electron-sender";
+import {
+  changeMenuDepsOnTrackExistence,
+  disableEditMenu,
+  enableEditMenu,
+  showEditContextMenu,
+  showElectronFileOpenErrorMsg,
+} from "./lib/electron-sender";
 import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
@@ -32,27 +38,21 @@ const callDifferentFuncIfEditableNode = (
   if (!isEditable && funcForNonEditable) funcForNonEditable();
 };
 
-const showEditContextMenu = (e: MouseEvent) => {
+const showEditContextMenuIfEditableNode = (e: MouseEvent) => {
   e.preventDefault();
   e.stopPropagation();
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, () =>
-    ipcRenderer.send("show-edit-context-menu"),
-  );
+  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, showEditContextMenu);
 };
 
 const changeEditMenuForFocusIn = (e: FocusEvent) => {
-  callDifferentFuncIfEditableNode(
-    e.target as HTMLElement | null,
-    () => ipcRenderer.send("enable-edit-menu"),
-    () => ipcRenderer.send("disable-edit-menu"),
-  );
+  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, enableEditMenu, disableEditMenu);
 };
 
 const changeEditMenuForFocusOut = (e: FocusEvent) => {
   callDifferentFuncIfEditableNode(
     e.relatedTarget as HTMLElement | null,
-    () => ipcRenderer.send("enable-edit-menu"),
-    () => ipcRenderer.send("disable-edit-menu"),
+    enableEditMenu,
+    disableEditMenu,
   );
 };
 
@@ -173,9 +173,9 @@ function MyApp() {
   }, [removeSelectedTracks]);
 
   useEffect(() => {
-    document.body.addEventListener("contextmenu", showEditContextMenu);
+    document.body.addEventListener("contextmenu", showEditContextMenuIfEditableNode);
     return () => {
-      document.body.removeEventListener("contextmenu", showEditContextMenu);
+      document.body.removeEventListener("contextmenu", showEditContextMenuIfEditableNode);
     };
   }, []);
 
@@ -194,13 +194,7 @@ function MyApp() {
 
     if (prevTrackIdsCount === currTrackIdsCount) return;
 
-    if (currTrackIdsCount > 0) {
-      ipcRenderer.send("enable-remove-track-menu");
-      ipcRenderer.send("enable-play-menu");
-    } else {
-      ipcRenderer.send("disable-remove-track-menu");
-      ipcRenderer.send("disable-play-menu");
-    }
+    changeMenuDepsOnTrackExistence(currTrackIdsCount > 0);
 
     if (prevTrackIdsCount < currTrackIdsCount) {
       selectTrackAfterAddTracks(prevTrackIds.current, trackIds);
