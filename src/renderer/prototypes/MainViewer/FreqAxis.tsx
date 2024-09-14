@@ -211,7 +211,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
   const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
 
-  const onEditAxisRangeMenu = useEvent((_, axisKind, minOrMax) => {
+  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind, minOrMax: "min" | "max") => {
     if (axisKind !== "freqAxis") return;
     if (minOrMax === "min") setMinHzInputHidden(false);
     else setMaxHzInputHidden(false);

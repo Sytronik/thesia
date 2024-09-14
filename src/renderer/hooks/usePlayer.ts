@@ -2,9 +2,9 @@ import {ipcRenderer} from "electron";
 import {RefObject, useEffect, useRef, useState} from "react";
 import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "main/constants";
 import useEvent from "react-use-event-hook";
-import BackendAPI from "renderer/api";
 import {useHotkeys} from "react-hotkeys-hook";
-import {showPlayOrPauseMenu} from "renderer/lib/electron-sender";
+import BackendAPI from "../api";
+import {showPlayOrPauseMenu} from "../lib/ipc-sender";
 
 export type Player = {
   isPlaying: boolean;

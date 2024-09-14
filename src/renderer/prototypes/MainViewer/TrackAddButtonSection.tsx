@@ -1,5 +1,5 @@
 import React from "react";
-import {showElectronOpenDialog} from "renderer/lib/electron-sender";
+import {showElectronOpenDialog} from "../../lib/ipc-sender";
 import styles from "./TrackAddButtonSection.module.scss";
 
 function TrackAddButtonSection() {

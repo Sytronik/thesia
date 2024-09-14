@@ -7,8 +7,8 @@ import React, {
   useContext,
 } from "react";
 import useEvent from "react-use-event-hook";
-import {DevicePixelRatioContext} from "renderer/contexts";
-import {showAxisContextMenu} from "renderer/lib/electron-sender";
+import {DevicePixelRatioContext} from "../contexts";
+import {showAxisContextMenu} from "../lib/ipc-sender";
 import {
   AXIS_STYLE,
   LABEL_HEIGHT_ADJUSTMENT,

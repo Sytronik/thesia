@@ -153,7 +153,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     setFloatingInputHidden(true);
   });
 
-  const onEditAxisRangeMenu = useEvent((_, axisKind) => {
+  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind) => {
     if (axisKind !== "ampAxis") return;
     setFloatingInputHidden(false);
   });

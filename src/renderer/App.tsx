@@ -11,7 +11,7 @@ import {
   enableEditMenu,
   showEditContextMenu,
   showElectronFileOpenErrorMsg,
-} from "./lib/electron-sender";
+} from "./lib/ipc-sender";
 import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
 import "./App.scss";
 import useTracks from "./hooks/useTracks";
@@ -149,10 +149,12 @@ function MyApp() {
   }, [openFiles]);
 
   useEffect(() => {
-    ipcRenderer.on("open-dialog-closed", async (_, dialogResult) => {
-      if (!dialogResult.canceled) openFiles(dialogResult.filePaths);
-      else console.log("file canceled: ", dialogResult.canceled);
-    });
+    ipcRenderer.on(
+      "open-dialog-closed",
+      async (_, dialogResult: Electron.OpenDialogReturnValue) => {
+        if (!dialogResult.canceled) openFiles(dialogResult.filePaths);
+      },
+    );
 
     return () => {
       ipcRenderer.removeAllListeners("open-dialog-closed");
