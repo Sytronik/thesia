@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
+import {areDOMRectsEqual} from "renderer/utils/arrayUtils";
 import styles from "./Locator.module.scss";
 
 type LocatorProps = {
@@ -21,6 +22,9 @@ function Locator(props: LocatorProps) {
     locatorCtxRef.current = node?.getContext("2d") ?? null;
   }, []);
   const requestRef = useRef<number>(0);
+  const prevLocatorPos = useRef<number>(-1);
+  const prevLeftWidth = useRef<[number, number]>([-1, -1]);
+  const prevBoundingRect = useRef<DOMRect>(new DOMRect());
 
   const lineWidth = locatorStyle === "selection" ? 2 : 1;
   const lineOffset = lineWidth % 2 === 0 ? 0 : 0.5;
@@ -50,31 +54,44 @@ function Locator(props: LocatorProps) {
   );
 
   const draw = useEvent(() => {
+    const locatorPos = calcLocatorPos();
     const leftWidth = getBoundingLeftWidth();
-    if (leftWidth !== null && locatorElem.current !== null) {
-      const [left, width] = leftWidth;
-      const locatorPos = calcLocatorPos();
 
+    if (locatorElem.current !== null) {
+      const rect = locatorElem.current.getBoundingClientRect();
       if (
-        locatorPos <= -lineOffset - lineWidth / 2 ||
-        locatorPos >= width + lineWidth / 2 - lineOffset
+        leftWidth !== null &&
+        (locatorPos !== prevLocatorPos.current ||
+          leftWidth.some((v, i) => v !== prevLeftWidth.current[i]) ||
+          !areDOMRectsEqual(rect, prevBoundingRect.current))
       ) {
-        if (locatorElem.current.style.visibility !== "hidden")
-          locatorElem.current.style.visibility = "hidden";
-      } else {
-        const locatorElemPos = moveElem ? Math.floor(locatorPos) - 1 : 0;
-        const drawPos = locatorPos - locatorElemPos;
-        const [lineTop, lineBottom] = getTopBottom();
-        if (locatorElem.current.style.visibility !== "") locatorElem.current.style.visibility = "";
-        if (locatorElem.current.style.left !== `${locatorElemPos + left}px`)
-          locatorElem.current.style.left = `${locatorElemPos + left}px`;
-        const rect = locatorElem.current.getBoundingClientRect();
-        locatorElem.current.width = rect.width * devicePixelRatio;
-        locatorElem.current.height = rect.height * devicePixelRatio;
-        const ctx = locatorCtxRef.current;
-        if (ctx !== null) drawLine(ctx, drawPos, lineTop, lineBottom);
+        const [left, width] = leftWidth;
+
+        if (
+          locatorPos <= -lineOffset - lineWidth / 2 ||
+          locatorPos >= width + lineWidth / 2 - lineOffset
+        ) {
+          if (locatorElem.current.style.visibility !== "hidden")
+            locatorElem.current.style.visibility = "hidden";
+        } else {
+          const locatorElemPos = moveElem ? Math.floor(locatorPos) - 1 : 0;
+          const drawPos = locatorPos - locatorElemPos;
+          const [lineTop, lineBottom] = getTopBottom();
+          if (locatorElem.current.style.visibility !== "")
+            locatorElem.current.style.visibility = "";
+          const styleLeft = `${locatorElemPos + left}px`;
+          if (locatorElem.current.style.left !== styleLeft)
+            locatorElem.current.style.left = styleLeft;
+          locatorElem.current.width = rect.width * devicePixelRatio;
+          locatorElem.current.height = rect.height * devicePixelRatio;
+          const ctx = locatorCtxRef.current;
+          if (ctx !== null) drawLine(ctx, drawPos, lineTop, lineBottom);
+        }
       }
+      prevBoundingRect.current = rect;
     }
+    prevLocatorPos.current = locatorPos;
+    if (leftWidth) prevLeftWidth.current = leftWidth;
     requestRef.current = requestAnimationFrame(draw);
   });
 

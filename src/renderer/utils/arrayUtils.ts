@@ -31,3 +31,20 @@ export function isNil<T>(val: T): boolean {
 export function last<T>(arr: T[]): T {
   return arr[arr.length - 1];
 }
+
+export function areDOMRectsEqual(rect1: DOMRect, rect2: DOMRect, eps = 1e-6): boolean {
+  const properties: (keyof DOMRect)[] = [
+    "top",
+    "right",
+    "bottom",
+    "left",
+    "width",
+    "height",
+    "x",
+    "y",
+  ];
+
+  return properties.every(
+    (prop) => Math.abs((rect1[prop] as number) - (rect2[prop] as number)) < eps,
+  );
+}
