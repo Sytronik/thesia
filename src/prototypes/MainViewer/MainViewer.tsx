@@ -427,19 +427,25 @@ function MainViewer(props: MainViewerProps) {
     let horizontal: boolean;
     let delta: number;
     const isApplePinch = isApple() && e.ctrlKey;
+    const isAppleZoom = isApple() && e.altKey;
+    const isNonAppleZoom = !isApple() && e.ctrlKey;
+    const isZoom = isApplePinch || isAppleZoom || isNonAppleZoom;
     if (isApplePinch) {
       horizontal = !e.shiftKey;
       if (horizontal) delta = -12 * e.deltaY;
       else delta = -6 * e.deltaY;
-    } else if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) {
-      horizontal = !e.shiftKey;
-      delta = e.deltaX;
     } else {
-      horizontal = e.shiftKey;
-      delta = e.deltaY;
+      if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) {
+        horizontal = !e.shiftKey;
+        delta = e.deltaX;
+      } else {
+        horizontal = e.shiftKey;
+        delta = e.deltaY;
+      }
+      if (isNonAppleZoom) delta = -delta;
     }
 
-    if (!e.altKey && !isApplePinch && !horizontal) {
+    if (!isZoom && !horizontal) {
       // vertical scroll (native)
       updateVScrollAnchorInfo(e.clientY);
       return;
@@ -450,8 +456,7 @@ function MainViewer(props: MainViewerProps) {
     if (e.clientX > (anImgBoundngRect?.right ?? 0) || e.clientX < (anImgBoundngRect?.x ?? 0))
       return;
 
-    if (isApplePinch || e.altKey) {
-      // zoom
+    if (isZoom) {
       if (horizontal) {
         // horizontal zoom
         const newPxPerSec = normalizePxPerSec(pxPerSec * (1 + delta / 1000), 0);
