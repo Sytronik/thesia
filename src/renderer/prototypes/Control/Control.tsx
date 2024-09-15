@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {
@@ -79,7 +79,7 @@ function Control(props: ControlProps) {
     });
   };
 
-  const throttledSetdBRange = useEvent(throttle(1000 / 70, setdBRange));
+  const throttledSetdBRange = useMemo(() => throttle(1000 / 70, setdBRange), [setdBRange]);
 
   const onWinMillisecEndEditing = useEvent((v: string | null) => {
     if (v === null) {

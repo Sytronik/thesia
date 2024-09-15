@@ -107,9 +107,12 @@ function MainViewer(props: MainViewerProps) {
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
-  const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
+  const imgHeight = useMemo(() => height - 2 * VERTICAL_AXIS_PADDING, [height]);
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
-  const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
+  const colorBarHeight = useMemo(
+    () => colorMapHeight - 2 * VERTICAL_AXIS_PADDING,
+    [colorMapHeight],
+  );
 
   const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
 
@@ -197,20 +200,22 @@ function MainViewer(props: MainViewerProps) {
     getMarkers: BackendAPI.getdBAxisMarkers,
   });
 
-  const throttledSetImgState = useEvent(
-    throttle(1000 / 70, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
-      if (!idChArr.length) return;
+  const throttledSetImgState = useMemo(
+    () =>
+      throttle(1000 / 70, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
+        if (!idChArr.length) return;
 
-      await BackendAPI.setImageState(
-        idChArr,
-        startSecRef.current,
-        canvasWidth * devicePixelRatio,
-        canvasHeight * devicePixelRatio,
-        pxPerSecRef.current * devicePixelRatio,
-        {amp_range: ampRangeRef.current, dpr: devicePixelRatio},
-        blend,
-      );
-    }),
+        await BackendAPI.setImageState(
+          idChArr,
+          startSecRef.current,
+          canvasWidth * devicePixelRatio,
+          canvasHeight * devicePixelRatio,
+          pxPerSecRef.current * devicePixelRatio,
+          {amp_range: ampRangeRef.current, dpr: devicePixelRatio},
+          blend,
+        );
+      }),
+    [blend, devicePixelRatio],
   );
 
   const setAmpRange = useEvent((newRange: [number, number]) => {
@@ -219,13 +224,15 @@ function MainViewer(props: MainViewerProps) {
     throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
   });
 
-  const throttledSetHzRange = useEvent(
-    throttle(1000 / 70, (minHz: number, maxHz: number) => {
-      if (BackendAPI.setHzRange(minHz, maxHz)) {
-        throttledSetImgState(getIdChArr(), width, imgHeight);
-      }
-      throttledSetFreqMarkers(imgHeight, imgHeight);
-    }),
+  const throttledSetHzRange = useMemo(
+    () =>
+      throttle(1000 / 70, (minHz: number, maxHz: number) => {
+        if (BackendAPI.setHzRange(minHz, maxHz)) {
+          throttledSetImgState(getIdChArr(), width, imgHeight);
+        }
+        throttledSetFreqMarkers(imgHeight, imgHeight);
+      }),
+    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight],
   );
 
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
