@@ -1,5 +1,12 @@
 import {ipcRenderer} from "electron";
 
+export function setUserSetting<K extends keyof UserSettings>(
+  key: K,
+  value: NonNullable<UserSettings[K]>,
+) {
+  ipcRenderer.send("set-setting", key, value);
+}
+
 export function showElectronOpenDialog() {
   ipcRenderer.send("show-open-dialog");
 }

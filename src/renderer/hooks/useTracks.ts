@@ -1,6 +1,7 @@
 import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
+import {setUserSetting} from "renderer/lib/ipc-sender";
 import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
 
 type AddTracksResultType = {
@@ -8,21 +9,63 @@ type AddTracksResultType = {
   invalidPaths: string[];
 };
 
-function useTracks() {
+function getInitialValue<K extends keyof UserSettings>(
+  userSettings: UserSettings,
+  key: K,
+  getFromBackend: () => NonNullable<UserSettings[K]>,
+  setToBackend: (v: NonNullable<UserSettings[K]>) => void,
+): NonNullable<UserSettings[K]> {
+  const value = userSettings[key];
+  if (value !== undefined) {
+    setToBackend(value);
+    return value;
+  }
+  const valueFromBackend = getFromBackend();
+  setUserSetting(key, valueFromBackend);
+  return valueFromBackend;
+}
+
+function useTracks(userSettings: UserSettings) {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
-  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
-    BackendAPI.getSpecSetting(),
+  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(() =>
+    getInitialValue(
+      userSettings,
+      "specSetting",
+      BackendAPI.getSpecSetting,
+      BackendAPI.setSpecSetting,
+    ),
   );
-  const [blend, setBlend] = useState<number>(0.5);
-  const [currentdBRange, setCurrentdBRange] = useState<number>(BackendAPI.getdBRange());
+
+  const [blend, setBlend] = useState<number>(() => {
+    if (userSettings.blend !== undefined) return userSettings.blend;
+    setUserSetting("blend", 0.5);
+    return 0.5;
+  });
+
+  const [currentdBRange, setCurrentdBRange] = useState<number>(() =>
+    getInitialValue(userSettings, "dBRange", BackendAPI.getdBRange, BackendAPI.setdBRange),
+  );
+
   const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
-    BackendAPI.getCommonGuardClipping(),
+    () =>
+      getInitialValue(
+        userSettings,
+        "commonGuardClipping",
+        BackendAPI.getCommonGuardClipping,
+        BackendAPI.setCommonGuardClipping,
+      ),
   );
-  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>(
-    BackendAPI.getCommonNormalize(),
+
+  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>(() =>
+    getInitialValue(
+      userSettings,
+      "commonNormalize",
+      BackendAPI.getCommonNormalize,
+      BackendAPI.setCommonNormalize,
+    ),
   );
 
   const waitingIdsRef = useRef<number[]>([]);
@@ -128,27 +171,40 @@ function useTracks() {
     }
   });
 
-  const setSpecSetting = useEvent(async (specSetting: SpecSetting) => {
-    await BackendAPI.setSpecSetting(specSetting);
-    setCurrentSpecSetting(BackendAPI.getSpecSetting());
+  const setSpecSetting = useEvent(async (v: SpecSetting) => {
+    await BackendAPI.setSpecSetting(v);
+    const specSetting = BackendAPI.getSpecSetting();
+    setCurrentSpecSetting(specSetting);
+    setUserSetting("specSetting", specSetting);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
-  const setdBRange = useEvent(async (dBRange: number) => {
-    BackendAPI.setdBRange(dBRange);
-    setCurrentdBRange(BackendAPI.getdBRange());
+  const setBlendAndSetUserSetting = useEvent((v: number) => {
+    setBlend(v);
+    setUserSetting("blend", v);
+  });
+
+  const setdBRange = useEvent(async (v: number) => {
+    BackendAPI.setdBRange(v);
+    const dBRange = BackendAPI.getdBRange();
+    setCurrentdBRange(dBRange);
+    setUserSetting("dBRange", dBRange);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
-  const setCommonGuardClipping = useEvent(async (commonGuardClipping: GuardClippingMode) => {
-    await BackendAPI.setCommonGuardClipping(commonGuardClipping);
-    setCurrentCommonGuardClipping(BackendAPI.getCommonGuardClipping());
+  const setCommonGuardClipping = useEvent(async (v: GuardClippingMode) => {
+    await BackendAPI.setCommonGuardClipping(v);
+    const commonGuardClipping = BackendAPI.getCommonGuardClipping();
+    setCurrentCommonGuardClipping(commonGuardClipping);
+    setUserSetting("commonGuardClipping", commonGuardClipping);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
-  const setCommonNormalize = useEvent(async (commonNormalize: NormalizeTarget) => {
-    await BackendAPI.setCommonNormalize(commonNormalize);
-    setCurrentCommonNormalize(BackendAPI.getCommonNormalize());
+  const setCommonNormalize = useEvent(async (v: NormalizeTarget) => {
+    await BackendAPI.setCommonNormalize(v);
+    const commonNormalize = BackendAPI.getCommonNormalize();
+    setCurrentCommonNormalize(commonNormalize);
+    setUserSetting("commonNormalize", commonNormalize);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
@@ -173,7 +229,7 @@ function useTracks() {
     removeTracks,
     ignoreError,
     setSpecSetting,
-    setBlend,
+    setBlend: setBlendAndSetUserSetting,
     setdBRange,
     setCommonNormalize,
     setCommonGuardClipping,

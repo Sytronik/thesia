@@ -1,6 +1,7 @@
 import {BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions, app} from "electron";
 import os from "os";
 import path from "path";
+import settings from "electron-settings";
 import {SUPPORTED_TYPES} from "./constants";
 
 function labelAndSublabel(
@@ -36,6 +37,8 @@ export function showOpenDialog() {
 }
 
 export default function addIPCListeners() {
+  ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
+
   ipcMain.on("show-open-dialog", async (event) => {
     event.reply("open-dialog-closed", await showOpenDialog());
   });

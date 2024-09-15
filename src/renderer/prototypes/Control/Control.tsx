@@ -34,6 +34,10 @@ type ControlProps = {
   setCommonNormalize: (commonNormalize: NormalizeTarget) => Promise<void>;
 };
 
+// TODO: this should be changed if FreqScale has more than 2 values.
+const freqScaleToChecked = (freqScale: FreqScale) => freqScale === FreqScale.Linear;
+const checkedToFreqScale = (checked: boolean) => (checked ? FreqScale.Linear : FreqScale.Mel);
+
 function Control(props: ControlProps) {
   const {
     specSetting,
@@ -68,14 +72,10 @@ function Control(props: ControlProps) {
     }
   };
 
-  const toggleFreqScale = useEvent((freqScale: FreqScale) =>
-    freqScale === FreqScale.Linear ? FreqScale.Mel : FreqScale.Linear,
-  );
-
-  const onFreqScaleBtnClick = async () => {
+  const onFreqScaleBtnClick = async (e: React.MouseEvent) => {
     await setSpecSetting({
       ...specSetting,
-      freqScale: toggleFreqScale(specSetting.freqScale),
+      freqScale: checkedToFreqScale((e.target as HTMLInputElement).checked),
     });
   };
 
@@ -306,6 +306,7 @@ function Control(props: ControlProps) {
               role="switch"
               className={styles.changeFreqScaleBtn}
               onClick={onFreqScaleBtnClick}
+              defaultChecked={freqScaleToChecked(specSetting.freqScale)}
               id="freqScale"
             />
             <div className={styles.freqScaleSwitchBox}>

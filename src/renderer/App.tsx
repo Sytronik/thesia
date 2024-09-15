@@ -19,6 +19,8 @@ import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 
+type AppProps = {userSettings: UserSettings};
+
 const callDifferentFuncIfEditableNode = (
   node: HTMLElement | null,
   funcForEditable: () => void,
@@ -56,7 +58,7 @@ const changeEditMenuForFocusOut = (e: FocusEvent) => {
   );
 };
 
-function MyApp() {
+function MyApp({userSettings}: AppProps) {
   const {
     trackIds,
     erroredTrackIds,
@@ -79,7 +81,8 @@ function MyApp() {
     setCommonNormalize,
     setCommonGuardClipping,
     finishRefreshTracks,
-  } = useTracks();
+  } = useTracks(userSettings);
+
   const {
     selectedTrackIds,
     selectTrack,
@@ -248,11 +251,11 @@ function MyApp() {
   );
 }
 
-export default function App() {
+export default function App({userSettings}: AppProps) {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MyApp />} />
+        <Route path="/" element={<MyApp userSettings={userSettings} />} />
       </Routes>
     </Router>
   );

@@ -1,4 +1,7 @@
 type RefObject<T> = import("react").RefObject<T>;
+type SpecSetting = import("../api").SpecSetting;
+type GuardClippingMode = import("../api").GuardClippingMode;
+type NormalizeTarget = import("../api").NormalizeTarget;
 type Markers = import("../api").Markers;
 type IdChannel = import("../api").IdChannel;
 type IdChArr = IdChannel[];
@@ -59,3 +62,11 @@ type TrackInfoElement = {
 };
 
 type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
+
+type UserSettings = {
+  specSetting?: SpecSetting;
+  blend?: number;
+  dBRange?: number;
+  commonGuardClipping?: GuardClippingMode;
+  commonNormalize?: NormalizeTarget;
+};

@@ -12,6 +12,7 @@ import path from "path";
 import {app, BrowserWindow, shell} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
+import settings from "electron-settings";
 import MenuBuilder from "./menu";
 import {resolveHtmlPath} from "./util";
 import addIPCListeners from "./ipc";
@@ -27,6 +28,7 @@ class AppUpdater {
 let mainWindow: BrowserWindow | null = null;
 
 addIPCListeners();
+settings.configure({});
 
 if (process.env.NODE_ENV === "production") {
   const sourceMapSupport = require("source-map-support");
@@ -35,7 +37,10 @@ if (process.env.NODE_ENV === "production") {
 
 const isDebug = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true";
 
-if (isDebug) require("electron-debug")();
+if (isDebug) {
+  require("electron-debug")();
+  console.log(`setting file: "${settings.file().replace(" ", "\\ ")}"`);
+}
 
 const installExtensions = async () => {
   const installer = require("electron-devtools-assembler");
@@ -51,9 +56,7 @@ const installExtensions = async () => {
 };
 
 const createWindow = async (pathsToOpen: string[]) => {
-  if (isDebug) {
-    await installExtensions();
-  }
+  if (isDebug) await installExtensions();
 
   const RESOURCES_PATH = app.isPackaged
     ? path.join(process.resourcesPath, "assets")
@@ -83,25 +86,22 @@ const createWindow = async (pathsToOpen: string[]) => {
   mainWindow.loadURL(resolveHtmlPath("index.html"));
 
   mainWindow.on("ready-to-show", () => {
-    if (!mainWindow) {
-      throw new Error('"mainWindow" is not defined');
-    }
-    if (process.env.START_MINIMIZED) {
-      mainWindow.minimize();
-    } else {
-      mainWindow.show();
-    }
-  });
+    if (!mainWindow) throw new Error('"mainWindow" is not defined');
 
-  mainWindow.on("show", () => {
-    if (
-      process.platform === "win32" &&
-      process.env.NODE_ENV !== "development" &&
-      process.argv.length > 1
-    )
-      mainWindow?.webContents.send("open-files", process.argv.slice(1));
-    else if (process.platform === "darwin" && pathsToOpen.length > 0)
-      mainWindow?.webContents.send("open-files", pathsToOpen);
+    mainWindow?.webContents.on("did-finish-load", () => {
+      mainWindow?.webContents.send("render-with-settings", settings.getSync());
+
+      if (
+        process.platform === "win32" &&
+        process.env.NODE_ENV !== "development" &&
+        process.argv.length > 1
+      )
+        mainWindow?.webContents.send("open-files", process.argv.slice(1));
+      else if (process.platform === "darwin" && pathsToOpen.length > 0)
+        mainWindow?.webContents.send("open-files", pathsToOpen);
+    });
+    if (process.env.START_MINIMIZED) mainWindow.minimize();
+    else mainWindow.show();
   });
 
   mainWindow.on("closed", () => {
