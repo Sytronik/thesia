@@ -86,58 +86,58 @@ const AxisCanvas = forwardRef(
       ctx.restore();
 
       const [markers, lenForMarkers] = markersAndLength;
-      if (markers.length === 0) return;
+      if (markers.length > 0) {
+        const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
 
-      const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
-
-      const axisLength = (direction === "H" ? width : height) - 2 * axisPadding;
-      const ratioToPx = shiftWhenResize ? lenForMarkers : axisLength;
-      if (direction === "H") {
-        ctx.beginPath();
-        ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
-        ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
-        ctx.stroke();
-
-        markers.forEach((marker) => {
-          const [posRatio, label] = marker;
-          const pxPosition = correctMarkerPos(posRatio * ratioToPx + axisPadding, axisLength);
-
+        const axisLength = (direction === "H" ? width : height) - 2 * axisPadding;
+        const ratioToPx = shiftWhenResize ? lenForMarkers : axisLength;
+        if (direction === "H") {
           ctx.beginPath();
-          if (label) {
-            ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
-            ctx.moveTo(pxPosition, MAJOR_TICK_POS);
-          } else {
-            ctx.moveTo(pxPosition, MINOR_TICK_POS);
-          }
-          ctx.lineTo(pxPosition, height);
-          ctx.closePath();
+          ctx.moveTo(axisPadding, height - LINE_WIDTH / 2);
+          ctx.lineTo(width - axisPadding, height - LINE_WIDTH / 2);
           ctx.stroke();
-        });
-      } else {
-        ctx.beginPath();
-        ctx.moveTo(LINE_WIDTH / 2, axisPadding);
-        ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
-        ctx.stroke();
 
-        markers.forEach((marker) => {
-          const [posRatio, label] = marker;
-          const pxPosition = correctMarkerPos(posRatio * ratioToPx + axisPadding, axisLength);
+          markers.forEach((marker) => {
+            const [posRatio, label] = marker;
+            const pxPosition = correctMarkerPos(posRatio * ratioToPx + axisPadding, axisLength);
 
+            ctx.beginPath();
+            if (label) {
+              ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
+              ctx.moveTo(pxPosition, MAJOR_TICK_POS);
+            } else {
+              ctx.moveTo(pxPosition, MINOR_TICK_POS);
+            }
+            ctx.lineTo(pxPosition, height);
+            ctx.closePath();
+            ctx.stroke();
+          });
+        } else {
           ctx.beginPath();
-          if (label) {
-            ctx.fillText(
-              label,
-              LABEL_POS + LABEL_LEFT_MARGIN,
-              pxPosition - LABEL_HEIGHT_ADJUSTMENT,
-            );
-            ctx.moveTo(MAJOR_TICK_POS, pxPosition);
-          } else {
-            ctx.moveTo(MINOR_TICK_POS, pxPosition);
-          }
-          ctx.lineTo(0, pxPosition);
-          ctx.closePath();
+          ctx.moveTo(LINE_WIDTH / 2, axisPadding);
+          ctx.lineTo(LINE_WIDTH / 2, height - axisPadding);
           ctx.stroke();
-        });
+
+          markers.forEach((marker) => {
+            const [posRatio, label] = marker;
+            const pxPosition = correctMarkerPos(posRatio * ratioToPx + axisPadding, axisLength);
+
+            ctx.beginPath();
+            if (label) {
+              ctx.fillText(
+                label,
+                LABEL_POS + LABEL_LEFT_MARGIN,
+                pxPosition - LABEL_HEIGHT_ADJUSTMENT,
+              );
+              ctx.moveTo(MAJOR_TICK_POS, pxPosition);
+            } else {
+              ctx.moveTo(MINOR_TICK_POS, pxPosition);
+            }
+            ctx.lineTo(0, pxPosition);
+            ctx.closePath();
+            ctx.stroke();
+          });
+        }
       }
       prevMarkersAndLengthRef.current = markersAndLength;
     });
