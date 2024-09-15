@@ -322,15 +322,15 @@ async fn get_amp_axis_markers(
     max_num_ticks: u32,
     max_num_labels: u32,
     amp_range: (f64, f64),
-) -> Result<serde_json::Value> {
+) -> serde_json::Value {
     assert_axis_params(max_num_ticks, max_num_labels);
     assert!(amp_range.0 < amp_range.1);
 
-    Ok(json!(TrackManager::amp_axis_markers(
+    json!(TrackManager::amp_axis_markers(
         max_num_ticks,
         max_num_labels,
         (amp_range.0 as f32, amp_range.1 as f32),
-    )))
+    ))
 }
 
 #[napi(js_name = "getdBAxisMarkers")]
