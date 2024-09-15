@@ -107,12 +107,9 @@ function MainViewer(props: MainViewerProps) {
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
-  const imgHeight = useMemo(() => height - 2 * VERTICAL_AXIS_PADDING, [height]);
+  const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
-  const colorBarHeight = useMemo(
-    () => colorMapHeight - 2 * VERTICAL_AXIS_PADDING,
-    [colorMapHeight],
-  );
+  const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
 
   const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
 
