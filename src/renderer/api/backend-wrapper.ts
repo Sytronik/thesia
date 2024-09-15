@@ -27,7 +27,7 @@ export type MarkerDrawOption = {
 export async function getTimeAxisMarkers(
   subTickSec: number,
   subTickUnitCount: number,
-  markerDrawOptions: MarkerDrawOption,
+  markerDrawOptions?: MarkerDrawOption,
 ): Promise<Markers> {
   const {startSec, endSec} = markerDrawOptions || {};
 
@@ -49,7 +49,7 @@ export async function getFreqAxisMarkers(
 export async function getAmpAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
-  markerDrawOptions: MarkerDrawOption,
+  markerDrawOptions?: MarkerDrawOption,
 ): Promise<Markers> {
   const {ampRange} = markerDrawOptions || {};
 

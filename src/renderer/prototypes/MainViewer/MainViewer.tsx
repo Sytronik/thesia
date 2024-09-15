@@ -224,7 +224,7 @@ function MainViewer(props: MainViewerProps) {
       if (BackendAPI.setHzRange(minHz, maxHz)) {
         throttledSetImgState(getIdChArr(), width, imgHeight);
       }
-      throttledSetFreqMarkers(imgHeight, imgHeight, {});
+      throttledSetFreqMarkers(imgHeight, imgHeight);
     }),
   );
 
@@ -615,7 +615,7 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetFreqMarkers(imgHeight, imgHeight, {});
+    throttledSetFreqMarkers(imgHeight, imgHeight);
   }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
@@ -624,7 +624,7 @@ function MainViewer(props: MainViewerProps) {
       return;
     }
 
-    throttledSetdBMarkers(colorBarHeight, colorBarHeight, {});
+    throttledSetdBMarkers(colorBarHeight, colorBarHeight);
   }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
