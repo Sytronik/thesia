@@ -434,13 +434,17 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // Browsing Hotkeys
-  useHotkeys("right, left, shift+right, shift+left", (_, hotkey) => {
-    if (trackIds.length === 0) return;
-    const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
-    let shiftSec = shiftPx / pxPerSecRef.current;
-    if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
-    updateLensParams({startSec: startSecRef.current + shiftSec});
-  });
+  useHotkeys(
+    "right, left, shift+right, shift+left",
+    (_, hotkey) => {
+      if (trackIds.length === 0) return;
+      const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
+      let shiftSec = shiftPx / pxPerSecRef.current;
+      if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
+      updateLensParams({startSec: startSecRef.current + shiftSec});
+    },
+    [trackIds, updateLensParams],
+  );
 
   useEffect(() => {
     ipcRenderer.on("freq-zoom-in", () => {
@@ -455,11 +459,11 @@ function MainViewer(props: MainViewerProps) {
     };
   }, [trackIds, zoomHeight]);
 
-  const zoomLens = (isZoomOut: boolean) => {
+  const zoomLens = useEvent((isZoomOut: boolean) => {
     let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
     if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
     updateLensParams({pxPerSec: pxPerSecRef.current + pxPerSecDelta});
-  };
+  });
   useEffect(() => {
     ipcRenderer.on("time-zoom-in", () => {
       if (trackIds.length > 0) zoomLens(false);
@@ -471,7 +475,7 @@ function MainViewer(props: MainViewerProps) {
       ipcRenderer.removeAllListeners("time-zoom-in");
       ipcRenderer.removeAllListeners("time-zoom-out");
     };
-  });
+  }, [trackIds, zoomLens]);
 
   // Track Selection Hotkeys
   useEffect(() => {
@@ -480,6 +484,7 @@ function MainViewer(props: MainViewerProps) {
       ipcRenderer.removeAllListeners("select-all-tracks");
     };
   }, [selectAllTracks, trackIds]);
+
   useHotkeys(
     "down, up, shift+down, shift+up",
     (e, hotkey) => {
@@ -492,6 +497,7 @@ function MainViewer(props: MainViewerProps) {
       selectTrack(e, newSelectId, trackIds);
     },
     {preventDefault: true},
+    [trackIds, selectedTrackIds, selectTrack],
   );
 
   const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
@@ -518,7 +524,7 @@ function MainViewer(props: MainViewerProps) {
     return () => {
       ipcRenderer.removeAllListeners("reset-axis-range");
     };
-  });
+  }, [resetAxisRange]);
 
   useEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});

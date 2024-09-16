@@ -68,13 +68,13 @@ function usePlayer(selectedTrackId: number) {
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
   // Player Hotkeys
-  useHotkeys("space", togglePlay, {preventDefault: true});
+  useHotkeys("space", togglePlay, {preventDefault: true}, [togglePlay]);
   useEffect(() => {
     ipcRenderer.on("toggle-play", togglePlay);
     return () => {
       ipcRenderer.removeAllListeners("toggle-play");
     };
-  });
+  }, [togglePlay]);
 
   const jump = useEvent(async (jumpSec: number) => {
     if (isPlaying) {
@@ -83,29 +83,33 @@ function usePlayer(selectedTrackId: number) {
     }
     setSelectSec((selectSecRef.current ?? 0) + jumpSec);
   });
-  useHotkeys("comma,period,shift+comma,shift+period", (_, hotkey) => {
-    let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
-    if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
-    jump(jumpSec);
-  });
+  useHotkeys(
+    "comma,period,shift+comma,shift+period",
+    (_, hotkey) => {
+      let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
+      if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
+      jump(jumpSec);
+    },
+    [jump],
+  );
   useEffect(() => {
     ipcRenderer.on("jump-player", (_, jumpSec) => jump(jumpSec));
     return () => {
       ipcRenderer.removeAllListeners("jump-player");
     };
-  });
+  }, [jump]);
 
   const rewindToFront = useEvent(async () => {
     if (isPlaying) await BackendAPI.seekPlayer(0);
     else setSelectSec(0);
   });
-  useHotkeys("enter", rewindToFront, {preventDefault: true});
+  useHotkeys("enter", rewindToFront, {preventDefault: true}, [rewindToFront]);
   useEffect(() => {
     ipcRenderer.on("rewind-to-front", rewindToFront);
     return () => {
       ipcRenderer.removeAllListeners("rewind-to-front");
     };
-  });
+  }, [rewindToFront]);
 
   useEffect(() => {
     showPlayOrPauseMenu(isPlaying);
