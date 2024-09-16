@@ -115,15 +115,11 @@ function useTracks(userSettings: UserSettings) {
 
   const addTracks = useEvent(async (paths: string[]): Promise<AddTracksResultType> => {
     try {
-      const newPaths = paths.filter(async (path) => (await BackendAPI.findIdByPath(path)) === -1);
-      const existingPaths = difference(paths, newPaths);
-      const existingIds = await Promise.all(
-        existingPaths.map(async (path) => BackendAPI.findIdByPath(path)),
-      );
+      const idsOfInputPaths = paths.map((path) => BackendAPI.findIdByPath(path));
+      const newPaths = paths.filter((_, index) => idsOfInputPaths[index] === -1);
+      const existingIds = idsOfInputPaths.filter((id) => id !== -1);
 
-      if (!newPaths.length) {
-        return {existingIds, invalidPaths: []};
-      }
+      if (!newPaths.length) return {existingIds, invalidPaths: []};
 
       const newIds = [...Array(newPaths.length).keys()].map((i) => {
         if (waitingIdsRef.current.length) {
@@ -137,9 +133,7 @@ function useTracks(userSettings: UserSettings) {
         setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
       }
 
-      if (newIds.length === addedIds.length) {
-        return {existingIds, invalidPaths: []};
-      }
+      if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
 
       const invalidIds = difference(newIds, addedIds);
       const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);

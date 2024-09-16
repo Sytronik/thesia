@@ -227,9 +227,8 @@ fn get_images() -> HashMap<String, Buffer> {
 }
 
 #[napi]
-async fn find_id_by_path(path: String) -> i32 {
-    TM.read()
-        .await
+fn find_id_by_path(path: String) -> i32 {
+    TM.blocking_read()
         .tracklist
         .find_id_by_path(&path)
         .map_or(-1, |id| id as i32)

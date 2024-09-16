@@ -39,7 +39,7 @@ export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getImages(): Record<string, Buffer>
-export declare function findIdByPath(path: string): Promise<number>
+export declare function findIdByPath(path: string): number
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
 export declare function freqPosToHzOnCurrentRange(y: number, height: number): Promise<number>
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
