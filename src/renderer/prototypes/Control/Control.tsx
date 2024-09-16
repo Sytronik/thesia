@@ -52,9 +52,15 @@ function Control(props: ControlProps) {
     setCommonNormalize,
   } = props;
 
-  const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(0.0);
-  const [commonNormalizedB, setCommonNormalizedB] = useState<number>(-18.0);
-  const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(false);
+  const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(
+    commonNormalize.type === "PeakdB" ? commonNormalize.target : 0.0,
+  );
+  const [commonNormalizedB, setCommonNormalizedB] = useState<number>(
+    commonNormalize.type === "LUFS" ? commonNormalize.target : -18.0,
+  );
+  const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(
+    commonNormalize.type !== "Off",
+  );
 
   const winMillisecElem = useRef<FloatingUserInputElement>(null);
   const commonNormalizedBInputElem = useRef<FloatRangeInputElement>(null);
@@ -87,9 +93,7 @@ function Control(props: ControlProps) {
       return;
     }
     const winMillisec = Number.parseFloat(v);
-    if (winMillisec > 0) {
-      setSpecSetting({...specSetting, winMillisec});
-    }
+    if (winMillisec > 0) setSpecSetting({...specSetting, winMillisec});
   });
 
   useEffect(() => {
@@ -98,12 +102,7 @@ function Control(props: ControlProps) {
 
   const onTOverlapChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const tOverlap = Number.parseFloat(e.target.value);
-    if (e.target.value !== "" && tOverlap > 0) {
-      setSpecSetting({
-        ...specSetting,
-        tOverlap,
-      });
-    }
+    if (e.target.value !== "" && tOverlap > 0) setSpecSetting({...specSetting, tOverlap});
   };
 
   const onCommonNormalizeTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -364,7 +363,9 @@ function Control(props: ControlProps) {
               step={0.01}
               precision={2}
               detents={COMMON_NORMALIZE_DB_DETENTS}
-              initialValue={MIN_COMMON_NORMALIZE_dB}
+              initialValue={
+                commonNormalize.type === "Off" ? MIN_COMMON_NORMALIZE_dB : commonNormalize.target
+              }
               disabled={!isCommonNormalizeOn}
               onChangeValue={onCommonNormalizedBInputChange}
             />
