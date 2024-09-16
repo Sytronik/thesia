@@ -2,8 +2,6 @@ import backend from "backend";
 
 export {GuardClippingMode, FreqScale, SpecSetting} from "backend";
 
-backend.init();
-
 // most api returns empty array for edge case
 /* get each track file's information */
 export function getChannelCounts(trackId: number): 1 | 2 {
@@ -134,6 +132,7 @@ export function getPlayerState(): PlayerState {
 }
 
 export const {
+  init,
   addTracks,
   reloadTracks,
   removeTracks,
