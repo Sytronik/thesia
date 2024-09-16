@@ -42,11 +42,6 @@ export interface UserSettings {
   commonGuardClipping: GuardClippingMode
   commonNormalize: any
 }
-export interface PlayerState {
-  isPlaying: boolean
-  positionSec: number
-  err: string
-}
 export declare function init(userSettings: UserSettingsOptionals): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
@@ -97,4 +92,4 @@ export declare function setTrackPlayer(trackId: number, sec?: number | undefined
 export declare function seekPlayer(sec: number): Promise<void>
 export declare function pausePlayer(): Promise<void>
 export declare function resumePlayer(): Promise<void>
-export declare function getPlayerState(): PlayerState
+export declare function getPlayerState(): Buffer

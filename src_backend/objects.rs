@@ -4,6 +4,7 @@
 #![allow(non_snake_case)]
 
 use napi_derive::napi;
+use serde::Serialize;
 
 use crate::backend::{GuardClippingMode, SpecSetting};
 
@@ -31,7 +32,8 @@ pub struct UserSettings {
     pub common_normalize: serde_json::Value,
 }
 
-#[napi(object)]
+#[derive(Serialize)]
+#[repr(C)]
 pub struct PlayerState {
     pub is_playing: bool,
     pub position_sec: f64,

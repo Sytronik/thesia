@@ -147,7 +147,13 @@ export type PlayerState = {
 };
 
 export function getPlayerState(): PlayerState {
-  return backend.getPlayerState();
+  const buf = backend.getPlayerState();
+  const isPlaying = buf.readUint8(0) > 0; // [0, 1)
+  const positionSec = buf.readDoubleLE(1); // [1, 9)
+  // For string length, read the little 32-bit part only to avoid BigInt
+  const errStrLength = buf.readUint32LE(9); // [9, 17) -> read [9, 13) only
+  const err = buf.toString("utf-8", 17, 17 + errStrLength); // [17, 17 + errStrLength)
+  return {isPlaying, positionSec, err};
 }
 
 export const {

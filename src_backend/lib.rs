@@ -6,6 +6,7 @@ extern crate blas_src;
 use std::collections::HashMap;
 use std::sync::atomic::{self, AtomicBool};
 
+use bincode::Options;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
@@ -620,19 +621,24 @@ async fn resume_player() {
 }
 
 #[napi]
-fn get_player_state() -> PlayerState {
-    match player::recv() {
+fn get_player_state() -> Buffer {
+    let player_state = match player::recv() {
         PlayerNotification::Ok(state) => PlayerState {
             is_playing: state.is_playing,
             position_sec: state.position_sec,
-            err: "".to_string(),
+            err: "".into(),
         },
         PlayerNotification::Err(e_str) => PlayerState {
             is_playing: false,
             position_sec: 0.,
             err: e_str,
         },
-    }
+    };
+    bincode::DefaultOptions::new()
+        .with_fixint_encoding()
+        .serialize(&player_state)
+        .unwrap()
+        .into()
 }
 
 #[inline]
