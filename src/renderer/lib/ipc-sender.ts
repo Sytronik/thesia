@@ -45,6 +45,14 @@ export function showPlayOrPauseMenu(isPlaying: boolean) {
   else ipcRenderer.send("show-play-menu");
 }
 
+export function enableTogglePlayMenu() {
+  ipcRenderer.send("enable-toggle-play-menu");
+}
+
+export function disableTogglePlayMenu() {
+  ipcRenderer.send("disable-toggle-play-menu");
+}
+
 export function changeMenuDepsOnTrackExistence(trackExists: boolean) {
   if (trackExists) {
     ipcRenderer.send("enable-axis-zoom-menu");

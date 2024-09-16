@@ -4,7 +4,7 @@ import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "main/constants";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import BackendAPI from "../api";
-import {showPlayOrPauseMenu} from "../lib/ipc-sender";
+import {disableTogglePlayMenu, enableTogglePlayMenu, showPlayOrPauseMenu} from "../lib/ipc-sender";
 
 export type Player = {
   isPlaying: boolean;
@@ -53,7 +53,7 @@ function usePlayer(selectedTrackId: number) {
   const togglePlay = useEvent(async () => {
     if (isPlaying) {
       await BackendAPI.pausePlayer();
-    } else {
+    } else if (selectedTrackId >= 0) {
       BackendAPI.seekPlayer(selectSecRef.current);
       await BackendAPI.resumePlayer();
     }
@@ -61,10 +61,14 @@ function usePlayer(selectedTrackId: number) {
 
   useEffect(() => {
     setPlayingTrack(selectedTrackId);
-    if (selectedTrackId < 0) {
-      setSelectSec(0);
-      BackendAPI.seekPlayer(0);
+    if (selectedTrackId >= 0) {
+      enableTogglePlayMenu();
+      return;
     }
+    BackendAPI.seekPlayer(0);
+    BackendAPI.pausePlayer();
+    disableTogglePlayMenu();
+    setSelectSec(0);
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
   // Player Hotkeys

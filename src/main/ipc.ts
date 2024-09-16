@@ -227,5 +227,21 @@ export default function addIPCListeners() {
           item.enabled = false;
         });
       }
+    })
+    .on("enable-toggle-play-menu", () => {
+      const appMenu = Menu.getApplicationMenu();
+      if (appMenu === null) return;
+      const togglePlayMenu = appMenu.getMenuItemById("play");
+      if (togglePlayMenu) togglePlayMenu.enabled = true;
+      const togglePauseMenu = appMenu.getMenuItemById("pause");
+      if (togglePauseMenu) togglePauseMenu.enabled = true;
+    })
+    .on("disable-toggle-play-menu", () => {
+      const appMenu = Menu.getApplicationMenu();
+      if (appMenu === null) return;
+      const togglePlayMenu = appMenu.getMenuItemById("play");
+      if (togglePlayMenu) togglePlayMenu.enabled = false;
+      const togglePauseMenu = appMenu.getMenuItemById("pause");
+      if (togglePauseMenu) togglePauseMenu.enabled = false;
     });
 }

@@ -91,8 +91,12 @@ function MyApp({userSettings}: AppProps) {
     selectTrackAfterAddTracks,
     selectTrackAfterRemoveTracks,
   } = useSelectedTracks();
+
   const player = usePlayer(
-    selectedTrackIds.length > 0 ? selectedTrackIds[selectedTrackIds.length - 1] : -1,
+    selectedTrackIds.length > 0 &&
+      !erroredTrackIds.includes(selectedTrackIds[selectedTrackIds.length - 1])
+      ? selectedTrackIds[selectedTrackIds.length - 1]
+      : -1,
   );
 
   const prevTrackIds = useRef<number[]>([]);
