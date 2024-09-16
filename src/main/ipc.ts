@@ -155,6 +155,24 @@ export default function addIPCListeners() {
     });
 
   ipcMain
+    .on("enable-axis-zoom-menu", () => {
+      const appMenu = Menu.getApplicationMenu();
+      if (!appMenu) return;
+      ["freq-zoom-in", "freq-zoom-out", "time-zoom-in", "time-zoom-out"].forEach((name) => {
+        const menu = appMenu.getMenuItemById(name);
+        if (menu) menu.enabled = true;
+      });
+    })
+    .on("disable-axis-zoom-menu", () => {
+      const appMenu = Menu.getApplicationMenu();
+      if (!appMenu) return;
+      ["freq-zoom-in", "freq-zoom-out", "time-zoom-in", "time-zoom-out"].forEach((name) => {
+        const menu = appMenu.getMenuItemById(name);
+        if (menu) menu.enabled = false;
+      });
+    });
+
+  ipcMain
     .on("enable-remove-track-menu", () => {
       const removeTrackMenu = Menu.getApplicationMenu()?.getMenuItemById("remove-selected-tracks");
       if (removeTrackMenu) removeTrackMenu.enabled = true;

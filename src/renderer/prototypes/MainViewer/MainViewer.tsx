@@ -435,27 +435,38 @@ function MainViewer(props: MainViewerProps) {
 
   // Browsing Hotkeys
   useHotkeys("right, left, shift+right, shift+left", (_, hotkey) => {
+    if (trackIds.length === 0) return;
     const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
     let shiftSec = shiftPx / pxPerSecRef.current;
     if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
     updateLensParams({startSec: startSecRef.current + shiftSec});
   });
+
   useEffect(() => {
-    ipcRenderer.on("freq-zoom-in", () => zoomHeight(100));
-    ipcRenderer.on("freq-zoom-out", () => zoomHeight(-100));
+    ipcRenderer.on("freq-zoom-in", () => {
+      if (trackIds.length > 0) zoomHeight(100);
+    });
+    ipcRenderer.on("freq-zoom-out", () => {
+      if (trackIds.length > 0) zoomHeight(-100);
+    });
     return () => {
       ipcRenderer.removeAllListeners("freq-zoom-in");
       ipcRenderer.removeAllListeners("freq-zoom-out");
     };
-  }, [zoomHeight]);
+  }, [trackIds, zoomHeight]);
+
   const zoomLens = (isZoomOut: boolean) => {
     let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
     if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
     updateLensParams({pxPerSec: pxPerSecRef.current + pxPerSecDelta});
   };
   useEffect(() => {
-    ipcRenderer.on("time-zoom-in", () => zoomLens(false));
-    ipcRenderer.on("time-zoom-out", () => zoomLens(true));
+    ipcRenderer.on("time-zoom-in", () => {
+      if (trackIds.length > 0) zoomLens(false);
+    });
+    ipcRenderer.on("time-zoom-out", () => {
+      if (trackIds.length > 0) zoomLens(true);
+    });
     return () => {
       ipcRenderer.removeAllListeners("time-zoom-in");
       ipcRenderer.removeAllListeners("time-zoom-out");
@@ -472,6 +483,7 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys(
     "down, up, shift+down, shift+up",
     (e, hotkey) => {
+      if (trackIds.length === 0) return;
       const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
       const newSelectId =
         hotkey.keys?.join("") === "down"

@@ -106,10 +106,34 @@ export default class MenuBuilder {
       ],
     };
     const commonSubMenusForView: MenuItemConstructorOptions[] = [
-      {label: "Frequency Zoom In", accelerator: "Command+Down", click: clickFreqZoomIn},
-      {label: "Frequency Zoom Out", accelerator: "Command+Up", click: clickFreqZoomOut},
-      {label: "Time Zoom In", accelerator: "Command+Right", click: clickTimeZoomIn},
-      {label: "Time Zoom Out", accelerator: "Command+Left", click: clickTimeZoomOut},
+      {
+        id: "freq-zoom-in",
+        label: "Frequency Zoom In",
+        accelerator: "Command+Down",
+        click: clickFreqZoomIn,
+        enabled: false,
+      },
+      {
+        id: "freq-zoom-out",
+        label: "Frequency Zoom Out",
+        accelerator: "Command+Up",
+        click: clickFreqZoomOut,
+        enabled: false,
+      },
+      {
+        id: "time-zoom-in",
+        label: "Time Zoom In",
+        accelerator: "Command+Right",
+        click: clickTimeZoomIn,
+        enabled: false,
+      },
+      {
+        id: "time-zoom-out",
+        label: "Time Zoom Out",
+        accelerator: "Command+Left",
+        click: clickTimeZoomOut,
+        enabled: false,
+      },
       {type: "separator"},
     ];
     const devSubMenusForView: MenuItemConstructorOptions[] = [
@@ -267,10 +291,34 @@ export default class MenuBuilder {
 
   buildDefaultTemplate() {
     const commonSubMenusForView: MenuItemConstructorOptions[] = [
-      {label: "Frequency Zoom In", accelerator: "Ctrl+Down", click: clickFreqZoomIn},
-      {label: "Frequency Zoom Out", accelerator: "Ctrl+Up", click: clickFreqZoomOut},
-      {label: "Time Zoom In", accelerator: "Ctrl+Right", click: clickTimeZoomIn},
-      {label: "Time Zoom Out", accelerator: "Ctrl+Left", click: clickTimeZoomOut},
+      {
+        id: "freq-zoom-in",
+        label: "Frequency Zoom In",
+        accelerator: "Ctrl+Down",
+        click: clickFreqZoomIn,
+        enabled: false,
+      },
+      {
+        id: "freq-zoom-out",
+        label: "Frequency Zoom Out",
+        accelerator: "Ctrl+Up",
+        click: clickFreqZoomOut,
+        enabled: false,
+      },
+      {
+        id: "time-zoom-in",
+        label: "Time Zoom In",
+        accelerator: "Ctrl+Right",
+        click: clickTimeZoomIn,
+        enabled: false,
+      },
+      {
+        id: "time-zoom-out",
+        label: "Time Zoom Out",
+        accelerator: "Ctrl+Left",
+        click: clickTimeZoomOut,
+        enabled: false,
+      },
       {type: "separator"},
     ];
     const templateDefault: MenuItemConstructorOptions[] = [

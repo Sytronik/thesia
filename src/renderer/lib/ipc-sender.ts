@@ -43,9 +43,11 @@ export function showPlayOrPauseMenu(isPlaying: boolean) {
 
 export function changeMenuDepsOnTrackExistence(trackExists: boolean) {
   if (trackExists) {
+    ipcRenderer.send("enable-axis-zoom-menu");
     ipcRenderer.send("enable-remove-track-menu");
     ipcRenderer.send("enable-play-menu");
   } else {
+    ipcRenderer.send("disable-axis-zoom-menu");
     ipcRenderer.send("disable-remove-track-menu");
     ipcRenderer.send("disable-play-menu");
   }
