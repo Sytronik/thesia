@@ -96,7 +96,7 @@ impl Display for GuardClippingStats {
         } else {
             write!(
                 f,
-                "{:.2} dB ({} samples)", // TODO: beter formatting
+                "max {:.2} dB, total {} samples", // TODO: beter formatting
                 self.max_reduction_gain_dB, self.reduction_cnt
             )
         }
