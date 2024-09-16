@@ -3,16 +3,17 @@ import styles from "./ErrorBox.module.scss";
 
 type ErrorBoxProps = {
   trackId: number;
+  width: number;
   handleReload: (id: number) => void;
   handleIgnore: (id: number) => void;
   handleClose: (id: number) => void;
 };
 
 function ErrorBox(props: ErrorBoxProps) {
-  const {trackId, handleReload, handleIgnore, handleClose} = props;
+  const {trackId, width, handleReload, handleIgnore, handleClose} = props;
 
   return (
-    <div className={styles.errorBox}>
+    <div className={styles.errorBox} style={{width}}>
       <p>The file is corrupted and cannot be opened</p>
       {/* TODO: need optimization? */}
       <div>

@@ -1,4 +1,4 @@
-@import '../../styles/index.scss';
+@import "../../styles/index.scss";
 
 // error box
 .errorBox {
@@ -6,7 +6,7 @@
   flex-direction: column;
   justify-content: center;
   position: absolute;
-  width: 100%;
+  // width: 100%;
   height: 100%;
   background-color: $bg-main-transparent;
 

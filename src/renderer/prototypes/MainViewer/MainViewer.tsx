@@ -789,14 +789,6 @@ function MainViewer(props: MainViewerProps) {
       <div className={styles.dummyBoxForStickyHeader} />
       {trackIds.map((id) => (
         <div key={`${id}`} className={`${styles.trackRight}`}>
-          {erroredTrackIds.includes(id) ? (
-            <ErrorBox
-              trackId={id}
-              handleReload={(trackId) => reloadAndRefreshTracks([trackId])}
-              handleIgnore={ignoreError}
-              handleClose={(trackId) => removeAndRefreshTracks([trackId])}
-            />
-          ) : null}
           {trackIdChMap.get(id)?.map((idChStr) => {
             return (
               <div
@@ -812,6 +804,15 @@ function MainViewer(props: MainViewerProps) {
                   maxTrackSec={maxTrackSec}
                   canvasIsFit={canvasIsFit}
                 />
+                {erroredTrackIds.includes(id) ? (
+                  <ErrorBox
+                    trackId={id}
+                    width={width}
+                    handleReload={(trackId) => reloadAndRefreshTracks([trackId])}
+                    handleIgnore={ignoreError}
+                    handleClose={(trackId) => removeAndRefreshTracks([trackId])}
+                  />
+                ) : null}
                 <AmpAxis
                   ref={registerAmpCanvas(idChStr)}
                   height={height}
