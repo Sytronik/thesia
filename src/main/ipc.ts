@@ -36,6 +36,19 @@ export function showOpenDialog() {
   });
 }
 
+export function addAppRenderedListener(pathsToOpen: string[]) {
+  ipcMain.once("app-rendered", (event) => {
+    if (
+      process.platform === "win32" &&
+      process.env.NODE_ENV !== "development" &&
+      process.argv.length > 1
+    )
+      event.reply("open-files", process.argv.slice(1));
+    else if (process.platform === "darwin" && pathsToOpen.length > 0)
+      event.reply("open-files", pathsToOpen);
+  });
+}
+
 export default function addIPCListeners() {
   ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
 

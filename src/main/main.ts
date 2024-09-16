@@ -15,7 +15,7 @@ import log from "electron-log";
 import settings from "electron-settings";
 import MenuBuilder from "./menu";
 import {resolveHtmlPath} from "./util";
-import addIPCListeners from "./ipc";
+import addIPCListeners, {addAppRenderedListener} from "./ipc";
 
 class AppUpdater {
   constructor() {
@@ -39,7 +39,7 @@ const isDebug = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD
 
 if (isDebug) {
   require("electron-debug")();
-  console.log(`setting file: "${settings.file().replace(" ", "\\ ")}"`);
+  console.log(`setting file: "${settings.file()}"`);
 }
 
 const installExtensions = async () => {
@@ -85,21 +85,12 @@ const createWindow = async (pathsToOpen: string[]) => {
 
   mainWindow.loadURL(resolveHtmlPath("index.html"));
 
+  addAppRenderedListener(pathsToOpen);
+
   mainWindow.on("ready-to-show", () => {
     if (!mainWindow) throw new Error('"mainWindow" is not defined');
 
-    mainWindow?.webContents.on("did-finish-load", () => {
-      mainWindow?.webContents.send("render-with-settings", settings.getSync());
-
-      if (
-        process.platform === "win32" &&
-        process.env.NODE_ENV !== "development" &&
-        process.argv.length > 1
-      )
-        mainWindow?.webContents.send("open-files", process.argv.slice(1));
-      else if (process.platform === "darwin" && pathsToOpen.length > 0)
-        mainWindow?.webContents.send("open-files", pathsToOpen);
-    });
+    mainWindow.webContents.send("render-with-settings", settings.getSync());
     if (process.env.START_MINIMIZED) mainWindow.minimize();
     else mainWindow.show();
   });

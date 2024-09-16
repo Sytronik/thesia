@@ -1,5 +1,9 @@
 import {ipcRenderer} from "electron";
 
+export function notifyAppRendered() {
+  ipcRenderer.send("app-rendered");
+}
+
 export function setUserSetting<K extends keyof UserSettings>(
   key: K,
   value: NonNullable<UserSettings[K]>,

@@ -5,6 +5,6 @@ import App from "./App";
 const container = document.getElementById("root") as HTMLElement;
 const root = createRoot(container);
 
-ipcRenderer.on("render-with-settings", (_, settings) => {
+ipcRenderer.once("render-with-settings", (_, settings) => {
   root.render(<App userSettings={settings} />);
 });

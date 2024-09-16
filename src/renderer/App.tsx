@@ -9,6 +9,7 @@ import {
   changeMenuDepsOnTrackExistence,
   disableEditMenu,
   enableEditMenu,
+  notifyAppRendered,
   showEditContextMenu,
   showElectronFileOpenErrorMsg,
 } from "./lib/ipc-sender";
@@ -252,6 +253,8 @@ function MyApp({userSettings}: AppProps) {
 }
 
 export default function App({userSettings}: AppProps) {
+  useEffect(notifyAppRendered, []);
+
   return (
     <Router>
       <Routes>
