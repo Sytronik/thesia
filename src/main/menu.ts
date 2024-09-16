@@ -16,10 +16,12 @@ type MenuItemClick = (
 const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
 
-const clickFreqZoomIn: MenuItemClick = (_, browserWindow) =>
-  browserWindow?.webContents.send("freq-zoom-in");
-const clickFreqZoomOut: MenuItemClick = (_, browserWindow) =>
-  browserWindow?.webContents.send("freq-zoom-out");
+const clickFreqZoomIn: MenuItemClick = (_, browserWindow, event) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("freq-zoom-in");
+};
+const clickFreqZoomOut: MenuItemClick = (_, browserWindow, event) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("freq-zoom-out");
+};
 
 const clickTimeZoomIn: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("time-zoom-in");
@@ -297,6 +299,7 @@ export default class MenuBuilder {
         accelerator: "Ctrl+Down",
         click: clickFreqZoomIn,
         enabled: false,
+        registerAccelerator: false,
       },
       {
         id: "freq-zoom-out",
@@ -304,6 +307,7 @@ export default class MenuBuilder {
         accelerator: "Ctrl+Up",
         click: clickFreqZoomOut,
         enabled: false,
+        registerAccelerator: false,
       },
       {
         id: "time-zoom-in",

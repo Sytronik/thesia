@@ -446,18 +446,22 @@ function MainViewer(props: MainViewerProps) {
     [trackIds, updateLensParams],
   );
 
+  const freqZoomIn = useEvent(() => {
+    if (trackIds.length > 0) zoomHeight(100);
+  });
+  const freqZoomOut = useEvent(() => {
+    if (trackIds.length > 0) zoomHeight(-100);
+  });
+  useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
+  useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
   useEffect(() => {
-    ipcRenderer.on("freq-zoom-in", () => {
-      if (trackIds.length > 0) zoomHeight(100);
-    });
-    ipcRenderer.on("freq-zoom-out", () => {
-      if (trackIds.length > 0) zoomHeight(-100);
-    });
+    ipcRenderer.on("freq-zoom-in", freqZoomIn);
+    ipcRenderer.on("freq-zoom-out", freqZoomOut);
     return () => {
       ipcRenderer.removeAllListeners("freq-zoom-in");
       ipcRenderer.removeAllListeners("freq-zoom-out");
     };
-  }, [trackIds, zoomHeight]);
+  }, [freqZoomIn, freqZoomOut]);
 
   const zoomLens = useEvent((isZoomOut: boolean) => {
     let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
