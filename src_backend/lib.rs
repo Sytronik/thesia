@@ -521,7 +521,7 @@ fn format_id_ch(id: usize, ch: usize) -> String {
     format!("{}_{}", id, ch)
 }
 
-pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
+fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
     let mut result = IdChVec::with_capacity(id_ch_strs.len());
     for s in id_ch_strs {
         let mut iter = s.split('_').map(|x| x.parse::<usize>());
