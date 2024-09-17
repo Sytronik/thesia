@@ -1,16 +1,14 @@
-use std::borrow::Cow;
 use std::io;
+use std::iter;
 use std::path::Path;
 
 use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
-use symphonia::core::audio::{AudioBuffer, Signal};
-use symphonia::core::codecs::CODEC_TYPE_NULL;
 use symphonia::core::errors::Error as SymphoniaError;
+use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::probe::Hint;
 
 use super::dynamics::{
     get_cached_limiter, AudioStats, GuardClipping, GuardClippingMode, GuardClippingResult,
@@ -153,34 +151,34 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
 
     // Create a probe hint using the file's extension. [Optional]
     let mut hint = Hint::new();
-    let (ext, hint) = if let Some(ext) = Path::new(path).extension() {
+    if let Some(ext) = Path::new(path).extension() {
         let ext = ext.to_string_lossy();
         hint.with_extension(&ext);
-        (ext, hint)
-    } else {
-        (Cow::Borrowed("unknown"), hint)
-    };
+    }
 
-    let mut probed = {
-        let fmt_opts = FormatOptions {
+    // Probe the media source.
+    let mut format = symphonia::default::get_probe().format(
+        &hint,
+        mss,
+        FormatOptions {
             enable_gapless: true,
             ..Default::default()
-        };
-
-        // Probe the media source.
-        symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &Default::default())?
-    };
+        },
+        Default::default(),
+    )?;
 
     // Find the first audio track with a known (decodeable) codec.
     let SymphoniaTrack {
         id: track_id,
         codec_params,
         language: _,
-    } = probed
-        .format
+        time_base,
+        num_frames,
+        ..
+    } = format
         .tracks()
         .iter()
-        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+        .find(|t| t.codec_params.as_ref().is_some_and(|p| p.audio().is_some()))
         .ok_or_else(|| {
             SymphoniaError::IoError(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -188,20 +186,29 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
             ))
         })?
         .clone();
+    let codec_params = codec_params.as_ref().unwrap().audio().unwrap();
+    let sr = codec_params.sample_rate.unwrap_or_default();
 
     // Create a decoder for the track.
     // Use the default options for the decoder.
-    let mut decoder = symphonia::default::get_codecs().make(&codec_params, &Default::default())?;
+    let mut decoder =
+        symphonia::default::get_codecs().make_audio_decoder(codec_params, &Default::default())?;
 
-    let mut n_ch = codec_params.channels.unwrap_or_default().count();
-    let mut temp_buf: Option<AudioBuffer<f32>> = None;
-    let mut vec_channels = vec![Vec::new(); n_ch];
+    let mut n_ch = codec_params.channels.as_ref().map_or(0, |c| c.count());
+    let total_duration = match (time_base, num_frames) {
+        (Some(tb), Some(nf)) => tb.calc_time(nf),
+        _ => Default::default(),
+    };
+    let n_samples = (sr as f64 * (total_duration.seconds as f64 + total_duration.frac)) as usize;
+    let mut planes = vec![Vec::with_capacity(n_samples); n_ch];
+    let mut total_packets_byte = 0;
     // The decode loop.
     loop {
         // Get the next packet from the media format.
-        let packet = match probed.format.next_packet() {
-            Ok(packet) => packet,
-            Err(SymphoniaError::IoError(err)) if err.kind() == io::ErrorKind::UnexpectedEof => {
+        let packet = match format.next_packet() {
+            Ok(Some(packet)) => packet,
+            Ok(None) => {
+                // Reached the end of the stream.
                 break;
             }
             Err(SymphoniaError::ResetRequired) => {
@@ -212,15 +219,15 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
                 unimplemented!();
             }
             Err(err) => {
-                // A unrecoverable error occured, halt decoding.
+                // A unrecoverable error occurred, halt decoding.
                 panic!("{}", err);
             }
         };
 
         // Consume any new metadata that has been read since the last packet.
-        while !probed.format.metadata().is_latest() {
+        while !format.metadata().is_latest() {
             // Pop the old head of the metadata queue.
-            probed.format.metadata().pop();
+            format.metadata().pop();
 
             // Consume the new metadata at the head of the metadata queue.
         }
@@ -233,27 +240,25 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
         // Decode the packet into audio samples.
         match decoder.decode(&packet) {
             Ok(_decoded) => {
-                if temp_buf.is_none()
-                    || temp_buf
-                        .as_ref()
-                        .is_some_and(|x| x.capacity() < _decoded.capacity())
-                {
-                    temp_buf = Some(_decoded.make_equivalent::<f32>());
-                };
-                let buf_ref = temp_buf.as_mut().unwrap();
-                _decoded.convert(buf_ref);
-                let found_n_ch = buf_ref.spec().channels.count();
+                let found_n_ch = _decoded.num_planes();
                 if found_n_ch != n_ch {
-                    if n_ch > found_n_ch {
-                        vec_channels.truncate(found_n_ch);
-                    } else {
-                        vec_channels.extend((0..found_n_ch - n_ch).map(|_| Vec::new()));
-                    }
+                    planes.resize(found_n_ch, Vec::new());
                     n_ch = found_n_ch;
                 }
-                for (ch, vec) in vec_channels.iter_mut().enumerate() {
-                    vec.extend(buf_ref.chan(ch));
-                }
+                let mut slices: Vec<_> = planes
+                    .iter_mut()
+                    .map(|plane| {
+                        let idx = plane.len();
+                        plane.extend(iter::repeat(0.).take(_decoded.samples_planar()));
+                        &mut plane[idx..]
+                    })
+                    .collect();
+                _decoded.copy_to_slice_planar(&mut slices);
+                total_packets_byte += packet.buf().len();
+            }
+            Err(SymphoniaError::IoError(_)) => {
+                // The packet failed to decode due to an IO error, skip the packet.
+                continue;
             }
             Err(SymphoniaError::DecodeError(err)) => {
                 // The packet failed to decode due to invalid data, skip the packet.
@@ -270,7 +275,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
         }
     }
 
-    let mut vec: Vec<_> = vec_channels.into_iter().flatten().collect();
+    let mut vec: Vec<_> = planes.into_iter().flatten().collect();
     if vec.len() < n_ch {
         (vec.len()..n_ch).for_each(|_| vec.push(0.));
     }
@@ -284,19 +289,33 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
     let shape = (n_ch, vec.len() / n_ch);
     vec.truncate(shape.0 * shape.1); // defensive code
     let wavs = Array2::from_shape_vec(shape, vec).unwrap();
-    let sr = codec_params.sample_rate.unwrap_or_default();
 
     // TODO: format & codec description https://github.com/pdeljanov/Symphonia/issues/94
-    let sample_format_str = match (codec_params.sample_format, codec_params.bits_per_sample) {
-        (Some(sample_format), _) => {
+    let format_name = format.format_info().short_name;
+    let sample_format_str = match (
+        codec_params.sample_format,
+        codec_params.bits_per_sample,
+        codec_params.bits_per_coded_sample,
+    ) {
+        (Some(sample_format), _, _) => {
             format!("{:?}", sample_format)
         }
-        (None, Some(bits_per_sample)) => {
+        (None, Some(bits_per_sample), _) => {
             format!("{} bit", bits_per_sample)
         }
-        (None, None) => ("? bit").into(),
+        (None, None, Some(bits_per_coded_sample)) => {
+            let kbps = (bits_per_coded_sample as usize * sr as usize) as f64 / 1000.0;
+            format!("{} kbps", kbps.round() as usize)
+        }
+        (None, None, None) => {
+            let kbps = (total_packets_byte * 8) as f64 * sr as f64 / wavs.shape()[1] as f64 / 1000.;
+            format!("{} kbps", kbps.round() as usize)
+        }
     };
-    let format_desc = format!("{} {} {}", ext, FORMAT_DESC_DELIMITER, sample_format_str);
+    let format_desc = format!(
+        "{} {} {}",
+        format_name, FORMAT_DESC_DELIMITER, sample_format_str
+    );
     Ok((wavs, sr, format_desc))
 }
 
