@@ -92,7 +92,6 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
-      e.stopPropagation();
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
       const [interval, zeroRatio] = calcIntervalZeroRatio(ampRangeRef.current ?? DEFAULT_AMP_RANGE);

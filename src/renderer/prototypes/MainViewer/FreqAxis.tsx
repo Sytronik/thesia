@@ -129,7 +129,6 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
-      e.stopPropagation();
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
       // TODO: control minHz

@@ -357,7 +357,6 @@ function MainViewer(props: MainViewerProps) {
     }
 
     e.preventDefault();
-    e.stopPropagation();
     const anImgBoundngRect = imgCanvasesRef.current[getIdChArr()[0]].getBoundingClientRect();
     if (e.clientX > (anImgBoundngRect?.right ?? 0) || e.clientX < (anImgBoundngRect?.x ?? 0))
       return;
