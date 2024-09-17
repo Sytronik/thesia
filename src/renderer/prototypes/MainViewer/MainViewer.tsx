@@ -623,7 +623,7 @@ function MainViewer(props: MainViewerProps) {
           fileName: BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
           sampleFormat: BackendAPI.getSampleFormat(trackId),
-          sampleRate: `${BackendAPI.getSampleRate(trackId)} Hz`,
+          sampleRate: `${BackendAPI.getSampleRate(trackId) / 1000} kHz`,
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
