@@ -4,7 +4,8 @@ import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/c
 import styles from "./SplitView.module.scss";
 
 const MARGIN = 2;
-const MIN_WIDTH = 160 + 32;
+const MIN_WIDTH = 140 + 32;
+const INIT_WIDTH = 230 + 32;
 const MAX_WIDTH = 480 + 32;
 
 type SplitViewProps = {
@@ -17,7 +18,7 @@ type SplitViewProps = {
 const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) => {
   const {createLeft, right, setCanvasWidth} = props;
 
-  const [leftWidth, setLeftWidth] = useState<number>(MIN_WIDTH);
+  const [leftWidth, setLeftWidth] = useState<number>(INIT_WIDTH);
   const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
   const [rightVisibility, setRightVisibility] = useState<boolean>(true);
 
