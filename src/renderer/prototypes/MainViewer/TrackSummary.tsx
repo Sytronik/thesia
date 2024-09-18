@@ -17,7 +17,7 @@ function TrackSummary(props: TrackSummaryProps) {
   const pathElem = useRef<HTMLSpanElement>(null);
   const nameElem = useRef<HTMLSpanElement>(null);
 
-  const {fileName, time, sampleFormat, sampleRate, globalLUFS} = data;
+  const {fileName, time, formatName, bitDepth, bitrate, sampleRate, globalLUFS} = data;
   const pathPieces = fileName.split("/");
   const name = pathPieces.pop();
 
@@ -74,8 +74,10 @@ function TrackSummary(props: TrackSummaryProps) {
       </span>
       <span className={styles.time}>{time}</span>
       <span className={styles.sampleFormatRate}>
-        <span className="sample-format">{sampleFormat}</span> |{" "}
-        <span className="sample-rate">{sampleRate}</span>
+        <span>{`${formatName} | `}</span>
+        {bitDepth ? <span>{`${bitDepth} | `}</span> : ""}
+        {bitrate ? <span>{`${bitrate} | `}</span> : ""}
+        <span>{sampleRate}</span>
       </span>
       <span className={styles.loudness}>{globalLUFS}</span>
     </div>

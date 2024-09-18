@@ -15,6 +15,7 @@ mod utils;
 pub mod visualize;
 mod windows;
 
+pub use audio::AudioFormatInfo;
 pub use dynamics::{DeciBel, GuardClippingMode, NormalizeTarget};
 pub use spectrogram::SpecSetting;
 pub use utils::Pad;

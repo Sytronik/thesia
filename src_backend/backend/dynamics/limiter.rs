@@ -283,8 +283,8 @@ mod tests {
     #[test]
     fn limiter_works() {
         let path = "samples/sample_48k.wav";
-        let (mut wavs, sr, _) = open_audio_file(path).unwrap();
-        let mut limiter = PerfectLimiter::new(sr, 1., 5., 15., 40.);
+        let (mut wavs, format_info) = open_audio_file(path).unwrap();
+        let mut limiter = PerfectLimiter::new(format_info.sr, 1., 5., 15., 40.);
         wavs *= 8.;
         let gain_seq = limiter.process_inplace(wavs.view_mut());
         assert!(
@@ -296,7 +296,7 @@ mod tests {
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: sr,
+            sample_rate: format_info.sr,
             bits_per_sample: 32,
             sample_format: hound::SampleFormat::Float,
         };

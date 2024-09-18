@@ -8,7 +8,7 @@ use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
-use super::audio::{open_audio_file, Audio};
+use super::audio::{open_audio_file, Audio, AudioFormatInfo};
 use super::dynamics::{
     AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
     NormalizeTarget, StatCalculator,
@@ -40,7 +40,7 @@ macro_rules! indexed_iter_filtered {
 
 #[readonly::make]
 pub struct AudioTrack {
-    pub format_desc: String,
+    pub format_info: AudioFormatInfo,
     path: PathBuf,
     original: Audio,
     audio: Audio,
@@ -50,15 +50,15 @@ pub struct AudioTrack {
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
-        let (wavs, sr, format_desc) = open_audio_file(&path)?;
-        let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, sr);
-        let original = Audio::new(wavs, sr, &mut stat_calculator);
+        let (wavs, format_info) = open_audio_file(&path)?;
+        let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, format_info.sr);
+        let original = Audio::new(wavs, format_info.sr, &mut stat_calculator);
 
         let audio = original.clone();
         let interleaved = (&audio).into();
 
         Ok(AudioTrack {
-            format_desc,
+            format_info,
             path: PathBuf::from(path).canonicalize().unwrap(),
             original,
             audio,
@@ -68,16 +68,15 @@ impl AudioTrack {
     }
 
     pub fn reload(&mut self) -> Result<bool, SymphoniaError> {
-        let (wavs, sr, format_desc) = open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if wavs.view() == self.original.view() && sr == self.sr() && format_desc == self.format_desc
-        {
+        let (wavs, format_info) = open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if wavs.view() == self.original.view() && format_info == self.format_info {
             return Ok(false);
         }
-        let original = Audio::new(wavs, sr, &mut self.stat_calculator);
+        let original = Audio::new(wavs, format_info.sr, &mut self.stat_calculator);
         self.original = original.clone();
         self.interleaved = (&original).into();
         self.audio = original;
-        self.format_desc = format_desc;
+        self.format_info = format_info;
         Ok(true)
     }
 

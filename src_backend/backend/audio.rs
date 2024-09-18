@@ -4,6 +4,7 @@ use std::iter;
 use std::path::Path;
 
 use kittyaudio::Frame;
+use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -15,8 +16,6 @@ use super::dynamics::{
     get_cached_limiter, AudioStats, GuardClipping, GuardClippingMode, GuardClippingResult,
     GuardClippingStats, MaxPeak, StatCalculator,
 };
-
-const FORMAT_DESC_DELIMITER: &str = "|";
 
 #[readonly::make]
 #[derive(PartialEq, Clone)]
@@ -144,7 +143,17 @@ impl From<&Audio> for Vec<Frame> {
     }
 }
 
-pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), SymphoniaError> {
+#[napi(object)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AudioFormatInfo {
+    pub name: String,
+    #[napi(js_name = "sampleRate")]
+    pub sr: u32,
+    pub bit_depth: String,
+    pub bitrate: String,
+}
+
+pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), SymphoniaError> {
     let src = std::fs::File::open(path)?;
 
     // Create the media source stream.
@@ -299,31 +308,29 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
     } else {
         format!("{} - {}", format_name, codec_name).into()
     };
-    let sample_format_str = match (
+    let (bit_depth, bitrate) = match (
         codec_params.sample_format,
         codec_params.bits_per_sample,
         codec_params.bits_per_coded_sample,
     ) {
-        (Some(sample_format), _, _) => {
-            format!("{:?}", sample_format)
-        }
-        (None, Some(bits_per_sample), _) => {
-            format!("{} bit", bits_per_sample)
-        }
+        (Some(sample_format), _, _) => (format!("{:?}", sample_format), "".into()),
+        (None, Some(bits_per_sample), _) => (format!("{} bit", bits_per_sample), "".into()),
         (None, None, Some(bits_per_coded_sample)) => {
             let kbps = (bits_per_coded_sample as usize * sr as usize) as f64 / 1000.0;
-            format!("{} kbps", kbps.round() as usize)
+            ("".into(), format!("{} kbps", kbps.round() as usize))
         }
         (None, None, None) => {
             let kbps = (total_packets_byte * 8) as f64 * sr as f64 / wavs.shape()[1] as f64 / 1000.;
-            format!("{} kbps", kbps.round() as usize)
+            ("".into(), format!("{} kbps", kbps.round() as usize))
         }
     };
-    let format_desc = format!(
-        "{} {} {}",
-        format_codec_name, FORMAT_DESC_DELIMITER, sample_format_str
-    );
-    Ok((wavs, sr, format_desc))
+    let format_info = AudioFormatInfo {
+        name: format_codec_name.into_owned(),
+        sr,
+        bit_depth,
+        bitrate,
+    };
+    Ok((wavs, format_info))
 }
 
 #[cfg(test)]
@@ -337,12 +344,22 @@ mod tests {
             "samples/sample_48k.wav",
             "samples/sample_48k_wav_no_extension",
         ];
-        let format_descs = [
-            format!("wav {} 16 bit", FORMAT_DESC_DELIMITER),
-            format!("unknown {} 16 bit", FORMAT_DESC_DELIMITER),
+        let format_infos = [
+            AudioFormatInfo {
+                name: "wave - pcm_s16le".into(),
+                sr: 48000,
+                bit_depth: "16 bit".into(),
+                bitrate: "".into(),
+            },
+            AudioFormatInfo {
+                name: "wave - pcm_s16le".into(),
+                sr: 48000,
+                bit_depth: "16 bit".into(),
+                bitrate: "".into(),
+            },
         ];
-        for (path, format_desc_answer) in paths.into_iter().zip(format_descs.into_iter()) {
-            let (wavs, sr, format_desc) = open_audio_file(path).unwrap();
+        for (path, format_info_answer) in paths.into_iter().zip(format_infos.into_iter()) {
+            let (wavs, format_info) = open_audio_file(path).unwrap();
             let arr = arr1(&[
                 0.00000000e+00f32,
                 0.00000000e+00,
@@ -361,12 +378,11 @@ mod tests {
                 -3.05175781e-05,
                 0.00000000e+00,
             ]);
-            assert_eq!(sr, 48000);
             assert_eq!(wavs.shape(), &[1, 2113529]);
             assert_eq!(wavs.max().unwrap().clone(), 0.234344482421875);
             assert_eq!(wavs.min().unwrap().clone(), -0.20355224609375);
             assert_eq!(wavs.slice(s![0, ..arr.len()]), arr);
-            assert_eq!(format_desc, format_desc_answer);
+            assert_eq!(format_info, format_info_answer);
         }
     }
 }

@@ -27,7 +27,9 @@ type ImgCanvasHandleElement = {
 type TrackSummaryData = {
   fileName: string;
   time: string;
-  sampleFormat: string;
+  formatName: string;
+  bitDepth: string;
+  bitrate: string;
   sampleRate: string;
   globalLUFS: string;
 };

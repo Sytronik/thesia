@@ -616,14 +616,17 @@ function MainViewer(props: MainViewerProps) {
       : -Infinity,
   );
 
-  const trackSummaryArr = useMemo(
+  const trackSummaryArr: TrackSummaryData[] = useMemo(
     () =>
       trackIds.map((trackId) => {
+        const formatInfo = BackendAPI.getFormatInfo(trackId);
         return {
           fileName: BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
-          sampleFormat: BackendAPI.getSampleFormat(trackId),
-          sampleRate: `${BackendAPI.getSampleRate(trackId) / 1000} kHz`,
+          formatName: formatInfo.name,
+          bitDepth: formatInfo.bitDepth,
+          bitrate: formatInfo.bitrate,
+          sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),

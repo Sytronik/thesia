@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getHzRange, setHzRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, freqPosToHzOnCurrentRange, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getSampleFormat, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getHzRange, setHzRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, freqPosToHzOnCurrentRange, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -351,7 +351,7 @@ module.exports.getLongestTrackLengthSec = getLongestTrackLengthSec
 module.exports.getChannelCounts = getChannelCounts
 module.exports.getLengthSec = getLengthSec
 module.exports.getSampleRate = getSampleRate
-module.exports.getSampleFormat = getSampleFormat
+module.exports.getFormatInfo = getFormatInfo
 module.exports.getGlobalLUFS = getGlobalLUFS
 module.exports.getRMSdB = getRMSdB
 module.exports.getMaxPeakdB = getMaxPeakdB
