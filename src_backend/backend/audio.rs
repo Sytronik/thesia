@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io;
 use std::iter;
 use std::path::Path;
@@ -292,6 +293,12 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
 
     // TODO: format & codec description https://github.com/pdeljanov/Symphonia/issues/94
     let format_name = format.format_info().short_name;
+    let codec_name = decoder.codec_info().short_name;
+    let format_codec_name: Cow<_> = if format_name == codec_name {
+        format_name.into()
+    } else {
+        format!("{} - {}", format_name, codec_name).into()
+    };
     let sample_format_str = match (
         codec_params.sample_format,
         codec_params.bits_per_sample,
@@ -314,7 +321,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, u32, String), Symphon
     };
     let format_desc = format!(
         "{} {} {}",
-        format_name, FORMAT_DESC_DELIMITER, sample_format_str
+        format_codec_name, FORMAT_DESC_DELIMITER, sample_format_str
     );
     Ok((wavs, sr, format_desc))
 }
