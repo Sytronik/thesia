@@ -197,14 +197,14 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
         })?
         .clone();
     let codec_params = codec_params.as_ref().unwrap().audio().unwrap();
-    let sr = codec_params.sample_rate.unwrap_or_default();
+    let mut n_ch = codec_params.channels.as_ref().map_or(0, |c| c.count());
+    let mut sr = codec_params.sample_rate.unwrap_or_default();
 
     // Create a decoder for the track.
     // Use the default options for the decoder.
     let mut decoder =
         symphonia::default::get_codecs().make_audio_decoder(codec_params, &Default::default())?;
 
-    let mut n_ch = codec_params.channels.as_ref().map_or(0, |c| c.count());
     let total_duration = match (time_base, num_frames) {
         (Some(tb), Some(nf)) => tb.calc_time(nf),
         _ => Default::default(),
@@ -254,6 +254,10 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
                 if found_n_ch != n_ch {
                     planes.resize(found_n_ch, Vec::new());
                     n_ch = found_n_ch;
+                }
+                let found_sr = _decoded.spec().rate();
+                if sr != found_sr {
+                    sr = found_sr;
                 }
                 let mut slices: Vec<_> = planes
                     .iter_mut()
