@@ -105,27 +105,31 @@ function Control(props: ControlProps) {
     if (e.target.value !== "" && tOverlap > 0) setSpecSetting({...specSetting, tOverlap});
   };
 
-  const onCommonNormalizeTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const type = e.target.selectedOptions[0].value;
-    switch (type) {
-      case "Off":
-        setCommonNormalize({type: "Off"});
-        setIsCommonNormalizeOn(false);
-        break;
-      case "PeakdB":
-        setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
-        setIsCommonNormalizeOn(true);
-        if (commonNormalizedBInputElem.current)
-          commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
-        break;
-      default:
-        setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
-        setIsCommonNormalizeOn(true);
-        if (commonNormalizedBInputElem.current)
-          commonNormalizedBInputElem.current.setValue(commonNormalizedB);
-        break;
-    }
-  };
+  const onCommonNormalizeTypeChange = useMemo(
+    () =>
+      debounce(250, (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const type = e.target.selectedOptions[0].value;
+        switch (type) {
+          case "Off":
+            setCommonNormalize({type: "Off"});
+            setIsCommonNormalizeOn(false);
+            break;
+          case "PeakdB":
+            setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
+            setIsCommonNormalizeOn(true);
+            if (commonNormalizedBInputElem.current)
+              commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
+            break;
+          default:
+            setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
+            setIsCommonNormalizeOn(true);
+            if (commonNormalizedBInputElem.current)
+              commonNormalizedBInputElem.current.setValue(commonNormalizedB);
+            break;
+        }
+      }),
+    [commonNormalizePeakdB, commonNormalizedB, setCommonNormalize],
+  );
 
   const debouncedChangeCommonNormalizedB = useMemo(
     () =>
@@ -142,8 +146,13 @@ function Control(props: ControlProps) {
     debouncedChangeCommonNormalizedB(value);
   });
 
+  const debouncedSetCommonGuardClipping = useMemo(
+    () => debounce(250, setCommonGuardClipping),
+    [setCommonGuardClipping],
+  );
+
   const onCommonGuardClippingModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCommonGuardClipping(e.target.selectedOptions[0].value as GuardClippingMode);
+    debouncedSetCommonGuardClipping(e.target.selectedOptions[0].value as GuardClippingMode);
   };
 
   return (
