@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
-use std::path::{self, PathBuf};
+use std::path::{self, Path, PathBuf};
 
 use ndarray::prelude::*;
 use ndarray::{Data, OwnedRepr, RemoveAxis};
@@ -26,7 +26,7 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
                 };
             }
             None => {
-                result.insert(id, path.to_string_lossy().to_string());
+                result.insert(id, path.to_string_lossy().into());
             }
         };
     }
@@ -37,8 +37,13 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
         } else {
             let mut parents = unique_filenames(hm);
             for parent in parents.values_mut() {
-                if parent == path::MAIN_SEPARATOR_STR {
-                    *parent = format!("{}{}", path::MAIN_SEPARATOR, name);
+                dbg!(&parent);
+                if Path::new(parent).parent().is_none() {
+                    *parent = format!("{}{}", parent, name);
+                    *parent = dunce::canonicalize(Path::new(parent))
+                        .unwrap()
+                        .to_string_lossy()
+                        .into();
                 } else {
                     *parent = format!("{}{}{}", parent, path::MAIN_SEPARATOR, name);
                 }
