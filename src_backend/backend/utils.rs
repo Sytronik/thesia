@@ -37,7 +37,6 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
         } else {
             let mut parents = unique_filenames(hm);
             for parent in parents.values_mut() {
-                dbg!(&parent);
                 if Path::new(parent).parent().is_none() {
                     *parent = format!("{}{}", parent, name);
                     *parent = dunce::canonicalize(Path::new(parent))
