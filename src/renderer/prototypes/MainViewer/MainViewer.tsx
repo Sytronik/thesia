@@ -13,6 +13,7 @@ import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
+import update from "immutability-helper";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
@@ -110,6 +111,12 @@ function MainViewer(props: MainViewerProps) {
   const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
+  const [sortedTrackIds, updateTrackOrder] = useState<number[]>(trackIds);
+
+  useEffect(() => {
+    // to set initial value to sortedTrackIds
+    updateTrackOrder(trackIds);
+  }, [trackIds]);
 
   const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
 
@@ -299,7 +306,7 @@ function MainViewer(props: MainViewerProps) {
   const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
     let i = 0;
     let prevBottom = 0;
-    trackIds.forEach((id) =>
+    sortedTrackIds.forEach((id) =>
       trackIdChMap.get(id)?.forEach((idChStr) => {
         const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
         if (imgClientRect === undefined) return;
@@ -333,7 +340,7 @@ function MainViewer(props: MainViewerProps) {
   };
 
   const handleWheel = useEvent((e: WheelEvent) => {
-    if (!trackIds.length) return;
+    if (!sortedTrackIds.length) return;
 
     let horizontal: boolean;
     let delta: number;
@@ -408,13 +415,13 @@ function MainViewer(props: MainViewerProps) {
       const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
       e.preventDefault();
-      if (trackIds.length === 0) return;
+      if (sortedTrackIds.length === 0) return;
       if (e.clientY < rect.top) return; // when cursor is between Overview and TimeAxis
       const cursorX = e.clientX - rect.left;
       if (!allowOutside) {
         if (cursorX < 0 || cursorX >= width) return;
         if (isPlayhead) {
-          const lastTrackIdChArr = trackIdChMap.get(trackIds[trackIds.length - 1]);
+          const lastTrackIdChArr = trackIdChMap.get(sortedTrackIds[sortedTrackIds.length - 1]);
           if (lastTrackIdChArr) {
             const lastIdCh = lastTrackIdChArr[lastTrackIdChArr.length - 1];
             const lastChImgRect = imgCanvasesRef.current[lastIdCh].getBoundingClientRect();
@@ -436,20 +443,20 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys(
     "right, left, shift+right, shift+left",
     (_, hotkey) => {
-      if (trackIds.length === 0) return;
+      if (sortedTrackIds.length === 0) return;
       const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
       let shiftSec = shiftPx / pxPerSecRef.current;
       if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
       updateLensParams({startSec: startSecRef.current + shiftSec});
     },
-    [trackIds, updateLensParams],
+    [sortedTrackIds, updateLensParams],
   );
 
   const freqZoomIn = useEvent(() => {
-    if (trackIds.length > 0) zoomHeight(100);
+    if (sortedTrackIds.length > 0) zoomHeight(100);
   });
   const freqZoomOut = useEvent(() => {
-    if (trackIds.length > 0) zoomHeight(-100);
+    if (sortedTrackIds.length > 0) zoomHeight(-100);
   });
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
@@ -469,38 +476,40 @@ function MainViewer(props: MainViewerProps) {
   });
   useEffect(() => {
     ipcRenderer.on("time-zoom-in", () => {
-      if (trackIds.length > 0) zoomLens(false);
+      if (sortedTrackIds.length > 0) zoomLens(false);
     });
     ipcRenderer.on("time-zoom-out", () => {
-      if (trackIds.length > 0) zoomLens(true);
+      if (sortedTrackIds.length > 0) zoomLens(true);
     });
     return () => {
       ipcRenderer.removeAllListeners("time-zoom-in");
       ipcRenderer.removeAllListeners("time-zoom-out");
     };
-  }, [trackIds, zoomLens]);
+  }, [sortedTrackIds, zoomLens]);
 
   // Track Selection Hotkeys
   useEffect(() => {
-    ipcRenderer.on("select-all-tracks", () => selectAllTracks(trackIds));
+    ipcRenderer.on("select-all-tracks", () => selectAllTracks(sortedTrackIds));
     return () => {
       ipcRenderer.removeAllListeners("select-all-tracks");
     };
-  }, [selectAllTracks, trackIds]);
+  }, [selectAllTracks, sortedTrackIds]);
 
   useHotkeys(
     "down, up, shift+down, shift+up",
     (e, hotkey) => {
-      if (trackIds.length === 0) return;
-      const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
+      if (sortedTrackIds.length === 0) return;
+      const recentSelectedIdx = sortedTrackIds.indexOf(
+        selectedTrackIds[selectedTrackIds.length - 1],
+      );
       const newSelectId =
         hotkey.keys?.join("") === "down"
-          ? trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)]
-          : trackIds[Math.max(recentSelectedIdx - 1, 0)];
-      selectTrack(e, newSelectId, trackIds);
+          ? sortedTrackIds[Math.min(recentSelectedIdx + 1, sortedTrackIds.length - 1)]
+          : sortedTrackIds[Math.max(recentSelectedIdx - 1, 0)];
+      selectTrack(e, newSelectId, sortedTrackIds);
     },
     {preventDefault: true},
-    [trackIds, selectedTrackIds, selectTrack],
+    [sortedTrackIds, selectedTrackIds, selectTrack],
   );
 
   const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
@@ -618,7 +627,7 @@ function MainViewer(props: MainViewerProps) {
 
   const trackSummaryArr = useMemo(
     () =>
-      trackIds.map((trackId) => {
+      sortedTrackIds.map((trackId) => {
         return {
           fileName: BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
@@ -627,39 +636,50 @@ function MainViewer(props: MainViewerProps) {
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
-    [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
+    [sortedTrackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // canvas img and markers setting logic
   useEffect(() => {
-    if (!trackIds.length) return;
+    if (!sortedTrackIds.length) return;
 
     throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+  }, [throttledSetAmpMarkers, imgHeight, sortedTrackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
-    if (!trackIds.length) return;
+    if (!sortedTrackIds.length) return;
 
     throttledSetFreqMarkers(imgHeight, imgHeight);
-  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+  }, [throttledSetFreqMarkers, imgHeight, sortedTrackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
-    if (!trackIds.length) {
+    if (!sortedTrackIds.length) {
       resetdBMarkers();
       return;
     }
 
     throttledSetdBMarkers(colorBarHeight, colorBarHeight);
-  }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
+  }, [
+    resetdBMarkers,
+    throttledSetdBMarkers,
+    colorBarHeight,
+    sortedTrackIds,
+    needRefreshTrackIdChArr,
+  ]);
 
   useEffect(() => {
-    if (!trackIds.length) {
+    if (!sortedTrackIds.length) {
       unsetTimeMarkersAndUnit();
       return;
     }
 
     throttledSetTimeMarkersAndUnit();
-  }, [unsetTimeMarkersAndUnit, throttledSetTimeMarkersAndUnit, trackIds, needRefreshTrackIdChArr]);
+  }, [
+    unsetTimeMarkersAndUnit,
+    throttledSetTimeMarkersAndUnit,
+    sortedTrackIds,
+    needRefreshTrackIdChArr,
+  ]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -692,7 +712,7 @@ function MainViewer(props: MainViewerProps) {
 
   // set LensParams when track list or width change
   useLayoutEffect(() => {
-    if (trackIds.length > 0) {
+    if (sortedTrackIds.length > 0) {
       const startSec =
         prevTrackCountRef.current === 0 || canvasIsFit
           ? 0
@@ -703,9 +723,9 @@ function MainViewer(props: MainViewerProps) {
       updateLensParams({startSec, pxPerSec});
     }
 
-    prevTrackCountRef.current = trackIds.length;
+    prevTrackCountRef.current = sortedTrackIds.length;
   }, [
-    trackIds,
+    sortedTrackIds,
     width,
     maxTrackSec,
     canvasIsFit,
@@ -743,24 +763,38 @@ function MainViewer(props: MainViewerProps) {
     [handleWheel],
   );
 
+  const moveTrack = useCallback((dragIndex: number, hoverIndex: number) => {
+    updateTrackOrder((prevTrackOrder: number[]) =>
+      update(prevTrackOrder, {
+        $splice: [
+          [dragIndex, 1],
+          [hoverIndex, 0, prevTrackOrder[dragIndex]],
+        ],
+      }),
+    );
+  }, []);
+
   const createLeftPane = (leftWidth: number) => (
     <>
       <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
         <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
-      {trackIds.map((trackId, i) => {
+      {sortedTrackIds.map((trackId, i) => {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
             ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
+            id={trackId}
+            index={i}
             trackIdChArr={trackIdChMap.get(trackId) || []}
             trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
-            onClick={(e) => selectTrack(e, trackId, trackIds)}
+            onClick={(e) => selectTrack(e, trackId, sortedTrackIds)}
+            onDnd={moveTrack}
           />
         );
       })}
@@ -780,13 +814,13 @@ function MainViewer(props: MainViewerProps) {
           pxPerSecRef={pxPerSecRef}
           moveLens={moveLens}
           resetTimeAxis={resetTimeAxis}
-          enableInteraction={trackIds.length > 0}
+          enableInteraction={sortedTrackIds.length > 0}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
-      {trackIds.map((id) => (
+      {sortedTrackIds.map((id) => (
         <div key={`${id}`} className={`${styles.trackRight}`}>
           {trackIdChMap.get(id)?.map((idChStr) => {
             return (
@@ -794,7 +828,7 @@ function MainViewer(props: MainViewerProps) {
                 key={idChStr}
                 className={styles.chCanvases}
                 role="presentation"
-                onClick={(e) => selectTrack(e, id, trackIds)}
+                onClick={(e) => selectTrack(e, id, sortedTrackIds)}
               >
                 <ImgCanvas
                   ref={registerImgCanvas(idChStr)}
@@ -844,11 +878,11 @@ function MainViewer(props: MainViewerProps) {
 
   return (
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
-      {trackIds.length ? (
+      {sortedTrackIds.length ? (
         <Overview
           ref={overviewElem}
           selectedTrackId={
-            trackIds.length > 0 && selectedTrackIds.length > 0
+            sortedTrackIds.length > 0 && selectedTrackIds.length > 0
               ? selectedTrackIds[selectedTrackIds.length - 1]
               : null
           }

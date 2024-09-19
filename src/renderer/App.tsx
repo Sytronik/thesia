@@ -1,7 +1,9 @@
 import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
-import React, {useEffect, useRef} from "react";
+import {useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
+import {DndProvider} from "react-dnd";
+import {HTML5Backend} from "react-dnd-html5-backend";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
@@ -217,41 +219,43 @@ function MyApp({userSettings}: AppProps) {
 
   return (
     <div id="App" className="App">
-      <PlayerControl player={player} isTrackEmpty={trackIds.length === 0} />
-      <div className="flex-container-row flex-item-auto">
-        <Control
-          specSetting={specSetting}
-          setSpecSetting={setSpecSetting}
-          blend={blend}
-          setBlend={setBlend}
-          dBRange={dBRange}
-          setdBRange={setdBRange}
-          commonGuardClipping={commonGuardClipping}
-          setCommonGuardClipping={setCommonGuardClipping}
-          commonNormalize={commonNormalize}
-          setCommonNormalize={setCommonNormalize}
-        />
-        <DevicePixelRatioProvider>
-          <MainViewer
-            trackIds={trackIds}
-            erroredTrackIds={erroredTrackIds}
-            selectedTrackIds={selectedTrackIds}
-            trackIdChMap={trackIdChMap}
-            needRefreshTrackIdChArr={needRefreshTrackIdChArr}
-            maxTrackSec={maxTrackSec}
+      <DndProvider backend={HTML5Backend}>
+        <PlayerControl player={player} isTrackEmpty={trackIds.length === 0} />
+        <div className="flex-container-row flex-item-auto">
+          <Control
+            specSetting={specSetting}
+            setSpecSetting={setSpecSetting}
             blend={blend}
-            player={player}
-            addDroppedFile={addDroppedFile}
-            ignoreError={ignoreError}
-            refreshTracks={refreshTracks}
-            reloadTracks={reloadTracks}
-            removeTracks={removeTracks}
-            selectTrack={selectTrack}
-            selectAllTracks={selectAllTracks}
-            finishRefreshTracks={finishRefreshTracks}
+            setBlend={setBlend}
+            dBRange={dBRange}
+            setdBRange={setdBRange}
+            commonGuardClipping={commonGuardClipping}
+            setCommonGuardClipping={setCommonGuardClipping}
+            commonNormalize={commonNormalize}
+            setCommonNormalize={setCommonNormalize}
           />
-        </DevicePixelRatioProvider>
-      </div>
+          <DevicePixelRatioProvider>
+            <MainViewer
+              trackIds={trackIds}
+              erroredTrackIds={erroredTrackIds}
+              selectedTrackIds={selectedTrackIds}
+              trackIdChMap={trackIdChMap}
+              needRefreshTrackIdChArr={needRefreshTrackIdChArr}
+              maxTrackSec={maxTrackSec}
+              blend={blend}
+              player={player}
+              addDroppedFile={addDroppedFile}
+              ignoreError={ignoreError}
+              refreshTracks={refreshTracks}
+              reloadTracks={reloadTracks}
+              removeTracks={removeTracks}
+              selectTrack={selectTrack}
+              selectAllTracks={selectAllTracks}
+              finishRefreshTracks={finishRefreshTracks}
+            />
+          </DevicePixelRatioProvider>
+        </div>
+      </DndProvider>
     </div>
   );
 }
