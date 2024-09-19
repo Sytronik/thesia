@@ -127,9 +127,13 @@ function Control(props: ControlProps) {
     }
   };
 
-  const debouncedChangeCommonNormalizedB = debounce(250, (dB: number) => {
-    if (isCommonNormalizeOn) setCommonNormalize({type: commonNormalize.type, target: dB});
-  });
+  const debouncedChangeCommonNormalizedB = useMemo(
+    () =>
+      debounce(250, (dB: number) => {
+        if (isCommonNormalizeOn) setCommonNormalize({type: commonNormalize.type, target: dB});
+      }),
+    [commonNormalize, isCommonNormalizeOn, setCommonNormalize],
+  );
 
   const onCommonNormalizedBInputChange = useEvent((value: number) => {
     if (!isCommonNormalizeOn) return;
