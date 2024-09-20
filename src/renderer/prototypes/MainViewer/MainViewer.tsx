@@ -764,7 +764,12 @@ function MainViewer(props: MainViewerProps) {
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
-            onMouseDown={(e) => selectTrack(e, trackId, trackIds)}
+            onMouseDown={(e) => {
+              if (e.button !== 0) {
+                if (e.button !== 2 || selectedTrackIds.includes(trackId)) return;
+              }
+              selectTrack(e, trackId, trackIds);
+            }}
             onDnd={changeTrackOrder}
           />
         );
