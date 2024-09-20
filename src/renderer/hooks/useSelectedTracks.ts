@@ -7,8 +7,6 @@ function useSelectedTracks() {
   const [pivotId, setPivotId] = useState<number>(0);
 
   const selectTrack = useEvent((e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => {
-    e.preventDefault();
-
     if (isCommand(e)) {
       const idxInSelectedIds = selectedTrackIds.indexOf(id);
       if (idxInSelectedIds === -1) {

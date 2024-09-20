@@ -17,7 +17,7 @@ type TrackInfoProps = {
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
-  onClick: (e: React.MouseEvent) => void;
+  onMouseDown: (e: React.MouseEvent) => void;
   onDnd: (dragIndex: number, hoverIndex: number) => void;
 };
 
@@ -36,7 +36,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     channelHeight,
     imgHeight,
     isSelected,
-    onClick,
+    onMouseDown,
     onDnd,
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
@@ -128,7 +128,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       ref={trackInfoElem}
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
-      onClick={onClick}
+      onMouseDown={onMouseDown}
       onContextMenu={(e) => {
         e.preventDefault();
         showTrackContextMenu();
