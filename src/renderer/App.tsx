@@ -77,6 +77,7 @@ function MyApp({userSettings}: AppProps) {
     refreshTracks,
     addTracks,
     removeTracks,
+    changeTrackOrder,
     ignoreError,
     setSpecSetting,
     setBlend,
@@ -249,6 +250,7 @@ function MyApp({userSettings}: AppProps) {
               refreshTracks={refreshTracks}
               reloadTracks={reloadTracks}
               removeTracks={removeTracks}
+              changeTrackOrder={changeTrackOrder}
               selectTrack={selectTrack}
               selectAllTracks={selectAllTracks}
               finishRefreshTracks={finishRefreshTracks}

@@ -13,7 +13,6 @@ import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
-import update from "immutability-helper";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
@@ -67,6 +66,7 @@ type MainViewerProps = {
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
+  changeTrackOrder: (dragIndex: number, hoverIndex: number) => void;
   selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
   selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
@@ -87,6 +87,7 @@ function MainViewer(props: MainViewerProps) {
     refreshTracks,
     reloadTracks,
     removeTracks,
+    changeTrackOrder,
     selectTrack,
     selectAllTracks,
     finishRefreshTracks,
@@ -111,12 +112,6 @@ function MainViewer(props: MainViewerProps) {
   const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
-  const [sortedTrackIds, updateTrackOrder] = useState<number[]>(trackIds);
-
-  useEffect(() => {
-    // to set initial value to sortedTrackIds
-    updateTrackOrder(trackIds);
-  }, [trackIds]);
 
   const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
 
@@ -306,7 +301,7 @@ function MainViewer(props: MainViewerProps) {
   const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
     let i = 0;
     let prevBottom = 0;
-    sortedTrackIds.forEach((id) =>
+    trackIds.forEach((id) =>
       trackIdChMap.get(id)?.forEach((idChStr) => {
         const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
         if (imgClientRect === undefined) return;
@@ -340,7 +335,7 @@ function MainViewer(props: MainViewerProps) {
   };
 
   const handleWheel = useEvent((e: WheelEvent) => {
-    if (!sortedTrackIds.length) return;
+    if (!trackIds.length) return;
 
     let horizontal: boolean;
     let delta: number;
@@ -415,13 +410,13 @@ function MainViewer(props: MainViewerProps) {
       const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
       e.preventDefault();
-      if (sortedTrackIds.length === 0) return;
+      if (trackIds.length === 0) return;
       if (e.clientY < rect.top) return; // when cursor is between Overview and TimeAxis
       const cursorX = e.clientX - rect.left;
       if (!allowOutside) {
         if (cursorX < 0 || cursorX >= width) return;
         if (isPlayhead) {
-          const lastTrackIdChArr = trackIdChMap.get(sortedTrackIds[sortedTrackIds.length - 1]);
+          const lastTrackIdChArr = trackIdChMap.get(trackIds[trackIds.length - 1]);
           if (lastTrackIdChArr) {
             const lastIdCh = lastTrackIdChArr[lastTrackIdChArr.length - 1];
             const lastChImgRect = imgCanvasesRef.current[lastIdCh].getBoundingClientRect();
@@ -443,20 +438,20 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys(
     "right, left, shift+right, shift+left",
     (_, hotkey) => {
-      if (sortedTrackIds.length === 0) return;
+      if (trackIds.length === 0) return;
       const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
       let shiftSec = shiftPx / pxPerSecRef.current;
       if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
       updateLensParams({startSec: startSecRef.current + shiftSec});
     },
-    [sortedTrackIds, updateLensParams],
+    [trackIds, updateLensParams],
   );
 
   const freqZoomIn = useEvent(() => {
-    if (sortedTrackIds.length > 0) zoomHeight(100);
+    if (trackIds.length > 0) zoomHeight(100);
   });
   const freqZoomOut = useEvent(() => {
-    if (sortedTrackIds.length > 0) zoomHeight(-100);
+    if (trackIds.length > 0) zoomHeight(-100);
   });
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
@@ -476,40 +471,38 @@ function MainViewer(props: MainViewerProps) {
   });
   useEffect(() => {
     ipcRenderer.on("time-zoom-in", () => {
-      if (sortedTrackIds.length > 0) zoomLens(false);
+      if (trackIds.length > 0) zoomLens(false);
     });
     ipcRenderer.on("time-zoom-out", () => {
-      if (sortedTrackIds.length > 0) zoomLens(true);
+      if (trackIds.length > 0) zoomLens(true);
     });
     return () => {
       ipcRenderer.removeAllListeners("time-zoom-in");
       ipcRenderer.removeAllListeners("time-zoom-out");
     };
-  }, [sortedTrackIds, zoomLens]);
+  }, [trackIds, zoomLens]);
 
   // Track Selection Hotkeys
   useEffect(() => {
-    ipcRenderer.on("select-all-tracks", () => selectAllTracks(sortedTrackIds));
+    ipcRenderer.on("select-all-tracks", () => selectAllTracks(trackIds));
     return () => {
       ipcRenderer.removeAllListeners("select-all-tracks");
     };
-  }, [selectAllTracks, sortedTrackIds]);
+  }, [selectAllTracks, trackIds]);
 
   useHotkeys(
     "down, up, shift+down, shift+up",
     (e, hotkey) => {
-      if (sortedTrackIds.length === 0) return;
-      const recentSelectedIdx = sortedTrackIds.indexOf(
-        selectedTrackIds[selectedTrackIds.length - 1],
-      );
+      if (trackIds.length === 0) return;
+      const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
       const newSelectId =
         hotkey.keys?.join("") === "down"
-          ? sortedTrackIds[Math.min(recentSelectedIdx + 1, sortedTrackIds.length - 1)]
-          : sortedTrackIds[Math.max(recentSelectedIdx - 1, 0)];
-      selectTrack(e, newSelectId, sortedTrackIds);
+          ? trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)]
+          : trackIds[Math.max(recentSelectedIdx - 1, 0)];
+      selectTrack(e, newSelectId, trackIds);
     },
     {preventDefault: true},
-    [sortedTrackIds, selectedTrackIds, selectTrack],
+    [trackIds, selectedTrackIds, selectTrack],
   );
 
   const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
@@ -627,7 +620,7 @@ function MainViewer(props: MainViewerProps) {
 
   const trackSummaryArr = useMemo(
     () =>
-      sortedTrackIds.map((trackId) => {
+      trackIds.map((trackId) => {
         return {
           fileName: BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
@@ -636,50 +629,39 @@ function MainViewer(props: MainViewerProps) {
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
-    [sortedTrackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
+    [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // canvas img and markers setting logic
   useEffect(() => {
-    if (!sortedTrackIds.length) return;
+    if (!trackIds.length) return;
 
     throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-  }, [throttledSetAmpMarkers, imgHeight, sortedTrackIds, needRefreshTrackIdChArr]);
+  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
-    if (!sortedTrackIds.length) return;
+    if (!trackIds.length) return;
 
     throttledSetFreqMarkers(imgHeight, imgHeight);
-  }, [throttledSetFreqMarkers, imgHeight, sortedTrackIds, needRefreshTrackIdChArr]);
+  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
-    if (!sortedTrackIds.length) {
+    if (!trackIds.length) {
       resetdBMarkers();
       return;
     }
 
     throttledSetdBMarkers(colorBarHeight, colorBarHeight);
-  }, [
-    resetdBMarkers,
-    throttledSetdBMarkers,
-    colorBarHeight,
-    sortedTrackIds,
-    needRefreshTrackIdChArr,
-  ]);
+  }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
-    if (!sortedTrackIds.length) {
+    if (!trackIds.length) {
       unsetTimeMarkersAndUnit();
       return;
     }
 
     throttledSetTimeMarkersAndUnit();
-  }, [
-    unsetTimeMarkersAndUnit,
-    throttledSetTimeMarkersAndUnit,
-    sortedTrackIds,
-    needRefreshTrackIdChArr,
-  ]);
+  }, [unsetTimeMarkersAndUnit, throttledSetTimeMarkersAndUnit, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -712,7 +694,7 @@ function MainViewer(props: MainViewerProps) {
 
   // set LensParams when track list or width change
   useLayoutEffect(() => {
-    if (sortedTrackIds.length > 0) {
+    if (trackIds.length > 0) {
       const startSec =
         prevTrackCountRef.current === 0 || canvasIsFit
           ? 0
@@ -723,9 +705,9 @@ function MainViewer(props: MainViewerProps) {
       updateLensParams({startSec, pxPerSec});
     }
 
-    prevTrackCountRef.current = sortedTrackIds.length;
+    prevTrackCountRef.current = trackIds.length;
   }, [
-    sortedTrackIds,
+    trackIds,
     width,
     maxTrackSec,
     canvasIsFit,
@@ -763,24 +745,13 @@ function MainViewer(props: MainViewerProps) {
     [handleWheel],
   );
 
-  const moveTrack = useCallback((dragIndex: number, hoverIndex: number) => {
-    updateTrackOrder((prevTrackOrder: number[]) =>
-      update(prevTrackOrder, {
-        $splice: [
-          [dragIndex, 1],
-          [hoverIndex, 0, prevTrackOrder[dragIndex]],
-        ],
-      }),
-    );
-  }, []);
-
   const createLeftPane = (leftWidth: number) => (
     <>
       <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
         <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
-      {sortedTrackIds.map((trackId, i) => {
+      {trackIds.map((trackId, i) => {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
@@ -793,8 +764,8 @@ function MainViewer(props: MainViewerProps) {
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
-            onClick={(e) => selectTrack(e, trackId, sortedTrackIds)}
-            onDnd={moveTrack}
+            onClick={(e) => selectTrack(e, trackId, trackIds)}
+            onDnd={changeTrackOrder}
           />
         );
       })}
@@ -814,13 +785,13 @@ function MainViewer(props: MainViewerProps) {
           pxPerSecRef={pxPerSecRef}
           moveLens={moveLens}
           resetTimeAxis={resetTimeAxis}
-          enableInteraction={sortedTrackIds.length > 0}
+          enableInteraction={trackIds.length > 0}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
-      {sortedTrackIds.map((id) => (
+      {trackIds.map((id) => (
         <div key={`${id}`} className={`${styles.trackRight}`}>
           {trackIdChMap.get(id)?.map((idChStr) => {
             return (
@@ -828,7 +799,7 @@ function MainViewer(props: MainViewerProps) {
                 key={idChStr}
                 className={styles.chCanvases}
                 role="presentation"
-                onClick={(e) => selectTrack(e, id, sortedTrackIds)}
+                onClick={(e) => selectTrack(e, id, trackIds)}
               >
                 <ImgCanvas
                   ref={registerImgCanvas(idChStr)}
@@ -878,11 +849,11 @@ function MainViewer(props: MainViewerProps) {
 
   return (
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
-      {sortedTrackIds.length ? (
+      {trackIds.length ? (
         <Overview
           ref={overviewElem}
           selectedTrackId={
-            sortedTrackIds.length > 0 && selectedTrackIds.length > 0
+            trackIds.length > 0 && selectedTrackIds.length > 0
               ? selectedTrackIds[selectedTrackIds.length - 1]
               : null
           }
