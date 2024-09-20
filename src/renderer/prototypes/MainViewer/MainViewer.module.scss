@@ -20,6 +20,7 @@
   margin: $margin;
   border: 2px dashed $border-primary-light;
   border-radius: $spacer-1;
+  pointer-events: none;
 }
 
 /* Track Control */
