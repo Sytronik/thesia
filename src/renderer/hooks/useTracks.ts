@@ -2,6 +2,7 @@ import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
 import {setUserSetting} from "renderer/lib/ipc-sender";
+import update from "immutability-helper";
 import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
 
 type AddTracksResultType = {
@@ -165,6 +166,17 @@ function useTracks(userSettings: UserSettings) {
     }
   });
 
+  const changeTrackOrder = useEvent((dragIndex: number, hoverIndex: number) => {
+    setTrackIds((prevTrackOrder) =>
+      update(prevTrackOrder, {
+        $splice: [
+          [dragIndex, 1],
+          [hoverIndex, 0, prevTrackOrder[dragIndex]],
+        ],
+      }),
+    );
+  });
+
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
     await BackendAPI.setSpecSetting(v);
     const specSetting = BackendAPI.getSpecSetting();
@@ -221,6 +233,7 @@ function useTracks(userSettings: UserSettings) {
     refreshTracks,
     addTracks,
     removeTracks,
+    changeTrackOrder,
     ignoreError,
     setSpecSetting,
     setBlend: setBlendAndSetUserSetting,

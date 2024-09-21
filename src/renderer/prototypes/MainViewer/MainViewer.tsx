@@ -66,6 +66,7 @@ type MainViewerProps = {
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
+  changeTrackOrder: (dragIndex: number, hoverIndex: number) => void;
   selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
   selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
@@ -86,6 +87,7 @@ function MainViewer(props: MainViewerProps) {
     refreshTracks,
     reloadTracks,
     removeTracks,
+    changeTrackOrder,
     selectTrack,
     selectAllTracks,
     finishRefreshTracks,
@@ -755,12 +757,20 @@ function MainViewer(props: MainViewerProps) {
           <TrackInfo
             ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
+            id={trackId}
+            index={i}
             trackIdChArr={trackIdChMap.get(trackId) || []}
             trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
-            onClick={(e) => selectTrack(e, trackId, trackIds)}
+            onMouseDown={(e) => {
+              if (e.button !== 0) {
+                if (e.button !== 2 || selectedTrackIds.includes(trackId)) return;
+              }
+              selectTrack(e, trackId, trackIds);
+            }}
+            onDnd={changeTrackOrder}
           />
         );
       })}
