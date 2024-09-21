@@ -1,12 +1,12 @@
 import React, {forwardRef, useImperativeHandle, useRef} from "react";
 import type {Identifier, XYCoord} from "dnd-core";
 import {useDrag, useDrop} from "react-dnd";
-import {ItemTypes} from "./ItemTypes";
 import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
 
+const DndItemTypes = {TRACK: "track"};
 const MemoizedTrackSummary = React.memo(TrackSummary);
 
 type TrackInfoProps = {
@@ -56,7 +56,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
 
   const [{handlerId}, drop] = useDrop<DragItem, void, {handlerId: Identifier | null}>(
     {
-      accept: ItemTypes.TRACK,
+      accept: DndItemTypes.TRACK,
       collect(monitor) {
         return {
           handlerId: monitor.getHandlerId(),
@@ -115,7 +115,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
 
   const [{isDragging}, drag] = useDrag(
     {
-      type: ItemTypes.TRACK,
+      type: DndItemTypes.TRACK,
       item: () => {
         return {id, index};
       },
