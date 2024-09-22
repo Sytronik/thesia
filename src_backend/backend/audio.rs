@@ -164,8 +164,9 @@ impl AudioFormatInfo {
         total_packets_byte: usize,
         decoded_wav_len: usize,
     ) -> Self {
+        let format_name = format_name.replace("wave", "wav");
         let name = if format_name == codec_name {
-            format_name.into()
+            format_name
         } else {
             format!("{} - {}", format_name, codec_name)
         };
@@ -388,13 +389,13 @@ mod tests {
         ];
         let format_infos = [
             AudioFormatInfo {
-                name: "wave - pcm_s16le".into(),
+                name: "wav - pcm_s16le".into(),
                 sr: 48000,
                 bit_depth: "16 bit".into(),
                 bitrate: "".into(),
             },
             AudioFormatInfo {
-                name: "wave - pcm_s16le".into(),
+                name: "wav - pcm_s16le".into(),
                 sr: 48000,
                 bit_depth: "16 bit".into(),
                 bitrate: "".into(),
