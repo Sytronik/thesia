@@ -13,12 +13,12 @@ import {
   showEditContextMenu,
   showElectronFileOpenErrorMsg,
 } from "./lib/ipc-sender";
-import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
-import "./App.scss";
+import {SUPPORTED_MIME} from "../main/constants";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
+import "./App.scss";
 
 type AppProps = {userSettings: UserSettings};
 

@@ -8,18 +8,6 @@ export const CHANNEL = [
   ["L", "R"], // stereo
 ];
 
-export const SUPPORTED_MIME = [
-  "audio/aac",
-  "audio/x-flac",
-  "audio/mpeg",
-  "audio/ogg",
-  "audio/wav",
-  "audio/x-wav",
-  "audio/mp4",
-  "audio/m4a",
-  "audio/x-m4a",
-];
-
 export const SHIFT_PX = 10; // css px
 export const BIG_SHIFT_PX = 50; // css px
 

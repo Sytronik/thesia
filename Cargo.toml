@@ -44,19 +44,14 @@ rustfft = "6.2.0"
 serde = {version = "1.0.210", features = ["derive"]}
 serde_json = "1.0.128"
 simple_logger = "5.0.0"
-symphonia = {git = "https://github.com/Sytronik/Symphonia.git", branch = "dev-0.6", features = [
-  "aac",
-  "alac",
-  "flac",
-  "isomp4",
-  "mp3",
-  "mpa",
-  "ogg",
-  "opt-simd",
-  "vorbis",
-]}
 tiny-skia = "0.11.4"
 tokio = {version = "1.40.0", features = ["rt-multi-thread", "sync", "time"]}
+
+[dependencies.symphonia]
+branch = "dev-0.6"
+default-features = false
+features = ["aac", "alac", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"]
+git = "https://github.com/Sytronik/Symphonia.git"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 openblas-src = {version = "0.10.9", features = ["cblas", "static", "system"]}
