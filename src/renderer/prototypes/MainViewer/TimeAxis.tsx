@@ -71,6 +71,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
 
   const axis = (
     <AxisCanvas
+      id={0}
       ref={ref}
       width={width}
       height={TIME_CANVAS_HEIGHT}

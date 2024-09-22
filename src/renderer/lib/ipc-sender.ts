@@ -19,9 +19,9 @@ export function showTrackContextMenu() {
   ipcRenderer.send("show-track-context-menu");
 }
 
-export function showAxisContextMenu(axisKind: AxisKind) {
+export function showAxisContextMenu(axisKind: AxisKind, id: number) {
   if (axisKind === "dBAxis") return;
-  ipcRenderer.send("show-axis-context-menu", axisKind);
+  ipcRenderer.send("show-axis-context-menu", axisKind, id);
 }
 
 export function showEditContextMenu() {

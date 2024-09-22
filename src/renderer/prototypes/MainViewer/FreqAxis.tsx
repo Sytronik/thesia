@@ -14,6 +14,7 @@ import {
 import BackendAPI from "../../api";
 
 type FreqAxisProps = {
+  id: number;
   height: number;
   setHzRange: (minHz: number, maxHz: number) => void;
   resetHzRange: () => void;
@@ -62,7 +63,7 @@ const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rec
 };
 
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
-  const {height, setHzRange, resetHzRange, enableInteraction} = props;
+  const {id, height, setHzRange, resetHzRange, enableInteraction} = props;
   const [minHzInputHidden, setMinHzInputHidden] = useState(true);
   const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
   const cursorStateRef = useRef<FreqAxisCursorState>("shift-hz-range");
@@ -210,11 +211,13 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
   const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
 
-  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind, minOrMax: "min" | "max") => {
-    if (axisKind !== "freqAxis") return;
-    if (minOrMax === "min") setMinHzInputHidden(false);
-    else setMaxHzInputHidden(false);
-  });
+  const onEditAxisRangeMenu = useEvent(
+    (_, axisKind: AxisKind, idOfContextMenu: number, minOrMax: "min" | "max") => {
+      if (axisKind !== "freqAxis" || id !== idOfContextMenu) return;
+      if (minOrMax === "min") setMinHzInputHidden(false);
+      else setMaxHzInputHidden(false);
+    },
+  );
 
   useEffect(() => {
     ipcRenderer.on("edit-axis-range", onEditAxisRangeMenu);
@@ -238,6 +241,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         className={styles.maxHzFloatingInput}
       />
       <AxisCanvas
+        id={id}
         ref={ref}
         width={FREQ_CANVAS_WIDTH}
         height={height}

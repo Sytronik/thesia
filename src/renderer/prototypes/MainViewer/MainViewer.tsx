@@ -813,6 +813,7 @@ function MainViewer(props: MainViewerProps) {
                   />
                 ) : null}
                 <AmpAxis
+                  id={id}
                   ref={registerAmpCanvas(idChStr)}
                   height={height}
                   ampRangeRef={ampRangeRef}
@@ -821,6 +822,7 @@ function MainViewer(props: MainViewerProps) {
                   enableInteraction={blend < 1}
                 />
                 <FreqAxis
+                  id={id}
                   ref={registerFreqCanvas(idChStr)}
                   height={height}
                   setHzRange={throttledSetHzRange}

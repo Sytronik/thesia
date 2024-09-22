@@ -98,30 +98,30 @@ export default function addIPCListeners() {
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
   });
 
-  ipcMain.on("show-axis-context-menu", (event, axisKind) => {
+  ipcMain.on("show-axis-context-menu", (event, axisKind, id) => {
     const template: MenuItemConstructorOptions[] = [];
     if (axisKind === "ampAxis") {
       template.push({
         ...labelAndSublabel("Edit Range", "Double Cick", "Double Click", 2),
-        click: () => event.sender.send("edit-axis-range", axisKind),
+        click: () => event.sender.send("edit-axis-range", axisKind, id),
       });
     } else if (axisKind === "freqAxis") {
       template.push(
         {
           ...labelAndSublabel("Edit Upper Limit", "Double Click"),
           click: () => {
-            event.sender.send("edit-axis-range", axisKind, "max");
+            event.sender.send("edit-axis-range", axisKind, id, "max");
           },
         },
         {
           ...labelAndSublabel("Edit Lower Limit", "Double Click"),
-          click: () => event.sender.send("edit-axis-range", axisKind, "min"),
+          click: () => event.sender.send("edit-axis-range", axisKind, id, "min"),
         },
       );
     }
     template.push({
       ...labelAndSublabel("Reset Range", "⌥+Click", "Alt+Click", 2),
-      click: () => event.sender.send("reset-axis-range", axisKind),
+      click: () => event.sender.send("reset-axis-range", axisKind, id),
     });
     const menu = Menu.buildFromTemplate(template);
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});

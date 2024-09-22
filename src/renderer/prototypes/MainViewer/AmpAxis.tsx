@@ -16,6 +16,7 @@ import {
 } from "../constants/tracks";
 
 type AmpAxisProps = {
+  id: number;
   height: number;
   ampRangeRef: RefObject<[number, number]>;
   setAmpRange: (newRange: [number, number]) => void;
@@ -48,7 +49,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
-  const {height, ampRangeRef, setAmpRange, resetAmpRange, enableInteraction} = props;
+  const {id, height, ampRangeRef, setAmpRange, resetAmpRange, enableInteraction} = props;
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
   const calcLimitedCursorRatio = (
@@ -152,8 +153,8 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     setFloatingInputHidden(true);
   });
 
-  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind) => {
-    if (axisKind !== "ampAxis") return;
+  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind, idOfContextMenu: number) => {
+    if (axisKind !== "ampAxis" || id !== idOfContextMenu) return;
     setFloatingInputHidden(false);
   });
 
@@ -173,6 +174,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
         className={styles.ampFloatingInput}
       />
       <AxisCanvas
+        id={id}
         ref={ref}
         width={AMP_CANVAS_WIDTH}
         height={height}
