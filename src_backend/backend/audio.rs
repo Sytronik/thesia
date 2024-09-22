@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::io;
 use std::iter;
 use std::path::Path;
@@ -7,6 +6,8 @@ use kittyaudio::Frame;
 use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
+use symphonia::core::audio::GenericAudioBufferRef;
+use symphonia::core::codecs::audio::AudioCodecParameters;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, Track as SymphoniaTrack};
@@ -153,6 +154,56 @@ pub struct AudioFormatInfo {
     pub bitrate: String,
 }
 
+impl AudioFormatInfo {
+    pub fn from_decoding_result(
+        format_name: &str,
+        codec_name: &str,
+        codec_params: &AudioCodecParameters,
+        found_sr: u32,
+        found_sample_format: &str,
+        total_packets_byte: usize,
+        decoded_wav_len: usize,
+    ) -> Self {
+        let name = if format_name == codec_name {
+            format_name.into()
+        } else {
+            format!("{} - {}", format_name, codec_name)
+        };
+        if codec_name == "alac" {
+            return Self {
+                name,
+                sr: found_sr,
+                bit_depth: found_sample_format.into(),
+                bitrate: "".into(),
+            };
+        }
+        let (bit_depth, bitrate) = match (
+            codec_params.sample_format,
+            codec_params.bits_per_sample,
+            codec_params.bits_per_coded_sample,
+        ) {
+            (Some(sample_format), _, _) => (format!("{:?}", sample_format), "".into()),
+            (None, Some(bits_per_sample), _) => (format!("{} bit", bits_per_sample), "".into()),
+            (None, None, Some(bits_per_coded_sample)) => {
+                let kbps = (bits_per_coded_sample as usize * found_sr as usize) as f64 / 1000.0;
+                ("".into(), format!("{} kbps", kbps.round() as usize))
+            }
+            (None, None, None) => {
+                let kbps = (total_packets_byte * 8) as f64 * found_sr as f64
+                    / decoded_wav_len as f64
+                    / 1000.;
+                ("".into(), format!("{} kbps", kbps.round() as usize))
+            }
+        };
+        Self {
+            name,
+            sr: found_sr,
+            bit_depth,
+            bitrate,
+        }
+    }
+}
+
 pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), SymphoniaError> {
     let src = std::fs::File::open(path)?;
 
@@ -211,6 +262,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
     };
     let n_samples = (sr as f64 * (total_duration.seconds as f64 + total_duration.frac)) as usize;
     let mut planes = vec![Vec::with_capacity(n_samples); n_ch];
+    let mut found_sample_format = "";
     let mut total_packets_byte = 0;
     // The decode loop.
     loop {
@@ -250,6 +302,16 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
         // Decode the packet into audio samples.
         match decoder.decode(&packet) {
             Ok(_decoded) => {
+                if found_sample_format == "" {
+                    found_sample_format = match _decoded {
+                        GenericAudioBufferRef::U8(_) | GenericAudioBufferRef::S8(_) => "8 bit",
+                        GenericAudioBufferRef::U16(_) | GenericAudioBufferRef::S16(_) => "16 bit",
+                        GenericAudioBufferRef::U24(_) | GenericAudioBufferRef::S24(_) => "24 bit",
+                        GenericAudioBufferRef::U32(_) | GenericAudioBufferRef::S32(_) => "32 bit",
+                        GenericAudioBufferRef::F32(_) => "32 bit",
+                        GenericAudioBufferRef::F64(_) => "64 bit",
+                    };
+                }
                 let found_n_ch = _decoded.num_planes();
                 if found_n_ch != n_ch {
                     planes.resize(found_n_ch, Vec::new());
@@ -304,36 +366,15 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
     vec.truncate(shape.0 * shape.1); // defensive code
     let wavs = Array2::from_shape_vec(shape, vec).unwrap();
 
-    // TODO: format & codec description https://github.com/pdeljanov/Symphonia/issues/94
-    let format_name = format.format_info().short_name;
-    let codec_name = decoder.codec_info().short_name;
-    let format_codec_name: Cow<_> = if format_name == codec_name {
-        format_name.into()
-    } else {
-        format!("{} - {}", format_name, codec_name).into()
-    };
-    let (bit_depth, bitrate) = match (
-        codec_params.sample_format,
-        codec_params.bits_per_sample,
-        codec_params.bits_per_coded_sample,
-    ) {
-        (Some(sample_format), _, _) => (format!("{:?}", sample_format), "".into()),
-        (None, Some(bits_per_sample), _) => (format!("{} bit", bits_per_sample), "".into()),
-        (None, None, Some(bits_per_coded_sample)) => {
-            let kbps = (bits_per_coded_sample as usize * sr as usize) as f64 / 1000.0;
-            ("".into(), format!("{} kbps", kbps.round() as usize))
-        }
-        (None, None, None) => {
-            let kbps = (total_packets_byte * 8) as f64 * sr as f64 / wavs.shape()[1] as f64 / 1000.;
-            ("".into(), format!("{} kbps", kbps.round() as usize))
-        }
-    };
-    let format_info = AudioFormatInfo {
-        name: format_codec_name.into_owned(),
+    let format_info = AudioFormatInfo::from_decoding_result(
+        format.format_info().short_name,
+        decoder.codec_info().short_name,
+        codec_params,
         sr,
-        bit_depth,
-        bitrate,
-    };
+        found_sample_format,
+        total_packets_byte,
+        wavs.shape()[1],
+    );
     Ok((wavs, format_info))
 }
 
