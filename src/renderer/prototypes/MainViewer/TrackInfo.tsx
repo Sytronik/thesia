@@ -36,6 +36,12 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
 
   const imperativeHandleRef = useRef<TrackInfoElement>({
     getBoundingClientRect: () => trackInfoElem.current?.getBoundingClientRect() ?? null,
+    scrollIntoView: (alignToTop: boolean) =>
+      trackInfoElem.current?.scrollIntoView({
+        behavior: "smooth",
+        block: alignToTop ? "start" : "end",
+        inline: "nearest",
+      }),
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 

@@ -59,6 +59,7 @@ type FloatingUserInputElement = {
 
 type TrackInfoElement = {
   getBoundingClientRect: () => DOMRect | null;
+  scrollIntoView: (alignToTop: boolean) => void;
 };
 
 type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";

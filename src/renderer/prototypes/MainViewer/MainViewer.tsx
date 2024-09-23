@@ -673,22 +673,24 @@ function MainViewer(props: MainViewerProps) {
       overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
   }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // auto-scroll to the recently selected track
   useEffect(() => {
     if (selectedTrackIds.length === 0) return;
     const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
+    const chCount = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1])?.length ?? 0;
+    if (chCount <= 0) return;
     const trackInfo = trackInfosRef.current[selectedIdStr];
     if (trackInfo === null) return;
     const infoRect = trackInfo.getBoundingClientRect();
     const viewElem = splitViewElem.current;
     const viewRect = viewElem?.getBoundingClientRect() ?? null;
     if (infoRect === null || viewElem === null || viewRect === null) return;
-    const infoMiddle = infoRect.top + infoRect.height / 2;
-    if (infoMiddle < viewRect.top) {
-      viewElem.scrollTo({top: infoRect.top - viewRect.top, behavior: "smooth"});
-    } else if (infoMiddle > viewRect.bottom) {
-      viewElem.scrollTo({top: infoRect.bottom - viewRect.bottom, behavior: "smooth"});
+    if (infoRect.top + infoRect.height / chCount / 2 < viewRect.top + TIME_CANVAS_HEIGHT) {
+      trackInfo.scrollIntoView(true);
+    } else if (infoRect.bottom - infoRect.height / chCount / 2 > viewRect.bottom) {
+      trackInfo.scrollIntoView(false);
     }
-  }, [selectedTrackIds, trackInfosRef]);
+  }, [selectedTrackIds, trackIdChMap, trackInfosRef]);
 
   // set LensParams when track list or width change
   useLayoutEffect(() => {
