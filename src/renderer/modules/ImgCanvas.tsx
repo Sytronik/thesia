@@ -22,6 +22,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {width, height, maxTrackSec, canvasIsFit} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
+  const loadingElem = useRef<HTMLDivElement>(null);
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(1);
   const tooltipElem = useRef<HTMLSpanElement>(null);
@@ -31,9 +32,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     if (buf === null) {
       const ctx = canvasElem.current?.getContext("bitmaprenderer");
       ctx?.transferFromImageBitmap(null);
-      // TODO: loading image
+      if (loadingElem.current) loadingElem.current.style.display = "block";
       return;
     }
+    if (loadingElem.current) loadingElem.current.style.display = "none";
     const bitmapWidth = width * devicePixelRatio;
     const bitmapHeight = height * devicePixelRatio;
     if (buf.byteLength !== 4 * bitmapWidth * bitmapHeight) return;
@@ -116,6 +118,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
           ))}
         </span>
       ) : null}
+      <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
       <canvas
         className={styles.ImgCanvas}
         ref={canvasElem}
