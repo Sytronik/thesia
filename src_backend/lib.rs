@@ -36,16 +36,22 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 lazy_static! {
     static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
+    static ref HZ_RANGE: Arc<RwLock<(f32, f32)>> = Arc::new(RwLock::new((0., f32::INFINITY)));
+    static ref SPEC_SETTING: Arc<RwLock<SpecSetting>> = Arc::new(RwLock::new(Default::default()));
 }
 
 #[napi]
 fn init() -> Result<()> {
     initialize(&TM);
+    initialize(&HZ_RANGE);
+    initialize(&SPEC_SETTING);
     {
         let mut tm = TM.blocking_write();
         if !tm.is_empty() {
             *tm = TrackManager::new();
         }
+        *HZ_RANGE.blocking_write() = tm.get_hz_range();
+        *SPEC_SETTING.blocking_write() = tm.setting.clone();
     }
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
@@ -78,11 +84,11 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 }
 
 #[napi]
-fn remove_tracks(track_ids: Vec<u32>) {
+async fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let mut tm = TM.blocking_write();
+    let mut tm = TM.write().await;
     tokio::spawn(img_mgr::send(ImgMsg::Remove(
         tm.id_ch_tuples_from(&track_ids),
     )));
@@ -140,41 +146,42 @@ async fn set_image_state(
 
 #[napi(js_name = "getdBRange")]
 #[allow(non_snake_case)]
-fn get_dB_range() -> f64 {
-    TM.blocking_read().dB_range as f64
+async fn get_dB_range() -> f64 {
+    TM.read().await.dB_range as f64
 }
 
 #[napi(js_name = "setdBRange")]
 #[allow(non_snake_case)]
-fn set_dB_range(dB_range: f64) {
+async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    let mut tm = TM.blocking_write();
+    let mut tm = TM.write().await;
     tm.set_dB_range(dB_range as f32);
-    remove_all_imgs(tm);
+    remove_all_imgs(&tm);
 }
 
 #[napi]
 fn get_hz_range() -> [f64; 2] {
-    let hz_range = TM.blocking_read().get_hz_range();
+    let hz_range = HZ_RANGE.blocking_read();
     [hz_range.0 as f64, hz_range.1 as f64]
 }
 
 #[napi]
-fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
+async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(min_hz >= 0.);
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
-    let mut tm = TM.blocking_write();
+    let mut tm = TM.write().await;
     let need_update = tm.set_hz_range((min_hz as f32, max_hz as f32));
     if need_update {
-        remove_all_imgs(tm);
+        remove_all_imgs(&tm);
     }
+    *HZ_RANGE.write().await = tm.get_hz_range();
     need_update
 }
 
 #[napi]
 fn get_spec_setting() -> SpecSetting {
-    TM.blocking_read().setting.clone()
+    SPEC_SETTING.blocking_read().clone()
 }
 
 #[napi]
@@ -184,25 +191,26 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.f_overlap >= 1);
     let mut tm = TM.write().await;
     tm.set_setting(spec_setting);
-    remove_all_imgs(tm);
+    remove_all_imgs(&tm);
+    *SPEC_SETTING.write().await = tm.setting.clone();
 }
 
 #[napi]
-fn get_common_guard_clipping() -> GuardClippingMode {
-    TM.blocking_read().common_guard_clipping()
+async fn get_common_guard_clipping() -> GuardClippingMode {
+    TM.read().await.common_guard_clipping()
 }
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
     let mut tm = TM.write().await;
     tm.set_common_guard_clipping(mode);
-    remove_all_imgs(tm);
+    remove_all_imgs(&tm);
     refresh_track_player().await;
 }
 
 #[napi]
-fn get_common_normalize() -> serde_json::Value {
-    serde_json::to_value(TM.blocking_read().common_normalize()).unwrap()
+async fn get_common_normalize() -> serde_json::Value {
+    serde_json::to_value(TM.read().await.common_normalize()).unwrap()
 }
 
 #[napi]
@@ -210,7 +218,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let mut tm = TM.write().await;
     let target = serde_json::from_value(target)?;
     tm.set_common_normalize(target);
-    remove_all_imgs(tm);
+    remove_all_imgs(&tm);
     refresh_track_player().await;
     Ok(())
 }
@@ -227,8 +235,9 @@ fn get_images() -> HashMap<String, Buffer> {
 }
 
 #[napi]
-fn find_id_by_path(path: String) -> i32 {
-    TM.blocking_read()
+async fn find_id_by_path(path: String) -> i32 {
+    TM.read()
+        .await
         .tracklist
         .find_id_by_path(&path)
         .map_or(-1, |id| id as i32)
@@ -245,12 +254,10 @@ async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffe
 }
 
 #[napi]
-async fn freq_pos_to_hz_on_current_range(y: f64, height: u32) -> f64 {
+fn freq_pos_to_hz_on_current_range(y: f64, height: u32) -> f64 {
     assert!(height >= 1);
 
-    TM.read()
-        .await
-        .convert_freq_pos_to_hz(y as f32, height, None) as f64
+    convert_freq_pos_to_hz(y as f32, height, None) as f64
 }
 
 #[napi]
@@ -258,8 +265,7 @@ fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, f64)) -> f64 {
     assert!(height >= 1);
 
     let hz_range = (hz_range.0 as f32, hz_range.1 as f32);
-    TM.blocking_read()
-        .convert_freq_pos_to_hz(y as f32, height, Some(hz_range)) as f64
+    convert_freq_pos_to_hz(y as f32, height, Some(hz_range)) as f64
 }
 
 #[napi]
@@ -267,8 +273,7 @@ fn freq_hz_to_pos(hz: f64, height: u32, hz_range: (f64, f64)) -> f64 {
     assert!(height >= 1);
 
     let hz_range = (hz_range.0 as f32, hz_range.1 as f32);
-    TM.blocking_read()
-        .convert_freq_hz_to_pos(hz as f32, height, Some(hz_range)) as f64
+    convert_freq_hz_to_pos(hz as f32, height, Some(hz_range)) as f64
 }
 
 #[napi]
@@ -345,14 +350,14 @@ async fn get_dB_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_j
 
 #[napi(js_name = "getMaxdB")]
 #[allow(non_snake_case)]
-fn get_max_dB() -> f64 {
-    TM.blocking_read().max_dB as f64
+async fn get_max_dB() -> f64 {
+    TM.read().await.max_dB as f64
 }
 
 #[napi(js_name = "getMindB")]
 #[allow(non_snake_case)]
-fn get_min_dB() -> f64 {
-    TM.blocking_read().min_dB as f64
+async fn get_min_dB() -> f64 {
+    TM.read().await.min_dB as f64
 }
 
 #[napi]
@@ -380,46 +385,51 @@ fn get_length_sec(track_id: u32) -> f64 {
 }
 
 #[napi]
-fn get_sample_rate(track_id: u32) -> u32 {
-    TM.blocking_read()
+async fn get_sample_rate(track_id: u32) -> u32 {
+    TM.read()
+        .await
         .track(track_id as usize)
         .map_or(0, |track| track.sr())
 }
 
 #[napi]
-fn get_format_info(track_id: u32) -> AudioFormatInfo {
-    TM.blocking_read()
+async fn get_format_info(track_id: u32) -> AudioFormatInfo {
+    TM.read()
+        .await
         .track(track_id as usize)
         .map_or_else(Default::default, |track| track.format_info.clone())
 }
 
 #[napi(js_name = "getGlobalLUFS")]
-fn get_global_lufs(track_id: u32) -> f64 {
-    TM.blocking_read()
+async fn get_global_lufs(track_id: u32) -> f64 {
+    TM.read()
+        .await
         .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
 }
 
 #[napi(js_name = "getRMSdB")]
 #[allow(non_snake_case)]
-fn get_rms_dB(track_id: u32) -> f64 {
-    TM.blocking_read()
+async fn get_rms_dB(track_id: u32) -> f64 {
+    TM.read()
+        .await
         .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().rms_dB as f64)
 }
 
 #[napi(js_name = "getMaxPeakdB")]
 #[allow(non_snake_case)]
-fn get_max_peak_dB(track_id: u32) -> f64 {
-    TM.blocking_read()
+async fn get_max_peak_dB(track_id: u32) -> f64 {
+    TM.read()
+        .await
         .track(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_dB as f64)
 }
 
 #[napi]
 // TODO: currently, no use
-fn get_guard_clip_stats(track_id: u32) -> String {
-    let tm = TM.blocking_read();
+async fn get_guard_clip_stats(track_id: u32) -> String {
+    let tm = TM.read().await;
     let prefix = tm.common_guard_clipping().to_string();
     tm.track(track_id as usize)
         .map_or_else(String::new, |track| {
@@ -439,15 +449,17 @@ fn get_guard_clip_stats(track_id: u32) -> String {
 }
 
 #[napi]
-fn get_path(track_id: u32) -> String {
-    TM.blocking_read()
+async fn get_path(track_id: u32) -> String {
+    TM.read()
+        .await
         .track(track_id as usize)
         .map_or_else(String::new, |track| track.path_string())
 }
 
 #[napi]
-fn get_file_name(track_id: u32) -> String {
-    TM.blocking_read()
+async fn get_file_name(track_id: u32) -> String {
+    TM.read()
+        .await
         .tracklist
         .filename(track_id as usize)
         .to_owned()
@@ -542,11 +554,31 @@ fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
 }
 
 #[inline]
-fn remove_all_imgs(tm: impl Deref<Target = TrackManager>) {
+fn remove_all_imgs(tm: &impl Deref<Target = TrackManager>) {
     tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
 }
 
 #[inline]
 async fn refresh_track_player() {
     player::send(PlayerCommand::SetTrack((None, None))).await;
+}
+
+#[inline]
+fn convert_freq_pos_to_hz(y: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
+    let hz_range = hz_range.unwrap_or_else(|| HZ_RANGE.blocking_read().to_owned());
+    let rel_freq = 1. - y / height as f32;
+    SPEC_SETTING
+        .blocking_read()
+        .freq_scale
+        .relative_freq_to_hz(rel_freq, hz_range)
+}
+
+#[inline]
+fn convert_freq_hz_to_pos(hz: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
+    let hz_range = hz_range.unwrap_or_else(|| HZ_RANGE.blocking_read().to_owned());
+    let rel_freq = SPEC_SETTING
+        .blocking_read()
+        .freq_scale
+        .hz_to_relative_freq(hz, hz_range);
+    (1. - rel_freq) * height as f32
 }

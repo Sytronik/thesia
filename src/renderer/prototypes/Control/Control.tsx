@@ -52,14 +52,12 @@ function Control(props: ControlProps) {
     setCommonNormalize,
   } = props;
 
+  const isCommonNormalizeOn = commonNormalize.type !== "Off";
   const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(
     commonNormalize.type === "PeakdB" ? commonNormalize.target : 0.0,
   );
   const [commonNormalizedB, setCommonNormalizedB] = useState<number>(
     commonNormalize.type === "LUFS" ? commonNormalize.target : -18.0,
-  );
-  const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(
-    commonNormalize.type !== "Off",
   );
 
   const winMillisecElem = useRef<FloatingUserInputElement>(null);
@@ -112,17 +110,14 @@ function Control(props: ControlProps) {
         switch (type) {
           case "Off":
             setCommonNormalize({type: "Off"});
-            setIsCommonNormalizeOn(false);
             break;
           case "PeakdB":
             setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
-            setIsCommonNormalizeOn(true);
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
             break;
           default:
             setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
-            setIsCommonNormalizeOn(true);
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizedB);
             break;
@@ -301,6 +296,7 @@ function Control(props: ControlProps) {
             <select
               name="tOverlap"
               id="tOverlap"
+              key={`select-t-overlap-${specSetting.tOverlap}`}
               defaultValue={specSetting.tOverlap}
               onChange={onTOverlapChange}
             >
@@ -360,6 +356,7 @@ function Control(props: ControlProps) {
               name="commonNormalize"
               id="commonNormalize"
               onChange={onCommonNormalizeTypeChange}
+              key={`select-common-normalize-${commonNormalize.type}`}
               defaultValue={commonNormalize.type}
             >
               <option value="Off">Off</option>
@@ -391,6 +388,7 @@ function Control(props: ControlProps) {
               name="commonGuardClipping"
               id="commonGuardClipping"
               onChange={onCommonGuardClippingModeChange}
+              key={`select-common-guardclipping-${commonGuardClipping}`}
               defaultValue={commonGuardClipping}
             >
               <option value={GuardClippingMode.ReduceGlobalLevel}>Reducing Global Level</option>

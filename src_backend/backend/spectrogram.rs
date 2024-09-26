@@ -95,6 +95,17 @@ pub struct SpecSetting {
     pub freq_scale: FreqScale,
 }
 
+impl Default for SpecSetting {
+    fn default() -> Self {
+        Self {
+            win_ms: 40.,
+            t_overlap: 4,
+            f_overlap: 1,
+            freq_scale: FreqScale::Mel,
+        }
+    }
+}
+
 impl SpecSetting {
     #[inline]
     pub fn calc_win_length(&self, sr: u32) -> usize {

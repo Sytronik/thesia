@@ -100,6 +100,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     >
       {initTooltipInfo !== null ? (
         <span
+          key="img-canvas-tooltip"
           ref={tooltipElem}
           className={styles.tooltip}
           style={{left: `${initTooltipInfo.pos[0]}px`, top: `${initTooltipInfo.pos[1]}px`}}

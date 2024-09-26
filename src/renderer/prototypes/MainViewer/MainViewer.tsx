@@ -65,7 +65,7 @@ type MainViewerProps = {
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
-  removeTracks: (ids: number[]) => void;
+  removeTracks: (ids: number[]) => Promise<void>;
   selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
   selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
@@ -141,7 +141,7 @@ function MainViewer(props: MainViewerProps) {
     await refreshTracks();
   });
   const removeAndRefreshTracks = useEvent(async (ids: number[]) => {
-    removeTracks(ids);
+    await removeTracks(ids);
     await refreshTracks();
   });
   const calcEndSec = useEvent(() => startSecRef.current + width / pxPerSecRef.current);
@@ -224,8 +224,8 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetHzRange = useMemo(
     () =>
-      throttle(1000 / 70, (minHz: number, maxHz: number) => {
-        if (BackendAPI.setHzRange(minHz, maxHz)) {
+      throttle(1000 / 70, async (minHz: number, maxHz: number) => {
+        if (await BackendAPI.setHzRange(minHz, maxHz)) {
           throttledSetImgState(getIdChArr(), width, imgHeight);
         }
         throttledSetFreqMarkers(imgHeight, imgHeight);
@@ -620,18 +620,18 @@ function MainViewer(props: MainViewerProps) {
       : -Infinity,
   );
 
-  const trackSummaryArr: TrackSummaryData[] = useMemo(
+  const trackSummaryArr: Promise<TrackSummaryData>[] = useMemo(
     () =>
-      trackIds.map((trackId) => {
-        const formatInfo = BackendAPI.getFormatInfo(trackId);
+      trackIds.map(async (trackId) => {
+        const formatInfo = await BackendAPI.getFormatInfo(trackId);
         return {
-          fileName: BackendAPI.getFileName(trackId),
+          fileName: await BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
           formatName: formatInfo.name,
           bitDepth: formatInfo.bitDepth,
           bitrate: formatInfo.bitrate,
           sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-          globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
+          globalLUFS: `${(await BackendAPI.getGlobalLUFS(trackId)).toFixed(2)} LUFS`,
         };
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
@@ -765,7 +765,7 @@ function MainViewer(props: MainViewerProps) {
             ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
             trackIdChArr={trackIdChMap.get(trackId) || []}
-            trackSummary={trackSummaryArr[i]}
+            trackSummaryPromise={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}

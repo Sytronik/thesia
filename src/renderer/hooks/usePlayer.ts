@@ -17,14 +17,14 @@ export type Player = {
   rewindToFront: () => Promise<void>;
 };
 
-function usePlayer(selectedTrackId: number) {
-  const [_currentPlayingTrack, setCurrentPlayingTrack] = useState<number>(-1);
+function usePlayer(selectedTrackId: number, maxTrackSec: number) {
+  const [currentPlayingTrack, setCurrentPlayingTrack] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const positionSecRef = useRef<number>(0);
   const selectSecRef = useRef<number>(0);
   const setSelectSec = useEvent((sec: number) => {
-    selectSecRef.current = Math.min(Math.max(sec, 0), BackendAPI.getLongestTrackLengthSec());
+    selectSecRef.current = Math.min(Math.max(sec, 0), maxTrackSec);
   });
 
   const requestRef = useRef<number>(0);
@@ -42,19 +42,17 @@ function usePlayer(selectedTrackId: number) {
     return () => cancelAnimationFrame(requestRef.current);
   }, [updatePlayerStates]);
 
-  const setPlayingTrack = useEvent((trackId: number) => {
-    setCurrentPlayingTrack((current) => {
-      if (current === trackId) return current;
-      if (trackId >= 0) BackendAPI.setTrackPlayer(trackId);
-      return trackId;
-    });
+  const setPlayingTrack = useEvent(async (trackId: number) => {
+    if (trackId === currentPlayingTrack || trackId < 0) return;
+    await BackendAPI.setTrackPlayer(trackId);
+    setCurrentPlayingTrack(trackId);
   });
 
   const togglePlay = useEvent(async () => {
     if (isPlaying) {
       await BackendAPI.pausePlayer();
     } else if (selectedTrackId >= 0) {
-      BackendAPI.seekPlayer(selectSecRef.current);
+      await BackendAPI.seekPlayer(selectSecRef.current);
       await BackendAPI.resumePlayer();
     }
   });

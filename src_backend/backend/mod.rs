@@ -31,7 +31,7 @@ pub type IdChValueArr<T> = [((usize, usize), T)];
 pub type IdChMap<T> = HashMap<(usize, usize), T>;
 pub type IdChDMap<T> = DashMap<(usize, usize), T>;
 
-use spectrogram::{FreqScale, SpectrogramAnalyzer, SrWinNfft};
+use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 use track::{AudioTrack, TrackList};
 
 #[readonly::make]
@@ -58,12 +58,7 @@ impl TrackManager {
             max_sr: 0,
             spec_greys: HashMap::new(),
             tracklist: TrackList::new(),
-            setting: SpecSetting {
-                win_ms: 40.,
-                t_overlap: 4,
-                f_overlap: 1,
-                freq_scale: FreqScale::Mel,
-            },
+            setting: Default::default(),
             dB_range: 100.,
             hz_range: (0., f32::INFINITY),
             spec_analyzer: SpectrogramAnalyzer::new(),
@@ -131,27 +126,6 @@ impl TrackManager {
                 (0..n_ch).map(move |ch| (id, ch))
             })
             .collect()
-    }
-
-    #[inline]
-    pub fn convert_freq_pos_to_hz(&self, y: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
-        let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
-        let rel_freq = 1. - y / height as f32;
-        self.setting
-            .freq_scale
-            .relative_freq_to_hz(rel_freq, hz_range)
-    }
-
-    #[inline]
-    pub fn convert_freq_hz_to_pos(
-        &self,
-        hz: f32,
-        height: u32,
-        hz_range: Option<(f32, f32)>,
-    ) -> f32 {
-        let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
-        let rel_freq = self.setting.freq_scale.hz_to_relative_freq(hz, hz_range);
-        (1. - rel_freq) * height as f32
     }
 
     #[inline]

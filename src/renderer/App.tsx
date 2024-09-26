@@ -62,6 +62,7 @@ function MyApp({userSettings}: AppProps) {
       !erroredTrackIds.includes(selectedTrackIds[selectedTrackIds.length - 1])
       ? selectedTrackIds[selectedTrackIds.length - 1]
       : -1,
+    maxTrackSec,
   );
 
   const prevTrackIds = useRef<number[]>([]);
@@ -136,7 +137,7 @@ function MyApp({userSettings}: AppProps) {
 
   const removeSelectedTracks = useEvent(async () => {
     if (selectedTrackIds.length === 0) return;
-    removeTracks(selectedTrackIds);
+    await removeTracks(selectedTrackIds);
     await refreshTracks();
   });
 

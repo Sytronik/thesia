@@ -1,4 +1,4 @@
-import React, {forwardRef, useImperativeHandle, useRef} from "react";
+import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from "react";
 import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
@@ -8,7 +8,7 @@ const MemoizedTrackSummary = React.memo(TrackSummary);
 
 type TrackInfoProps = {
   trackIdChArr: IdChArr;
-  trackSummary: TrackSummaryData;
+  trackSummaryPromise: Promise<TrackSummaryData>;
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
@@ -18,13 +18,22 @@ type TrackInfoProps = {
 const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   const {
     trackIdChArr: trackIdCh,
-    trackSummary,
+    trackSummaryPromise,
     channelHeight,
     imgHeight,
     isSelected,
     onClick,
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
+  const [trackSummary, setTrackSummary] = useState<TrackSummaryData>({
+    fileName: "",
+    time: "00:00:00.000",
+    formatName: "",
+    bitDepth: "",
+    bitrate: "",
+    sampleRate: "?? kHz",
+    globalLUFS: "?? LUFS",
+  });
 
   const channels = trackIdCh.map((idChStr, ch) => {
     return (
@@ -44,6 +53,10 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       }),
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
+
+  useEffect(() => {
+    trackSummaryPromise.then(setTrackSummary).catch(() => {});
+  }, [trackSummaryPromise]);
 
   return (
     <div

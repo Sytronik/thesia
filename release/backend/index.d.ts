@@ -31,23 +31,23 @@ export interface DrawOption {
 export declare function init(): void
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
-export declare function removeTracks(trackIds: Array<number>): void
+export declare function removeTracks(trackIds: Array<number>): Promise<void>
 export declare function applyTrackListChanges(): Promise<Array<string>>
 export declare function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
-export declare function getdBRange(): number
-export declare function setdBRange(dBRange: number): void
+export declare function getdBRange(): Promise<number>
+export declare function setdBRange(dBRange: number): Promise<void>
 export declare function getHzRange(): number[]
-export declare function setHzRange(minHz: number, maxHz: number): boolean
+export declare function setHzRange(minHz: number, maxHz: number): Promise<boolean>
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
-export declare function getCommonGuardClipping(): GuardClippingMode
+export declare function getCommonGuardClipping(): Promise<GuardClippingMode>
 export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
-export declare function getCommonNormalize(): any
+export declare function getCommonNormalize(): Promise<any>
 export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getImages(): Record<string, Buffer>
-export declare function findIdByPath(path: string): number
+export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
-export declare function freqPosToHzOnCurrentRange(y: number, height: number): Promise<number>
+export declare function freqPosToHzOnCurrentRange(y: number, height: number): number
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
 export declare function secondsToLabel(sec: number): string
@@ -58,20 +58,20 @@ export declare function getTimeAxisMarkers(startSec: number, endSec: number, tic
 export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
 export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
 export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
-export declare function getMaxdB(): number
-export declare function getMindB(): number
+export declare function getMaxdB(): Promise<number>
+export declare function getMindB(): Promise<number>
 export declare function getMaxTrackHz(): number
 export declare function getLongestTrackLengthSec(): number
 export declare function getChannelCounts(trackId: number): number
 export declare function getLengthSec(trackId: number): number
-export declare function getSampleRate(trackId: number): number
-export declare function getFormatInfo(trackId: number): AudioFormatInfo
-export declare function getGlobalLUFS(trackId: number): number
-export declare function getRMSdB(trackId: number): number
-export declare function getMaxPeakdB(trackId: number): number
-export declare function getGuardClipStats(trackId: number): string
-export declare function getPath(trackId: number): string
-export declare function getFileName(trackId: number): string
+export declare function getSampleRate(trackId: number): Promise<number>
+export declare function getFormatInfo(trackId: number): Promise<AudioFormatInfo>
+export declare function getGlobalLUFS(trackId: number): Promise<number>
+export declare function getRMSdB(trackId: number): Promise<number>
+export declare function getMaxPeakdB(trackId: number): Promise<number>
+export declare function getGuardClipStats(trackId: number): Promise<string>
+export declare function getPath(trackId: number): Promise<string>
+export declare function getFileName(trackId: number): Promise<string>
 export declare function getColorMap(): Buffer
 export declare function setVolumedB(volumeDB: number): Promise<void>
 export declare function setTrackPlayer(trackId: number, sec?: number | undefined | null): Promise<void>
