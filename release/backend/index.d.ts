@@ -41,9 +41,9 @@ export declare function setHzRange(minHz: number, maxHz: number): Promise<boolea
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): Promise<GuardClippingMode>
-export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
+export declare function setCommonGuardClipping(mode: GuardClippingMode): void
 export declare function getCommonNormalize(): Promise<any>
-export declare function setCommonNormalize(target: any): Promise<void>
+export declare function setCommonNormalize(target: any): void
 export declare function getImages(): Record<string, Buffer>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>

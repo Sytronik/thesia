@@ -571,7 +571,11 @@ function MainViewer(props: MainViewerProps) {
 
     const images = BackendAPI.getImages();
     Object.entries(images).forEach(([idChStr, buf]) => {
+      if (needRefreshTrackIdChArr.includes(idChStr)) return;
       imgCanvasesRef.current[idChStr]?.draw(buf);
+    });
+    needRefreshTrackIdChArr.forEach((idChStr) => {
+      imgCanvasesRef.current[idChStr]?.draw(null);
     });
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);

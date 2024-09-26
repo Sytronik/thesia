@@ -201,7 +201,11 @@ async fn get_common_guard_clipping() -> GuardClippingMode {
 }
 
 #[napi]
-async fn set_common_guard_clipping(mode: GuardClippingMode) {
+fn set_common_guard_clipping(mode: GuardClippingMode) {
+    tokio::spawn(impl_set_common_guard_clipping(mode));
+}
+
+async fn impl_set_common_guard_clipping(mode: GuardClippingMode) {
     let mut tm = TM.write().await;
     tm.set_common_guard_clipping(mode);
     remove_all_imgs(&tm);
@@ -214,13 +218,17 @@ async fn get_common_normalize() -> serde_json::Value {
 }
 
 #[napi]
-async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
-    let mut tm = TM.write().await;
+fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
+    tokio::spawn(impl_set_common_normalize(target));
+    Ok(())
+}
+
+async fn impl_set_common_normalize(target: NormalizeTarget) {
+    let mut tm = TM.write().await;
     tm.set_common_normalize(target);
     remove_all_imgs(&tm);
     refresh_track_player().await;
-    Ok(())
 }
 
 #[napi]

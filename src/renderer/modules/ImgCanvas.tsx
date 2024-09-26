@@ -27,7 +27,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const tooltipElem = useRef<HTMLSpanElement>(null);
   const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
-  const draw = useEvent((buf: Buffer) => {
+  const draw = useEvent((buf: Buffer | null) => {
+    if (buf === null) {
+      const ctx = canvasElem.current?.getContext("bitmaprenderer");
+      ctx?.transferFromImageBitmap(null);
+      // TODO: loading image
+      return;
+    }
     const bitmapWidth = width * devicePixelRatio;
     const bitmapHeight = height * devicePixelRatio;
     if (buf.byteLength !== 4 * bitmapWidth * bitmapHeight) return;
