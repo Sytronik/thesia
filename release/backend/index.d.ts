@@ -54,10 +54,10 @@ export declare function secondsToLabel(sec: number): string
 export declare function timeLabelToSeconds(label: string): number
 export declare function hzToLabel(hz: number): string
 export declare function freqLabelToHz(label: string): number
-export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number): Promise<any>
-export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
-export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): Promise<any>
-export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number): Promise<any>
+export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
+export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): any
+export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): any
+export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number, minDB: number, maxDB: number): any
 export declare function getMaxdB(): Promise<number>
 export declare function getMindB(): Promise<number>
 export declare function getMaxTrackHz(): number

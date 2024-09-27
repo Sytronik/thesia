@@ -160,12 +160,13 @@ function MainViewer(props: MainViewerProps) {
     throttledSetTimeMarkers(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
       endSec: calcEndSec(),
+      maxSec: maxTrackSec,
     });
     const [markers] = timeMarkersAndLengthRef.current;
     if (markers.length === 0) return;
     const timeUnit = markers[markers.length - 1][1];
     setTimeUnitLabel(timeUnit);
-  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec]);
+  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec, maxTrackSec]);
 
   const unsetTimeMarkersAndUnit = useEvent(() => {
     resetTimeMarkers();
@@ -659,8 +660,11 @@ function MainViewer(props: MainViewerProps) {
       resetdBMarkers();
       return;
     }
-
-    throttledSetdBMarkers(colorBarHeight, colorBarHeight);
+    Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()])
+      .then(([mindB, maxdB]) =>
+        throttledSetdBMarkers(colorBarHeight, colorBarHeight, {mindB, maxdB}),
+      )
+      .catch(() => {});
   }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {

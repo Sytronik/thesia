@@ -5,68 +5,12 @@ use chrono::naive::NaiveTime;
 use num_traits::Zero;
 
 use crate::backend::spectrogram::{mel, FreqScale};
-use crate::backend::TrackManager;
 
 pub type AxisMarkers = Vec<(f32, String)>;
 
 const POSSIBLE_TEN_UNITS: [u32; 4] = [10, 20, 50, 100];
 
-pub trait CalcAxisMarkers {
-    fn time_axis_markers(
-        &self,
-        start_sec: f64,
-        end_sec: f64,
-        tick_unit: f64,
-        label_interval: u32,
-    ) -> AxisMarkers;
-
-    fn freq_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers;
-
-    #[allow(non_snake_case)]
-    fn dB_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers;
-
-    fn amp_axis_markers(
-        max_num_ticks: u32,
-        max_num_labels: u32,
-        amp_range: (f32, f32),
-    ) -> AxisMarkers {
-        calc_amp_axis_markers(max_num_ticks, max_num_labels, amp_range)
-    }
-}
-
-impl CalcAxisMarkers for TrackManager {
-    fn time_axis_markers(
-        &self,
-        start_sec: f64,
-        end_sec: f64,
-        tick_unit: f64,
-        label_interval: u32,
-    ) -> AxisMarkers {
-        calc_time_axis_markers(
-            start_sec,
-            end_sec,
-            tick_unit,
-            label_interval,
-            self.tracklist.max_sec,
-        )
-    }
-
-    fn freq_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers {
-        calc_freq_axis_markers(
-            self.get_hz_range(),
-            self.setting.freq_scale,
-            max_num_ticks,
-            max_num_labels,
-        )
-    }
-
-    #[allow(non_snake_case)]
-    fn dB_axis_markers(&self, max_num_ticks: u32, max_num_labels: u32) -> AxisMarkers {
-        calc_dB_axis_markers(max_num_ticks, max_num_labels, (self.min_dB, self.max_dB))
-    }
-}
-
-fn calc_time_axis_markers(
+pub fn calc_time_axis_markers(
     start_sec: f64,
     end_sec: f64,
     tick_unit: f64,
@@ -143,7 +87,7 @@ fn calc_time_axis_markers(
         .collect()
 }
 
-fn calc_freq_axis_markers(
+pub fn calc_freq_axis_markers(
     hz_range: (f32, f32),
     freq_scale: FreqScale,
     max_num_ticks: u32,
@@ -230,7 +174,7 @@ fn calc_freq_axis_markers(
     result
 }
 
-fn calc_amp_axis_markers(
+pub fn calc_amp_axis_markers(
     max_num_ticks: u32,
     max_num_labels: u32,
     amp_range: (f32, f32),
@@ -278,7 +222,7 @@ fn calc_amp_axis_markers(
 }
 
 #[allow(non_snake_case)]
-fn calc_dB_axis_markers(
+pub fn calc_dB_axis_markers(
     max_num_ticks: u32,
     max_num_labels: u32,
     dB_range: (f32, f32),

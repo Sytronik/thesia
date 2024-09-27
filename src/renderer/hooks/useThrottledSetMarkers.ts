@@ -10,7 +10,7 @@ type ThrottledSetMarkersParams = {
     maxTickCount: number,
     maxLabelCount: number,
     drawOption?: MarkerDrawOption,
-  ) => Promise<Markers>;
+  ) => Markers;
 };
 
 const THRESHOLD = 1000 / 70;
@@ -33,14 +33,14 @@ function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
     () =>
       throttle(
         THRESHOLD,
-        async (canvasLength: number, scaleDeterminant: number, drawOptions?: MarkerDrawOption) => {
+        (canvasLength: number, scaleDeterminant: number, drawOptions?: MarkerDrawOption) => {
           const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
           if (!tickScale) return;
 
           // time axis returns [size of minor unit, number of minor tick]
           // instead of tick and lable count
           const [maxTickCount, maxLabelCount] = tickScale;
-          const markers = await getMarkers(maxTickCount, maxLabelCount, drawOptions);
+          const markers = getMarkers(maxTickCount, maxLabelCount, drawOptions);
           markersAndLengthRef.current = [markers, canvasLength];
         },
       ),
