@@ -36,6 +36,8 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 lazy_static! {
     static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
+
+    // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
     static ref HZ_RANGE: Arc<RwLock<(f32, f32)>> = Arc::new(RwLock::new((0., f32::INFINITY)));
     static ref SPEC_SETTING: Arc<RwLock<SpecSetting>> = Arc::new(RwLock::new(Default::default()));
 }
@@ -88,11 +90,15 @@ async fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let mut tm = TM.write().await;
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(
-        tm.id_ch_tuples_from(&track_ids),
-    )));
-    tm.remove_tracks(&track_ids);
+    let hz_range = {
+        let mut tm = TM.write().await;
+        tokio::spawn(img_mgr::send(ImgMsg::Remove(
+            tm.id_ch_tuples_from(&track_ids),
+        )));
+        tm.remove_tracks(&track_ids);
+        tm.get_hz_range().clone()
+    };
+    *HZ_RANGE.write().await = hz_range;
 }
 
 #[napi]
@@ -170,12 +176,15 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(min_hz >= 0.);
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
-    let mut tm = TM.write().await;
-    let need_update = tm.set_hz_range((min_hz as f32, max_hz as f32));
-    if need_update {
-        remove_all_imgs(&tm);
-    }
-    *HZ_RANGE.write().await = tm.get_hz_range();
+    let (need_update, hz_range) = {
+        let mut tm = TM.write().await;
+        let need_update = tm.set_hz_range((min_hz as f32, max_hz as f32));
+        if need_update {
+            remove_all_imgs(&tm);
+        }
+        (need_update, tm.get_hz_range().clone())
+    };
+    *HZ_RANGE.write().await = hz_range;
     need_update
 }
 
@@ -189,10 +198,13 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.win_ms > 0.);
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
-    let mut tm = TM.write().await;
-    tm.set_setting(spec_setting);
-    remove_all_imgs(&tm);
-    *SPEC_SETTING.write().await = tm.setting.clone();
+    let spec_setting = {
+        let mut tm = TM.write().await;
+        tm.set_setting(spec_setting);
+        remove_all_imgs(&tm);
+        tm.setting.clone()
+    };
+    *SPEC_SETTING.write().await = spec_setting;
 }
 
 #[napi]
