@@ -36,7 +36,7 @@ export declare function applyTrackListChanges(): Promise<Array<string>>
 export declare function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
 export declare function getdBRange(): Promise<number>
 export declare function setdBRange(dBRange: number): Promise<void>
-export declare function getHzRange(): number[]
+export declare function getHzRange(maxTrackHz: number): number[]
 export declare function setHzRange(minHz: number, maxHz: number): Promise<boolean>
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
@@ -55,7 +55,7 @@ export declare function timeLabelToSeconds(label: string): number
 export declare function hzToLabel(hz: number): string
 export declare function freqLabelToHz(label: string): number
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
-export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): any
+export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number, maxTrackHz: number): any
 export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): any
 export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number, minDB: number, maxDB: number): any
 export declare function getMaxdB(): Promise<number>

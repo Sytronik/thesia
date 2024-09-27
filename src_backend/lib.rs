@@ -52,7 +52,7 @@ fn init() -> Result<()> {
         if !tm.is_empty() {
             *tm = TrackManager::new();
         }
-        *HZ_RANGE.blocking_write() = tm.get_hz_range();
+        *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
         *SPEC_SETTING.blocking_write() = tm.setting.clone();
     }
     rayon::ThreadPoolBuilder::new()
@@ -95,10 +95,11 @@ async fn remove_tracks(track_ids: Vec<u32>) {
         tokio::spawn(img_mgr::send(ImgMsg::Remove(
             tm.id_ch_tuples_from(&track_ids),
         )));
-        tm.remove_tracks(&track_ids);
-        tm.get_hz_range().clone()
+        tm.remove_tracks(&track_ids)
     };
-    *HZ_RANGE.write().await = hz_range;
+    if let Some(hz_range) = hz_range {
+        *HZ_RANGE.write().await = hz_range;
+    }
 }
 
 #[napi]
@@ -166,9 +167,13 @@ async fn set_dB_range(dB_range: f64) {
 }
 
 #[napi]
-fn get_hz_range() -> [f64; 2] {
-    let hz_range = HZ_RANGE.blocking_read();
+fn get_hz_range(max_track_hz: f64) -> [f64; 2] {
+    let hz_range = impl_get_hz_range(max_track_hz as f32);
     [hz_range.0 as f64, hz_range.1 as f64]
+}
+
+fn impl_get_hz_range(max_track_hz: f32) -> (f32, f32) {
+    TrackManager::calc_valid_hz_range(&HZ_RANGE.blocking_read(), max_track_hz)
 }
 
 #[napi]
@@ -176,13 +181,14 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(min_hz >= 0.);
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
-    let (need_update, hz_range) = {
+    let hz_range = (min_hz as f32, max_hz as f32);
+    let need_update = {
         let mut tm = TM.write().await;
-        let need_update = tm.set_hz_range((min_hz as f32, max_hz as f32));
+        let need_update = tm.set_hz_range(hz_range.clone());
         if need_update {
             remove_all_imgs(&tm);
         }
-        (need_update, tm.get_hz_range().clone())
+        need_update
     };
     *HZ_RANGE.write().await = hz_range;
     need_update
@@ -336,11 +342,15 @@ fn get_time_axis_markers(
 }
 
 #[napi]
-fn get_freq_axis_markers(max_num_ticks: u32, max_num_labels: u32) -> serde_json::Value {
+fn get_freq_axis_markers(
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    max_track_hz: f64,
+) -> serde_json::Value {
     assert_axis_params(max_num_ticks, max_num_labels);
 
     json!(calc_freq_axis_markers(
-        HZ_RANGE.blocking_read().to_owned(),
+        calc_valid_hz_range(max_track_hz as f32),
         SPEC_SETTING.blocking_read().freq_scale,
         max_num_ticks,
         max_num_labels
@@ -596,8 +606,14 @@ async fn refresh_track_player() {
 }
 
 #[inline]
+fn calc_valid_hz_range(max_track_hz: f32) -> (f32, f32) {
+    TrackManager::calc_valid_hz_range(&HZ_RANGE.blocking_read(), max_track_hz)
+}
+
+#[inline]
 fn convert_freq_pos_to_hz(y: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
-    let hz_range = hz_range.unwrap_or_else(|| HZ_RANGE.blocking_read().to_owned());
+    let hz_range =
+        hz_range.unwrap_or_else(|| calc_valid_hz_range(TM.blocking_read().max_sr as f32 / 2.));
     let rel_freq = 1. - y / height as f32;
     SPEC_SETTING
         .blocking_read()
@@ -607,7 +623,8 @@ fn convert_freq_pos_to_hz(y: f32, height: u32, hz_range: Option<(f32, f32)>) -> 
 
 #[inline]
 fn convert_freq_hz_to_pos(hz: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
-    let hz_range = hz_range.unwrap_or_else(|| HZ_RANGE.blocking_read().to_owned());
+    let hz_range =
+        hz_range.unwrap_or_else(|| calc_valid_hz_range(TM.blocking_read().max_sr as f32 / 2.));
     let rel_freq = SPEC_SETTING
         .blocking_read()
         .freq_scale

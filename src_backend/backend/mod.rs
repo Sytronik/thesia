@@ -93,7 +93,7 @@ impl TrackManager {
         no_err_ids
     }
 
-    pub fn remove_tracks(&mut self, id_list: &[usize]) {
+    pub fn remove_tracks(&mut self, id_list: &[usize]) -> Option<(f32, f32)> {
         let removed_id_ch_tuples = self.tracklist.remove_tracks(id_list);
         for tup in removed_id_ch_tuples {
             self.specs.remove(&tup);
@@ -104,7 +104,13 @@ impl TrackManager {
             &self.tracklist.construct_all_sr_win_nfft_set(&self.setting),
             self.setting.freq_scale,
         );
-        self.set_hz_range((0., f32::INFINITY));
+        if self.tracklist.is_empty() {
+            let hz_range = (0., f32::INFINITY);
+            self.set_hz_range(hz_range.clone());
+            Some(hz_range)
+        } else {
+            None
+        }
     }
 
     pub fn apply_track_list_changes(&mut self) -> (HashSet<usize>, u32) {
@@ -192,12 +198,16 @@ impl TrackManager {
     }
 
     pub fn get_hz_range(&self) -> (f32, f32) {
-        let max_hz = if self.hz_range.1.is_finite() {
-            self.hz_range.1
+        TrackManager::calc_valid_hz_range(&self.hz_range, self.max_sr as f32 / 2.)
+    }
+
+    pub fn calc_valid_hz_range(hz_range: &(f32, f32), max_track_hz: f32) -> (f32, f32) {
+        let max_hz = if hz_range.1.is_finite() {
+            hz_range.1
         } else {
-            self.max_sr as f32 / 2.
+            max_track_hz
         };
-        (self.hz_range.0, max_hz)
+        (hz_range.0, max_hz)
     }
 
     /// set self.hz_range.

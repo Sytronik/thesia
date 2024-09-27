@@ -59,6 +59,10 @@ function useTracks(userSettings: UserSettings) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const maxTrackSec = useMemo(BackendAPI.getLongestTrackLengthSec, [trackIds]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds]);
+
   const trackIdChMap: IdChMap = new Map(
     trackIds.map((id) => [
       id,
@@ -229,6 +233,7 @@ function useTracks(userSettings: UserSettings) {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    maxTrackHz,
     specSetting: currentSpecSetting,
     blend,
     dBRange: currentdBRange,

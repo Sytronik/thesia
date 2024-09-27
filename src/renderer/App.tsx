@@ -31,6 +31,7 @@ function MyApp({userSettings}: AppProps) {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    maxTrackHz,
     specSetting,
     blend,
     dBRange,
@@ -214,6 +215,7 @@ function MyApp({userSettings}: AppProps) {
             trackIdChMap={trackIdChMap}
             needRefreshTrackIdChArr={needRefreshTrackIdChArr}
             maxTrackSec={maxTrackSec}
+            maxTrackHz={maxTrackHz}
             blend={blend}
             player={player}
             addDroppedFile={addDroppedFile}

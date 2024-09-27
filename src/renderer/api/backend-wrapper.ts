@@ -18,6 +18,7 @@ export type MarkerDrawOption = {
   startSec?: number;
   endSec?: number;
   maxSec?: number;
+  maxTrackHz?: number;
   ampRange?: [number, number];
   mindB?: number;
   maxdB?: number;
@@ -40,8 +41,18 @@ export function getTimeAxisMarkers(
 }
 
 /* track axis */
-export function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number): Markers {
-  return backend.getFreqAxisMarkers(maxNumTicks, maxNumLabels);
+export function getFreqAxisMarkers(
+  maxNumTicks: number,
+  maxNumLabels: number,
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
+  const {maxTrackHz} = markerDrawOptions || {};
+
+  if (maxTrackHz === undefined) {
+    console.error("no markerDrawOptions for freq axis exist");
+    return [];
+  }
+  return backend.getFreqAxisMarkers(maxNumTicks, maxNumLabels, maxTrackHz);
 }
 
 export function getAmpAxisMarkers(

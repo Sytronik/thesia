@@ -59,6 +59,7 @@ type MainViewerProps = {
   trackIdChMap: IdChMap;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
+  maxTrackHz: number;
   blend: number;
   player: Player;
   addDroppedFile: (e: DragEvent) => Promise<void>;
@@ -79,6 +80,7 @@ function MainViewer(props: MainViewerProps) {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    maxTrackHz,
     blend,
     player,
     addDroppedFile,
@@ -229,9 +231,9 @@ function MainViewer(props: MainViewerProps) {
         if (await BackendAPI.setHzRange(minHz, maxHz)) {
           throttledSetImgState(getIdChArr(), width, imgHeight);
         }
-        throttledSetFreqMarkers(imgHeight, imgHeight);
+        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
       }),
-    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight],
+    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight, maxTrackHz],
   );
 
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
@@ -652,8 +654,8 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetFreqMarkers(imgHeight, imgHeight);
-  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+    throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
+  }, [throttledSetFreqMarkers, imgHeight, maxTrackHz, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) {
@@ -842,6 +844,7 @@ function MainViewer(props: MainViewerProps) {
                   id={id}
                   ref={registerFreqCanvas(idChStr)}
                   height={height}
+                  maxTrackHz={maxTrackHz}
                   setHzRange={throttledSetHzRange}
                   resetHzRange={resetHzRange}
                   enableInteraction={blend > 0}

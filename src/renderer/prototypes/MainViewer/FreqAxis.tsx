@@ -16,6 +16,7 @@ import BackendAPI from "../../api";
 type FreqAxisProps = {
   id: number;
   height: number;
+  maxTrackHz: number;
   setHzRange: (minHz: number, maxHz: number) => void;
   resetHzRange: () => void;
   enableInteraction: boolean;
@@ -39,34 +40,36 @@ const DEFAULT_DRAG_ANCHOR: FreqAxisDragAnchor = {
   hzRange: [0, Infinity],
 };
 
-const clampMaxHz = (maxHz: number, minHz: number) => {
-  if (maxHz > BackendAPI.getMaxTrackHz()) return Infinity;
-  return Math.max(maxHz, minHz + MIN_HZ_RANGE);
-};
-const clampMinHz = (minHz: number, maxHz: number) => {
-  return Math.min(Math.max(minHz, 0), maxHz - MIN_HZ_RANGE);
-};
-
-const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rect: DOMRect) => {
-  const cursorAxisPos = getAxisPos(cursorPos);
-  const hzRange = BackendAPI.getHzRange();
-  if (cursorState === "shift-hz-range") {
-    const axisHeight = getAxisHeight(rect);
-    const zeroHzPos = BackendAPI.freqHzToPos(0, axisHeight, [hzRange[0], hzRange[1]]);
-    const maxTrackHzPos = BackendAPI.freqHzToPos(BackendAPI.getMaxTrackHz(), axisHeight, [
-      hzRange[0],
-      hzRange[1],
-    ]);
-    return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
-  }
-  return {cursorAxisPos: getAxisPos(cursorPos), hzRange} as FreqAxisDragAnchor;
-};
-
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
-  const {id, height, setHzRange, resetHzRange, enableInteraction} = props;
+  const {id, height, maxTrackHz, setHzRange, resetHzRange, enableInteraction} = props;
   const [minHzInputHidden, setMinHzInputHidden] = useState(true);
   const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
   const cursorStateRef = useRef<FreqAxisCursorState>("shift-hz-range");
+
+  const clampMaxHz = (maxHz: number, minHz: number) => {
+    if (maxHz > maxTrackHz) return Infinity;
+    return Math.max(maxHz, minHz + MIN_HZ_RANGE);
+  };
+  const clampMinHz = (minHz: number, maxHz: number) => {
+    return Math.min(Math.max(minHz, 0), maxHz - MIN_HZ_RANGE);
+  };
+
+  const calcDragAnchor = useEvent(
+    (cursorState: FreqAxisCursorState, cursorPos: number, rect: DOMRect) => {
+      const cursorAxisPos = getAxisPos(cursorPos);
+      const hzRange = BackendAPI.getHzRange(maxTrackHz);
+      if (cursorState === "shift-hz-range") {
+        const axisHeight = getAxisHeight(rect);
+        const zeroHzPos = BackendAPI.freqHzToPos(0, axisHeight, [hzRange[0], hzRange[1]]);
+        const maxTrackHzPos = BackendAPI.freqHzToPos(maxTrackHz, axisHeight, [
+          hzRange[0],
+          hzRange[1],
+        ]);
+        return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
+      }
+      return {cursorAxisPos: getAxisPos(cursorPos), hzRange} as FreqAxisDragAnchor;
+    },
+  );
 
   const handleDragging = useEvent(
     (
@@ -133,7 +136,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
       // TODO: control minHz
-      const hzRange = BackendAPI.getHzRange();
+      const hzRange = BackendAPI.getHzRange(maxTrackHz);
       const maxHz = BackendAPI.freqPosToHz(e.deltaY, 500, [hzRange[0], hzRange[1]]);
       setHzRange(hzRange[0], clampMaxHz(maxHz, hzRange[0]));
     }
@@ -190,7 +193,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     [handleDragging],
   );
 
-  const hzRangeLabel = BackendAPI.getHzRange().map((hz) => BackendAPI.hzToLabel(hz));
+  const hzRangeLabel = BackendAPI.getHzRange(maxTrackHz).map((hz) => BackendAPI.hzToLabel(hz));
 
   const onCursorStateChange = useEvent((cursorState) => {
     cursorStateRef.current = cursorState;
@@ -200,7 +203,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     if (v !== null) {
       const hz = BackendAPI.freqLabelToHz(v);
       if (!Number.isNaN(hz)) {
-        const hzRange = BackendAPI.getHzRange();
+        const hzRange = BackendAPI.getHzRange(maxTrackHz);
         hzRange[idx] = idx === 0 ? clampMinHz(hz, hzRange[1]) : clampMaxHz(hz, hzRange[0]);
         setHzRange(hzRange[0], hzRange[1]);
       }
