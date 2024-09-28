@@ -29,6 +29,10 @@ impl StatCalculator {
         StatCalculator(loudness_analyzer)
     }
 
+    pub fn change_parameters(&mut self, n_ch: u32, sr: u32) {
+        self.0.change_parameters(n_ch, sr).unwrap();
+    }
+
     pub fn calc(&mut self, wavs: ArrayView2<f32>) -> AudioStats {
         self.0.reset();
         let (global_lufs, mean_squared) = rayon::join(

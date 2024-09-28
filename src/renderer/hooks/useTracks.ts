@@ -78,15 +78,11 @@ function useTracks(userSettings: UserSettings) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const maxTrackSec = useMemo(() => BackendAPI.getLongestTrackLengthSec(), [trackIds]);
-  const trackIdChMap: IdChMap = useMemo(
-    () =>
-      new Map(
-        trackIds.map((id) => [
-          id,
-          [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
-        ]),
-      ),
-    [trackIds],
+  const trackIdChMap: IdChMap = new Map(
+    trackIds.map((id) => [
+      id,
+      [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
+    ]),
   );
 
   const reloadTracks = useEvent(async (ids: number[]) => {

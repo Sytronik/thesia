@@ -72,11 +72,15 @@ impl AudioTrack {
         if wavs.view() == self.original.view() && format_info == self.format_info {
             return Ok(false);
         }
+        self.stat_calculator
+            .change_parameters(wavs.shape()[0] as u32, format_info.sr);
         let original = Audio::new(wavs, format_info.sr, &mut self.stat_calculator);
-        self.original = original.clone();
-        self.interleaved = (&original).into();
-        self.audio = original;
+
         self.format_info = format_info;
+        self.original = original.clone();
+        self.audio = original;
+        self.interleaved = (&self.audio).into();
+
         Ok(true)
     }
 
