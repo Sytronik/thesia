@@ -1,7 +1,6 @@
 use ndarray::prelude::*;
 use ndarray::ScalarOperand;
-use num_traits::{AsPrimitive, NumOps};
-use rustfft::num_traits::{Float, FloatConst};
+use num_traits::{AsPrimitive, Float, FloatConst, NumOps};
 
 pub enum WindowType {
     Hann,

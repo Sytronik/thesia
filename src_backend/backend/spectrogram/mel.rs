@@ -2,8 +2,7 @@
 
 use ndarray::prelude::*;
 use ndarray::ScalarOperand;
-use num_traits::{AsPrimitive, NumAssignOps};
-use rustfft::num_traits::Float;
+use num_traits::{AsPrimitive, Float, NumAssignOps};
 
 #[allow(clippy::excessive_precision)]
 pub const MEL_DIFF_2K_1K: f32 = 10.081880157308321; // from_hz(2000) - from_hz(1000)

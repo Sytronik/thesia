@@ -4,8 +4,7 @@
 use ndarray::prelude::*;
 use ndarray::DataMut;
 use ndarray_stats::{MaybeNan, QuantileExt};
-use num_traits::AsPrimitive;
-use rustfft::num_traits::Float;
+use num_traits::{AsPrimitive, Float};
 
 const AMIN_AMP_DEFAULT: f32 = 1e-18;
 const AMIN_POWER_DEFAULT: f32 = 1e-36;
