@@ -35,6 +35,11 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     globalLUFS: "?? LUFS",
   });
 
+  // set TrackSummary from Promise
+  useEffect(() => {
+    trackSummaryPromise.then(setTrackSummary).catch(() => {});
+  }, [trackSummaryPromise]);
+
   const channels = trackIdCh.map((idChStr, ch) => {
     return (
       <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
@@ -53,10 +58,6 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       }),
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
-
-  useEffect(() => {
-    trackSummaryPromise.then(setTrackSummary).catch(() => {});
-  }, [trackSummaryPromise]);
 
   return (
     <div

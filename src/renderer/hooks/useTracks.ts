@@ -70,6 +70,7 @@ function useTracks(userSettings: UserSettings) {
     ]),
   );
 
+  // set initial values (get from userSettings if exists, else get the backend's default)
   useEffect(() => {
     const specSettingPromise = getInitialValue(
       userSettings,
