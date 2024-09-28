@@ -53,7 +53,12 @@ export default function addIPCListeners() {
   ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
 
   ipcMain.on("show-open-dialog", async (event) => {
+    const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("selecte-all-tracks");
+    if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
+
     event.reply("open-dialog-closed", await showOpenDialog());
+
+    if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
   });
 
   ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
