@@ -117,6 +117,7 @@ function MainViewer(props: MainViewerProps) {
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const selectLocatorElem = useRef<LocatorHandleElement>(null);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
@@ -352,6 +353,8 @@ function MainViewer(props: MainViewerProps) {
 
     if (!e.altKey && !isApplePinch && !horizontal) {
       // vertical scroll (native)
+      selectLocatorElem.current?.disableInteraction();
+      setTimeout(() => selectLocatorElem.current?.enableInteraction(), 1000 / 60);
       updateVScrollAnchorInfo(e.clientY);
       return;
     }
@@ -886,6 +889,7 @@ function MainViewer(props: MainViewerProps) {
           calcLocatorPos={calcPlayheadPos}
         />
         <Locator
+          ref={selectLocatorElem}
           locatorStyle="selection"
           getTopBottom={getSelectLocatorTopBottom}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}

@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {areDOMRectsEqual} from "renderer/utils/arrayUtils";
 import styles from "./Locator.module.scss";
@@ -12,7 +12,7 @@ type LocatorProps = {
   zIndex?: number;
 };
 
-function Locator(props: LocatorProps) {
+const Locator = forwardRef((props: LocatorProps, ref) => {
   const {locatorStyle, getTopBottom, getBoundingLeftWidth, calcLocatorPos, onMouseDown, zIndex} =
     props;
   const locatorElem = useRef<HTMLCanvasElement | null>(null);
@@ -29,6 +29,17 @@ function Locator(props: LocatorProps) {
   const lineWidth = locatorStyle === "selection" ? 2 : 1;
   const lineOffset = lineWidth % 2 === 0 ? 0 : 0.5;
   const moveElem = onMouseDown !== undefined;
+
+  useImperativeHandle(ref, () => {
+    return {
+      enableInteraction: () => {
+        if (locatorElem.current) locatorElem.current.style.pointerEvents = "auto";
+      },
+      disableInteraction: () => {
+        if (locatorElem.current) locatorElem.current.style.pointerEvents = "none";
+      },
+    };
+  });
 
   const drawLine = useEvent(
     (ctx: CanvasRenderingContext2D, drawPos: number, lineTop: number, lineBottom: number) => {
@@ -108,6 +119,8 @@ function Locator(props: LocatorProps) {
       style={{zIndex}}
     />
   );
-}
+});
+
+Locator.displayName = "Locator";
 
 export default Locator;

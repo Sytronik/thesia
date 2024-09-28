@@ -23,6 +23,11 @@ type ImgCanvasHandleElement = {
   getBoundingClientRect: () => DOMRect;
 };
 
+type LocatorHandleElement = {
+  enableInteraction: () => void;
+  disableInteraction: () => void;
+};
+
 // Track Summary
 type TrackSummaryData = {
   fileName: string;
