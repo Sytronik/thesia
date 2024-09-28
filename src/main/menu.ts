@@ -28,8 +28,9 @@ const clickTimeZoomIn: MenuItemClick = (_, browserWindow) =>
 const clickTimeZoomOut: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("time-zoom-out");
 
-const clickSelectAllTracks: MenuItemClick = (_, browserWindow) =>
-  browserWindow?.webContents.send("select-all-tracks");
+const clickSelectAllTracks: MenuItemClick = (_, browserWindow, event) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("select-all-tracks");
+};
 
 const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("remove-selected-tracks");
@@ -377,6 +378,7 @@ export default class MenuBuilder {
             label: "Select &All Tracks",
             accelerator: "Ctrl+A",
             click: clickSelectAllTracks,
+            registerAccelerator: false,
           },
           {
             id: "remove-selected-tracks",

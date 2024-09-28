@@ -484,6 +484,7 @@ function MainViewer(props: MainViewerProps) {
   }, [trackIds, zoomLens]);
 
   // Track Selection Hotkeys
+  useHotkeys("mod+a", () => selectAllTracks(trackIds), {preventDefault: true}, [trackIds]);
   useEffect(() => {
     ipcRenderer.on("select-all-tracks", () => selectAllTracks(trackIds));
     return () => {
