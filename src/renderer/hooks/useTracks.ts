@@ -1,53 +1,30 @@
-import {useRef, useState, useMemo, useEffect} from "react";
+import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
 import {setUserSetting} from "renderer/lib/ipc-sender";
-import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget, FreqScale} from "../api";
+import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
 
 type AddTracksResultType = {
   existingIds: number[];
   invalidPaths: string[];
 };
 
-async function getInitialValue<K extends keyof UserSettings>(
-  userSettings: UserSettings,
-  key: K,
-  getFromBackend: () => NonNullable<UserSettings[K]> | Promise<NonNullable<UserSettings[K]>>,
-  setToBackend: (v: NonNullable<UserSettings[K]>) => void | Promise<void>,
-): Promise<NonNullable<UserSettings[K]>> {
-  const value = userSettings[key];
-  if (value !== undefined) {
-    await setToBackend(value);
-    return value;
-  }
-  const valueFromBackend = await getFromBackend();
-  setUserSetting(key, valueFromBackend);
-  return valueFromBackend;
-}
-
 function useTracks(userSettings: UserSettings) {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
-  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>({
-    winMillisec: 40.0,
-    tOverlap: 4,
-    fOverlap: 1,
-    freqScale: FreqScale.Mel,
-  });
-  const [blend, setBlend] = useState<number>(() => {
-    if (userSettings.blend !== undefined) return userSettings.blend;
-    setUserSetting("blend", 0.5);
-    return 0.5;
-  });
-  const [currentdBRange, setCurrentdBRange] = useState<number>(100);
-  const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
-    GuardClippingMode.ReduceGlobalLevel,
+  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
+    userSettings.specSetting,
   );
-  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>({
-    type: "Off",
-  });
+  const [blend, setBlend] = useState<number>(userSettings.blend);
+  const [currentdBRange, setCurrentdBRange] = useState<number>(userSettings.dBRange);
+  const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
+    userSettings.commonGuardClipping,
+  );
+  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>(
+    userSettings.commonNormalize,
+  );
 
   const waitingIdsRef = useRef<number[]>([]);
   const addToWaitingIds = useEvent((ids: number[]) => {
@@ -69,47 +46,6 @@ function useTracks(userSettings: UserSettings) {
       [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
     ]),
   );
-
-  // set initial values (get from userSettings if exists, else get the backend's default)
-  useEffect(() => {
-    const specSettingPromise = getInitialValue(
-      userSettings,
-      "specSetting",
-      BackendAPI.getSpecSetting,
-      BackendAPI.setSpecSetting,
-    );
-    const dBRangePromise = getInitialValue(
-      userSettings,
-      "dBRange",
-      BackendAPI.getdBRange,
-      BackendAPI.setdBRange,
-    );
-    const commonGuardClippingPromise = getInitialValue(
-      userSettings,
-      "commonGuardClipping",
-      BackendAPI.getCommonGuardClipping,
-      BackendAPI.setCommonGuardClipping,
-    );
-    const commonNormalizePromise = getInitialValue(
-      userSettings,
-      "commonNormalize",
-      BackendAPI.getCommonNormalize,
-      BackendAPI.setCommonNormalize,
-    );
-    Promise.all([
-      specSettingPromise,
-      dBRangePromise,
-      commonGuardClippingPromise,
-      commonNormalizePromise,
-    ])
-      .then(([specSetting, dBRange, commonGuardClipping, commonNormalize]) => {
-        setCurrentSpecSetting(specSetting);
-        setCurrentdBRange(dBRange);
-        setCurrentCommonGuardClipping(commonGuardClipping);
-        setCurrentCommonNormalize(commonNormalize);
-      })
-      .catch(() => {});
-  }, [userSettings]);
 
   const reloadTracks = useEvent(async (ids: number[]) => {
     try {

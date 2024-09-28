@@ -296,7 +296,6 @@ function Control(props: ControlProps) {
             <select
               name="tOverlap"
               id="tOverlap"
-              key={`select-t-overlap-${specSetting.tOverlap}`}
               defaultValue={specSetting.tOverlap}
               onChange={onTOverlapChange}
             >
@@ -356,7 +355,6 @@ function Control(props: ControlProps) {
               name="commonNormalize"
               id="commonNormalize"
               onChange={onCommonNormalizeTypeChange}
-              key={`select-common-normalize-${commonNormalize.type}`}
               defaultValue={commonNormalize.type}
             >
               <option value="Off">Off</option>
@@ -388,7 +386,6 @@ function Control(props: ControlProps) {
               name="commonGuardClipping"
               id="commonGuardClipping"
               onChange={onCommonGuardClippingModeChange}
-              key={`select-common-guardclipping-${commonGuardClipping}`}
               defaultValue={commonGuardClipping}
             >
               <option value={GuardClippingMode.ReduceGlobalLevel}>Reducing Global Level</option>
