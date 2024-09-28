@@ -311,8 +311,10 @@ function Control(props: ControlProps) {
           </div>
         </div>
         <div className={styles.sectionContainer}>
-          <div className={styles.itemContainer}>
-            <label htmlFor="freqScale">Frequency Scale</label>
+          <label className={styles.itemContainer} htmlFor="freqScale">
+            <label htmlFor="freqScale" style={{pointerEvents: "none"}}>
+              Frequency Scale
+            </label>
             <input
               type="checkbox"
               role="switch"
@@ -349,7 +351,7 @@ function Control(props: ControlProps) {
                 <span>Mel</span>
               </label>
             </div>
-          </div>
+          </label>
         </div>
         <div className={styles.sectionContainer}>
           <div className={styles.itemContainer}>
