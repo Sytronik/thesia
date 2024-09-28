@@ -184,7 +184,7 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     let hz_range = (min_hz as f32, max_hz as f32);
     let need_update = {
         let mut tm = TM.write().await;
-        let need_update = tm.set_hz_range(hz_range.clone());
+        let need_update = tm.set_hz_range(hz_range);
         if need_update {
             remove_all_imgs(&tm);
         }

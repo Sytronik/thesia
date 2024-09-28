@@ -300,7 +300,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
         // Decode the packet into audio samples.
         match decoder.decode(&packet) {
             Ok(_decoded) => {
-                if found_sample_format == "" {
+                if found_sample_format.is_empty() {
                     found_sample_format = match _decoded {
                         GenericAudioBufferRef::U8(_) | GenericAudioBufferRef::S8(_) => "8 bit",
                         GenericAudioBufferRef::U16(_) | GenericAudioBufferRef::S16(_) => "16 bit",

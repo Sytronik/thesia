@@ -106,7 +106,7 @@ impl TrackManager {
         );
         if self.tracklist.is_empty() {
             let hz_range = (0., f32::INFINITY);
-            self.set_hz_range(hz_range.clone());
+            self.set_hz_range(hz_range);
             Some(hz_range)
         } else {
             None
