@@ -693,10 +693,13 @@ function MainViewer(props: MainViewerProps) {
   }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // auto-scroll to the recently selected track
+  const getChCountOfLastSelected = useEvent(
+    () => trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1])?.length ?? 0,
+  );
   useEffect(() => {
     if (selectedTrackIds.length === 0) return;
     const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
-    const chCount = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1])?.length ?? 0;
+    const chCount = getChCountOfLastSelected();
     if (chCount <= 0) return;
     const trackInfo = trackInfosRef.current[selectedIdStr];
     if (trackInfo === null) return;
@@ -709,7 +712,7 @@ function MainViewer(props: MainViewerProps) {
     } else if (infoRect.bottom - infoRect.height / chCount / 2 > viewRect.bottom) {
       trackInfo.scrollIntoView(false);
     }
-  }, [selectedTrackIds, trackIdChMap, trackInfosRef]);
+  }, [selectedTrackIds, getChCountOfLastSelected, trackInfosRef]);
 
   // set LensParams when track list or width change
   useLayoutEffect(() => {
