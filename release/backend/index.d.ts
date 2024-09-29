@@ -33,7 +33,7 @@ export interface UserSettingsOptionals {
   blend?: number
   dBRange?: number
   commonGuardClipping?: GuardClippingMode
-  commonNormalize: any
+  commonNormalize?: any
 }
 export interface UserSettings {
   specSetting: SpecSetting

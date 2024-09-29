@@ -84,8 +84,8 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
         if let Some(mode) = user_settings.common_guard_clipping {
             tm.set_common_guard_clipping(mode);
         }
-        if !user_settings.common_normalize.is_null() {
-            let target = serde_json::from_value(user_settings.common_normalize)?;
+        if let Some(target) = user_settings.common_normalize {
+            let target = serde_json::from_value(target)?;
             tm.set_common_normalize(target);
         }
         UserSettings {

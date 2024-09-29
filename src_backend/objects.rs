@@ -16,7 +16,7 @@ pub struct UserSettingsOptionals {
     pub dB_range: Option<f64>,
 
     pub common_guard_clipping: Option<GuardClippingMode>,
-    pub common_normalize: serde_json::Value,
+    pub common_normalize: Option<serde_json::Value>,
 }
 
 #[napi(object)]
