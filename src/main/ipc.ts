@@ -4,6 +4,15 @@ import path from "path";
 import settings from "electron-settings";
 import {SUPPORTED_TYPES} from "./constants";
 
+export function mutateEditMenu(func: (item: Electron.MenuItem) => void) {
+  const appMenu = Menu.getApplicationMenu();
+  if (!appMenu) return;
+  const editMenu = appMenu.getMenuItemById("edit-menu");
+  if (editMenu) {
+    editMenu.submenu?.items.forEach(func);
+  }
+}
+
 function labelAndSublabel(
   label: string,
   darwinAccelerator: string,
@@ -53,12 +62,20 @@ export default function addIPCListeners() {
   ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
 
   ipcMain.on("show-open-dialog", async (event) => {
-    const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("selecte-all-tracks");
+    event.reply("remove-global-focusout-listener");
+    mutateEditMenu((item) => {
+      item.enabled = true;
+    });
+    const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
     if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
 
     event.reply("open-dialog-closed", await showOpenDialog());
 
+    mutateEditMenu((item) => {
+      item.enabled = false;
+    });
     if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
+    event.reply("add-global-focusout-listener");
   });
 
   ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
@@ -148,27 +165,17 @@ export default function addIPCListeners() {
 
   ipcMain
     .on("enable-edit-menu", () => {
-      const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) return;
-      const editMenu = appMenu.getMenuItemById("edit-menu");
-      if (editMenu) {
-        editMenu.submenu?.items.forEach((item) => {
-          item.enabled = true;
-        });
-      }
-      const selectAllTracksMenu = appMenu.getMenuItemById("select-all-tracks");
+      mutateEditMenu((item) => {
+        item.enabled = true;
+      });
+      const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
       if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
     })
     .on("disable-edit-menu", () => {
-      const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) return;
-      const editMenu = appMenu.getMenuItemById("edit-menu");
-      if (editMenu) {
-        editMenu.submenu?.items.forEach((item) => {
-          item.enabled = false;
-        });
-      }
-      const selectAllTracksMenu = appMenu.getMenuItemById("select-all-tracks");
+      mutateEditMenu((item) => {
+        item.enabled = false;
+      });
+      const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
       if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
     });
 

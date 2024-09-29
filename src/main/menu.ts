@@ -1,6 +1,6 @@
 import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, MenuItem} from "electron";
 import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "./constants";
-import {showOpenDialog} from "./ipc";
+import {mutateEditMenu, showOpenDialog} from "./ipc";
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
   selector?: string;
@@ -13,8 +13,22 @@ type MenuItemClick = (
   event: Electron.KeyboardEvent,
 ) => void;
 
-const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
+const clickOpenMenu: MenuItemClick = async (_, browserWindow) => {
+  browserWindow?.webContents.send("remove-global-focusout-listener");
+  mutateEditMenu((item) => {
+    item.enabled = true;
+  });
+  const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
+  if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
+
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
+
+  mutateEditMenu((item) => {
+    item.enabled = false;
+  });
+  if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
+  browserWindow?.webContents.send("add-global-focusout-listener");
+};
 
 const clickFreqZoomIn: MenuItemClick = (_, browserWindow, event) => {
   if (!event.triggeredByAccelerator) browserWindow?.webContents.send("freq-zoom-in");
@@ -330,12 +344,7 @@ export default class MenuBuilder {
       {
         label: "&File",
         submenu: [
-          {
-            label: "&Open Audio Tracks...",
-            accelerator: "Ctrl+O",
-            click: async (_, browserWindow) =>
-              browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog()),
-          },
+          {label: "&Open Audio Tracks...", accelerator: "Ctrl+O", click: clickOpenMenu},
           {type: "separator"},
           {role: "close"},
         ],

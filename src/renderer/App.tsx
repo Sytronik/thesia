@@ -6,11 +6,13 @@ import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {
+  addGlobalFocusInListener,
+  addGlobalFocusOutListener,
   changeMenuDepsOnTrackExistence,
-  disableEditMenu,
-  enableEditMenu,
   notifyAppRendered,
-  showEditContextMenu,
+  removeGlobalFocusInListener,
+  removeGlobalFocusOutListener,
+  showEditContextMenuIfEditableNode,
   showElectronFileOpenErrorMsg,
 } from "./lib/ipc-sender";
 import {SUPPORTED_MIME} from "../main/constants";
@@ -21,43 +23,6 @@ import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
 
 type AppProps = {userSettings: UserSettings};
-
-const callDifferentFuncIfEditableNode = (
-  node: HTMLElement | null,
-  funcForEditable: () => void,
-  funcForNonEditable?: () => void,
-) => {
-  let ancestor = node;
-  let isEditable = false;
-  while (ancestor) {
-    if (ancestor.nodeName.match(/^(input|textarea)$/i) || ancestor.isContentEditable) {
-      funcForEditable();
-      isEditable = true;
-      break;
-    }
-    if (ancestor.parentNode === null) break;
-    ancestor = ancestor.parentNode as HTMLElement;
-  }
-  if (!isEditable && funcForNonEditable) funcForNonEditable();
-};
-
-const showEditContextMenuIfEditableNode = (e: MouseEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, showEditContextMenu);
-};
-
-const changeEditMenuForFocusIn = (e: FocusEvent) => {
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, enableEditMenu, disableEditMenu);
-};
-
-const changeEditMenuForFocusOut = (e: FocusEvent) => {
-  callDifferentFuncIfEditableNode(
-    e.relatedTarget as HTMLElement | null,
-    enableEditMenu,
-    disableEditMenu,
-  );
-};
 
 function MyApp({userSettings}: AppProps) {
   const {
@@ -190,13 +155,22 @@ function MyApp({userSettings}: AppProps) {
   }, []);
 
   useEffect(() => {
-    document.body.addEventListener("focusin", changeEditMenuForFocusIn);
-    document.body.addEventListener("focusout", changeEditMenuForFocusOut);
+    addGlobalFocusInListener();
+    addGlobalFocusOutListener();
     return () => {
-      document.body.removeEventListener("focusin", changeEditMenuForFocusIn);
-      document.body.removeEventListener("focusout", changeEditMenuForFocusOut);
+      removeGlobalFocusInListener();
+      removeGlobalFocusOutListener();
     };
   }, []);
+
+  useEffect(() => {
+    ipcRenderer.on("add-global-focusout-listener", addGlobalFocusOutListener);
+    ipcRenderer.on("remove-global-focusout-listener", removeGlobalFocusOutListener);
+    return () => {
+      ipcRenderer.removeAllListeners("add-global-focusout-listener");
+      ipcRenderer.removeAllListeners("remove-global-focusout-listener");
+    };
+  });
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;
