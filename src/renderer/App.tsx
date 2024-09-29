@@ -2,6 +2,7 @@ import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
 import React, {useEffect, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
+import {UserSettings} from "backend";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
