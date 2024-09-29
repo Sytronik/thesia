@@ -14,7 +14,6 @@ use lazy_static::{initialize, lazy_static};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::json;
-use tokio::runtime::{Builder, Runtime};
 use tokio::sync::RwLock;
 
 #[warn(dead_code)]
@@ -42,12 +41,6 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 lazy_static! {
     static ref INITIALIZED_ONCE: AtomicBool = AtomicBool::new(false);
-
-    static ref RUNTIME: Runtime = Builder::new_multi_thread()
-        .worker_threads(2)
-        .thread_name("thesia-tokio-sub")
-        .build()
-        .unwrap();
 
     static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
 
@@ -100,7 +93,7 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     *SPEC_SETTING.blocking_write() = user_settings.spec_setting.clone();
 
     img_mgr::spawn_runtime();
-    player::spawn_runtime();
+    player::spawn_task();
     Ok(user_settings)
 }
 
@@ -142,15 +135,14 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 
 #[napi]
 async fn apply_track_list_changes() -> Vec<String> {
-    let (id_ch_tuples, sr) = RUNTIME
-        .spawn(async move {
-            let mut tm = TM.write().await;
-            let (updated_id_set, sr) = tm.apply_track_list_changes();
-            let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
-            (tm.id_ch_tuples_from(&updated_ids), sr)
-        })
-        .await
-        .unwrap();
+    let (id_ch_tuples, sr) = spawn_blocking(move || {
+        let mut tm = TM.blocking_write();
+        let (updated_id_set, sr) = tm.apply_track_list_changes();
+        let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
+        (tm.id_ch_tuples_from(&updated_ids), sr)
+    })
+    .await
+    .unwrap();
     let id_ch_strs = id_ch_tuples
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
@@ -204,18 +196,14 @@ async fn get_dB_range() -> f64 {
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
     let all_id_ch_tuples = TM.read().await.id_ch_tuples();
-    RUNTIME.spawn(async move { TM.write().await.set_dB_range(dB_range as f32) });
+    spawn_blocking(move || TM.blocking_write().set_dB_range(dB_range as f32));
     img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
 #[napi]
 fn get_hz_range(max_track_hz: f64) -> [f64; 2] {
-    let hz_range = impl_get_hz_range(max_track_hz as f32);
+    let hz_range = calc_valid_hz_range(max_track_hz as f32);
     [hz_range.0 as f64, hz_range.1 as f64]
-}
-
-fn impl_get_hz_range(max_track_hz: f32) -> (f32, f32) {
-    TrackManager::calc_valid_hz_range(&HZ_RANGE.blocking_read(), max_track_hz)
 }
 
 #[napi]
@@ -226,8 +214,7 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     let hz_range = (min_hz as f32, max_hz as f32);
     *HZ_RANGE.write().await = hz_range.clone();
     let all_id_ch_tuples = TM.read().await.id_ch_tuples();
-    let need_update = RUNTIME
-        .spawn(async move { TM.write().await.set_hz_range(hz_range) })
+    let need_update = spawn_blocking(move || TM.blocking_write().set_hz_range(hz_range))
         .await
         .unwrap();
     if need_update {
@@ -248,10 +235,7 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.f_overlap >= 1);
     *SPEC_SETTING.write().await = spec_setting.clone();
     let all_id_ch_tuples = TM.read().await.id_ch_tuples();
-    RUNTIME.spawn(async move {
-        let mut tm = TM.write().await;
-        tm.set_setting(spec_setting);
-    });
+    spawn_blocking(move || TM.blocking_write().set_setting(spec_setting));
     img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
@@ -262,9 +246,7 @@ async fn get_common_guard_clipping() -> GuardClippingMode {
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
-    RUNTIME.spawn(async move {
-        TM.write().await.set_common_guard_clipping(mode);
-    });
+    spawn_blocking(move || TM.blocking_write().set_common_guard_clipping(mode));
     remove_all_imgs().await;
     refresh_track_player().await;
 }
@@ -278,9 +260,7 @@ async fn get_common_normalize() -> serde_json::Value {
 async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
-    RUNTIME.spawn(async move {
-        TM.write().await.set_common_normalize(target);
-    });
+    spawn_blocking(move || TM.blocking_write().set_common_normalize(target));
     remove_all_imgs().await;
     refresh_track_player().await;
     Ok(())

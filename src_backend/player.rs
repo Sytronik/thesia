@@ -8,25 +8,16 @@ use cpal::traits::DeviceTrait;
 use cpal::SupportedStreamConfigsError;
 use futures::task;
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
-use lazy_static::{initialize, lazy_static};
+use lazy_static::lazy_static;
 use log::{error, info, LevelFilter, SetLoggerError};
+use napi::bindgen_prelude::spawn_blocking;
 use simple_logger::SimpleLogger;
-use tokio::{
-    runtime::{Builder, Runtime},
-    sync::mpsc,
-    sync::watch,
-};
+use tokio::sync::{mpsc, watch};
 
 use crate::backend::DeciBel;
 use crate::TM;
 
 lazy_static! {
-    static ref RUNTIME: Runtime = Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_time()
-        .thread_name("thesia-tokio-audio")
-        .build()
-        .unwrap();
     static ref PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 }
 
@@ -443,7 +434,7 @@ fn main_loop(
     }
 }
 
-pub fn spawn_runtime() {
+pub fn spawn_task() {
     unsafe {
         if COMMAND_TX
             .as_ref()
@@ -460,7 +451,6 @@ pub fn spawn_runtime() {
             return;
         }
     }
-    initialize(&RUNTIME);
 
     let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(10);
     let (noti_tx, noti_rx) = watch::channel(PlayerNotification::Ok(Default::default()));
@@ -468,5 +458,5 @@ pub fn spawn_runtime() {
         COMMAND_TX = Some(command_tx);
         NOTI_RX = Some(noti_rx);
     }
-    RUNTIME.spawn_blocking(|| main_loop(command_rx, noti_tx));
+    spawn_blocking(|| main_loop(command_rx, noti_tx));
 }
