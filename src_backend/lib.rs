@@ -4,14 +4,17 @@
 extern crate blas_src;
 
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{self, AtomicBool},
+    Arc,
+};
 
 use itertools::Itertools;
 use lazy_static::{initialize, lazy_static};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::json;
+use tokio::runtime::{Builder, Runtime};
 use tokio::sync::RwLock;
 
 #[warn(dead_code)]
@@ -38,6 +41,14 @@ use player::{PlayerCommand, PlayerNotification};
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 lazy_static! {
+    static ref INITIALIZED_ONCE: AtomicBool = AtomicBool::new(false);
+
+    static ref RUNTIME: Runtime = Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_name("thesia-tokio-sub")
+        .build()
+        .unwrap();
+
     static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
 
     // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
@@ -47,6 +58,14 @@ lazy_static! {
 
 #[napi]
 fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
+    if !INITIALIZED_ONCE.load(atomic::Ordering::Acquire) {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get_physical())
+            .build_global()
+            .map_err(|e| napi::Error::new(napi::Status::Unknown, e))?;
+    }
+    INITIALIZED_ONCE.store(true, atomic::Ordering::Release);
+
     initialize(&TM);
     initialize(&HZ_RANGE);
     initialize(&SPEC_SETTING);
@@ -79,10 +98,6 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     };
     *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
     *SPEC_SETTING.blocking_write() = user_settings.spec_setting.clone();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus::get_physical())
-        .build_global()
-        .unwrap_or_default();
 
     img_mgr::spawn_runtime();
     player::spawn_runtime();
@@ -114,13 +129,12 @@ async fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let hz_range = {
-        let mut tm = TM.write().await;
-        tokio::spawn(img_mgr::send(ImgMsg::Remove(
-            tm.id_ch_tuples_from(&track_ids),
-        )));
-        tm.remove_tracks(&track_ids)
-    };
+    let track_ids_clone: Vec<_> = track_ids.clone();
+    img_mgr::send(ImgMsg::Remove(
+        TM.read().await.id_ch_tuples_from(&track_ids_clone),
+    ))
+    .await;
+    let hz_range = TM.write().await.remove_tracks(&track_ids);
     if let Some(hz_range) = hz_range {
         *HZ_RANGE.write().await = hz_range;
     }
@@ -128,18 +142,21 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 
 #[napi]
 async fn apply_track_list_changes() -> Vec<String> {
-    let (id_ch_tuples, sr) = {
-        let mut tm = TM.write().await;
-        let (updated_id_set, sr) = tm.apply_track_list_changes();
-        let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
-        (tm.id_ch_tuples_from(&updated_ids), sr)
-    };
+    let (id_ch_tuples, sr) = RUNTIME
+        .spawn(async move {
+            let mut tm = TM.write().await;
+            let (updated_id_set, sr) = tm.apply_track_list_changes();
+            let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
+            (tm.id_ch_tuples_from(&updated_ids), sr)
+        })
+        .await
+        .unwrap();
     let id_ch_strs = id_ch_tuples
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
         .collect();
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(id_ch_tuples)));
-    tokio::spawn(player::send(PlayerCommand::SetSr(sr)));
+    img_mgr::send(ImgMsg::Remove(id_ch_tuples)).await;
+    player::send(PlayerCommand::SetSr(sr)).await;
     id_ch_strs
 }
 
@@ -168,10 +185,11 @@ async fn set_image_state(
             .filter(|id_ch| tm.exists(id_ch))
             .collect()
     };
-    tokio::spawn(img_mgr::send(ImgMsg::Draw((
+    img_mgr::send(ImgMsg::Draw((
         id_ch_tuples,
         DrawParams::new(start_sec, width, option, opt_for_wav, blend),
-    ))));
+    )))
+    .await;
     Ok(())
 }
 
@@ -185,9 +203,9 @@ async fn get_dB_range() -> f64 {
 #[allow(non_snake_case)]
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    let mut tm = TM.write().await;
-    tm.set_dB_range(dB_range as f32);
-    remove_all_imgs(&tm);
+    let all_id_ch_tuples = TM.read().await.id_ch_tuples();
+    RUNTIME.spawn(async move { TM.write().await.set_dB_range(dB_range as f32) });
+    img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
 #[napi]
@@ -206,15 +224,15 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
     let hz_range = (min_hz as f32, max_hz as f32);
-    let need_update = {
-        let mut tm = TM.write().await;
-        let need_update = tm.set_hz_range(hz_range);
-        if need_update {
-            remove_all_imgs(&tm);
-        }
-        need_update
-    };
-    *HZ_RANGE.write().await = hz_range;
+    *HZ_RANGE.write().await = hz_range.clone();
+    let all_id_ch_tuples = TM.read().await.id_ch_tuples();
+    let need_update = RUNTIME
+        .spawn(async move { TM.write().await.set_hz_range(hz_range) })
+        .await
+        .unwrap();
+    if need_update {
+        img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
+    }
     need_update
 }
 
@@ -228,13 +246,13 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.win_ms > 0.);
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
-    let spec_setting = {
+    *SPEC_SETTING.write().await = spec_setting.clone();
+    let all_id_ch_tuples = TM.read().await.id_ch_tuples();
+    RUNTIME.spawn(async move {
         let mut tm = TM.write().await;
         tm.set_setting(spec_setting);
-        remove_all_imgs(&tm);
-        tm.setting.clone()
-    };
-    *SPEC_SETTING.write().await = spec_setting;
+    });
+    img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
 #[napi]
@@ -243,14 +261,11 @@ async fn get_common_guard_clipping() -> GuardClippingMode {
 }
 
 #[napi]
-fn set_common_guard_clipping(mode: GuardClippingMode) {
-    tokio::spawn(impl_set_common_guard_clipping(mode));
-}
-
-async fn impl_set_common_guard_clipping(mode: GuardClippingMode) {
-    let mut tm = TM.write().await;
-    tm.set_common_guard_clipping(mode);
-    remove_all_imgs(&tm);
+async fn set_common_guard_clipping(mode: GuardClippingMode) {
+    RUNTIME.spawn(async move {
+        TM.write().await.set_common_guard_clipping(mode);
+    });
+    remove_all_imgs().await;
     refresh_track_player().await;
 }
 
@@ -260,17 +275,15 @@ async fn get_common_normalize() -> serde_json::Value {
 }
 
 #[napi]
-fn set_common_normalize(target: serde_json::Value) -> Result<()> {
+async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
-    tokio::spawn(impl_set_common_normalize(target));
-    Ok(())
-}
 
-async fn impl_set_common_normalize(target: NormalizeTarget) {
-    let mut tm = TM.write().await;
-    tm.set_common_normalize(target);
-    remove_all_imgs(&tm);
+    RUNTIME.spawn(async move {
+        TM.write().await.set_common_normalize(target);
+    });
+    remove_all_imgs().await;
     refresh_track_player().await;
+    Ok(())
 }
 
 #[napi]
@@ -613,8 +626,8 @@ fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
 }
 
 #[inline]
-fn remove_all_imgs(tm: &impl Deref<Target = TrackManager>) {
-    tokio::spawn(img_mgr::send(ImgMsg::Remove(tm.id_ch_tuples())));
+async fn remove_all_imgs() {
+    img_mgr::send(ImgMsg::Remove(TM.read().await.id_ch_tuples())).await;
 }
 
 #[inline]

@@ -42,6 +42,11 @@ export interface UserSettings {
   commonGuardClipping: GuardClippingMode
   commonNormalize: any
 }
+export interface PlayerState {
+  isPlaying: boolean
+  positionSec: number
+  err: string
+}
 export declare function init(userSettings: UserSettingsOptionals): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
@@ -55,9 +60,9 @@ export declare function setHzRange(minHz: number, maxHz: number): Promise<boolea
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): Promise<GuardClippingMode>
-export declare function setCommonGuardClipping(mode: GuardClippingMode): void
+export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
 export declare function getCommonNormalize(): Promise<any>
-export declare function setCommonNormalize(target: any): void
+export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getImages(): Record<string, Buffer>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
@@ -92,9 +97,4 @@ export declare function setTrackPlayer(trackId: number, sec?: number | undefined
 export declare function seekPlayer(sec: number): Promise<void>
 export declare function pausePlayer(): Promise<void>
 export declare function resumePlayer(): Promise<void>
-export interface PlayerState {
-  isPlaying: boolean
-  positionSec: number
-  err: string
-}
 export declare function getPlayerState(): PlayerState

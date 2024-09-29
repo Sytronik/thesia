@@ -105,19 +105,19 @@ function Control(props: ControlProps) {
 
   const onCommonNormalizeTypeChange = useMemo(
     () =>
-      debounce(250, (e: React.ChangeEvent<HTMLSelectElement>) => {
+      debounce(250, async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const type = e.target.selectedOptions[0].value;
         switch (type) {
           case "Off":
-            setCommonNormalize({type: "Off"});
+            await setCommonNormalize({type: "Off"});
             break;
           case "PeakdB":
-            setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
+            await setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
             break;
           default:
-            setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
+            await setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizedB);
             break;
