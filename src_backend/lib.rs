@@ -19,10 +19,13 @@ mod backend;
 #[warn(dead_code)]
 mod img_mgr;
 #[warn(dead_code)]
+mod objects;
+#[warn(dead_code)]
 mod player;
 
 use backend::*;
 use img_mgr::{DrawParams, ImgMsg};
+use objects::*;
 use player::{PlayerCommand, PlayerNotification};
 
 #[cfg(all(
@@ -40,32 +43,6 @@ lazy_static! {
     // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
     static ref HZ_RANGE: Arc<RwLock<(f32, f32)>> = Arc::new(RwLock::new((0., f32::INFINITY)));
     static ref SPEC_SETTING: Arc<RwLock<SpecSetting>> = Arc::new(RwLock::new(Default::default()));
-}
-
-#[napi(object)]
-#[allow(non_snake_case)]
-struct UserSettingsOptionals {
-    pub spec_setting: Option<SpecSetting>,
-    pub blend: Option<f64>,
-
-    #[napi(js_name = "dBRange")]
-    pub dB_range: Option<f64>,
-
-    pub common_guard_clipping: Option<GuardClippingMode>,
-    pub common_normalize: serde_json::Value,
-}
-
-#[napi(object)]
-#[allow(non_snake_case)]
-struct UserSettings {
-    pub spec_setting: SpecSetting,
-    pub blend: f64,
-
-    #[napi(js_name = "dBRange")]
-    pub dB_range: f64,
-
-    pub common_guard_clipping: GuardClippingMode,
-    pub common_normalize: serde_json::Value,
 }
 
 #[napi]
@@ -586,13 +563,6 @@ async fn pause_player() {
 #[napi]
 async fn resume_player() {
     player::send(PlayerCommand::Resume).await;
-}
-
-#[napi(object)]
-struct PlayerState {
-    pub is_playing: bool,
-    pub position_sec: f64,
-    pub err: String,
 }
 
 #[napi]
