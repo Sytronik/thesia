@@ -1,3 +1,4 @@
+import {UserSettings} from "backend";
 import {ipcRenderer} from "electron";
 
 export function notifyAppRendered() {

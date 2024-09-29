@@ -42,19 +42,66 @@ lazy_static! {
     static ref SPEC_SETTING: Arc<RwLock<SpecSetting>> = Arc::new(RwLock::new(Default::default()));
 }
 
+#[napi(object)]
+#[allow(non_snake_case)]
+struct UserSettingsOptionals {
+    pub spec_setting: Option<SpecSetting>,
+    pub blend: Option<f64>,
+
+    #[napi(js_name = "dBRange")]
+    pub dB_range: Option<f64>,
+
+    pub common_guard_clipping: Option<GuardClippingMode>,
+    pub common_normalize: serde_json::Value,
+}
+
+#[napi(object)]
+#[allow(non_snake_case)]
+struct UserSettings {
+    pub spec_setting: SpecSetting,
+    pub blend: f64,
+
+    #[napi(js_name = "dBRange")]
+    pub dB_range: f64,
+
+    pub common_guard_clipping: GuardClippingMode,
+    pub common_normalize: serde_json::Value,
+}
+
 #[napi]
-fn init() -> Result<()> {
+fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     initialize(&TM);
     initialize(&HZ_RANGE);
     initialize(&SPEC_SETTING);
-    {
+    let user_settings = {
         let mut tm = TM.blocking_write();
         if !tm.is_empty() {
             *tm = TrackManager::new();
         }
-        *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
-        *SPEC_SETTING.blocking_write() = tm.setting.clone();
-    }
+        if let Some(setting) = user_settings.spec_setting {
+            tm.set_setting(setting.clone());
+        }
+        #[allow(non_snake_case)]
+        if let Some(dB_range) = user_settings.dB_range {
+            tm.set_dB_range(dB_range as f32);
+        }
+        if let Some(mode) = user_settings.common_guard_clipping {
+            tm.set_common_guard_clipping(mode);
+        }
+        if !user_settings.common_normalize.is_null() {
+            let target = serde_json::from_value(user_settings.common_normalize)?;
+            tm.set_common_normalize(target);
+        }
+        UserSettings {
+            spec_setting: tm.setting.clone(),
+            blend: user_settings.blend.unwrap_or(0.5),
+            dB_range: tm.dB_range as f64,
+            common_guard_clipping: tm.common_guard_clipping(),
+            common_normalize: serde_json::to_value(tm.common_normalize()).unwrap(),
+        }
+    };
+    *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
+    *SPEC_SETTING.blocking_write() = user_settings.spec_setting.clone();
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
         .build_global()
@@ -62,7 +109,7 @@ fn init() -> Result<()> {
 
     img_mgr::spawn_runtime();
     player::spawn_runtime();
-    Ok(())
+    Ok(user_settings)
 }
 
 #[napi]

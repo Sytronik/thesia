@@ -28,7 +28,21 @@ export interface DrawOption {
   pxPerSec: number
   height: number
 }
-export declare function init(): void
+export interface UserSettingsOptionals {
+  specSetting?: SpecSetting
+  blend?: number
+  dBRange?: number
+  commonGuardClipping?: GuardClippingMode
+  commonNormalize: any
+}
+export interface UserSettings {
+  specSetting: SpecSetting
+  blend: number
+  dBRange: number
+  commonGuardClipping: GuardClippingMode
+  commonNormalize: any
+}
+export declare function init(userSettings: UserSettingsOptionals): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
 export declare function removeTracks(trackIds: Array<number>): Promise<void>

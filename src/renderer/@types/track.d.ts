@@ -70,18 +70,3 @@ type TrackInfoElement = {
 };
 
 type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
-
-type UserSettings = {
-  specSetting: SpecSetting;
-  blend: number;
-  dBRange: number;
-  commonGuardClipping: GuardClippingMode;
-  commonNormalize: NormalizeTarget;
-};
-
-type OptionalExceptFor<T, TRequired extends keyof T = keyof T> = Partial<
-  Pick<T, Exclude<keyof T, TRequired>>
-> &
-  Required<Pick<T, TRequired>>;
-
-type UserSettingsOptionals = OptionalExceptFor<UserSettings>;
