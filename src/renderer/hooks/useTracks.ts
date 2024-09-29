@@ -41,11 +41,15 @@ function useTracks(userSettings: UserSettings) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds]);
 
-  const trackIdChMap: IdChMap = new Map(
-    trackIds.map((id) => [
-      id,
-      [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
-    ]),
+  const trackIdChMap: IdChMap = useMemo(
+    () =>
+      new Map(
+        trackIds.map((id) => [
+          id,
+          [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
+        ]),
+      ),
+    [trackIds],
   );
 
   const reloadTracks = useEvent(async (ids: number[]) => {
@@ -53,9 +57,9 @@ function useTracks(userSettings: UserSettings) {
       const reloadedIds = await BackendAPI.reloadTracks(ids);
       const erroredIds = difference(ids, reloadedIds);
 
-      if (erroredIds && erroredIds.length) {
-        setErroredTrackIds(erroredIds);
-      }
+      if (erroredIds && erroredIds.length) setErroredTrackIds(erroredIds);
+
+      if (reloadedIds.length > 0) setTrackIds((prevTrackIds) => prevTrackIds.slice());
     } catch (err) {
       console.error("Could not reload tracks", err);
     }
