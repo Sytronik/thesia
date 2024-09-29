@@ -228,10 +228,12 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetHzRange = useMemo(
     () =>
       throttle(1000 / 70, async (minHz: number, maxHz: number) => {
-        if (await BackendAPI.setHzRange(minHz, maxHz)) {
+        const needUpdateImgState = BackendAPI.setHzRange(minHz, maxHz);
+        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
+        if (await needUpdateImgState) {
+          throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
           throttledSetImgState(getIdChArr(), width, imgHeight);
         }
-        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
       }),
     [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight, maxTrackHz],
   );

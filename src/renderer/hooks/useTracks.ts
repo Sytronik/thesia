@@ -126,10 +126,10 @@ function useTracks(userSettings: UserSettings) {
 
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
     await BackendAPI.setSpecSetting(v);
-    const specSetting = await BackendAPI.getSpecSetting();
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    const specSetting = BackendAPI.getSpecSetting();
     setCurrentSpecSetting(specSetting);
     setUserSetting("specSetting", specSetting);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
   const setBlendAndSetUserSetting = useEvent((v: number) => {

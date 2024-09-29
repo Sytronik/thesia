@@ -5,6 +5,7 @@ import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "renderer/modules/FloatingUserInput";
 import {ipcRenderer} from "electron";
+import type {throttle} from "throttle-debounce";
 import {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
@@ -17,7 +18,9 @@ type FreqAxisProps = {
   id: number;
   height: number;
   maxTrackHz: number;
-  setHzRange: (minHz: number, maxHz: number) => void;
+  setHzRange:
+    | ((minHz: number, maxHz: number) => Promise<void>)
+    | throttle<(minHz: number, maxHz: number) => Promise<void>>;
   resetHzRange: () => void;
   enableInteraction: boolean;
 };
@@ -72,7 +75,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   );
 
   const handleDragging = useEvent(
-    (
+    async (
       cursorState: FreqAxisCursorState,
       cursorPos: number,
       dragAnchorValue: FreqAxisDragAnchor,
@@ -125,11 +128,11 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         default:
           break;
       }
-      setHzRange(hzRange[0], hzRange[1]);
+      await setHzRange(hzRange[0], hzRange[1]);
     },
   );
 
-  const onWheel = useEvent((e: WheelEvent) => {
+  const onWheel = useEvent(async (e: WheelEvent) => {
     if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
@@ -138,7 +141,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
       // TODO: control minHz
       const hzRange = BackendAPI.getHzRange(maxTrackHz);
       const maxHz = BackendAPI.freqPosToHz(e.deltaY, 500, [hzRange[0], hzRange[1]]);
-      setHzRange(hzRange[0], clampMaxHz(maxHz, hzRange[0]));
+      await setHzRange(hzRange[0], clampMaxHz(maxHz, hzRange[0]));
     }
   });
 
@@ -199,13 +202,13 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     cursorStateRef.current = cursorState;
   });
 
-  const onEndEditingFloatingInput = (v: string | null, idx: number) => {
+  const onEndEditingFloatingInput = async (v: string | null, idx: number) => {
     if (v !== null) {
       const hz = BackendAPI.freqLabelToHz(v);
       if (!Number.isNaN(hz)) {
         const hzRange = BackendAPI.getHzRange(maxTrackHz);
         hzRange[idx] = idx === 0 ? clampMinHz(hz, hzRange[1]) : clampMaxHz(hz, hzRange[0]);
-        setHzRange(hzRange[0], hzRange[1]);
+        await setHzRange(hzRange[0], hzRange[1]);
       }
     }
     if (idx === 0) setMinHzInputHidden(true);
