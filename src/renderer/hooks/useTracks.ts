@@ -39,7 +39,7 @@ function useTracks(userSettings: UserSettings) {
   const maxTrackSec = useMemo(BackendAPI.getLongestTrackLengthSec, [trackIds]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds]);
+  const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds, needRefreshTrackIdChArr]);
 
   const trackIdChMap: IdChMap = useMemo(
     () =>
