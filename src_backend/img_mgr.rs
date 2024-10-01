@@ -17,7 +17,7 @@ use tokio::{
 };
 
 use crate::visualize::*;
-use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad, TM};
+use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad, TM, TRACK_LIST};
 
 type Images = IdChValueVec<Vec<u8>>;
 type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
@@ -325,12 +325,13 @@ async fn categorize_blend_caches(
         opt_for_wav,
         blend,
     } = params;
+    let tracklist = TRACK_LIST.read().await;
     let tm = TM.read().await;
     let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
     let mut total_widths = IdChMap::with_capacity(id_ch_tuples.len());
     total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-        let width = tm
-            .track(id)
+        let width = tracklist
+            .get(id)
             .map_or(0, |track| track.calc_width(option.px_per_sec));
         ((id, ch), width)
     }));
@@ -374,6 +375,7 @@ async fn categorize_blend_caches(
     );
     if !need_wav_parts_only.is_empty() {
         wav_imgs.extend(tm.draw_part_imgs(
+            &tracklist,
             &need_wav_parts_only,
             start_sec,
             width,
@@ -405,6 +407,7 @@ async fn draw_part_imgs(
     need_parts_wav: &IdChArr,
     params: &DrawParams,
 ) -> Images {
+    let tracklist = TRACK_LIST.read().await;
     let tm = TM.read().await;
     if need_parts_spec.is_empty() && need_parts_wav.is_empty() {
         return Vec::new();
@@ -422,6 +425,7 @@ async fn draw_part_imgs(
     );
     // let fast_resize_vec = Some(vec![true; cat_by_spec.need_parts.len()]);
     tm.draw_part_imgs(
+        &tracklist,
         need_parts,
         params.start_sec,
         params.width,
@@ -446,12 +450,18 @@ async fn draw_new_caches(
         opt_for_wav,
         blend,
     } = params;
+    let tracklist = TRACK_LIST.read().await;
     let tm = TM.read().await;
 
     // draw new caches
-    let new_spec_caches = tm.draw_entire_imgs(&need_new_spec_caches, option, ImageKind::Spec);
-    let new_wav_caches =
-        tm.draw_entire_imgs(&need_new_wav_caches, option, ImageKind::Wav(opt_for_wav));
+    let new_spec_caches =
+        tm.draw_entire_imgs(&tracklist, &need_new_spec_caches, option, ImageKind::Spec);
+    let new_wav_caches = tm.draw_entire_imgs(
+        &tracklist,
+        &need_new_wav_caches,
+        option,
+        ImageKind::Wav(opt_for_wav),
+    );
 
     new_spec_caches.into_par_iter().for_each(|(k, v)| {
         spec_caches.insert(k, v);

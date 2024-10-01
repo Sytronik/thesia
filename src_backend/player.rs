@@ -15,7 +15,7 @@ use simple_logger::SimpleLogger;
 use tokio::sync::{mpsc, watch};
 
 use crate::backend::DeciBel;
-use crate::TM;
+use crate::TRACK_LIST;
 
 lazy_static! {
     static ref PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
@@ -220,9 +220,9 @@ fn main_loop(
                      start_time_sec: f64,
                      is_playing: bool| {
         let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
-        let sound = TM
+        let sound = TRACK_LIST
             .blocking_read()
-            .track(track_id)
+            .get(track_id)
             .map(|track| Sound::from_frames(track.sr(), track.interleaved_frames()));
 
         info!("sound created with track {}", track_id);
@@ -297,7 +297,7 @@ fn main_loop(
                     );
                 }
                 PlayerCommand::Seek(sec) => {
-                    let max_sec = TM.blocking_read().tracklist.max_sec;
+                    let max_sec = TRACK_LIST.blocking_read().max_sec;
                     let sec = sec.min(max_sec);
                     sound_handle.seek_to(sec);
                     noti_tx.send_modify(|noti| {
@@ -375,7 +375,7 @@ fn main_loop(
                         }
                         let position_sec = prev_state.position_sec
                             + (state.instant - prev_state.instant).as_secs_f64();
-                        let max_sec = TM.blocking_read().tracklist.max_sec;
+                        let max_sec = TRACK_LIST.blocking_read().max_sec;
                         if position_sec >= max_sec {
                             state.is_playing = false;
                             state.position_sec = max_sec;

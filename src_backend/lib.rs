@@ -4,13 +4,14 @@
 extern crate blas_src;
 
 use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::sync::{
     atomic::{self, AtomicBool},
     Arc,
 };
 
 use itertools::Itertools;
-use lazy_static::{initialize, lazy_static};
+use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::json;
@@ -42,6 +43,7 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 lazy_static! {
     static ref INITIALIZED_ONCE: AtomicBool = AtomicBool::new(false);
 
+    static ref TRACK_LIST: Arc<RwLock<TrackList>> = Arc::new(RwLock::new(TrackList::new()));
     static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
 
     // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
@@ -59,34 +61,33 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     }
     INITIALIZED_ONCE.store(true, atomic::Ordering::Release);
 
-    initialize(&TM);
-    initialize(&HZ_RANGE);
-    initialize(&SPEC_SETTING);
     let user_settings = {
+        let mut tracklist = TRACK_LIST.blocking_write();
         let mut tm = TM.blocking_write();
-        if !tm.is_empty() {
+        if !tracklist.is_empty() {
+            *tracklist = TrackList::new();
             *tm = TrackManager::new();
         }
         if let Some(setting) = user_settings.spec_setting {
-            tm.set_setting(setting.clone());
+            tm.set_setting(&mut tracklist, setting.clone());
         }
         #[allow(non_snake_case)]
         if let Some(dB_range) = user_settings.dB_range {
-            tm.set_dB_range(dB_range as f32);
+            tm.set_dB_range(&mut tracklist, dB_range as f32);
         }
         if let Some(mode) = user_settings.common_guard_clipping {
-            tm.set_common_guard_clipping(mode);
+            tm.set_common_guard_clipping(&mut tracklist, mode);
         }
         if let Some(target) = user_settings.common_normalize {
             let target = serde_json::from_value(target)?;
-            tm.set_common_normalize(target);
+            tm.set_common_normalize(&mut tracklist, target);
         }
         UserSettings {
             spec_setting: tm.setting.clone(),
             blend: user_settings.blend.unwrap_or(0.5),
             dB_range: tm.dB_range as f64,
-            common_guard_clipping: tm.common_guard_clipping(),
-            common_normalize: serde_json::to_value(tm.common_normalize()).unwrap(),
+            common_guard_clipping: tracklist.common_guard_clipping,
+            common_normalize: serde_json::to_value(tracklist.common_normalize).unwrap(),
         }
     };
     *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
@@ -101,10 +102,11 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    let added_ids = TM
-        .write()
-        .await
-        .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
+    let added_ids = TM.write().await.add_tracks(
+        TRACK_LIST.write().await.deref_mut(),
+        id_list.into_iter().map(|x| x as usize).collect(),
+        path_list,
+    );
     added_ids.into_iter().map(|x| x as u32).collect()
 }
 
@@ -113,7 +115,10 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let no_err_ids = TM.write().await.reload_tracks(&track_ids);
+    let no_err_ids = TM
+        .write()
+        .await
+        .reload_tracks(&mut TRACK_LIST.write().await.deref_mut(), &track_ids);
     no_err_ids.into_iter().map(|x| x as u32).collect()
 }
 
@@ -122,12 +127,12 @@ async fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let track_ids_clone: Vec<_> = track_ids.clone();
-    img_mgr::send(ImgMsg::Remove(
-        TM.read().await.id_ch_tuples_from(&track_ids_clone),
-    ))
+    let mut tracklist = TRACK_LIST.write().await;
+    img_mgr::send(ImgMsg::Remove(TrackManager::id_ch_tuples_from(
+        &tracklist, &track_ids,
+    )))
     .await;
-    let hz_range = TM.write().await.remove_tracks(&track_ids);
+    let hz_range = TM.write().await.remove_tracks(&mut tracklist, &track_ids);
     if let Some(hz_range) = hz_range {
         *HZ_RANGE.write().await = hz_range;
     }
@@ -137,9 +142,13 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 async fn apply_track_list_changes() -> Vec<String> {
     let (id_ch_tuples, sr) = spawn_blocking(move || {
         let mut tm = TM.blocking_write();
-        let (updated_id_set, sr) = tm.apply_track_list_changes();
+        let tracklist = TRACK_LIST.blocking_read();
+        let (updated_id_set, sr) = tm.apply_track_list_changes(&tracklist);
         let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
-        (tm.id_ch_tuples_from(&updated_ids), sr)
+        (
+            TrackManager::id_ch_tuples_from(&tracklist, &updated_ids),
+            sr,
+        )
     })
     .await
     .unwrap();
@@ -195,8 +204,12 @@ async fn get_dB_range() -> f64 {
 #[allow(non_snake_case)]
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    let all_id_ch_tuples = TM.read().await.id_ch_tuples();
-    spawn_blocking(move || TM.blocking_write().set_dB_range(dB_range as f32));
+    let tracklist = TRACK_LIST.read().await;
+    let all_id_ch_tuples = TrackManager::id_ch_tuples(&tracklist);
+    spawn_blocking(move || {
+        TM.blocking_write()
+            .set_dB_range(&tracklist, dB_range as f32)
+    });
     img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
@@ -213,10 +226,12 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(min_hz < max_hz);
     let hz_range = (min_hz as f32, max_hz as f32);
     *HZ_RANGE.write().await = hz_range.clone();
-    let all_id_ch_tuples = TM.read().await.id_ch_tuples();
-    let need_update = spawn_blocking(move || TM.blocking_write().set_hz_range(hz_range))
-        .await
-        .unwrap();
+    let tracklist = TRACK_LIST.read().await;
+    let all_id_ch_tuples = TrackManager::id_ch_tuples(&tracklist);
+    let need_update =
+        spawn_blocking(move || TM.blocking_write().set_hz_range(&tracklist, hz_range))
+            .await
+            .unwrap();
     if need_update {
         img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
     }
@@ -234,33 +249,45 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
     *SPEC_SETTING.write().await = spec_setting.clone();
-    let all_id_ch_tuples = TM.read().await.id_ch_tuples();
-    spawn_blocking(move || TM.blocking_write().set_setting(spec_setting));
+    let mut tracklist = TRACK_LIST.write().await;
+    let all_id_ch_tuples = TrackManager::id_ch_tuples(&tracklist);
+    spawn_blocking(move || {
+        TM.blocking_write()
+            .set_setting(&mut tracklist, spec_setting)
+    });
     img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
 #[napi]
 async fn get_common_guard_clipping() -> GuardClippingMode {
-    TM.read().await.common_guard_clipping()
+    TRACK_LIST.read().await.common_guard_clipping
 }
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
-    spawn_blocking(move || TM.blocking_write().set_common_guard_clipping(mode));
+    spawn_blocking(move || {
+        let mut tracklist = TRACK_LIST.blocking_write();
+        TM.blocking_write()
+            .set_common_guard_clipping(&mut tracklist, mode);
+    });
     remove_all_imgs().await;
     refresh_track_player().await;
 }
 
 #[napi]
 async fn get_common_normalize() -> serde_json::Value {
-    serde_json::to_value(TM.read().await.common_normalize()).unwrap()
+    serde_json::to_value(TRACK_LIST.read().await.common_normalize).unwrap()
 }
 
 #[napi]
 async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
-    spawn_blocking(move || TM.blocking_write().set_common_normalize(target));
+    spawn_blocking(move || {
+        let mut tracklist = TRACK_LIST.blocking_write();
+        TM.blocking_write()
+            .set_common_normalize(&mut tracklist, target);
+    });
     remove_all_imgs().await;
     refresh_track_player().await;
     Ok(())
@@ -279,9 +306,9 @@ fn get_images() -> HashMap<String, Buffer> {
 
 #[napi]
 async fn find_id_by_path(path: String) -> i32 {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .tracklist
         .find_id_by_path(&path)
         .map_or(-1, |id| id as i32)
 }
@@ -290,9 +317,10 @@ async fn find_id_by_path(path: String) -> i32 {
 async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
+    let tracklist = TRACK_LIST.read().await;
     TM.read()
         .await
-        .draw_overview(track_id as usize, width, height, dpr as f32)
+        .draw_overview(&tracklist, track_id as usize, width, height, dpr as f32)
         .into()
 }
 
@@ -426,71 +454,79 @@ fn get_max_track_hz() -> f64 {
 
 #[napi]
 fn get_longest_track_length_sec() -> f64 {
-    TM.blocking_read().tracklist.max_sec
+    TRACK_LIST.blocking_read().max_sec
 }
 
 #[napi]
 fn get_channel_counts(track_id: u32) -> u32 {
-    TM.blocking_read()
-        .track(track_id as usize)
+    TRACK_LIST
+        .blocking_read()
+        .get(track_id as usize)
         .map_or(0, |track| track.n_ch() as u32)
 }
 
 #[napi]
 fn get_length_sec(track_id: u32) -> f64 {
-    TM.blocking_read()
-        .track(track_id as usize)
+    TRACK_LIST
+        .blocking_read()
+        .get(track_id as usize)
         .map_or(0., |track| track.sec())
 }
 
 #[napi]
 async fn get_sample_rate(track_id: u32) -> u32 {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .track(track_id as usize)
+        .get(track_id as usize)
         .map_or(0, |track| track.sr())
 }
 
 #[napi]
 async fn get_format_info(track_id: u32) -> AudioFormatInfo {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .track(track_id as usize)
+        .get(track_id as usize)
         .map_or_else(Default::default, |track| track.format_info.clone())
 }
 
 #[napi(js_name = "getGlobalLUFS")]
 async fn get_global_lufs(track_id: u32) -> f64 {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .track(track_id as usize)
+        .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
 }
 
 #[napi(js_name = "getRMSdB")]
 #[allow(non_snake_case)]
 async fn get_rms_dB(track_id: u32) -> f64 {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .track(track_id as usize)
+        .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().rms_dB as f64)
 }
 
 #[napi(js_name = "getMaxPeakdB")]
 #[allow(non_snake_case)]
 async fn get_max_peak_dB(track_id: u32) -> f64 {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .track(track_id as usize)
+        .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_dB as f64)
 }
 
 #[napi]
 // TODO: currently, no use
 async fn get_guard_clip_stats(track_id: u32) -> String {
-    let tm = TM.read().await;
-    let prefix = tm.common_guard_clipping().to_string();
-    tm.track(track_id as usize)
+    let tracklist = TRACK_LIST.read().await;
+    let prefix = tracklist.common_guard_clipping.to_string();
+    tracklist
+        .get(track_id as usize)
         .map_or_else(String::new, |track| {
             Itertools::intersperse(
                 track.guard_clip_stats().iter().map(|stat| {
@@ -509,17 +545,18 @@ async fn get_guard_clip_stats(track_id: u32) -> String {
 
 #[napi]
 async fn get_path(track_id: u32) -> String {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .track(track_id as usize)
+        .get(track_id as usize)
         .map_or_else(String::new, |track| track.path_string())
 }
 
 #[napi]
 async fn get_file_name(track_id: u32) -> String {
-    TM.read()
+    TRACK_LIST
+        .read()
         .await
-        .tracklist
         .filename(track_id as usize)
         .to_owned()
 }
@@ -538,7 +575,7 @@ async fn set_volume_dB(volume_dB: f64) {
 #[napi]
 async fn set_track_player(track_id: u32, sec: Option<f64>) {
     let track_id = track_id as usize;
-    if TM.read().await.has_id(track_id) {
+    if TRACK_LIST.read().await.has(track_id) {
         player::send(PlayerCommand::SetTrack((Some(track_id), sec))).await;
     }
 }
@@ -607,7 +644,10 @@ fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
 
 #[inline]
 async fn remove_all_imgs() {
-    img_mgr::send(ImgMsg::Remove(TM.read().await.id_ch_tuples())).await;
+    img_mgr::send(ImgMsg::Remove(TrackManager::id_ch_tuples(
+        &TRACK_LIST.read().await.deref(),
+    )))
+    .await;
 }
 
 #[inline]

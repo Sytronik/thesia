@@ -16,6 +16,7 @@ use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights, 
 use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::utils::Pad;
 use crate::backend::{IdChArr, IdChValueVec, TrackManager};
+use crate::TrackList;
 
 const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];
@@ -75,6 +76,7 @@ pub enum ImageKind {
 pub trait TrackDrawer {
     fn draw_entire_imgs(
         &self,
+        tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
         option: DrawOption,
         kind: ImageKind,
@@ -82,6 +84,7 @@ pub trait TrackDrawer {
 
     fn draw_part_imgs(
         &self,
+        tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
         start_sec: f64,
         width: u32,
@@ -91,12 +94,20 @@ pub trait TrackDrawer {
         fast_resize_vec: Option<Vec<bool>>,
     ) -> IdChValueVec<Vec<u8>>;
 
-    fn draw_overview(&self, id: usize, width: u32, height: u32, dpr: f32) -> Vec<u8>;
+    fn draw_overview(
+        &self,
+        tracklist: &TrackList,
+        id: usize,
+        width: u32,
+        height: u32,
+        dpr: f32,
+    ) -> Vec<u8>;
 }
 
 impl TrackDrawer for TrackManager {
     fn draw_entire_imgs(
         &self,
+        tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
         option: DrawOption,
         kind: ImageKind,
@@ -106,7 +117,7 @@ impl TrackDrawer for TrackManager {
         let mut result = Vec::with_capacity(id_ch_tuples.len());
         result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
             let out_for_not_exist = || ((id, ch), Array::zeros((0, 0, 0)));
-            let track = if let Some(track) = self.track(id) {
+            let track = if let Some(track) = tracklist.get(id) {
                 track
             } else {
                 return out_for_not_exist();
@@ -147,6 +158,7 @@ impl TrackDrawer for TrackManager {
     /// Draw part of images. if blend < 0, draw waveform with transparent background
     fn draw_part_imgs(
         &self,
+        tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
         start_sec: f64,
         width: u32,
@@ -160,7 +172,7 @@ impl TrackDrawer for TrackManager {
         let mut result = Vec::with_capacity(id_ch_tuples.len());
         let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
             let out_for_not_exist = || ((id, ch), Vec::new());
-            let track = if let Some(track) = self.track(id) {
+            let track = if let Some(track) = tracklist.get(id) {
                 track
             } else {
                 return out_for_not_exist();
@@ -230,14 +242,21 @@ impl TrackDrawer for TrackManager {
         result
     }
 
-    fn draw_overview(&self, id: usize, width: u32, height: u32, dpr: f32) -> Vec<u8> {
-        let track = if let Some(track) = self.track(id) {
+    fn draw_overview(
+        &self,
+        tracklist: &TrackList,
+        id: usize,
+        width: u32,
+        height: u32,
+        dpr: f32,
+    ) -> Vec<u8> {
+        let track = if let Some(track) = tracklist.get(id) {
             track
         } else {
             return Vec::new();
         };
         let (pad_left, drawing_width, pad_right) =
-            track.decompose_width_of(0., width, width as f64 / self.tracklist.max_sec);
+            track.decompose_width_of(0., width, width as f64 / tracklist.max_sec);
         let (pad_left, drawing_width_usize, pad_right) = (
             pad_left as usize,
             drawing_width as usize,
