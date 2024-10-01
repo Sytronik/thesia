@@ -4,7 +4,7 @@
 extern crate blas_src;
 
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::sync::{
     atomic::{self, AtomicBool},
     Arc,
@@ -198,13 +198,12 @@ async fn get_dB_range() -> f64 {
 #[allow(non_snake_case)]
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    let tracklist = TRACK_LIST.read().await;
-    let all_id_ch_tuples = tracklist.id_ch_tuples();
     spawn_blocking(move || {
+        let tracklist = TRACK_LIST.blocking_read();
         TM.blocking_write()
             .set_dB_range(&tracklist, dB_range as f32)
     });
-    img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
+    remove_all_imgs().await;
 }
 
 #[napi]
@@ -220,14 +219,14 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(min_hz < max_hz);
     let hz_range = (min_hz as f32, max_hz as f32);
     *HZ_RANGE.write().await = hz_range.clone();
-    let tracklist = TRACK_LIST.read().await;
-    let all_id_ch_tuples = tracklist.id_ch_tuples();
-    let need_update =
-        spawn_blocking(move || TM.blocking_write().set_hz_range(&tracklist, hz_range))
-            .await
-            .unwrap();
+    let need_update = spawn_blocking(move || {
+        let tracklist = TRACK_LIST.blocking_read();
+        TM.blocking_write().set_hz_range(&tracklist, hz_range)
+    })
+    .await
+    .unwrap();
     if need_update {
-        img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
+        remove_all_imgs().await;
     }
     need_update
 }
