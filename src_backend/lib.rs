@@ -4,7 +4,6 @@
 extern crate blas_src;
 
 use std::collections::HashMap;
-use std::ops::DerefMut;
 use std::sync::{
     atomic::{self, AtomicBool},
     Arc,
@@ -76,11 +75,11 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
             tm.set_dB_range(&mut tracklist, dB_range as f32);
         }
         if let Some(mode) = user_settings.common_guard_clipping {
-            tm.set_common_guard_clipping(&mut tracklist, mode);
+            tracklist.set_common_guard_clipping(mode);
         }
         if let Some(target) = user_settings.common_normalize {
             let target = serde_json::from_value(target)?;
-            tm.set_common_normalize(&mut tracklist, target);
+            tracklist.set_common_normalize(target);
         }
         UserSettings {
             spec_setting: tm.setting.clone(),
@@ -102,12 +101,15 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    let added_ids = TM.write().await.add_tracks(
-        TRACK_LIST.write().await.deref_mut(),
-        id_list.into_iter().map(|x| x as usize).collect(),
-        path_list,
-    );
-    added_ids.into_iter().map(|x| x as u32).collect()
+    let mut tracklist = TRACK_LIST.write().await;
+    let added_ids =
+        tracklist.add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
+    let tracklist = tracklist.downgrade();
+    let added_ids_u32 = added_ids.iter().map(|&x| x as u32).collect();
+    spawn_blocking(move || {
+        TM.blocking_write().add_tracks(&tracklist, &added_ids);
+    });
+    added_ids_u32
 }
 
 #[napi]
@@ -115,10 +117,12 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let no_err_ids = TM
-        .write()
-        .await
-        .reload_tracks(&mut TRACK_LIST.write().await.deref_mut(), &track_ids);
+    let mut tracklist = TRACK_LIST.write().await;
+    let (reloaded_ids, no_err_ids) = tracklist.reload_tracks(&track_ids);
+    spawn_blocking(move || {
+        TM.blocking_write()
+            .reload_tracks(&tracklist.downgrade(), &reloaded_ids);
+    });
     no_err_ids.into_iter().map(|x| x as u32).collect()
 }
 
@@ -128,8 +132,13 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let mut tracklist = TRACK_LIST.write().await;
+    let removed_id_ch_tuples = tracklist.remove_tracks(&track_ids);
+    let tracklist = tracklist.downgrade();
     img_mgr::send(ImgMsg::Remove(tracklist.id_ch_tuples_from(&track_ids))).await;
-    let hz_range = TM.write().await.remove_tracks(&mut tracklist, &track_ids);
+    let hz_range = TM
+        .write()
+        .await
+        .remove_tracks(&tracklist, &removed_id_ch_tuples);
     if let Some(hz_range) = hz_range {
         *HZ_RANGE.write().await = hz_range;
     }
@@ -199,9 +208,8 @@ async fn get_dB_range() -> f64 {
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
     spawn_blocking(move || {
-        let tracklist = TRACK_LIST.blocking_read();
         TM.blocking_write()
-            .set_dB_range(&tracklist, dB_range as f32)
+            .set_dB_range(&TRACK_LIST.blocking_read(), dB_range as f32)
     });
     remove_all_imgs().await;
 }
@@ -220,8 +228,8 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     let hz_range = (min_hz as f32, max_hz as f32);
     *HZ_RANGE.write().await = hz_range.clone();
     let need_update = spawn_blocking(move || {
-        let tracklist = TRACK_LIST.blocking_read();
-        TM.blocking_write().set_hz_range(&tracklist, hz_range)
+        TM.blocking_write()
+            .set_hz_range(&TRACK_LIST.blocking_read(), hz_range)
     })
     .await
     .unwrap();
@@ -242,12 +250,9 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
     *SPEC_SETTING.write().await = spec_setting.clone();
-    let mut tracklist = TRACK_LIST.write().await;
+    let tracklist = TRACK_LIST.read().await;
     let all_id_ch_tuples = tracklist.id_ch_tuples();
-    spawn_blocking(move || {
-        TM.blocking_write()
-            .set_setting(&mut tracklist, spec_setting)
-    });
+    spawn_blocking(move || TM.blocking_write().set_setting(&tracklist, spec_setting));
     img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
 }
 
@@ -258,10 +263,11 @@ fn get_common_guard_clipping() -> GuardClippingMode {
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
+    let mut tracklist = TRACK_LIST.write().await;
+    tracklist.set_common_guard_clipping(mode);
     spawn_blocking(move || {
-        let mut tracklist = TRACK_LIST.blocking_write();
         TM.blocking_write()
-            .set_common_guard_clipping(&mut tracklist, mode);
+            .update_all_specs_greys(&tracklist.downgrade());
     });
     remove_all_imgs().await;
     refresh_track_player().await;
@@ -276,10 +282,11 @@ fn get_common_normalize() -> serde_json::Value {
 async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
+    let mut tracklist = TRACK_LIST.write().await;
+    tracklist.set_common_normalize(target);
     spawn_blocking(move || {
-        let mut tracklist = TRACK_LIST.blocking_write();
         TM.blocking_write()
-            .set_common_normalize(&mut tracklist, target);
+            .update_all_specs_greys(&tracklist.downgrade());
     });
     remove_all_imgs().await;
     refresh_track_player().await;

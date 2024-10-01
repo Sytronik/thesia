@@ -16,7 +16,7 @@ pub mod visualize;
 mod windows;
 
 pub use audio::AudioFormatInfo;
-pub use dynamics::{DeciBel, GuardClippingMode, NormalizeTarget};
+pub use dynamics::{DeciBel, GuardClippingMode};
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use utils::Pad;
@@ -66,43 +66,33 @@ impl TrackManager {
         }
     }
 
-    pub fn add_tracks(
-        &mut self,
-        tracklist: &mut TrackList,
-        id_list: Vec<usize>,
-        path_list: Vec<String>,
-    ) -> Vec<usize> {
-        let added_ids = tracklist.add_tracks(id_list, path_list);
-        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&added_ids, &self.setting);
+    pub fn add_tracks(&mut self, tracklist: &TrackList, added_ids: &[usize]) {
+        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(added_ids, &self.setting);
 
         self.update_specs(
             tracklist,
-            tracklist.id_ch_tuples_from(&added_ids),
+            tracklist.id_ch_tuples_from(added_ids),
             Some(&sr_win_nfft_set),
         );
         self.no_grey_ids.extend(added_ids.iter().cloned());
-        added_ids
     }
 
-    pub fn reload_tracks(&mut self, tracklist: &mut TrackList, id_list: &[usize]) -> Vec<usize> {
-        let (reloaded_ids, no_err_ids) = tracklist.reload_tracks(id_list);
-        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&reloaded_ids, &self.setting);
+    pub fn reload_tracks(&mut self, tracklist: &TrackList, reloaded_ids: &[usize]) {
+        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(reloaded_ids, &self.setting);
 
         self.update_specs(
             tracklist,
-            tracklist.id_ch_tuples_from(&reloaded_ids),
+            tracklist.id_ch_tuples_from(reloaded_ids),
             Some(&sr_win_nfft_set),
         );
         self.no_grey_ids.extend(reloaded_ids.iter().cloned());
-        no_err_ids
     }
 
     pub fn remove_tracks(
         &mut self,
-        tracklist: &mut TrackList,
-        id_list: &[usize],
+        tracklist: &TrackList,
+        removed_id_ch_tuples: &IdChArr,
     ) -> Option<(f32, f32)> {
-        let removed_id_ch_tuples = tracklist.remove_tracks(id_list);
         for tup in removed_id_ch_tuples {
             self.specs.remove(&tup);
             self.spec_greys.remove(&tup);
@@ -131,7 +121,7 @@ impl TrackManager {
         self.specs.contains_key(&(id, ch))
     }
 
-    pub fn set_setting(&mut self, tracklist: &mut TrackList, setting: SpecSetting) {
+    pub fn set_setting(&mut self, tracklist: &TrackList, setting: SpecSetting) {
         let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&tracklist.all_ids(), &setting);
 
         self.setting = setting;
@@ -141,20 +131,7 @@ impl TrackManager {
         self.update_greys(tracklist, true);
     }
 
-    pub fn set_common_guard_clipping(
-        &mut self,
-        tracklist: &mut TrackList,
-        mode: GuardClippingMode,
-    ) {
-        tracklist.set_common_guard_clipping(mode);
-
-        self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
-        self.update_greys(tracklist, true);
-    }
-
-    pub fn set_common_normalize(&mut self, tracklist: &mut TrackList, target: NormalizeTarget) {
-        tracklist.set_common_normalize(target);
-
+    pub fn update_all_specs_greys(&mut self, tracklist: &TrackList) {
         self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
         self.update_greys(tracklist, true);
     }
@@ -316,17 +293,11 @@ mod tests {
         path_list.push("samples/stereo/sample_48k.wav".into());
         let mut tracklist = TrackList::new();
         let mut tm = TrackManager::new();
-        let added_ids = tm.add_tracks(
-            &mut tracklist,
-            id_list[0..3].to_owned(),
-            path_list[0..3].to_owned(),
-        );
+        let added_ids = tracklist.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
+        tm.add_tracks(&tracklist, &added_ids);
         assert_eq!(&added_ids, &id_list[0..3]);
-        let added_ids = tm.add_tracks(
-            &mut tracklist,
-            id_list[3..].to_owned(),
-            path_list[3..].to_owned(),
-        );
+        let added_ids = tracklist.add_tracks(id_list[3..].to_owned(), path_list[3..].to_owned());
+        tm.add_tracks(&tracklist, &added_ids);
         assert_eq!(&added_ids, &id_list[3..]);
         assert_eq!(tracklist.all_ids().len(), id_list.len());
 
@@ -399,7 +370,8 @@ mod tests {
             .unwrap();
         im.save("samples/wav_part.png").unwrap();
 
-        tm.remove_tracks(&mut tracklist, &[0]);
+        let removed_id_ch_tuples = tracklist.remove_tracks(&[0]);
+        tm.remove_tracks(&mut tracklist, &removed_id_ch_tuples);
         let (updated_ids, _) = tm.apply_track_list_changes(&tracklist);
         assert!(updated_ids.is_empty());
     }
