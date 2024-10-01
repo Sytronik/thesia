@@ -166,7 +166,7 @@ impl TrackManager {
     }
 
     #[inline]
-    pub fn get_hz_range(&self) -> (f32, f32) {
+    fn get_hz_range(&self) -> (f32, f32) {
         Self::calc_valid_hz_range(&self.hz_range, self.max_sr as f32 / 2.)
     }
 
@@ -185,7 +185,7 @@ impl TrackManager {
     pub fn set_hz_range(&mut self, tracklist: &TrackList, hz_range: (f32, f32)) -> bool {
         let prev_hz_range = self.get_hz_range();
         self.hz_range = hz_range;
-        if prev_hz_range == hz_range {
+        if prev_hz_range == self.get_hz_range() {
             return false;
         }
         self.update_greys(tracklist, true);
