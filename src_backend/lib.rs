@@ -4,10 +4,7 @@
 extern crate blas_src;
 
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{self, AtomicBool},
-    Arc,
-};
+use std::sync::atomic::{self, AtomicBool};
 
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -42,12 +39,12 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 lazy_static! {
     static ref INITIALIZED_ONCE: AtomicBool = AtomicBool::new(false);
 
-    static ref TRACK_LIST: Arc<RwLock<TrackList>> = Arc::new(RwLock::new(TrackList::new()));
-    static ref TM: Arc<RwLock<TrackManager>> = Arc::new(RwLock::new(TrackManager::new()));
+    static ref TRACK_LIST: RwLock<TrackList> = RwLock::new(TrackList::new());
+    static ref TM: RwLock<TrackManager> = RwLock::new(TrackManager::new());
 
     // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
-    static ref HZ_RANGE: Arc<RwLock<(f32, f32)>> = Arc::new(RwLock::new((0., f32::INFINITY)));
-    static ref SPEC_SETTING: Arc<RwLock<SpecSetting>> = Arc::new(RwLock::new(Default::default()));
+    static ref HZ_RANGE: RwLock<(f32, f32)> = RwLock::new((0., f32::INFINITY));
+    static ref SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(Default::default());
 }
 
 #[napi]

@@ -1,7 +1,5 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
-use std::sync::Arc;
-
 use dashmap::DashMap;
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
@@ -266,7 +264,7 @@ impl LimiterManager {
 
 pub fn get_cached_limiter(sr: u32) -> PerfectLimiter {
     lazy_static! {
-        static ref LIMITER_MANAGER: Arc<LimiterManager> = Arc::new(LimiterManager::new());
+        static ref LIMITER_MANAGER: LimiterManager = LimiterManager::new();
     }
 
     let limiter_or_none = LIMITER_MANAGER.get(sr);
