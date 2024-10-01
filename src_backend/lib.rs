@@ -128,10 +128,7 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let mut tracklist = TRACK_LIST.write().await;
-    img_mgr::send(ImgMsg::Remove(TrackManager::id_ch_tuples_from(
-        &tracklist, &track_ids,
-    )))
-    .await;
+    img_mgr::send(ImgMsg::Remove(tracklist.id_ch_tuples_from(&track_ids))).await;
     let hz_range = TM.write().await.remove_tracks(&mut tracklist, &track_ids);
     if let Some(hz_range) = hz_range {
         *HZ_RANGE.write().await = hz_range;
@@ -145,10 +142,7 @@ async fn apply_track_list_changes() -> Vec<String> {
         let tracklist = TRACK_LIST.blocking_read();
         let (updated_id_set, sr) = tm.apply_track_list_changes(&tracklist);
         let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
-        (
-            TrackManager::id_ch_tuples_from(&tracklist, &updated_ids),
-            sr,
-        )
+        (tracklist.id_ch_tuples_from(&updated_ids), sr)
     })
     .await
     .unwrap();
@@ -205,7 +199,7 @@ async fn get_dB_range() -> f64 {
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
     let tracklist = TRACK_LIST.read().await;
-    let all_id_ch_tuples = TrackManager::id_ch_tuples(&tracklist);
+    let all_id_ch_tuples = tracklist.id_ch_tuples();
     spawn_blocking(move || {
         TM.blocking_write()
             .set_dB_range(&tracklist, dB_range as f32)
@@ -227,7 +221,7 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     let hz_range = (min_hz as f32, max_hz as f32);
     *HZ_RANGE.write().await = hz_range.clone();
     let tracklist = TRACK_LIST.read().await;
-    let all_id_ch_tuples = TrackManager::id_ch_tuples(&tracklist);
+    let all_id_ch_tuples = tracklist.id_ch_tuples();
     let need_update =
         spawn_blocking(move || TM.blocking_write().set_hz_range(&tracklist, hz_range))
             .await
@@ -250,7 +244,7 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.f_overlap >= 1);
     *SPEC_SETTING.write().await = spec_setting.clone();
     let mut tracklist = TRACK_LIST.write().await;
-    let all_id_ch_tuples = TrackManager::id_ch_tuples(&tracklist);
+    let all_id_ch_tuples = tracklist.id_ch_tuples();
     spawn_blocking(move || {
         TM.blocking_write()
             .set_setting(&mut tracklist, spec_setting)
@@ -644,10 +638,7 @@ fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
 
 #[inline]
 async fn remove_all_imgs() {
-    img_mgr::send(ImgMsg::Remove(TrackManager::id_ch_tuples(
-        &TRACK_LIST.read().await.deref(),
-    )))
-    .await;
+    img_mgr::send(ImgMsg::Remove(TRACK_LIST.read().await.id_ch_tuples())).await;
 }
 
 #[inline]

@@ -77,7 +77,7 @@ impl TrackManager {
 
         self.update_specs(
             tracklist,
-            Self::id_ch_tuples_from(tracklist, &added_ids),
+            tracklist.id_ch_tuples_from(&added_ids),
             Some(&sr_win_nfft_set),
         );
         self.no_grey_ids.extend(added_ids.iter().cloned());
@@ -90,7 +90,7 @@ impl TrackManager {
 
         self.update_specs(
             tracklist,
-            Self::id_ch_tuples_from(tracklist, &reloaded_ids),
+            tracklist.id_ch_tuples_from(&reloaded_ids),
             Some(&sr_win_nfft_set),
         );
         self.no_grey_ids.extend(reloaded_ids.iter().cloned());
@@ -126,23 +126,6 @@ impl TrackManager {
         (set, self.max_sr)
     }
 
-    #[inline] // TODO: move to TrackList? move to lib.rs ?
-    pub fn id_ch_tuples(tracklist: &TrackList) -> IdChVec {
-        Self::id_ch_tuples_from(tracklist, &tracklist.all_ids())
-    }
-
-    #[inline] // TODO: move to TrackList? move to lib.rs ?
-    pub fn id_ch_tuples_from(tracklist: &TrackList, id_list: &[usize]) -> IdChVec {
-        id_list
-            .iter()
-            .filter(|&&id| tracklist.has(id))
-            .flat_map(|&id| {
-                let n_ch = tracklist[id].n_ch();
-                (0..n_ch).map(move |ch| (id, ch))
-            })
-            .collect()
-    }
-
     #[inline]
     pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
         self.specs.contains_key(&(id, ch))
@@ -154,11 +137,7 @@ impl TrackManager {
         self.setting = setting;
         self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
-        self.update_specs(
-            tracklist,
-            Self::id_ch_tuples(tracklist),
-            Some(&sr_win_nfft_set),
-        );
+        self.update_specs(tracklist, tracklist.id_ch_tuples(), Some(&sr_win_nfft_set));
         self.update_greys(tracklist, true);
     }
 
@@ -169,14 +148,14 @@ impl TrackManager {
     ) {
         tracklist.set_common_guard_clipping(mode);
 
-        self.update_specs(tracklist, Self::id_ch_tuples(tracklist), None);
+        self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
         self.update_greys(tracklist, true);
     }
 
     pub fn set_common_normalize(&mut self, tracklist: &mut TrackList, target: NormalizeTarget) {
         tracklist.set_common_normalize(target);
 
-        self.update_specs(tracklist, Self::id_ch_tuples(tracklist), None);
+        self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
         self.update_greys(tracklist, true);
     }
 
@@ -367,13 +346,13 @@ mod tests {
         let opt_for_wav = Default::default();
         let spec_imgs = tm.draw_entire_imgs(
             &tracklist,
-            &TrackManager::id_ch_tuples(&tracklist),
+            &tracklist.id_ch_tuples(),
             option,
             ImageKind::Spec,
         );
         let wav_imgs = tm.draw_entire_imgs(
             &tracklist,
-            &TrackManager::id_ch_tuples(&tracklist),
+            &tracklist.id_ch_tuples(),
             option,
             ImageKind::Wav(opt_for_wav),
         );

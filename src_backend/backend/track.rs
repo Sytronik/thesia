@@ -347,6 +347,23 @@ impl TrackList {
     }
 
     #[inline]
+    pub fn id_ch_tuples(&self) -> IdChVec {
+        self.id_ch_tuples_from(&self.all_ids())
+    }
+
+    #[inline]
+    pub fn id_ch_tuples_from(&self, id_list: &[usize]) -> IdChVec {
+        id_list
+            .iter()
+            .filter(|&&id| self.has(id))
+            .flat_map(|&id| {
+                let n_ch = self[id].n_ch();
+                (0..n_ch).map(move |ch| (id, ch))
+            })
+            .collect()
+    }
+
+    #[inline]
     pub fn max_sr(&self) -> u32 {
         iter_filtered!(self.tracks)
             .map(|track| track.sr())
