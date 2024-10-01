@@ -65,11 +65,11 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
             *tm = TrackManager::new();
         }
         if let Some(setting) = user_settings.spec_setting {
-            tm.set_setting(&mut tracklist, setting.clone());
+            tm.set_setting(&tracklist, setting.clone());
         }
         #[allow(non_snake_case)]
         if let Some(dB_range) = user_settings.dB_range {
-            tm.set_dB_range(&mut tracklist, dB_range as f32);
+            tm.set_dB_range(&tracklist, dB_range as f32);
         }
         if let Some(mode) = user_settings.common_guard_clipping {
             tracklist.set_common_guard_clipping(mode);
@@ -223,7 +223,7 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
     let hz_range = (min_hz as f32, max_hz as f32);
-    *HZ_RANGE.write().await = hz_range.clone();
+    *HZ_RANGE.write().await = hz_range;
     let need_update = spawn_blocking(move || {
         TM.blocking_write()
             .set_hz_range(&TRACK_LIST.blocking_read(), hz_range)

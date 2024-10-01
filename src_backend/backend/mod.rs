@@ -94,8 +94,8 @@ impl TrackManager {
         removed_id_ch_tuples: &IdChArr,
     ) -> Option<(f32, f32)> {
         for tup in removed_id_ch_tuples {
-            self.specs.remove(&tup);
-            self.spec_greys.remove(&tup);
+            self.specs.remove(tup);
+            self.spec_greys.remove(tup);
         }
 
         self.spec_analyzer.retain(
