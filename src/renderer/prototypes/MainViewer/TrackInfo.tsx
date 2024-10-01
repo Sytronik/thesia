@@ -1,4 +1,4 @@
-import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from "react";
+import React, {forwardRef, useImperativeHandle, useRef} from "react";
 import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
@@ -8,7 +8,7 @@ const MemoizedTrackSummary = React.memo(TrackSummary);
 
 type TrackInfoProps = {
   trackIdChArr: IdChArr;
-  trackSummaryPromise: Promise<TrackSummaryData>;
+  trackSummary: TrackSummaryData;
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
@@ -18,35 +18,13 @@ type TrackInfoProps = {
 const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   const {
     trackIdChArr: trackIdCh,
-    trackSummaryPromise,
+    trackSummary,
     channelHeight,
     imgHeight,
     isSelected,
     onClick,
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
-  const [trackSummary, setTrackSummary] = useState<TrackSummaryData>({
-    fileName: "",
-    time: "00:00:00.000",
-    formatName: "",
-    bitDepth: "",
-    bitrate: "",
-    sampleRate: "?? kHz",
-    globalLUFS: "?? LUFS",
-  });
-
-  // set TrackSummary from Promise
-  useEffect(() => {
-    trackSummaryPromise.then(setTrackSummary).catch(() => {});
-  }, [trackSummaryPromise]);
-
-  const channels = trackIdCh.map((idChStr, ch) => {
-    return (
-      <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
-        <span>{CHANNEL[trackIdCh.length][ch] || ""}</span>
-      </div>
-    );
-  });
 
   const imperativeHandleRef = useRef<TrackInfoElement>({
     getBoundingClientRect: () => trackInfoElem.current?.getBoundingClientRect() ?? null,
@@ -58,6 +36,14 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       }),
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
+
+  const channels = trackIdCh.map((idChStr, ch) => {
+    return (
+      <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
+        <span>{CHANNEL[trackIdCh.length][ch] || ""}</span>
+      </div>
+    );
+  });
 
   return (
     <div

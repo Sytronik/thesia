@@ -132,7 +132,7 @@ export type NormalizeTarget =
       target: number;
     };
 
-export async function getCommonNormalize(): Promise<NormalizeTarget> {
+export function getCommonNormalize(): NormalizeTarget {
   return backend.getCommonNormalize();
 }
 

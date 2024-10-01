@@ -152,7 +152,7 @@ function useTracks(userSettings: UserSettings) {
   const setCommonGuardClipping = useEvent(async (v: GuardClippingMode) => {
     await BackendAPI.setCommonGuardClipping(v);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
-    const commonGuardClipping = await BackendAPI.getCommonGuardClipping();
+    const commonGuardClipping = BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
     setUserSetting("commonGuardClipping", commonGuardClipping);
   });
@@ -160,7 +160,7 @@ function useTracks(userSettings: UserSettings) {
   const setCommonNormalize = useEvent(async (v: NormalizeTarget) => {
     await BackendAPI.setCommonNormalize(v);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
-    const commonNormalize = await BackendAPI.getCommonNormalize();
+    const commonNormalize = BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
     setUserSetting("commonNormalize", commonNormalize);
   });

@@ -629,18 +629,18 @@ function MainViewer(props: MainViewerProps) {
       : -Infinity,
   );
 
-  const trackSummaryArr: Promise<TrackSummaryData>[] = useMemo(
+  const trackSummaryArr: TrackSummaryData[] = useMemo(
     () =>
-      trackIds.map(async (trackId) => {
-        const formatInfo = await BackendAPI.getFormatInfo(trackId);
+      trackIds.map((trackId) => {
+        const formatInfo = BackendAPI.getFormatInfo(trackId);
         return {
-          fileName: await BackendAPI.getFileName(trackId),
+          fileName: BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
           formatName: formatInfo.name,
           bitDepth: formatInfo.bitDepth,
           bitrate: formatInfo.bitrate,
           sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-          globalLUFS: `${(await BackendAPI.getGlobalLUFS(trackId)).toFixed(2)} LUFS`,
+          globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
         };
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
@@ -780,7 +780,7 @@ function MainViewer(props: MainViewerProps) {
             ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
             trackIdChArr={trackIdChMap.get(trackId) || []}
-            trackSummaryPromise={trackSummaryArr[i]}
+            trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}

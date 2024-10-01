@@ -253,8 +253,8 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
 }
 
 #[napi]
-async fn get_common_guard_clipping() -> GuardClippingMode {
-    TRACK_LIST.read().await.common_guard_clipping
+fn get_common_guard_clipping() -> GuardClippingMode {
+    TRACK_LIST.blocking_read().common_guard_clipping
 }
 
 #[napi]
@@ -269,8 +269,8 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
 }
 
 #[napi]
-async fn get_common_normalize() -> serde_json::Value {
-    serde_json::to_value(TRACK_LIST.read().await.common_normalize).unwrap()
+fn get_common_normalize() -> serde_json::Value {
+    serde_json::to_value(TRACK_LIST.blocking_read().common_normalize).unwrap()
 }
 
 #[napi]
@@ -468,56 +468,51 @@ fn get_length_sec(track_id: u32) -> f64 {
 }
 
 #[napi]
-async fn get_sample_rate(track_id: u32) -> u32 {
+fn get_sample_rate(track_id: u32) -> u32 {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .get(track_id as usize)
         .map_or(0, |track| track.sr())
 }
 
 #[napi]
-async fn get_format_info(track_id: u32) -> AudioFormatInfo {
+fn get_format_info(track_id: u32) -> AudioFormatInfo {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .get(track_id as usize)
         .map_or_else(Default::default, |track| track.format_info.clone())
 }
 
 #[napi(js_name = "getGlobalLUFS")]
-async fn get_global_lufs(track_id: u32) -> f64 {
+fn get_global_lufs(track_id: u32) -> f64 {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
 }
 
 #[napi(js_name = "getRMSdB")]
 #[allow(non_snake_case)]
-async fn get_rms_dB(track_id: u32) -> f64 {
+fn get_rms_dB(track_id: u32) -> f64 {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().rms_dB as f64)
 }
 
 #[napi(js_name = "getMaxPeakdB")]
 #[allow(non_snake_case)]
-async fn get_max_peak_dB(track_id: u32) -> f64 {
+fn get_max_peak_dB(track_id: u32) -> f64 {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_dB as f64)
 }
 
 #[napi]
 // TODO: currently, no use
-async fn get_guard_clip_stats(track_id: u32) -> String {
-    let tracklist = TRACK_LIST.read().await;
+fn get_guard_clip_stats(track_id: u32) -> String {
+    let tracklist = TRACK_LIST.blocking_read();
     let prefix = tracklist.common_guard_clipping.to_string();
     tracklist
         .get(track_id as usize)
@@ -538,19 +533,17 @@ async fn get_guard_clip_stats(track_id: u32) -> String {
 }
 
 #[napi]
-async fn get_path(track_id: u32) -> String {
+fn get_path(track_id: u32) -> String {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .get(track_id as usize)
         .map_or_else(String::new, |track| track.path_string())
 }
 
 #[napi]
-async fn get_file_name(track_id: u32) -> String {
+fn get_file_name(track_id: u32) -> String {
     TRACK_LIST
-        .read()
-        .await
+        .blocking_read()
         .filename(track_id as usize)
         .to_owned()
 }
