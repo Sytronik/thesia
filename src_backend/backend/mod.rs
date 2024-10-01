@@ -185,7 +185,10 @@ impl TrackManager {
     pub fn set_hz_range(&mut self, tracklist: &TrackList, hz_range: (f32, f32)) -> bool {
         let prev_hz_range = self.get_hz_range();
         self.hz_range = hz_range;
-        if prev_hz_range == self.get_hz_range() {
+        let curr_hz_range = self.get_hz_range();
+        if (prev_hz_range.0 - curr_hz_range.0).abs() < 1e-2
+            && (prev_hz_range.1 - curr_hz_range.1).abs() < 1e-2
+        {
             return false;
         }
         self.update_greys(tracklist, true);
