@@ -5,13 +5,12 @@ use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
 use futures::task;
-use lazy_static::{initialize, lazy_static};
+use napi::bindgen_prelude::spawn;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
 use parking_lot::RwLock;
 use rayon::prelude::*;
 use tokio::{
-    runtime::{Builder, Runtime},
     sync::mpsc::{self, Receiver, Sender},
     task::JoinHandle,
 };
@@ -23,15 +22,6 @@ type Images = IdChValueVec<Vec<u8>>;
 type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
 
 const MAX_IMG_CACHE_WIDTH: u32 = 16384;
-
-lazy_static! {
-    static ref RUNTIME: Runtime = Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_time()
-        .thread_name("thesia-tokio")
-        .build()
-        .unwrap();
-}
 
 static mut MSG_TX: Option<Sender<ImgMsg>> = None;
 static mut IMG_RX: Option<Receiver<(Wrapping<usize>, Images)>> = None;
@@ -590,7 +580,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
                     }
                     *prev_params_write = draw_params;
                 }
-                task_handle = Some(RUNTIME.spawn(draw_imgs(
+                task_handle = Some(spawn(draw_imgs(
                     id_ch_tuples,
                     Arc::clone(&prev_params),
                     Arc::clone(&spec_caches),
@@ -619,7 +609,6 @@ pub fn spawn_runtime() {
             return;
         }
     }
-    initialize(&RUNTIME);
 
     let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(60);
     let (img_tx, img_rx) = mpsc::channel(60);
@@ -627,5 +616,5 @@ pub fn spawn_runtime() {
         MSG_TX = Some(msg_tx);
         IMG_RX = Some(img_rx);
     }
-    RUNTIME.spawn(main_loop(msg_rx, img_tx));
+    spawn(main_loop(msg_rx, img_tx));
 }
