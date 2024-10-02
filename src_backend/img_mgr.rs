@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
-use futures::task;
+use futures::join;
 use napi::bindgen_prelude::spawn;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
@@ -120,7 +120,7 @@ where
 
 pub fn recv() -> Option<Images> {
     static RECENT_REQ_ID: AtomicUsize = AtomicUsize::new(0);
-    let waker = task::noop_waker();
+    let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
 
     let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
@@ -315,8 +315,7 @@ async fn categorize_blend_caches(
         opt_for_wav,
         blend,
     } = params;
-    let tracklist = TRACK_LIST.read().await;
-    let tm = TM.read().await;
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
     let mut total_widths = IdChMap::with_capacity(id_ch_tuples.len());
     total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
@@ -397,8 +396,7 @@ async fn draw_part_imgs(
     need_parts_wav: &IdChArr,
     params: &DrawParams,
 ) -> Images {
-    let tracklist = TRACK_LIST.read().await;
-    let tm = TM.read().await;
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     if need_parts_spec.is_empty() && need_parts_wav.is_empty() {
         return Vec::new();
     }
@@ -440,8 +438,7 @@ async fn draw_new_caches(
         opt_for_wav,
         blend,
     } = params;
-    let tracklist = TRACK_LIST.read().await;
-    let tm = TM.read().await;
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
 
     // draw new caches
     let new_spec_caches =
