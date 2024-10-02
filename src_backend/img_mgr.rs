@@ -8,10 +8,12 @@ use futures::join;
 use napi::bindgen_prelude::spawn;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
-use parking_lot::RwLock;
 use rayon::prelude::*;
 use tokio::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        RwLock,
+    },
     task::JoinHandle,
 };
 
@@ -502,7 +504,7 @@ async fn draw_imgs(
     img_tx: Sender<(Wrapping<usize>, Images)>,
     req_id: Wrapping<usize>,
 ) {
-    let params_backup = params.read().clone();
+    let params_backup = params.read().await.clone();
     let (total_widths, cat_by_spec, cat_by_wav, blended_imgs) = categorize_blend_caches(
         id_ch_tuples,
         &params_backup,
@@ -517,7 +519,7 @@ async fn draw_imgs(
         ); */
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
-    if *params.read() != params_backup {
+    if *params.read().await != params_backup {
         return;
     }
 
@@ -533,7 +535,7 @@ async fn draw_imgs(
         // println!("[part] req_id: {}, blend: {}", req_id, params_backup.blend);
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
-    if *params.read() != params_backup {
+    if *params.read().await != params_backup {
         return;
     }
     tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
@@ -565,7 +567,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
         match msg {
             ImgMsg::Draw((id_ch_tuples, draw_params)) => {
                 {
-                    let mut prev_params_write = prev_params.write();
+                    let mut prev_params_write = prev_params.write().await;
                     if let Some(prev_task) = task_handle.take() {
                         prev_task.abort();
                         prev_task.await.ok();
