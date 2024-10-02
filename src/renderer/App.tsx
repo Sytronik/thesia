@@ -53,6 +53,7 @@ function MyApp({userSettings}: AppProps) {
 
   const {
     selectedTrackIds,
+    selectionIsAdded,
     selectTrack,
     selectAllTracks,
     selectTrackAfterAddTracks,
@@ -213,6 +214,7 @@ function MyApp({userSettings}: AppProps) {
             trackIds={trackIds}
             erroredTrackIds={erroredTrackIds}
             selectedTrackIds={selectedTrackIds}
+            selectionIsAdded={selectionIsAdded}
             trackIdChMap={trackIdChMap}
             needRefreshTrackIdChArr={needRefreshTrackIdChArr}
             maxTrackSec={maxTrackSec}

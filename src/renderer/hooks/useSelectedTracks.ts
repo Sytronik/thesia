@@ -4,10 +4,12 @@ import {isCommand} from "renderer/utils/osSpecifics";
 
 function useSelectedTracks() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
+  const [selectionIsAdded, setSelectionIsAdded] = useState<boolean>(false);
   const [pivotId, setPivotId] = useState<number>(0);
 
   const selectTrack = useEvent((e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => {
     e.preventDefault();
+    setSelectionIsAdded(false); // by default, consider selection not added
 
     if (isCommand(e)) {
       const idxInSelectedIds = selectedTrackIds.indexOf(id);
@@ -15,6 +17,7 @@ function useSelectedTracks() {
         // add id
         setPivotId(id);
         setSelectedTrackIds(selectedTrackIds.concat([id]));
+        setSelectionIsAdded(true);
         return;
       }
       if (selectedTrackIds.length === 1) return;
@@ -43,6 +46,7 @@ function useSelectedTracks() {
         .filter((selectedId) => !addingIds.includes(selectedId))
         .concat(addingIds);
       setSelectedTrackIds(newSelected);
+      if (addingIds.length > 0) setSelectionIsAdded(true);
       return;
     }
     // with nothing pressed
@@ -51,6 +55,7 @@ function useSelectedTracks() {
     }
     setPivotId(id);
     setSelectedTrackIds([id]);
+    setSelectionIsAdded(true);
   });
 
   const selectAllTracks = useEvent((trackIds: number[]) => {
@@ -107,6 +112,7 @@ function useSelectedTracks() {
 
   return {
     selectedTrackIds,
+    selectionIsAdded,
     selectTrack,
     selectAllTracks,
     selectTrackAfterAddTracks,

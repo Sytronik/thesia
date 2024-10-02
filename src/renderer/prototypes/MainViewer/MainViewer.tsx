@@ -56,6 +56,7 @@ type MainViewerProps = {
   trackIds: number[];
   erroredTrackIds: number[];
   selectedTrackIds: number[];
+  selectionIsAdded: boolean;
   trackIdChMap: IdChMap;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
@@ -77,6 +78,7 @@ function MainViewer(props: MainViewerProps) {
     trackIds,
     erroredTrackIds,
     selectedTrackIds,
+    selectionIsAdded,
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
@@ -94,7 +96,7 @@ function MainViewer(props: MainViewerProps) {
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
-  const throttledSetSelectSec = throttle(1000 / 70, player.setSelectSec);
+  const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, player.setSelectSec), [player]);
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
@@ -693,26 +695,77 @@ function MainViewer(props: MainViewerProps) {
   }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // auto-scroll to the recently selected track
-  const getChCountOfLastSelected = useEvent(
-    () => trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1])?.length ?? 0,
+  const reducerForTrackInfoElemRange = useEvent(
+    (
+      prev: {
+        topPlusHalf: number;
+        bottomMinusHalf: number;
+        topElem: TrackInfoElement | null;
+        bottomElem: TrackInfoElement | null;
+        topId: number;
+        bottomId: number;
+      },
+      id: number,
+    ) => {
+      const chCount = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1])?.length ?? 0;
+      if (chCount <= 0) return prev;
+      const trackInfoElem = trackInfosRef.current[`${id}`];
+      if (trackInfoElem === null) return prev;
+      const infoRect = trackInfoElem.getBoundingClientRect();
+      if (infoRect === null) return prev;
+      let currTopPlusHalf = infoRect.top + infoRect.height / chCount / 2;
+      let currTopElem = prev.topElem;
+      let currTopId = prev.topId;
+      if (currTopPlusHalf < prev.topPlusHalf) {
+        currTopElem = trackInfoElem;
+        currTopId = id;
+      } else {
+        currTopPlusHalf = prev.topPlusHalf;
+      }
+      let currBottomMinusHalf = infoRect.bottom - infoRect.height / chCount / 2;
+      let currBottomElem = prev.bottomElem;
+      let currBottomId = prev.bottomId;
+      if (currBottomMinusHalf > prev.bottomMinusHalf) {
+        currBottomElem = trackInfoElem;
+        currBottomId = id;
+      } else {
+        currBottomMinusHalf = prev.bottomMinusHalf;
+      }
+      return {
+        topPlusHalf: currTopPlusHalf,
+        bottomMinusHalf: currBottomMinusHalf,
+        topElem: currTopElem,
+        bottomElem: currBottomElem,
+        topId: currTopId,
+        bottomId: currBottomId,
+      };
+    },
   );
   useEffect(() => {
-    if (selectedTrackIds.length === 0) return;
-    const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
-    const chCount = getChCountOfLastSelected();
-    if (chCount <= 0) return;
-    const trackInfo = trackInfosRef.current[selectedIdStr];
-    if (trackInfo === null) return;
-    const infoRect = trackInfo.getBoundingClientRect();
-    const viewElem = splitViewElem.current;
-    const viewRect = viewElem?.getBoundingClientRect() ?? null;
-    if (infoRect === null || viewElem === null || viewRect === null) return;
-    if (infoRect.top + infoRect.height / chCount / 2 < viewRect.top + TIME_CANVAS_HEIGHT) {
-      trackInfo.scrollIntoView(true);
-    } else if (infoRect.bottom - infoRect.height / chCount / 2 > viewRect.bottom) {
-      trackInfo.scrollIntoView(false);
+    if (selectedTrackIds.length === 0 || !selectionIsAdded) return;
+    const viewRect = splitViewElem.current?.getBoundingClientRect() ?? null;
+    if (viewRect === null) return;
+    const {topPlusHalf, bottomMinusHalf, topElem, bottomElem, topId, bottomId} =
+      selectedTrackIds.reduce(reducerForTrackInfoElemRange, {
+        topPlusHalf: Infinity,
+        bottomMinusHalf: -Infinity,
+        topElem: null,
+        bottomElem: null,
+        topId: -1,
+        bottomId: -1,
+      });
+    if (
+      topId === selectedTrackIds[selectedTrackIds.length - 1] &&
+      topPlusHalf < viewRect.top + TIME_CANVAS_HEIGHT
+    ) {
+      topElem?.scrollIntoView(true);
+    } else if (
+      bottomId === selectedTrackIds[selectedTrackIds.length - 1] &&
+      bottomMinusHalf > viewRect.bottom
+    ) {
+      bottomElem?.scrollIntoView(false);
     }
-  }, [selectedTrackIds, getChCountOfLastSelected, trackInfosRef]);
+  }, [selectedTrackIds, selectionIsAdded, reducerForTrackInfoElemRange]);
 
   // set LensParams when track list or width change
   useLayoutEffect(() => {
