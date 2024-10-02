@@ -99,8 +99,13 @@ async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
     let mut tracklist = TRACK_LIST.write().await;
-    let added_ids =
-        tracklist.add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
+    let (tracklist, added_ids) = spawn_blocking(move || {
+        let added_ids =
+            tracklist.add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
+        (tracklist, added_ids)
+    })
+    .await
+    .unwrap();
     let tracklist = tracklist.downgrade();
     let added_ids_u32 = added_ids.iter().map(|&x| x as u32).collect();
     spawn_blocking(move || {
@@ -115,7 +120,12 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let mut tracklist = TRACK_LIST.write().await;
-    let (reloaded_ids, no_err_ids) = tracklist.reload_tracks(&track_ids);
+    let (tracklist, (reloaded_ids, no_err_ids)) = spawn_blocking(move || {
+        let tuple = tracklist.reload_tracks(&track_ids);
+        (tracklist, tuple)
+    })
+    .await
+    .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
             .reload_tracks(&tracklist.downgrade(), &reloaded_ids);
@@ -261,7 +271,12 @@ fn get_common_guard_clipping() -> GuardClippingMode {
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
     let mut tracklist = TRACK_LIST.write().await;
-    tracklist.set_common_guard_clipping(mode);
+    let tracklist = spawn_blocking(move || {
+        tracklist.set_common_guard_clipping(mode);
+        tracklist
+    })
+    .await
+    .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
             .update_all_specs_greys(&tracklist.downgrade());
@@ -280,7 +295,12 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
     let mut tracklist = TRACK_LIST.write().await;
-    tracklist.set_common_normalize(target);
+    let tracklist = spawn_blocking(move || {
+        tracklist.set_common_normalize(target);
+        tracklist
+    })
+    .await
+    .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
             .update_all_specs_greys(&tracklist.downgrade());
@@ -314,11 +334,19 @@ async fn find_id_by_path(path: String) -> i32 {
 async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
     assert!(width >= 1 && height >= 1);
 
-    let tracklist = TRACK_LIST.read().await;
-    TM.read()
-        .await
-        .draw_overview(&tracklist, track_id as usize, width, height, dpr as f32)
-        .into()
+    spawn_blocking(move || {
+        TM.blocking_read()
+            .draw_overview(
+                &TRACK_LIST.blocking_read(),
+                track_id as usize,
+                width,
+                height,
+                dpr as f32,
+            )
+            .into()
+    })
+    .await
+    .unwrap()
 }
 
 #[napi]
