@@ -38,6 +38,14 @@ macro_rules! indexed_iter_filtered {
     };
 }
 
+macro_rules! indexed_par_iter_mut_filtered {
+    ($vec: expr) => {
+        $vec.par_iter_mut()
+            .enumerate()
+            .filter_map(|(i, x)| x.as_mut().map(|x| (i, x)))
+    };
+}
+
 #[readonly::make]
 pub struct AudioTrack {
     pub format_info: AudioFormatInfo,
@@ -237,22 +245,29 @@ impl TrackList {
     }
 
     pub fn add_tracks(&mut self, id_list: Vec<usize>, path_list: Vec<String>) -> Vec<usize> {
-        let mut added_ids = Vec::new();
-        for (id, path) in id_list.into_iter().zip(path_list) {
-            if let Ok(mut track) = AudioTrack::new(path) {
-                track.normalize(self.common_normalize, self.common_guard_clipping);
-                let sec = track.sec();
-                if sec > self.max_sec {
-                    self.max_sec = sec;
-                    self.id_max_sec = id;
-                }
-                if id >= self.tracks.len() {
-                    self.tracks
-                        .extend((self.tracks.len()..(id + 1)).map(|_| None));
-                }
-                self.tracks[id].replace(track);
-                added_ids.push(id);
+        let id_tracks: Vec<_> = id_list
+            .into_par_iter()
+            .zip(path_list.into_par_iter())
+            .filter_map(|(id, path)| {
+                AudioTrack::new(path).ok().map(|mut track| {
+                    track.normalize(self.common_normalize, self.common_guard_clipping);
+                    (id, track)
+                })
+            })
+            .collect();
+        let mut added_ids = Vec::with_capacity(id_tracks.len());
+        for (id, track) in id_tracks.into_iter() {
+            let sec = track.sec();
+            if sec > self.max_sec {
+                self.max_sec = sec;
+                self.id_max_sec = id;
             }
+            if id >= self.tracks.len() {
+                self.tracks
+                    .extend((self.tracks.len()..(id + 1)).map(|_| None));
+            }
+            self.tracks[id].replace(track);
+            added_ids.push(id);
         }
 
         self.update_filenames();
@@ -260,16 +275,26 @@ impl TrackList {
     }
 
     pub fn reload_tracks(&mut self, id_list: &[usize]) -> (Vec<usize>, Vec<usize>) {
+        let reload_results: Vec<_> = indexed_par_iter_mut_filtered!(self.tracks)
+            .filter(|(id, _)| id_list.contains(&id))
+            .map(|(id, track)| {
+                let result = track.reload();
+                if let Ok(true) = result {
+                    track.normalize(self.common_normalize, self.common_guard_clipping);
+                }
+                result.map(|res| (id, track.sec(), res))
+            })
+            .collect();
+
+        if reload_results.len() != id_list.len() {
+            panic!("[reload_tracks] Wrong Track IDs {:?}!", id_list);
+        }
+
         let mut reloaded_ids = Vec::new();
         let mut no_err_ids = Vec::new();
-        for &id in id_list {
-            let track = self.tracks[id]
-                .as_mut()
-                .unwrap_or_else(|| panic!("[reload_tracks] Wrong Track ID {}!", id));
-            match track.reload() {
-                Ok(true) => {
-                    track.normalize(self.common_normalize, self.common_guard_clipping);
-                    let sec = track.sec();
+        for result in reload_results.into_iter() {
+            match result {
+                Ok((id, sec, true)) => {
                     if sec > self.max_sec {
                         self.max_sec = sec;
                         self.id_max_sec = id;
@@ -277,7 +302,7 @@ impl TrackList {
                     reloaded_ids.push(id);
                     no_err_ids.push(id);
                 }
-                Ok(false) => {
+                Ok((id, _, false)) => {
                     no_err_ids.push(id);
                 }
                 Err(_) => {}
