@@ -399,4 +399,4 @@ function Control(props: ControlProps) {
   );
 }
 
-export default Control;
+export default React.memo(Control);

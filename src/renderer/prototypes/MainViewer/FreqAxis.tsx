@@ -284,4 +284,4 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
 
 FreqAxis.displayName = "FreqAxis";
 
-export default FreqAxis;
+export default React.memo(FreqAxis);
