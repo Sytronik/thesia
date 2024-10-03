@@ -571,6 +571,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
                     let mut prev_params_write = prev_params.write();
                     if let Some(prev_task) = task_handle.take() {
                         prev_task.abort();
+                        prev_task.await.ok();
                     }
                     if draw_params.option != prev_params_write.option {
                         spec_caches.clear();
