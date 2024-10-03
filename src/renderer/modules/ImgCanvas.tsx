@@ -1,4 +1,4 @@
-import React, {forwardRef, useRef, useImperativeHandle, useState, useContext} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useState, useContext, useMemo} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
@@ -87,17 +87,21 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return [`${timeStr} sec`, `${hzStr} Hz`];
   });
 
-  const onMouseMove = throttle(1000 / 120, async (e: React.MouseEvent) => {
-    if (initTooltipInfo === null || tooltipElem.current === null) return;
-    const [left, top] = calcTooltipPos(e);
-    tooltipElem.current.style.left = `${left}px`;
-    tooltipElem.current.style.top = `${top}px`;
-    const lines = await getTooltipLines(e);
-    lines.forEach((v, i) => {
-      const node = tooltipElem.current?.children.item(i) ?? null;
-      if (node) node.innerHTML = v;
-    });
-  });
+  const onMouseMove = useMemo(
+    () =>
+      throttle(1000 / 120, async (e: React.MouseEvent) => {
+        if (initTooltipInfo === null || tooltipElem.current === null) return;
+        const [left, top] = calcTooltipPos(e);
+        tooltipElem.current.style.left = `${left}px`;
+        tooltipElem.current.style.top = `${top}px`;
+        const lines = await getTooltipLines(e);
+        lines.forEach((v, i) => {
+          const node = tooltipElem.current?.children.item(i) ?? null;
+          if (node) node.innerHTML = v;
+        });
+      }),
+    [getTooltipLines, initTooltipInfo],
+  );
 
   return (
     <div
