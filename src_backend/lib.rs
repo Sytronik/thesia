@@ -134,21 +134,24 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 }
 
 #[napi]
-async fn remove_tracks(track_ids: Vec<u32>) {
+fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
+    let mut tracklist = TRACK_LIST.blocking_write();
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let mut tracklist = TRACK_LIST.write().await;
     let removed_id_ch_tuples = tracklist.remove_tracks(&track_ids);
     let tracklist = tracklist.downgrade();
-    img_mgr::send(ImgMsg::Remove(tracklist.id_ch_tuples_from(&track_ids))).await;
-    let hz_range = TM
-        .write()
-        .await
-        .remove_tracks(&tracklist, &removed_id_ch_tuples);
-    if let Some(hz_range) = hz_range {
-        *HZ_RANGE.write().await = hz_range;
-    }
+    spawn(img_mgr::send(ImgMsg::Remove(
+        tracklist.id_ch_tuples_from(&track_ids),
+    )));
+    spawn_blocking(move || {
+        let hz_range = TM
+            .blocking_write()
+            .remove_tracks(&tracklist, &removed_id_ch_tuples);
+        if let Some(hz_range) = hz_range {
+            *HZ_RANGE.blocking_write() = hz_range;
+        }
+    });
 }
 
 #[napi]

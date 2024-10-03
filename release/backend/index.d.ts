@@ -50,7 +50,7 @@ export interface PlayerState {
 export declare function init(userSettings: UserSettingsOptionals): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
-export declare function removeTracks(trackIds: Array<number>): Promise<void>
+export declare function removeTracks(trackIds: Array<number>): void
 export declare function applyTrackListChanges(): Promise<Array<string>>
 export declare function setImageState(idChStrs: Array<string>, startSec: number, width: number, option: DrawOption, optForWav: any, blend: number): Promise<void>
 export declare function getdBRange(): Promise<number>

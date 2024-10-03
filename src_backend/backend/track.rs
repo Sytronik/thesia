@@ -436,9 +436,7 @@ impl TrackList {
 
     #[inline]
     pub fn filename(&self, id: usize) -> &str {
-        self.filenames[id]
-            .as_ref()
-            .unwrap_or_else(|| panic!("[get_filename] Wrong ID {}!", id))
+        self.filenames[id].as_ref().map_or("", |x| x)
     }
 
     fn update_filenames(&mut self) {

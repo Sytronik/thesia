@@ -27,12 +27,10 @@ function useTracks(userSettings: UserSettings) {
     userSettings.commonNormalize,
   );
 
-  const waitingIdsRef = useRef<number[]>([]);
+  const waitingIdsRef = useRef<Set<number>>(new Set());
   const addToWaitingIds = useEvent((ids: number[]) => {
-    waitingIdsRef.current = waitingIdsRef.current.concat(ids);
-    if (waitingIdsRef.current.length > 1) {
-      waitingIdsRef.current.sort((a, b) => a - b);
-    }
+    ids.forEach((id) => waitingIdsRef.current.add(id));
+    console.log(waitingIdsRef.current);
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,8 +83,10 @@ function useTracks(userSettings: UserSettings) {
       if (!newPaths.length) return {existingIds, invalidPaths: []};
 
       const newIds = [...Array(newPaths.length).keys()].map((i) => {
-        if (waitingIdsRef.current.length) {
-          return waitingIdsRef.current.shift() as number;
+        if (waitingIdsRef.current.size > 0) {
+          const id = waitingIdsRef.current.values().next().value as number;
+          waitingIdsRef.current.delete(id);
+          return id;
         }
         return trackIds.length + i;
       });
@@ -115,9 +115,9 @@ function useTracks(userSettings: UserSettings) {
     setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, [erroredId]));
   });
 
-  const removeTracks = useEvent(async (ids: number[]) => {
+  const removeTracks = useEvent((ids: number[]) => {
     try {
-      await BackendAPI.removeTracks(ids);
+      BackendAPI.removeTracks(ids);
       setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
       setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 
