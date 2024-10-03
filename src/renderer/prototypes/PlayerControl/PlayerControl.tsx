@@ -23,7 +23,7 @@ function PlayerControl(props: PlayerControlProps) {
   const {player, isTrackEmpty} = props;
   const prevPosSecRef = useRef<number>(0);
   const posInputElem = useRef<FloatingUserInputElement | null>(null);
-  const requestRef = useRef<number | null>(null);
+  const requestRef = useRef<number>(0);
 
   const updatePosLabel = useEvent(() => {
     const positionSec =
@@ -42,9 +42,7 @@ function PlayerControl(props: PlayerControlProps) {
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(updatePosLabel);
-    return () => {
-      if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
-    };
+    return () => cancelAnimationFrame(requestRef.current);
   }, [updatePosLabel]);
 
   const onEndEditing = useEvent((v: string | null) => {
