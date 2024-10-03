@@ -276,7 +276,7 @@ impl TrackList {
 
     pub fn reload_tracks(&mut self, id_list: &[usize]) -> (Vec<usize>, Vec<usize>) {
         let reload_results: Vec<_> = indexed_par_iter_mut_filtered!(self.tracks)
-            .filter(|(id, _)| id_list.contains(&id))
+            .filter(|(id, _)| id_list.contains(id))
             .map(|(id, track)| {
                 let result = track.reload();
                 if let Ok(true) = result {
