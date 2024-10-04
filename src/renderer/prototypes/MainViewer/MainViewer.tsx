@@ -540,7 +540,7 @@ function MainViewer(props: MainViewerProps) {
     };
   }, [resetAxisRange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
   }, [scrollTop]);
 
