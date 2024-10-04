@@ -46,7 +46,7 @@ pub enum PlayerCommand {
 }
 
 #[derive(Clone)]
-pub struct PlayerState {
+pub struct InternalPlayerState {
     /// if currently playing
     pub is_playing: bool,
     /// playing position (sec)
@@ -55,7 +55,7 @@ pub struct PlayerState {
     pub instant: Instant,
 }
 
-impl PlayerState {
+impl InternalPlayerState {
     pub fn position_sec_elapsed(&self) -> f64 {
         if self.is_playing {
             self.position_sec + self.instant.elapsed().as_secs_f64()
@@ -65,9 +65,9 @@ impl PlayerState {
     }
 }
 
-impl Default for PlayerState {
+impl Default for InternalPlayerState {
     fn default() -> Self {
-        PlayerState {
+        InternalPlayerState {
             is_playing: false,
             position_sec: 0.,
             instant: Instant::now(),
@@ -77,7 +77,7 @@ impl Default for PlayerState {
 
 #[derive(Clone)]
 pub enum PlayerNotification {
-    Ok(PlayerState),
+    Ok(InternalPlayerState),
     Err(String),
 }
 
@@ -311,7 +311,7 @@ fn main_loop(
                     sound_handle.pause();
                     if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
                         noti_tx
-                            .send(PlayerNotification::Ok(PlayerState {
+                            .send(PlayerNotification::Ok(InternalPlayerState {
                                 is_playing: false,
                                 position_sec: calc_position_sec(&sound_handle),
                                 instant: Instant::now(),
@@ -333,7 +333,7 @@ fn main_loop(
                     }
                     if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
                         noti_tx
-                            .send(PlayerNotification::Ok(PlayerState {
+                            .send(PlayerNotification::Ok(InternalPlayerState {
                                 is_playing: true,
                                 position_sec,
                                 instant: Instant::now(),
@@ -358,7 +358,7 @@ fn main_loop(
                     None
                 };
                 if let Some(prev_state) = prev_state {
-                    let mut state = PlayerState {
+                    let mut state = InternalPlayerState {
                         is_playing: prev_state.is_playing,
                         position_sec: calc_position_sec(&sound_handle),
                         instant: Instant::now(),
