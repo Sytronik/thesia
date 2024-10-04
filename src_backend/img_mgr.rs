@@ -557,6 +557,13 @@ async fn draw_imgs(
     }
 }
 
+async fn take_abort_await(task_handle: &mut Option<JoinHandle<()>>) {
+    if let Some(prev_task) = task_handle.take() {
+        prev_task.abort();
+        prev_task.await.ok();
+    }
+}
+
 async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>, Images)>) {
     let spec_caches = Arc::new(IdChDMap::new());
     let wav_caches = Arc::new(IdChDMap::new());
@@ -568,10 +575,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
             ImgMsg::Draw((id_ch_tuples, draw_params)) => {
                 {
                     let mut prev_params_write = prev_params.write().await;
-                    if let Some(prev_task) = task_handle.take() {
-                        prev_task.abort();
-                        prev_task.await.ok();
-                    }
+                    take_abort_await(&mut task_handle).await;
                     if draw_params.option != prev_params_write.option {
                         spec_caches.clear();
                         wav_caches.clear();
@@ -591,9 +595,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
                 req_id += 1;
             }
             ImgMsg::Remove(id_ch_tuples) => {
-                if let Some(prev_task) = task_handle.take() {
-                    prev_task.await.ok();
-                }
+                take_abort_await(&mut task_handle).await;
                 id_ch_tuples.par_iter().for_each(|tup| {
                     spec_caches.remove(tup);
                     wav_caches.remove(tup);
@@ -603,7 +605,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
     }
 }
 
-pub fn spawn_runtime() {
+pub fn spawn_task() {
     unsafe {
         if MSG_TX.is_some() && IMG_RX.is_some() {
             return;

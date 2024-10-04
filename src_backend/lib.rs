@@ -89,7 +89,7 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
     *SPEC_SETTING.blocking_write() = user_settings.spec_setting.clone();
 
-    img_mgr::spawn_runtime();
+    img_mgr::spawn_task();
     player::spawn_task();
     Ok(user_settings)
 }
