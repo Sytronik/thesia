@@ -30,7 +30,6 @@ function useTracks(userSettings: UserSettings) {
   const waitingIdsRef = useRef<Set<number>>(new Set());
   const addToWaitingIds = useEvent((ids: number[]) => {
     ids.forEach((id) => waitingIdsRef.current.add(id));
-    console.log(waitingIdsRef.current);
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
