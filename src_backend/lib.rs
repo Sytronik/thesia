@@ -98,18 +98,17 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    let mut tracklist = TRACK_LIST.write().await;
-    let (tracklist, added_ids) = spawn_blocking(move || {
-        let added_ids =
-            tracklist.add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
-        (tracklist, added_ids)
+    let added_ids = spawn_blocking(move || {
+        TRACK_LIST
+            .blocking_write()
+            .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list)
     })
     .await
     .unwrap();
-    let tracklist = tracklist.downgrade();
     let added_ids_u32 = added_ids.iter().map(|&x| x as u32).collect();
     spawn_blocking(move || {
-        TM.blocking_write().add_tracks(&tracklist, &added_ids);
+        TM.blocking_write()
+            .add_tracks(&TRACK_LIST.blocking_read(), &added_ids);
     });
     added_ids_u32
 }
@@ -119,16 +118,13 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let mut tracklist = TRACK_LIST.write().await;
-    let (tracklist, (reloaded_ids, no_err_ids)) = spawn_blocking(move || {
-        let tuple = tracklist.reload_tracks(&track_ids);
-        (tracklist, tuple)
-    })
-    .await
-    .unwrap();
+    let (reloaded_ids, no_err_ids) =
+        spawn_blocking(move || TRACK_LIST.blocking_write().reload_tracks(&track_ids))
+            .await
+            .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
-            .reload_tracks(&tracklist.downgrade(), &reloaded_ids);
+            .reload_tracks(&TRACK_LIST.blocking_read(), &reloaded_ids);
     });
     no_err_ids.into_iter().map(|x| x as u32).collect()
 }
@@ -137,17 +133,13 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
-    let mut tracklist = TRACK_LIST.blocking_write();
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
-    let removed_id_ch_tuples = tracklist.remove_tracks(&track_ids);
-    let tracklist = tracklist.downgrade();
-    spawn(img_mgr::send(ImgMsg::Remove(
-        tracklist.id_ch_tuples_from(&track_ids),
-    )));
+    let removed_id_ch_tuples = TRACK_LIST.blocking_write().remove_tracks(&track_ids);
+    spawn(remove_all_imgs());
     spawn_blocking(move || {
         let hz_range = TM
             .blocking_write()
-            .remove_tracks(&tracklist, &removed_id_ch_tuples);
+            .remove_tracks(&TRACK_LIST.blocking_read(), &removed_id_ch_tuples);
         if let Some(hz_range) = hz_range {
             *HZ_RANGE.blocking_write() = hz_range;
         }
@@ -273,16 +265,12 @@ fn get_common_guard_clipping() -> GuardClippingMode {
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
-    let mut tracklist = TRACK_LIST.write().await;
-    let tracklist = spawn_blocking(move || {
-        tracklist.set_common_guard_clipping(mode);
-        tracklist
-    })
-    .await
-    .unwrap();
+    spawn_blocking(move || TRACK_LIST.blocking_write().set_common_guard_clipping(mode))
+        .await
+        .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
-            .update_all_specs_greys(&tracklist.downgrade());
+            .update_all_specs_greys(&TRACK_LIST.blocking_read());
     });
     remove_all_imgs().await;
     refresh_track_player().await;
@@ -297,17 +285,17 @@ fn get_common_normalize() -> serde_json::Value {
 async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
-    let mut tracklist = TRACK_LIST.write().await;
-    let tracklist = spawn_blocking(move || {
-        tracklist.set_common_normalize(target);
-        tracklist
+    spawn_blocking(move || {
+        TRACK_LIST.blocking_write().set_common_normalize(target);
     })
     .await
     .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
-            .update_all_specs_greys(&tracklist.downgrade());
-    });
+            .update_all_specs_greys(&TRACK_LIST.blocking_read());
+    })
+    .await
+    .unwrap();
     remove_all_imgs().await;
     refresh_track_player().await;
     Ok(())
