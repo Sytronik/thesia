@@ -96,7 +96,6 @@ function MainViewer(props: MainViewerProps) {
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
-  const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, player.setSelectSec), [player]);
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
@@ -219,6 +218,15 @@ function MainViewer(props: MainViewerProps) {
         );
       }),
     [blend, devicePixelRatio],
+  );
+
+  const throttledSetSelectSec = useMemo(
+    () =>
+      throttle(1000 / 70, (sec) => {
+        player.setSelectSec(sec);
+        selectLocatorElem.current?.draw();
+      }),
+    [player],
   );
 
   const setAmpRange = useEvent((newRange: [number, number]) => {

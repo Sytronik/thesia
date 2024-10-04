@@ -30,16 +30,6 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
   const lineOffset = lineWidth % 2 === 0 ? 0 : 0.5;
   const moveElem = onMouseDown !== undefined;
 
-  const imperativeHandleRef = useRef<LocatorHandleElement>({
-    enableInteraction: () => {
-      if (locatorElem.current) locatorElem.current.style.pointerEvents = "auto";
-    },
-    disableInteraction: () => {
-      if (locatorElem.current) locatorElem.current.style.pointerEvents = "none";
-    },
-  });
-  useImperativeHandle(ref, () => imperativeHandleRef.current, []);
-
   const drawLine = useEvent(
     (ctx: CanvasRenderingContext2D, drawPos: number, lineTop: number, lineBottom: number) => {
       ctx.scale(devicePixelRatio, devicePixelRatio);
@@ -63,7 +53,7 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
     },
   );
 
-  const draw = useEvent(() => {
+  const draw = useEvent((time, request: boolean = true) => {
     const locatorPos = calcLocatorPos();
     const leftWidth = getBoundingLeftWidth();
 
@@ -102,13 +92,24 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
     }
     prevLocatorPos.current = locatorPos;
     if (leftWidth) prevLeftWidth.current = leftWidth;
-    requestRef.current = requestAnimationFrame(draw);
+    if (request) requestRef.current = requestAnimationFrame(draw);
   });
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(requestRef.current);
   }, [draw]);
+
+  const imperativeHandleRef = useRef<LocatorHandleElement>({
+    enableInteraction: () => {
+      if (locatorElem.current) locatorElem.current.style.pointerEvents = "auto";
+    },
+    disableInteraction: () => {
+      if (locatorElem.current) locatorElem.current.style.pointerEvents = "none";
+    },
+    draw: () => draw(0, false),
+  });
+  useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 
   return (
     <canvas

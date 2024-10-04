@@ -26,6 +26,7 @@ type ImgCanvasHandleElement = {
 type LocatorHandleElement = {
   enableInteraction: () => void;
   disableInteraction: () => void;
+  draw: () => void;
 };
 
 // Track Summary
