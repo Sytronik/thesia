@@ -18,6 +18,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy
+          rustflags:
 
       - name: Install Node.js and NPM
         uses: actions/setup-node@v3
