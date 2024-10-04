@@ -643,6 +643,7 @@ function MainViewer(props: MainViewerProps) {
           bitrate: formatInfo.bitrate,
           sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
+          guardClipStats: BackendAPI.getGuardClipStats(trackId),
         };
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps

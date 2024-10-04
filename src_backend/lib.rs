@@ -535,12 +535,18 @@ fn get_max_peak_dB(track_id: u32) -> f64 {
 // TODO: currently, no use
 fn get_guard_clip_stats(track_id: u32) -> String {
     let tracklist = TRACK_LIST.blocking_read();
-    let prefix = tracklist.common_guard_clipping.to_string();
+    let mode = tracklist.common_guard_clipping;
+    let prefix = mode.to_string();
     tracklist
         .get(track_id as usize)
         .map_or_else(String::new, |track| {
+            let stats = if mode == GuardClippingMode::ReduceGlobalLevel {
+                track.guard_clip_stats().slice_move(ndarray::s![0..1])
+            } else {
+                track.guard_clip_stats()
+            };
             Itertools::intersperse(
-                track.guard_clip_stats().iter().map(|stat| {
+                stats.iter().map(|stat| {
                     let stat = stat.to_string();
                     if !stat.is_empty() {
                         format!("{} by {}", &prefix, stat)

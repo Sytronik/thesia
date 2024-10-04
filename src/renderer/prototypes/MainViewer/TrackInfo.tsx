@@ -60,7 +60,11 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
         height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,
       }}
     >
-      <MemoizedTrackSummary className={styles.TrackSummary} data={trackSummary} />
+      <MemoizedTrackSummary
+        className={styles.TrackSummary}
+        data={trackSummary}
+        chCount={trackIdCh.length}
+      />
       <div className={styles.channels}>{channels}</div>
     </div>
   );
