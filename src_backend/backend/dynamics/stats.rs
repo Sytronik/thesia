@@ -114,13 +114,17 @@ impl GuardClippingStats {
         <A as MaybeNan>::NotNan: Ord,
         D: Dimension,
     {
-        let max_reduction_gain = wav_before_clip.max_peak().recip();
-        GuardClippingStats {
-            max_reduction_gain_dB: max_reduction_gain.dB_from_amp_default().as_(),
-            reduction_cnt: wav_before_clip
-                .iter()
-                .filter(|x| x.abs() > A::one())
-                .count(),
+        let max_peak = wav_before_clip.max_peak();
+        if max_peak > A::one() {
+            GuardClippingStats {
+                max_reduction_gain_dB: max_peak.recip().dB_from_amp_default().as_(),
+                reduction_cnt: wav_before_clip
+                    .iter()
+                    .filter(|x| x.abs() > A::one())
+                    .count(),
+            }
+        } else {
+            Default::default()
         }
     }
 
