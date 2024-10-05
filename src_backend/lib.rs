@@ -10,8 +10,9 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
+use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
-use tokio::sync::RwLock;
+use tokio::sync::RwLock as AsyncRwLock;
 
 #[warn(dead_code)]
 mod backend;
@@ -39,12 +40,12 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 lazy_static! {
     static ref INITIALIZED_ONCE: AtomicBool = AtomicBool::new(false);
 
-    static ref TRACK_LIST: RwLock<TrackList> = RwLock::new(TrackList::new());
-    static ref TM: RwLock<TrackManager> = RwLock::new(TrackManager::new());
+    static ref TRACK_LIST: AsyncRwLock<TrackList> = AsyncRwLock::new(TrackList::new());
+    static ref TM: AsyncRwLock<TrackManager> = AsyncRwLock::new(TrackManager::new());
 
     // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
-    static ref HZ_RANGE: RwLock<(f32, f32)> = RwLock::new((0., f32::INFINITY));
-    static ref SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(Default::default());
+    static ref HZ_RANGE: SyncRwLock<(f32, f32)> = SyncRwLock::new((0., f32::INFINITY));
+    static ref SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(Default::default());
 }
 
 #[napi]
@@ -86,8 +87,8 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
             common_normalize: serde_json::to_value(tracklist.common_normalize).unwrap(),
         }
     };
-    *HZ_RANGE.blocking_write() = (0., f32::INFINITY);
-    *SPEC_SETTING.blocking_write() = user_settings.spec_setting.clone();
+    *HZ_RANGE.write() = (0., f32::INFINITY);
+    *SPEC_SETTING.write() = user_settings.spec_setting.clone();
 
     img_mgr::spawn_task();
     player::spawn_task();
@@ -141,7 +142,7 @@ fn remove_tracks(track_ids: Vec<u32>) {
             .blocking_write()
             .remove_tracks(&TRACK_LIST.blocking_read(), &removed_id_ch_tuples);
         if let Some(hz_range) = hz_range {
-            *HZ_RANGE.blocking_write() = hz_range;
+            *HZ_RANGE.write() = hz_range;
         }
     });
 }
@@ -228,7 +229,7 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     assert!(max_hz > 0.);
     assert!(min_hz < max_hz);
     let hz_range = (min_hz as f32, max_hz as f32);
-    *HZ_RANGE.write().await = hz_range;
+    *HZ_RANGE.write() = hz_range;
     let need_update = spawn_blocking(move || {
         TM.blocking_write()
             .set_hz_range(&TRACK_LIST.blocking_read(), hz_range)
@@ -243,7 +244,7 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
 
 #[napi]
 fn get_spec_setting() -> SpecSetting {
-    SPEC_SETTING.blocking_read().clone()
+    SPEC_SETTING.read().clone()
 }
 
 #[napi]
@@ -251,7 +252,7 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.win_ms > 0.);
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
-    *SPEC_SETTING.write().await = spec_setting.clone();
+    *SPEC_SETTING.write() = spec_setting.clone();
     let tracklist = TRACK_LIST.read().await;
     let all_id_ch_tuples = tracklist.id_ch_tuples();
     spawn_blocking(move || TM.blocking_write().set_setting(&tracklist, spec_setting));
@@ -412,7 +413,7 @@ fn get_freq_axis_markers(
 
     json!(calc_freq_axis_markers(
         calc_valid_hz_range(max_track_hz as f32),
-        SPEC_SETTING.blocking_read().freq_scale,
+        SPEC_SETTING.read().freq_scale,
         max_num_ticks,
         max_num_labels
     ))
@@ -669,7 +670,7 @@ async fn refresh_track_player() {
 
 #[inline]
 fn calc_valid_hz_range(max_track_hz: f32) -> (f32, f32) {
-    TrackManager::calc_valid_hz_range(&HZ_RANGE.blocking_read(), max_track_hz)
+    TrackManager::calc_valid_hz_range(&HZ_RANGE.read(), max_track_hz)
 }
 
 #[inline]
@@ -678,7 +679,7 @@ fn convert_freq_pos_to_hz(y: f32, height: u32, hz_range: Option<(f32, f32)>) -> 
         hz_range.unwrap_or_else(|| calc_valid_hz_range(TM.blocking_read().max_sr as f32 / 2.));
     let rel_freq = 1. - y / height as f32;
     SPEC_SETTING
-        .blocking_read()
+        .read()
         .freq_scale
         .relative_freq_to_hz(rel_freq, hz_range)
 }
@@ -688,7 +689,7 @@ fn convert_freq_hz_to_pos(hz: f32, height: u32, hz_range: Option<(f32, f32)>) ->
     let hz_range =
         hz_range.unwrap_or_else(|| calc_valid_hz_range(TM.blocking_read().max_sr as f32 / 2.));
     let rel_freq = SPEC_SETTING
-        .blocking_read()
+        .read()
         .freq_scale
         .hz_to_relative_freq(hz, hz_range);
     (1. - rel_freq) * height as f32
