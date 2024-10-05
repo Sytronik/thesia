@@ -4,12 +4,12 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
-use futures::join;
 use napi::bindgen_prelude::spawn;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
 use rayon::prelude::*;
 use tokio::{
+    join,
     sync::{
         mpsc::{self, Receiver, Sender},
         RwLock,
