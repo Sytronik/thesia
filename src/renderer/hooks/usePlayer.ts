@@ -30,7 +30,10 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   const requestRef = useRef<number>(0);
 
   const updatePlayerStates = useEvent(() => {
+    // const start = performance.now();
     const {isPlaying: newIsPlaying, positionSec, err} = BackendAPI.getPlayerState();
+    // const end = performance.now();
+    // console.log(`Execution time: ${end - start} ms`);
     if (err) console.error(err);
     if (isPlaying !== newIsPlaying) setIsPlaying(newIsPlaying);
     positionSecRef.current = positionSec;
