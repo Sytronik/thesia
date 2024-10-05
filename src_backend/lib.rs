@@ -213,7 +213,9 @@ async fn set_dB_range(dB_range: f64) {
     spawn_blocking(move || {
         TM.blocking_write()
             .set_dB_range(&TRACK_LIST.blocking_read(), dB_range as f32)
-    });
+    })
+    .await
+    .unwrap();
     remove_all_imgs().await;
 }
 
@@ -253,10 +255,13 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
     *SPEC_SETTING.write() = spec_setting.clone();
-    let tracklist = TRACK_LIST.read().await;
-    let all_id_ch_tuples = tracklist.id_ch_tuples();
-    spawn_blocking(move || TM.blocking_write().set_setting(&tracklist, spec_setting));
-    img_mgr::send(ImgMsg::Remove(all_id_ch_tuples)).await;
+    spawn_blocking(move || {
+        TM.blocking_write()
+            .set_setting(&TRACK_LIST.blocking_read(), spec_setting)
+    })
+    .await
+    .unwrap();
+    remove_all_imgs().await;
 }
 
 #[napi]
@@ -272,7 +277,9 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
     spawn_blocking(move || {
         TM.blocking_write()
             .update_all_specs_greys(&TRACK_LIST.blocking_read());
-    });
+    })
+    .await
+    .unwrap();
     remove_all_imgs().await;
     refresh_track_player().await;
 }
