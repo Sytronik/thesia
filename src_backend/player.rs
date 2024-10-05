@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 use atomic_float::AtomicF32;
 use cpal::traits::DeviceTrait;
 use cpal::SupportedStreamConfigsError;
-use futures::task;
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use lazy_static::lazy_static;
 use log::{error, info, LevelFilter, SetLoggerError};
@@ -244,7 +243,7 @@ fn main_loop(
         }
     };
 
-    let waker = task::noop_waker();
+    let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
     loop {
         match msg_rx.poll_recv(&mut cx) {
@@ -452,7 +451,7 @@ pub fn spawn_task() {
         }
     }
 
-    let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(10);
+    let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(20);
     let (noti_tx, noti_rx) = watch::channel(PlayerNotification::Ok(Default::default()));
     unsafe {
         COMMAND_TX = Some(command_tx);

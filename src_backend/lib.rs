@@ -12,6 +12,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
+use tokio::join;
 use tokio::sync::RwLock as AsyncRwLock;
 
 #[warn(dead_code)]
@@ -162,8 +163,10 @@ async fn apply_track_list_changes() -> Vec<String> {
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
         .collect();
-    img_mgr::send(ImgMsg::Remove(id_ch_tuples)).await;
-    player::send(PlayerCommand::SetSr(sr)).await;
+    join!(
+        img_mgr::send(ImgMsg::Remove(id_ch_tuples)),
+        player::send(PlayerCommand::SetSr(sr))
+    );
     id_ch_strs
 }
 
@@ -280,8 +283,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
     })
     .await
     .unwrap();
-    remove_all_imgs().await;
-    refresh_track_player().await;
+    join!(remove_all_imgs(), refresh_track_player());
 }
 
 #[napi]
@@ -304,8 +306,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     })
     .await
     .unwrap();
-    remove_all_imgs().await;
-    refresh_track_player().await;
+    join!(remove_all_imgs(), refresh_track_player());
     Ok(())
 }
 

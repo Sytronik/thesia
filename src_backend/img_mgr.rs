@@ -612,8 +612,8 @@ pub fn spawn_task() {
         }
     }
 
-    let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(60);
-    let (img_tx, img_rx) = mpsc::channel(60);
+    let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(70);
+    let (img_tx, img_rx) = mpsc::channel(70);
     unsafe {
         MSG_TX = Some(msg_tx);
         IMG_RX = Some(img_rx);
