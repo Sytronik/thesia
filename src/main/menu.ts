@@ -65,6 +65,14 @@ const clickJumpPlayerMenus = (
   if (!event.triggeredByAccelerator) browserWindow?.webContents.send("jump-player", jumpSec);
 };
 
+const killAndReload: MenuItemClick = (_, browserWindow) => {
+  // The next line is needed to kill the backend on Windows.
+  browserWindow?.webContents.forcefullyCrashRenderer();
+  // The next reload sometimes fails. So "renderer-process-gone" listener is needed.
+  // (refer to webContents.on("renderer-process-gone") in main.ts)
+  browserWindow?.webContents.reload();
+};
+
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
 
@@ -357,7 +365,7 @@ export default class MenuBuilder {
                 {
                   label: "&Reload",
                   accelerator: "Ctrl+R",
-                  click: () => this.mainWindow.webContents.reload(),
+                  click: killAndReload,
                 },
                 {
                   label: "Toggle &Full Screen",
