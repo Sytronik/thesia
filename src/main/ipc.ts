@@ -80,14 +80,10 @@ export default function addIPCListeners() {
 
   ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
     const msgUnsupported = unsupportedPaths.length
-      ? `-- Not Supported Type --
-      ${unsupportedPaths.join("\n")}
-      `
+      ? `-- Not Supported Type --\n${unsupportedPaths.join("\n")}\n`
       : "";
     const msgInvalid = invalidPaths.length
-      ? `-- Not Valid Format --
-      ${invalidPaths.join("\n")}
-      `
+      ? `-- Not Valid Format --\n${invalidPaths.join("\n")}\n`
       : "";
     await dialog.showMessageBox({
       type: "error",
@@ -95,11 +91,13 @@ export default function addIPCListeners() {
       defaultId: 0,
       title: "File Open Error",
       message: "The following files could not be opened",
-      detail: `${msgUnsupported}\
-        ${msgInvalid}\
-
-        Please ensure that the file properties are correct and that it is a supported file type.
-        Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
+      detail:
+        `${msgUnsupported}\n` +
+        `${msgInvalid}\n` +
+        "\n" +
+        "Please ensure that the file properties are correct and that it is a supported file type.\n" +
+        `Only files with the following extensions are allowed:\n${SUPPORTED_TYPES.join(", ")}`,
+      textWidth: 290,
       cancelId: 0,
       noLink: false,
       normalizeAccessKeys: false,
