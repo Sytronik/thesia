@@ -78,14 +78,14 @@ export default function addIPCListeners() {
     event.reply("add-global-focusout-listener");
   });
 
-  ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
+  ipcMain.on("show-file-open-err-msg", (event, unsupportedPaths, invalidPaths) => {
     const msgUnsupported = unsupportedPaths.length
       ? `-- Not Supported Type --\n${unsupportedPaths.join("\n")}\n`
       : "";
     const msgInvalid = invalidPaths.length
       ? `-- Not Valid Format --\n${invalidPaths.join("\n")}\n`
       : "";
-    await dialog.showMessageBox({
+    dialog.showMessageBoxSync({
       type: "error",
       buttons: ["OK"],
       defaultId: 0,
