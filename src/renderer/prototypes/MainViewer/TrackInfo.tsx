@@ -54,7 +54,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       onContextMenu={(e) => {
         e.preventDefault();
         showTrackContextMenu();
-      }} // TODO: if (!isSelected), show highlight instead
+      }}
       style={{
         margin: `${VERTICAL_AXIS_PADDING}px 0`,
         height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,

@@ -541,7 +541,6 @@ fn get_max_peak_dB(track_id: u32) -> f64 {
 }
 
 #[napi]
-// TODO: currently, no use
 fn get_guard_clip_stats(track_id: u32) -> String {
     let tracklist = TRACK_LIST.blocking_read();
     let mode = tracklist.common_guard_clipping;

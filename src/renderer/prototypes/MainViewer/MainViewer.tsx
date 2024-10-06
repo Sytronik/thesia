@@ -320,7 +320,6 @@ function MainViewer(props: MainViewerProps) {
         const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
         if (imgClientRect === undefined) return;
         const bottom = imgClientRect.y + imgClientRect.height;
-        // TODO: when cursor is out of ImgCanvas
         if (prevBottom <= cursorClientY && cursorClientY < imgClientRect.y) {
           vScrollAnchorInfoRef.current.imgIndex = i;
           vScrollAnchorInfoRef.current.cursorRatioOnImg = 0;
