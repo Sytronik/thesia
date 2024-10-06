@@ -24,7 +24,7 @@ cpal = "0.15.3"
 dashmap = "6.1.0"
 dunce = "1.0.5"
 ebur128 = "0.1.9"
-fast_image_resize = {version = "5.0.0", features = ["rayon"]}
+fast_image_resize = {version = "5.0.0"}
 futures = "0.3.30"
 itertools = "0.13.0"
 kittyaudio = {git = "https://github.com/Sytronik/kittyaudio.git", branch = "master"}
