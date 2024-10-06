@@ -220,11 +220,7 @@
     ],
     "fileAssociations": [
       {
-        "ext": "wav",
-        "role": "Viewer"
-      },
-      {
-        "ext": "mp3",
+        "ext": "aac",
         "role": "Viewer"
       },
       {
@@ -236,7 +232,7 @@
         "role": "Viewer"
       },
       {
-        "ext": "ogg",
+        "ext": "mp3",
         "role": "Viewer"
       },
       {
@@ -244,7 +240,11 @@
         "role": "Viewer"
       },
       {
-        "ext": "aac",
+        "ext": "ogg",
+        "role": "Viewer"
+      },
+      {
+        "ext": "wav",
         "role": "Viewer"
       }
     ],
