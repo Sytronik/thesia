@@ -144,7 +144,7 @@ function MainViewer(props: MainViewerProps) {
     await refreshTracks();
   });
   const removeAndRefreshTracks = useEvent(async (ids: number[]) => {
-    await removeTracks(ids);
+    removeTracks(ids);
     await refreshTracks();
   });
   const calcEndSec = useEvent(() => startSecRef.current + width / pxPerSecRef.current);

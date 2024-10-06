@@ -140,7 +140,7 @@ function MyApp({userSettings}: AppProps) {
 
   const removeSelectedTracks = useEvent(async () => {
     if (selectedTrackIds.length === 0) return;
-    await removeTracks(selectedTrackIds);
+    removeTracks(selectedTrackIds);
     await refreshTracks();
   });
 
