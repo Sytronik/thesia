@@ -78,31 +78,43 @@ export default function addIPCListeners() {
     event.reply("add-global-focusout-listener");
   });
 
-  ipcMain.on("show-file-open-err-msg", (event, unsupportedPaths, invalidPaths) => {
-    const msgUnsupported = unsupportedPaths.length
-      ? `-- Not Supported Type --\n${unsupportedPaths.join("\n")}\n`
-      : "";
-    const msgInvalid = invalidPaths.length
-      ? `-- Not Valid Format --\n${invalidPaths.join("\n")}\n`
-      : "";
-    dialog.showMessageBoxSync({
-      type: "error",
-      buttons: ["OK"],
-      defaultId: 0,
-      title: "File Open Error",
-      message: "The following files could not be opened",
-      detail:
-        `${msgUnsupported}\n` +
-        `${msgInvalid}\n` +
-        "\n" +
-        "Please ensure that the file properties are correct and that it is a supported file type.\n" +
-        `Only files with the following extensions are allowed:\n${SUPPORTED_TYPES.join(", ")}`,
-      textWidth: 290,
-      cancelId: 0,
-      noLink: false,
-      normalizeAccessKeys: false,
-    });
-  });
+  const numFilesLabel = (numFiles: number) => (numFiles >= 5 ? ` (${numFiles} files)` : ``);
+  const joinManyPaths = (paths: string[]) => {
+    // join with newline if less than 5 elements, else show first 2 elems + ellipse + the last elem
+    return paths.length < 5
+      ? paths.join("\n")
+      : `${paths.slice(2).join("\n")}\n...\n${paths[paths.length - 1]}`;
+  };
+  ipcMain.on(
+    "show-file-open-err-msg",
+    (event, unsupportedPaths: string[], invalidPaths: string[]) => {
+      const msgUnsupported = unsupportedPaths.length
+        ? `-- Not Supported Type${numFilesLabel(unsupportedPaths.length)} --\n` +
+          `${joinManyPaths(unsupportedPaths)}\n`
+        : "";
+      const msgInvalid = invalidPaths.length
+        ? `-- Not Valid Format${numFilesLabel(invalidPaths.length)} --\n` +
+          `${joinManyPaths(invalidPaths)}\n`
+        : "";
+      dialog.showMessageBoxSync({
+        type: "error",
+        buttons: ["OK"],
+        defaultId: 0,
+        title: "File Open Error",
+        message: "The following files could not be opened",
+        detail:
+          `${msgUnsupported}\n` +
+          `${msgInvalid}\n` +
+          "\n" +
+          "Please ensure that the file properties are correct and that it is a supported file type.\n" +
+          `Only files with the following extensions are allowed:\n${SUPPORTED_TYPES.join(", ")}`,
+        textWidth: 290,
+        cancelId: 0,
+        noLink: false,
+        normalizeAccessKeys: false,
+      });
+    },
+  );
 
   ipcMain.on("show-track-context-menu", (event) => {
     const menu = Menu.buildFromTemplate([
