@@ -153,17 +153,14 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     setFloatingInputHidden(true);
   });
 
-  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind, idOfContextMenu: number) => {
-    if (axisKind !== "ampAxis" || id !== idOfContextMenu) return;
-    setFloatingInputHidden(false);
-  });
+  const onEditAxisRangeMenu = useEvent(() => setFloatingInputHidden(false));
 
   useEffect(() => {
-    ipcRenderer.on("edit-axis-range", onEditAxisRangeMenu);
+    ipcRenderer.on(`edit-ampAxis-range-${id}`, onEditAxisRangeMenu);
     return () => {
-      ipcRenderer.removeListener("edit-axis-range", onEditAxisRangeMenu);
+      ipcRenderer.removeListener(`edit-ampAxis-range-${id}`, onEditAxisRangeMenu);
     };
-  }, [onEditAxisRangeMenu]);
+  }, [id, onEditAxisRangeMenu]);
 
   const axisCanvas = (
     <>

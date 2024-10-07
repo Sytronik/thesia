@@ -123,25 +123,25 @@ export default function addIPCListeners() {
     if (axisKind === "ampAxis") {
       template.push({
         ...labelAndSublabel("Edit Range", "Double Cick", "Double Click", 2),
-        click: () => event.sender.send("edit-axis-range", axisKind, id),
+        click: () => event.sender.send(`edit-${axisKind}-range-${id}`),
       });
     } else if (axisKind === "freqAxis") {
       template.push(
         {
           ...labelAndSublabel("Edit Upper Limit", "Double Click"),
           click: () => {
-            event.sender.send("edit-axis-range", axisKind, id, "max");
+            event.sender.send(`edit-${axisKind}-range-${id}`, "max");
           },
         },
         {
           ...labelAndSublabel("Edit Lower Limit", "Double Click"),
-          click: () => event.sender.send("edit-axis-range", axisKind, id, "min"),
+          click: () => event.sender.send(`edit-${axisKind}-range-${id}`, "min"),
         },
       );
     }
     template.push({
       ...labelAndSublabel("Reset Range", "⌥+Click", "Alt+Click", 2),
-      click: () => event.sender.send("reset-axis-range", axisKind, id),
+      click: () => event.sender.send("reset-axis-range", axisKind),
     });
     const menu = Menu.buildFromTemplate(template);
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});

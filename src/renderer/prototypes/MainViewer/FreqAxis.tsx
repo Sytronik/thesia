@@ -217,20 +217,16 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
   const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
 
-  const onEditAxisRangeMenu = useEvent(
-    (_, axisKind: AxisKind, idOfContextMenu: number, minOrMax: "min" | "max") => {
-      if (axisKind !== "freqAxis" || id !== idOfContextMenu) return;
-      if (minOrMax === "min") setMinHzInputHidden(false);
-      else setMaxHzInputHidden(false);
-    },
+  const onEditAxisRangeMenu = useEvent((_, minOrMax: "min" | "max") =>
+    minOrMax === "min" ? setMinHzInputHidden(false) : setMaxHzInputHidden(false),
   );
 
   useEffect(() => {
-    ipcRenderer.on("edit-axis-range", onEditAxisRangeMenu);
+    ipcRenderer.on(`edit-freqAxis-range-${id}`, onEditAxisRangeMenu);
     return () => {
-      ipcRenderer.removeListener("edit-axis-range", onEditAxisRangeMenu);
+      ipcRenderer.removeListener(`edit-freqAxis-range-${id}`, onEditAxisRangeMenu);
     };
-  }, [onEditAxisRangeMenu]);
+  }, [id, onEditAxisRangeMenu]);
 
   const axisCanvas = (
     <>
