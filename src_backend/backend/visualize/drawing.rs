@@ -379,7 +379,7 @@ pub fn get_colormap_rgb() -> Vec<u8> {
     COLORMAP
         .iter()
         .chain(Some(&WHITE))
-        .flat_map(|x| x.iter().cloned())
+        .flat_map(|x| x.iter().copied())
         .collect()
 }
 
@@ -585,7 +585,7 @@ mod tests {
     #[test]
     fn show_colorbar() {
         let (width, height) = (50, 500);
-        let colormap: Vec<u8> = COLORMAP.iter().rev().flatten().cloned().collect();
+        let colormap: Vec<u8> = COLORMAP.iter().rev().flatten().copied().collect();
         let mut imvec = vec![0u8; width * height * 3];
         let mut resizer = resize::new(
             1,

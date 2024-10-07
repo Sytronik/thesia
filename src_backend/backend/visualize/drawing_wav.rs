@@ -261,7 +261,7 @@ fn stroke_line_with_clipping_to(
             let y_px_vec: Vec<_> = y_px_iter.collect();
             stroke_line_to(
                 pixmap,
-                &mut y_px_vec.iter().cloned(),
+                &mut y_px_vec.iter().copied(),
                 stroke_width,
                 &paint_clipping,
                 stroke_border_width,

@@ -296,7 +296,7 @@ where
             let i_start = num_layers * (num_layers - 1) / 2;
             Self::HARDCODED_RATIOS[i_start..(i_start + num_layers)]
                 .iter()
-                .cloned()
+                .copied()
                 .collect()
         } else {
             let num_layers_f64 = num_layers as f64;

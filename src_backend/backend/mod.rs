@@ -74,7 +74,7 @@ impl TrackManager {
             tracklist.id_ch_tuples_from(added_ids),
             Some(&sr_win_nfft_set),
         );
-        self.no_grey_ids.extend(added_ids.iter().cloned());
+        self.no_grey_ids.extend(added_ids.iter().copied());
     }
 
     pub fn reload_tracks(&mut self, tracklist: &TrackList, reloaded_ids: &[usize]) {
@@ -85,7 +85,7 @@ impl TrackManager {
             tracklist.id_ch_tuples_from(reloaded_ids),
             Some(&sr_win_nfft_set),
         );
-        self.no_grey_ids.extend(reloaded_ids.iter().cloned());
+        self.no_grey_ids.extend(reloaded_ids.iter().copied());
     }
 
     pub fn remove_tracks(
