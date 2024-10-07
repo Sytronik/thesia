@@ -319,13 +319,15 @@ async fn categorize_blend_caches(
     } = params;
     let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
-    let mut total_widths = IdChMap::with_capacity(id_ch_tuples.len());
-    total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-        let width = tracklist
-            .get(id)
-            .map_or(0, |track| track.calc_width(option.px_per_sec));
-        ((id, ch), width)
-    }));
+    let total_widths: IdChMap<_> = id_ch_tuples
+        .iter()
+        .map(|&(id, ch)| {
+            let width = tracklist
+                .get(id)
+                .map_or(0, |track| track.calc_width(option.px_per_sec));
+            ((id, ch), width)
+        })
+        .collect();
 
     let (cat_by_spec, cat_by_wav, need_wav_parts_only) = categorize_id_ch(
         &id_ch_tuples,

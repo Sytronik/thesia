@@ -1,5 +1,4 @@
 use std::io;
-use std::iter;
 use std::path::Path;
 
 use kittyaudio::Frame;
@@ -322,9 +321,9 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
                 let mut slices: Vec<_> = planes
                     .iter_mut()
                     .map(|plane| {
-                        let idx = plane.len();
-                        plane.extend(iter::repeat(0.).take(_decoded.samples_planar()));
-                        &mut plane[idx..]
+                        let prev_len = plane.len();
+                        plane.resize(prev_len + _decoded.samples_planar(), 0.);
+                        &mut plane[prev_len..]
                     })
                     .collect();
                 _decoded.copy_to_slice_planar(&mut slices);

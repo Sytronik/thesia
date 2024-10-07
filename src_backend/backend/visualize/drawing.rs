@@ -114,45 +114,46 @@ impl TrackDrawer for TrackManager {
     ) -> IdChValueVec<Array3<u8>> {
         // let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
-        let mut result = Vec::with_capacity(id_ch_tuples.len());
-        result.par_extend(id_ch_tuples.par_iter().map(|&(id, ch)| {
-            let out_for_not_exist = || ((id, ch), Array::zeros((0, 0, 0)));
-            let track = if let Some(track) = tracklist.get(id) {
-                track
-            } else {
-                return out_for_not_exist();
-            };
-            let width = track.calc_width(px_per_sec);
-            let shape = (height as usize, width as usize, 4);
-            let arr = match kind {
-                ImageKind::Spec => {
-                    let grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
-                        grey.view()
-                    } else {
-                        return out_for_not_exist();
-                    };
-                    let vec = colorize_resize_grey(grey.into(), width, height, false);
-                    Array3::from_shape_vec(shape, vec).unwrap()
-                }
-                ImageKind::Wav(opt_for_wav) => {
-                    let mut arr = Array3::zeros(shape);
-                    let (wav, show_clipping) = track.channel_for_drawing(ch);
-                    draw_wav_to(
-                        arr.as_slice_mut().unwrap(),
-                        wav.into(),
-                        width,
-                        height,
-                        &opt_for_wav,
-                        show_clipping,
-                        true,
-                    );
-                    arr
-                }
-            };
-            ((id, ch), arr)
-        }));
+        id_ch_tuples
+            .par_iter()
+            .map(|&(id, ch)| {
+                let out_for_not_exist = || ((id, ch), Array::zeros((0, 0, 0)));
+                let track = if let Some(track) = tracklist.get(id) {
+                    track
+                } else {
+                    return out_for_not_exist();
+                };
+                let width = track.calc_width(px_per_sec);
+                let shape = (height as usize, width as usize, 4);
+                let arr = match kind {
+                    ImageKind::Spec => {
+                        let grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
+                            grey.view()
+                        } else {
+                            return out_for_not_exist();
+                        };
+                        let vec = colorize_resize_grey(grey.into(), width, height, false);
+                        Array3::from_shape_vec(shape, vec).unwrap()
+                    }
+                    ImageKind::Wav(opt_for_wav) => {
+                        let mut arr = Array3::zeros(shape);
+                        let (wav, show_clipping) = track.channel_for_drawing(ch);
+                        draw_wav_to(
+                            arr.as_slice_mut().unwrap(),
+                            wav.into(),
+                            width,
+                            height,
+                            &opt_for_wav,
+                            show_clipping,
+                            true,
+                        );
+                        arr
+                    }
+                };
+                ((id, ch), arr)
+            })
+            .collect()
         // println!("draw entire: {:?}", start.elapsed());
-        result
     }
 
     /// Draw part of images. if blend < 0, draw waveform with transparent background
@@ -169,77 +170,77 @@ impl TrackDrawer for TrackManager {
     ) -> IdChValueVec<Vec<u8>> {
         // let start = Instant::now();
         let DrawOption { px_per_sec, height } = option;
-        let mut result = Vec::with_capacity(id_ch_tuples.len());
-        let par_iter = id_ch_tuples.par_iter().enumerate().map(|(i, &(id, ch))| {
-            let out_for_not_exist = || ((id, ch), Vec::new());
-            let track = if let Some(track) = tracklist.get(id) {
-                track
-            } else {
-                return out_for_not_exist();
-            };
-            let spec_grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
-                grey
-            } else {
-                return out_for_not_exist();
-            };
-            let PartGreyInfo {
-                i_w_and_width,
-                start_sec_with_margin,
-                width_with_margin,
-            } = track.calc_part_grey_info(
-                spec_grey.shape()[1] as u64,
-                start_sec,
-                width,
-                px_per_sec,
-            );
-
-            let (pad_left, drawing_width_with_margin, pad_right) =
-                track.decompose_width_of(start_sec_with_margin, width_with_margin, px_per_sec);
-            if drawing_width_with_margin == 0 {
-                return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
-            }
-
-            let spec_grey_part = ArrWithSliceInfo::new(spec_grey.view(), i_w_and_width);
-            let (wav, show_clipping) = track.channel_for_drawing(ch);
-            let wav_part = ArrWithSliceInfo::new(
-                wav,
-                track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
-            );
-            let vec = draw_blended_spec_wav(
-                spec_grey_part,
-                wav_part,
-                drawing_width_with_margin,
-                height,
-                &opt_for_wav,
-                blend,
-                fast_resize_vec.as_ref().map_or(false, |v| v[i]),
-                show_clipping,
-            );
-            let mut arr = Array3::from_shape_vec(
-                (height as usize, drawing_width_with_margin as usize, 4),
-                vec,
-            )
-            .unwrap();
-
-            if width_with_margin != drawing_width_with_margin {
-                arr = arr.pad(
-                    (pad_left as usize, pad_right as usize),
-                    Axis(1),
-                    Default::default(),
+        id_ch_tuples
+            .par_iter()
+            .enumerate()
+            .map(|(i, &(id, ch))| {
+                let out_for_not_exist = || ((id, ch), Vec::new());
+                let track = if let Some(track) = tracklist.get(id) {
+                    track
+                } else {
+                    return out_for_not_exist();
+                };
+                let spec_grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
+                    grey
+                } else {
+                    return out_for_not_exist();
+                };
+                let PartGreyInfo {
+                    i_w_and_width,
+                    start_sec_with_margin,
+                    width_with_margin,
+                } = track.calc_part_grey_info(
+                    spec_grey.shape()[1] as u64,
+                    start_sec,
+                    width,
+                    px_per_sec,
                 );
-            }
-            let margin_l = ((start_sec - start_sec_with_margin) * px_per_sec).round() as isize;
-            arr.slice_collapse(s![.., margin_l..(margin_l + width as isize), ..]);
-            let (vec, _) = arr
-                .as_standard_layout()
-                .to_owned()
-                .into_raw_vec_and_offset();
-            ((id, ch), vec)
-        });
-        result.par_extend(par_iter);
 
+                let (pad_left, drawing_width_with_margin, pad_right) =
+                    track.decompose_width_of(start_sec_with_margin, width_with_margin, px_per_sec);
+                if drawing_width_with_margin == 0 {
+                    return ((id, ch), vec![0u8; height as usize * width as usize * 4]);
+                }
+
+                let spec_grey_part = ArrWithSliceInfo::new(spec_grey.view(), i_w_and_width);
+                let (wav, show_clipping) = track.channel_for_drawing(ch);
+                let wav_part = ArrWithSliceInfo::new(
+                    wav,
+                    track.calc_part_wav_info(start_sec_with_margin, width_with_margin, px_per_sec),
+                );
+                let vec = draw_blended_spec_wav(
+                    spec_grey_part,
+                    wav_part,
+                    drawing_width_with_margin,
+                    height,
+                    &opt_for_wav,
+                    blend,
+                    fast_resize_vec.as_ref().map_or(false, |v| v[i]),
+                    show_clipping,
+                );
+                let mut arr = Array3::from_shape_vec(
+                    (height as usize, drawing_width_with_margin as usize, 4),
+                    vec,
+                )
+                .unwrap();
+
+                if width_with_margin != drawing_width_with_margin {
+                    arr = arr.pad(
+                        (pad_left as usize, pad_right as usize),
+                        Axis(1),
+                        Default::default(),
+                    );
+                }
+                let margin_l = ((start_sec - start_sec_with_margin) * px_per_sec).round() as isize;
+                arr.slice_collapse(s![.., margin_l..(margin_l + width as isize), ..]);
+                let (vec, _) = arr
+                    .as_standard_layout()
+                    .to_owned()
+                    .into_raw_vec_and_offset();
+                ((id, ch), vec)
+            })
+            .collect()
         // println!("draw: {:?}", start.elapsed());
-        result
     }
 
     fn draw_overview(

@@ -188,17 +188,19 @@ impl TrackManager {
             }
         }
         let len = id_ch_tuples.len();
-        let mut specs = IdChMap::with_capacity(len);
-        specs.par_extend(id_ch_tuples.into_par_iter().map(|(id, ch)| {
-            let track = &tracklist[id];
-            let spec = self.spec_analyzer.calc_spec(
-                track.channel(ch),
-                track.sr(),
-                &self.setting,
-                len == 1,
-            );
-            ((id, ch), spec)
-        }));
+        let specs: Vec<_> = id_ch_tuples
+            .into_par_iter()
+            .map(|(id, ch)| {
+                let track = &tracklist[id];
+                let spec = self.spec_analyzer.calc_spec(
+                    track.channel(ch),
+                    track.sr(),
+                    &self.setting,
+                    len == 1,
+                );
+                ((id, ch), spec)
+            })
+            .collect();
         self.specs.extend(specs);
     }
 
@@ -244,28 +246,31 @@ impl TrackManager {
         };
 
         if !ids_need_update.is_empty() {
-            let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
-            new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                if ids_need_update.contains(&id) {
-                    let sr = tracklist[id].sr();
-                    let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
-                        self.get_hz_range(),
-                        sr,
-                        spec.shape()[1],
-                    );
-                    let grey = visualize::convert_spec_to_grey(
-                        spec.view(),
-                        i_freq_range,
-                        (self.min_dB, self.max_dB),
-                    );
-                    Some(((id, ch), grey))
-                } else {
-                    None
-                }
-            }));
+            let new_spec_greys: Vec<_> = self
+                .specs
+                .par_iter()
+                .filter_map(|(&(id, ch), spec)| {
+                    if ids_need_update.contains(&id) {
+                        let sr = tracklist[id].sr();
+                        let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
+                            self.get_hz_range(),
+                            sr,
+                            spec.shape()[1],
+                        );
+                        let grey = visualize::convert_spec_to_grey(
+                            spec.view(),
+                            i_freq_range,
+                            (self.min_dB, self.max_dB),
+                        );
+                        Some(((id, ch), grey))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
             if need_update_all {
-                self.spec_greys = new_spec_greys;
+                self.spec_greys = new_spec_greys.into_iter().collect();
             } else {
                 self.spec_greys.extend(new_spec_greys)
             }

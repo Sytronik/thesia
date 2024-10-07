@@ -440,10 +440,9 @@ impl TrackList {
     }
 
     fn update_filenames(&mut self) {
-        let mut paths = HashMap::with_capacity(self.tracks.len());
-        paths.extend(
-            indexed_iter_filtered!(self.tracks).map(|(id, track)| (id, track.path.clone())),
-        );
+        let paths: HashMap<_, _> = indexed_iter_filtered!(self.tracks)
+            .map(|(id, track)| (id, track.path.clone()))
+            .collect();
         let mut filenames = unique_filenames(paths);
         self.filenames = (0..self.tracks.len())
             .map(|i| filenames.remove(&i))
