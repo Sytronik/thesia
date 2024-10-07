@@ -566,7 +566,7 @@ function MainViewer(props: MainViewerProps) {
       needFollowCursor.current = true;
       const endSec = calcEndSec();
       const diff = selectSec - prevSelectSecRef.current;
-      if (diff > 1e-6 && (endSec < selectSec || startSecRef.current > selectSec)) {
+      if (Math.abs(diff) > 1e-6 && (endSec < selectSec || startSecRef.current > selectSec)) {
         let newStartSec = startSecRef.current + diff;
         const newEndSec = endSec + diff;
 
