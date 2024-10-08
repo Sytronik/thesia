@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
 
+use identity_hash::{IntMap, IntSet};
 use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -14,6 +14,7 @@ use super::dynamics::{
     NormalizeTarget, StatCalculator,
 };
 use super::spectrogram::{SpecSetting, SrWinNfft};
+use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
 use super::visualize::{CalcWidth, IdxLen, PartGreyInfo};
 use super::IdChVec;
@@ -365,7 +366,7 @@ impl TrackList {
     }
 
     #[inline]
-    pub fn all_id_set(&self) -> HashSet<usize> {
+    pub fn all_id_set(&self) -> IntSet<usize> {
         indexed_iter_filtered!(self.tracks)
             .map(|(id, _)| id)
             .collect()
@@ -400,14 +401,14 @@ impl TrackList {
         &self,
         ids: &[usize],
         setting: &SpecSetting,
-    ) -> HashSet<SrWinNfft> {
+    ) -> TupleIntSet<SrWinNfft> {
         ids.iter()
             .map(|&id| setting.calc_sr_win_nfft(self[id].sr()))
             .collect()
     }
 
     #[inline]
-    pub fn construct_all_sr_win_nfft_set(&self, setting: &SpecSetting) -> HashSet<SrWinNfft> {
+    pub fn construct_all_sr_win_nfft_set(&self, setting: &SpecSetting) -> TupleIntSet<SrWinNfft> {
         self.construct_sr_win_nfft_set(&self.all_ids(), setting)
     }
 
@@ -440,7 +441,7 @@ impl TrackList {
     }
 
     fn update_filenames(&mut self) {
-        let paths: HashMap<_, _> = indexed_iter_filtered!(self.tracks)
+        let paths: IntMap<_, _> = indexed_iter_filtered!(self.tracks)
             .map(|(id, track)| (id, track.path.clone()))
             .collect();
         let mut filenames = unique_filenames(paths);

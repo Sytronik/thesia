@@ -567,8 +567,8 @@ async fn take_abort_await(task_handle: &mut Option<JoinHandle<()>>) {
 }
 
 async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>, Images)>) {
-    let spec_caches = Arc::new(IdChDMap::new());
-    let wav_caches = Arc::new(IdChDMap::new());
+    let spec_caches = Arc::new(IdChDMap::default());
+    let wav_caches = Arc::new(IdChDMap::default());
     let prev_params = Arc::new(RwLock::new(DrawParams::default()));
     let mut req_id = Wrapping(0);
     let mut task_handle: Option<JoinHandle<()>> = None;

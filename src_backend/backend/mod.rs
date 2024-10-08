@@ -1,7 +1,6 @@
-use std::collections::{HashMap, HashSet};
-
 use dashmap::DashMap;
 use fast_image_resize::pixels::U16;
+use identity_hash::IntSet;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
@@ -11,6 +10,7 @@ mod dynamics;
 mod sinc;
 mod spectrogram;
 mod track;
+mod tuple_hasher;
 mod utils;
 pub mod visualize;
 mod windows;
@@ -19,6 +19,8 @@ pub use audio::AudioFormatInfo;
 pub use dynamics::{DeciBel, GuardClippingMode};
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;
+pub use tuple_hasher::TupleIntMap;
+use tuple_hasher::TupleIntSet;
 pub use utils::Pad;
 pub use visualize::{
     calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
@@ -26,12 +28,13 @@ pub use visualize::{
     DrawOption, DrawOptionForWav, TrackDrawer,
 };
 
-pub type IdChVec = Vec<(usize, usize)>;
-pub type IdChArr = [(usize, usize)];
-pub type IdChValueVec<T> = Vec<((usize, usize), T)>;
-pub type IdChValueArr<T> = [((usize, usize), T)];
-pub type IdChMap<T> = HashMap<(usize, usize), T>;
-pub type IdChDMap<T> = DashMap<(usize, usize), T>;
+pub type IdCh = (usize, usize);
+pub type IdChVec = Vec<IdCh>;
+pub type IdChArr = [IdCh];
+pub type IdChValueVec<T> = Vec<(IdCh, T)>;
+pub type IdChValueArr<T> = [(IdCh, T)];
+pub type IdChMap<T> = TupleIntMap<IdCh, T>;
+pub type IdChDMap<T> = DashMap<IdCh, T>;
 
 use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 
@@ -56,12 +59,12 @@ impl TrackManager {
             max_dB: -f32::INFINITY,
             min_dB: f32::INFINITY,
             max_sr: 0,
-            spec_greys: HashMap::new(),
+            spec_greys: Default::default(),
             setting: Default::default(),
             dB_range: 100.,
             hz_range: (0., f32::INFINITY),
             spec_analyzer: SpectrogramAnalyzer::new(),
-            specs: HashMap::new(),
+            specs: Default::default(),
             no_grey_ids: Vec::new(),
         }
     }
@@ -111,14 +114,14 @@ impl TrackManager {
         }
     }
 
-    pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (HashSet<usize>, u32) {
+    pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (IntSet<usize>, u32) {
         let set = self.update_greys(tracklist, false);
         (set, self.max_sr)
     }
 
     #[inline]
-    pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
-        self.specs.contains_key(&(id, ch))
+    pub fn exists(&self, id_ch: &IdCh) -> bool {
+        self.specs.contains_key(id_ch)
     }
 
     pub fn set_setting(&mut self, tracklist: &TrackList, setting: SpecSetting) {
@@ -176,7 +179,7 @@ impl TrackManager {
         &mut self,
         tracklist: &TrackList,
         id_ch_tuples: IdChVec,
-        framing_params: Option<&HashSet<SrWinNfft>>,
+        framing_params: Option<&TupleIntSet<SrWinNfft>>,
     ) {
         match framing_params {
             Some(p) => {
@@ -206,7 +209,7 @@ impl TrackManager {
 
     /// update spec_greys, max_dB, min_dB, max_sr
     /// clear no_grey_ids
-    fn update_greys(&mut self, tracklist: &TrackList, force_update_all: bool) -> HashSet<usize> {
+    fn update_greys(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
         let (mut max, mut min) = self
             .specs
             .par_iter()
@@ -238,7 +241,7 @@ impl TrackManager {
             self.max_sr = max_sr;
             need_update_all = true;
         }
-        let ids_need_update: HashSet<usize> = if need_update_all {
+        let ids_need_update: IntSet<usize> = if need_update_all {
             self.no_grey_ids.clear();
             tracklist.all_id_set()
         } else {

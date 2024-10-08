@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use identity_hash::IntMap;
 use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 pub mod mel;
 mod stft;
 
+use super::tuple_hasher::TupleIntSet;
 use super::windows::{calc_normalized_win, WindowType};
+use super::TupleIntMap;
 use crate::backend::dynamics::decibel::DeciBelInplace;
 use stft::perform_stft;
 
@@ -153,21 +155,21 @@ impl SpecSetting {
 }
 
 pub struct SpectrogramAnalyzer {
-    windows: HashMap<WinNfft, Array1<f32>>,
-    fft_modules: HashMap<usize, Arc<dyn RealToComplex<f32>>>,
-    mel_fbs: HashMap<SrNfft, Array2<f32>>,
+    windows: TupleIntMap<WinNfft, Array1<f32>>,
+    fft_modules: IntMap<usize, Arc<dyn RealToComplex<f32>>>,
+    mel_fbs: TupleIntMap<SrNfft, Array2<f32>>,
 }
 
 impl SpectrogramAnalyzer {
     pub fn new() -> Self {
         SpectrogramAnalyzer {
-            windows: HashMap::new(),
-            fft_modules: HashMap::new(),
-            mel_fbs: HashMap::new(),
+            windows: Default::default(),
+            fft_modules: Default::default(),
+            mel_fbs: Default::default(),
         }
     }
 
-    pub fn prepare(&mut self, params: &HashSet<SrWinNfft>, freq_scale: FreqScale) {
+    pub fn prepare(&mut self, params: &TupleIntSet<SrWinNfft>, freq_scale: FreqScale) {
         let mut real_fft_planner = RealFftPlanner::<f32>::new();
         let entries: Vec<_> = params
             .par_iter()
@@ -206,7 +208,7 @@ impl SpectrogramAnalyzer {
         }
     }
 
-    pub fn retain(&mut self, params: &HashSet<SrWinNfft>, freq_scale: FreqScale) {
+    pub fn retain(&mut self, params: &TupleIntSet<SrWinNfft>, freq_scale: FreqScale) {
         self.windows.retain(|&(win_length, n_fft), _| {
             params
                 .iter()

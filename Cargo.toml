@@ -26,6 +26,7 @@ dunce = "1.0.5"
 ebur128 = "0.1.9"
 fast_image_resize = {version = "5.0.0"}
 futures = "0.3.31"
+identity-hash = "0.1.0"
 itertools = "0.13.0"
 kittyaudio = {git = "https://github.com/Sytronik/kittyaudio.git", branch = "master"}
 lazy_static = "1.5.0"

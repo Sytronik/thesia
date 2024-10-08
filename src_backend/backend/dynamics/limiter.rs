@@ -1,6 +1,7 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
 use dashmap::DashMap;
+use identity_hash::BuildIdentityHasher;
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use num_traits::{Float, NumAssignOps, NumOps};
@@ -244,11 +245,11 @@ impl SimpleLimiter {
     }
 }
 
-struct LimiterManager(DashMap<u32, PerfectLimiter>);
+struct LimiterManager(DashMap<u32, PerfectLimiter, BuildIdentityHasher<u32>>);
 
 impl LimiterManager {
     pub fn new() -> Self {
-        LimiterManager(DashMap::new())
+        LimiterManager(Default::default())
     }
 
     pub fn get(&self, sr: u32) -> Option<PerfectLimiter> {
