@@ -311,7 +311,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
                 }
                 let found_n_ch = _decoded.num_planes();
                 if found_n_ch != n_ch {
-                    planes.resize(found_n_ch, Vec::new());
+                    planes.resize_with(found_n_ch, || Vec::with_capacity(n_samples));
                     n_ch = found_n_ch;
                 }
                 let found_sr = _decoded.spec().rate();
