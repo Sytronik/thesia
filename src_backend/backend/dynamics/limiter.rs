@@ -60,10 +60,10 @@ pub struct PerfectLimiter {
 
 impl PerfectLimiter {
     pub fn new(sr: u32, threshold: f64, attack_ms: f64, hold_ms: f64, release_ms: f64) -> Self {
-        assert!(threshold > f32::EPSILON as f64);
-        assert!(attack_ms >= 0.);
-        assert!(hold_ms >= 0.);
-        assert!(release_ms >= 0.);
+        debug_assert!(threshold > f32::EPSILON as f64);
+        debug_assert!(attack_ms >= 0.);
+        debug_assert!(hold_ms >= 0.);
+        debug_assert!(release_ms >= 0.);
         let ms_to_samples = |x: f64| (x * sr as f64 / 1000.);
         let attack = ms_to_samples(attack_ms).round() as usize;
         let mut smoother = BoxStackFilter::with_num_layers(attack, 3);
@@ -194,10 +194,10 @@ impl SimpleLimiter {
         lookahead_ms: f64,
         threshold: f64,
     ) -> SimpleLimiter {
-        assert!((0.0..1.0).contains(&attack));
-        assert!((0.0..1.0).contains(&release));
-        assert!(lookahead_ms > 0.);
-        assert!(threshold > 0.);
+        debug_assert!((0.0..1.0).contains(&attack));
+        debug_assert!((0.0..1.0).contains(&release));
+        debug_assert!(lookahead_ms > 0.);
+        debug_assert!(threshold > 0.);
         let sr = sr as f64;
         let lookahead = (sr * lookahead_ms / 1000.).round() as usize;
         let lookahead_buf = vec![0.; lookahead];

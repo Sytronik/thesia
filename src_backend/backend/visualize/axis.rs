@@ -179,8 +179,8 @@ pub fn calc_amp_axis_markers(
     max_num_labels: u32,
     amp_range: (f32, f32),
 ) -> AxisMarkers {
-    assert!(amp_range.1 > amp_range.0);
-    assert!(max_num_ticks >= 3);
+    debug_assert!(amp_range.1 > amp_range.0);
+    debug_assert!(max_num_ticks >= 3);
     if abs_diff_ne!(amp_range.0, -amp_range.1) {
         unimplemented!()
     }
@@ -230,7 +230,7 @@ pub fn calc_dB_axis_markers(
     if !dB_range.0.is_finite() || !dB_range.1.is_finite() || dB_range.0 >= dB_range.1 {
         return AxisMarkers::new();
     }
-    assert!(max_num_ticks >= 2);
+    debug_assert!(max_num_ticks >= 2);
     let axis = calc_linear_axis(dB_range.0, dB_range.1, max_num_ticks);
     let len = axis.len();
     omit_labels_from_linear_axis(axis.into_iter(), len, max_num_labels).collect()

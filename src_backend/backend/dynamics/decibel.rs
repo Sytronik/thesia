@@ -28,7 +28,7 @@ where
     fn into_value<D: Dimension>(self, data_for_max: ArrayView<A, D>) -> A {
         match self {
             DeciBelRef::Value(v) => {
-                assert!(v.is_sign_positive());
+                debug_assert!(v.is_sign_positive());
                 v
             }
             DeciBelRef::_Max => *data_for_max.max_skipnan(),
@@ -62,7 +62,7 @@ where
     type A = A;
 
     fn log_for_dB(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
-        assert!(amin.is_sign_positive());
+        debug_assert!(amin.is_sign_positive());
         let temp = [*self];
         let ref_value = reference.into_value(temp[..].into());
         if ref_value.is_nan() || ref_value.is_sign_negative() {
@@ -162,7 +162,7 @@ where
 {
     type A = A;
     fn log_for_dB_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
-        assert!(amin.is_sign_positive());
+        debug_assert!(amin.is_sign_positive());
         let ref_value = reference.into_value(self.view());
         if ref_value.is_nan() {
             return;

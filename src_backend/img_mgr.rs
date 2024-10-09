@@ -248,7 +248,7 @@ fn categorize_id_ch(
             }
         }
     }
-    assert!(
+    debug_assert!(
         cat_by_spec.need_parts.is_empty()
             || cat_by_wav.need_parts.is_empty()
             || cat_by_spec.need_parts.len() == cat_by_wav.need_parts.len()

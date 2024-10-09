@@ -424,7 +424,7 @@ pub fn blend_img_to(
     blend: f64,
     eff_l_w: Option<LeftWidth>,
 ) {
-    assert!(0. < blend && blend < 1.);
+    debug_assert!(0. < blend && blend < 1.);
     let mut pixmap = PixmapMut::from_bytes(spec_background, width, height).unwrap();
 
     let wav_pixmap = PixmapRef::from_bytes(wav_img, width, height).unwrap();

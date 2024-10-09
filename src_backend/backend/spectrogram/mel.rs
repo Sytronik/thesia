@@ -53,8 +53,8 @@ where
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
-    assert_eq!(n_fft % 2, 0);
-    assert_ne!(n_mel, 0);
+    debug_assert_eq!(n_fft % 2, 0);
+    debug_assert_ne!(n_mel, 0);
     let f_nyquist = ((sr as f64) / 2.).as_();
     let fmax = if let Some(f) = fmax { f } else { f_nyquist };
     let n_freq = n_fft / 2 + 1;

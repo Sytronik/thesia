@@ -36,7 +36,7 @@ pub trait Normalize {
             }
             #[allow(non_snake_case)]
             NormalizeTarget::PeakdB(target_peak_dB) => {
-                assert!(target_peak_dB <= 0.);
+                debug_assert!(target_peak_dB <= 0.);
                 10f32.powf((target_peak_dB - self.stats_for_normalize().max_peak_dB) / 20.)
             }
             NormalizeTarget::Off => 1.,

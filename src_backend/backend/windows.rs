@@ -44,7 +44,7 @@ where
     f32: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
-    assert!(size > 1);
+    debug_assert!(size > 1);
     let size2 = if symmetric { size + 1 } else { size };
     let pi2 = 2.as_() * A::PI();
     let pi4 = 4.as_() * A::PI();
@@ -67,7 +67,7 @@ where
     A: Float + FloatConst + 'static,
     usize: AsPrimitive<A>,
 {
-    assert!(size > 1);
+    debug_assert!(size > 1);
     let size2 = if symmetric { size } else { size + 1 };
     let cos_fn = |i: usize| {
         let x = A::PI() * i.as_() / (size2 - 1).as_();

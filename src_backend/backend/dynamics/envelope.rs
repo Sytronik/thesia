@@ -103,7 +103,7 @@ where
     usize: AsPrimitive<A>,
 {
     pub fn new(max_length: usize) -> Self {
-        assert!(max_length > 0);
+        debug_assert!(max_length > 0);
         BoxFilter {
             box_sum: BoxSum::new(max_length),
             length: max_length,
@@ -113,14 +113,14 @@ where
     }
 
     pub fn resize(&mut self, max_length: usize) {
-        assert!(max_length > 0);
+        debug_assert!(max_length > 0);
         self.box_sum.resize(max_length);
         self.max_length = max_length;
         self.set(max_length);
     }
 
     pub fn set(&mut self, length: usize) {
-        assert!(length > 0);
+        debug_assert!(length > 0);
         self.length = length;
         self.multiplier = length.as_().recip();
         if length > self.max_length {
@@ -206,8 +206,8 @@ where
     ];
 
     pub fn with_num_layers(max_size: usize, num_layers: usize) -> Self {
-        assert!(max_size > 0);
-        assert!(num_layers > 0);
+        debug_assert!(max_size > 0);
+        debug_assert!(num_layers > 0);
         let mut out = BoxStackFilter {
             layers: Vec::new(),
             size: None,
@@ -217,7 +217,7 @@ where
     }
 
     pub fn resize(&mut self, max_size: usize, ratios: Array1<f64>) {
-        assert!(max_size > 0);
+        debug_assert!(max_size > 0);
         self.setup_layers(ratios);
         for layer in &mut self.layers {
             layer.filter.resize(1); // .set() will expand it later
@@ -229,7 +229,7 @@ where
 
     /// Sets the impulse response length (does not reset if `size` ≤ `maxSize`)
     pub fn set(&mut self, size: usize) {
-        assert!(size > 0);
+        debug_assert!(size > 0);
         if self.layers.is_empty() {
             return;
         }
@@ -290,7 +290,7 @@ where
 
     /// Returns an optimal set of length ratios (heuristic for larger depths)
     fn optimal_ratios(num_layers: usize) -> Array1<f64> {
-        assert!(num_layers > 0);
+        debug_assert!(num_layers > 0);
         // Coefficients up to 6, found through numerical search
         if num_layers <= 6 {
             let i_start = num_layers * (num_layers - 1) / 2;
@@ -374,7 +374,7 @@ where
     }
 
     pub fn resize(&mut self, sr: u32, hold_ms: f64) {
-        assert!(hold_ms > 0.);
+        debug_assert!(hold_ms > 0.);
         let hold_length = (sr as f64 * hold_ms / 1000.).round() as usize;
         let buf_length = hold_length.next_power_of_two();
         if buf_length > self.buffer.capacity() {

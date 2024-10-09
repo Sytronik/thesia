@@ -187,6 +187,7 @@ async fn set_image_state(
     assert!(option.px_per_sec >= 0.);
     assert!(option.height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
+    assert!((0.0..=1.0).contains(&blend));
 
     let id_ch_tuples = {
         let tm = TM.read().await;

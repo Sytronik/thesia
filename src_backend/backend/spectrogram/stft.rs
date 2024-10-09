@@ -28,7 +28,7 @@ where
     let window = window.map_or_else(
         || calc_normalized_win(WindowType::Hann, win_length, n_fft).into(),
         |w| {
-            assert_eq!(w.len(), win_length);
+            debug_assert_eq!(w.len(), win_length);
             w
         },
     );
