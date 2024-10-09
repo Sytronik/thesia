@@ -237,7 +237,7 @@ impl TrackList {
     pub fn new() -> Self {
         TrackList {
             max_sec: 0.,
-            tracks: Vec::new(),
+            tracks: vec![None],
             filenames: Vec::new(),
             id_max_sec: 0,
             common_normalize: NormalizeTarget::Off,
@@ -326,6 +326,23 @@ impl TrackList {
             } else {
                 eprintln!("Track ID {} does not exist! Skip removing it ...", id);
             }
+        }
+        let last_id =
+            self.tracks
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(i, x)| if x.is_some() { Some(i) } else { None });
+        match last_id {
+            Some(last_id) if self.tracks.len() > 2 * (last_id + 1) => {
+                self.tracks.truncate(last_id + 1);
+                self.tracks.shrink_to_fit();
+            }
+            None => {
+                self.tracks.truncate(1);
+                self.tracks.shrink_to_fit();
+            }
+            _ => {}
         }
 
         if need_update_max_sec {

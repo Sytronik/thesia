@@ -59,12 +59,12 @@ impl TrackManager {
             max_dB: -f32::INFINITY,
             min_dB: f32::INFINITY,
             max_sr: 0,
-            spec_greys: Default::default(),
+            spec_greys: IdChMap::with_capacity_and_hasher(2, Default::default()),
             setting: Default::default(),
             dB_range: 100.,
             hz_range: (0., f32::INFINITY),
             spec_analyzer: SpectrogramAnalyzer::new(),
-            specs: Default::default(),
+            specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             no_grey_ids: Vec::new(),
         }
     }
@@ -99,6 +99,12 @@ impl TrackManager {
         for tup in removed_id_ch_tuples {
             self.specs.remove(tup);
             self.spec_greys.remove(tup);
+        }
+        if self.specs.capacity() > 2 * self.specs.len() {
+            self.specs.shrink_to(2);
+        }
+        if self.spec_greys.capacity() > 2 * self.spec_greys.len() {
+            self.spec_greys.shrink_to(2);
         }
 
         self.spec_analyzer.retain(

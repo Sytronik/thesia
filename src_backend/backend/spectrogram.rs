@@ -163,9 +163,9 @@ pub struct SpectrogramAnalyzer {
 impl SpectrogramAnalyzer {
     pub fn new() -> Self {
         SpectrogramAnalyzer {
-            windows: Default::default(),
-            fft_modules: Default::default(),
-            mel_fbs: Default::default(),
+            windows: TupleIntMap::with_capacity_and_hasher(1, Default::default()),
+            fft_modules: IntMap::with_capacity_and_hasher(1, Default::default()),
+            mel_fbs: TupleIntMap::with_capacity_and_hasher(1, Default::default()),
         }
     }
 
@@ -205,6 +205,7 @@ impl SpectrogramAnalyzer {
             self.mel_fbs.extend(entries);
         } else {
             self.mel_fbs.clear();
+            self.mel_fbs.shrink_to_fit();
         }
     }
 
@@ -214,16 +215,28 @@ impl SpectrogramAnalyzer {
                 .iter()
                 .any(|&param| win_length == param.win_length && n_fft == param.n_fft)
         });
+        if self.windows.capacity() > 2 * self.windows.len() {
+            self.windows.shrink_to(1);
+        }
+
         self.fft_modules
             .retain(|&n_fft, _| params.iter().any(|&param| n_fft == param.n_fft));
+        if self.fft_modules.capacity() > 2 * self.fft_modules.len() {
+            self.fft_modules.shrink_to(1);
+        }
+
         if freq_scale == FreqScale::Mel {
             self.mel_fbs.retain(|&(sr, n_fft), _| {
                 params
                     .iter()
                     .any(|&param| sr == param.sr && n_fft == param.n_fft)
             });
+            if self.mel_fbs.capacity() > 2 * self.mel_fbs.len() {
+                self.mel_fbs.shrink_to(1);
+            }
         } else {
             self.mel_fbs.clear();
+            self.mel_fbs.shrink_to_fit();
         }
     }
 
