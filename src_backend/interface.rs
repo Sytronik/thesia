@@ -1,4 +1,4 @@
-//! The definitions of structs only used for communications with node-js.
+//! interfaces to communicate with JS world
 
 // allow for whole file because [napi(object)] attribite on struct blocks allow(non_snake_case)
 #![allow(non_snake_case)]

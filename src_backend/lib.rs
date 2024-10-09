@@ -19,13 +19,13 @@ mod backend;
 #[warn(dead_code)]
 mod img_mgr;
 #[warn(dead_code)]
-mod objects;
+mod interface;
 #[warn(dead_code)]
 mod player;
 
 use backend::*;
 use img_mgr::{DrawParams, ImgMsg};
-use objects::*;
+use interface::*;
 use player::{PlayerCommand, PlayerNotification};
 
 #[cfg(all(
