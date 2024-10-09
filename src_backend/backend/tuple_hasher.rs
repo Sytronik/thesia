@@ -6,6 +6,7 @@ use super::spectrogram::SrWinNfft;
 use identity_hash::IdentityHashable;
 
 pub type TupleIntMap<K, V> = std::collections::HashMap<K, V, BuildTupleIntHasher<K>>;
+pub type TupleIntDMap<K, V> = dashmap::DashMap<K, V, BuildTupleIntHasher<K>>;
 pub type TupleIntSet<T> = std::collections::HashSet<T, BuildTupleIntHasher<T>>;
 
 pub type BuildTupleIntHasher<T> = BuildHasherDefault<TupleIntHasher<T>>;

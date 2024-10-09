@@ -1,4 +1,3 @@
-use dashmap::DashMap;
 use fast_image_resize::pixels::U16;
 use identity_hash::IntSet;
 use ndarray::prelude::*;
@@ -20,7 +19,7 @@ pub use dynamics::{DeciBel, GuardClippingMode};
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
-use tuple_hasher::TupleIntSet;
+use tuple_hasher::{TupleIntDMap, TupleIntSet};
 pub use utils::Pad;
 pub use visualize::{
     calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
@@ -34,7 +33,7 @@ pub type IdChArr = [IdCh];
 pub type IdChValueVec<T> = Vec<(IdCh, T)>;
 pub type IdChValueArr<T> = [(IdCh, T)];
 pub type IdChMap<T> = TupleIntMap<IdCh, T>;
-pub type IdChDMap<T> = DashMap<IdCh, T>;
+pub type IdChDMap<T> = TupleIntDMap<IdCh, T>;
 
 use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 
