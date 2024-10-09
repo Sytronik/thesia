@@ -3,7 +3,6 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
-use std::collections::HashMap;
 use std::sync::atomic::{self, AtomicBool};
 
 use itertools::Itertools;
@@ -311,15 +310,9 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-#[napi]
-fn get_images() -> HashMap<String, Buffer> {
-    match img_mgr::recv() {
-        Some(images) => images
-            .into_iter()
-            .map(|((id, ch), img)| (format_id_ch(id, ch), img.into()))
-            .collect(),
-        None => HashMap::new(),
-    }
+#[napi(ts_return_type = "Record<string, Buffer>")]
+fn get_images() -> IdChImages {
+    img_mgr::recv().map_or_else(Default::default, |x| IdChImages(x))
 }
 
 #[napi]
@@ -640,30 +633,6 @@ pub fn assert_axis_params(max_num_ticks: u32, max_num_labels: u32) {
     assert!(max_num_ticks >= 2);
     assert!(max_num_labels >= 2);
     assert!(max_num_ticks >= max_num_labels);
-}
-
-#[inline]
-fn format_id_ch(id: usize, ch: usize) -> String {
-    format!("{}_{}", id, ch)
-}
-
-fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
-    let mut result = IdChVec::with_capacity(id_ch_strs.len());
-    for s in id_ch_strs {
-        let mut iter = s.split('_').map(|x| x.parse::<usize>());
-        match (iter.next(), iter.next()) {
-            (Some(Ok(id)), Some(Ok(ch))) => {
-                result.push((id, ch));
-            }
-            _ => {
-                return Err(Error::new(
-                    Status::Unknown,
-                    "The array element should be \"{unsigned_int}_{unsigned_int}\".",
-                ));
-            }
-        }
-    }
-    Ok(result)
 }
 
 #[inline]
