@@ -421,9 +421,9 @@ function MainViewer(props: MainViewerProps) {
       isPlayhead: boolean = false,
       allowOutside: boolean = true,
     ) => {
-      if (e.altKey) return;
       const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
+      if (e.clientY < rect.bottom && e.altKey) return; // alt+click on TimeAxis fires the other event
       e.preventDefault();
       if (trackIds.length === 0) return;
       if (e.clientY < rect.top) return; // when cursor is between Overview and TimeAxis
