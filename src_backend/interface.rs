@@ -59,7 +59,7 @@ impl ToNapiValue for IdChImages {
         let env = Env::from(raw_env);
         let mut obj = env.create_object()?;
         for ((id, ch), v) in val.0.into_iter() {
-            obj.set(&format_id_ch(id, ch), Buffer::from(v))?;
+            obj.set(format_id_ch(id, ch), Buffer::from(v))?;
         }
 
         unsafe { Object::to_napi_value(raw_env, obj) }

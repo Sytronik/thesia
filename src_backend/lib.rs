@@ -312,7 +312,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
 
 #[napi(ts_return_type = "Record<string, Buffer>")]
 fn get_images() -> IdChImages {
-    img_mgr::recv().map_or_else(Default::default, |x| IdChImages(x))
+    img_mgr::recv().map_or_else(Default::default, IdChImages)
 }
 
 #[napi]
