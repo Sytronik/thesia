@@ -177,6 +177,13 @@ impl AudioFormatInfo {
                 bitrate: "".into(),
             };
         }
+        if name.starts_with("wav") {
+            return Self {
+                name,
+                sr: found_sr,
+                ..Default::default()
+            };
+        }
         let (bit_depth, bitrate) = match (
             codec_params.sample_format,
             codec_params.bits_per_sample,
@@ -390,13 +397,13 @@ mod tests {
             AudioFormatInfo {
                 name: "wav - pcm_s16le".into(),
                 sr: 48000,
-                bit_depth: "16 bit".into(),
+                bit_depth: "".into(),
                 bitrate: "".into(),
             },
             AudioFormatInfo {
                 name: "wav - pcm_s16le".into(),
                 sr: 48000,
-                bit_depth: "16 bit".into(),
+                bit_depth: "".into(),
                 bitrate: "".into(),
             },
         ];
