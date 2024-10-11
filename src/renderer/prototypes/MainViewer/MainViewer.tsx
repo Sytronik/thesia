@@ -462,11 +462,28 @@ function MainViewer(props: MainViewerProps) {
     [trackIds, updateLensParams],
   );
 
+  const setScrollTopBySelectedTracks = useEvent((newHeight: number) => {
+    if (splitViewElem.current === null) return;
+    const splitViewHeight =
+      (splitViewElem.current.getBoundingClientRect()?.height ?? 0) - TIME_CANVAS_HEIGHT - 2;
+    const scrollMiddle = splitViewElem.current.scrollTop() + splitViewHeight / 2;
+    const residualHeight = (scrollMiddle - TIME_CANVAS_HEIGHT - 2) % height;
+    const idxViewportTrack = (scrollMiddle - TIME_CANVAS_HEIGHT - 2 - residualHeight) / height;
+    setScrollTop(
+      // TIME_CANVAS_HEIGHT will be added in SplitViewElem.current.scrollTo
+      2 +
+        newHeight * idxViewportTrack +
+        (residualHeight * newHeight) / height -
+        splitViewHeight / 2,
+    );
+  });
   const freqZoomIn = useEvent(() => {
-    if (trackIds.length > 0) zoomHeight(100);
+    if (trackIds.length === 0) return;
+    setScrollTopBySelectedTracks(zoomHeight(100));
   });
   const freqZoomOut = useEvent(() => {
-    if (trackIds.length > 0) zoomHeight(-100);
+    if (trackIds.length === 0) return;
+    setScrollTopBySelectedTracks(zoomHeight(-100));
   });
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
