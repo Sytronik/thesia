@@ -5,7 +5,6 @@ extern crate blas_src;
 
 use std::sync::atomic::{self, AtomicBool};
 
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -547,7 +546,7 @@ fn get_guard_clip_stats(track_id: u32) -> String {
             } else {
                 track.guard_clip_stats()
             };
-            Itertools::intersperse(
+            itertools::intersperse(
                 stats.iter().map(|stat| {
                     let stat = stat.to_string();
                     if !stat.is_empty() {

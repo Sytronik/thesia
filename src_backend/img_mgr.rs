@@ -153,17 +153,17 @@ fn crop_caches(
     // let start = Instant::now();
     let i_w = (start_sec * option.px_per_sec).round() as isize;
     let pad_left = (-i_w.min(0)) as usize;
-    let vec: Vec<_> = id_ch_tuples
+    let zipped: Vec<_> = id_ch_tuples
         .par_iter()
-        .filter_map(|tup| {
-            let image = images.get(tup)?;
+        .filter_map(|tup| images.get(tup).map(|image| (tup, image)))
+        .map(|(tup, image)| {
             let total_width = image.len() / 4 / option.height as usize;
             let (i_w_eff, width_eff) = match calc_effective_slice(i_w, width as usize, total_width)
             {
                 Some((i, w)) => (i as isize, w as isize),
                 None => {
                     let zeros = vec![0u8; width as usize * option.height as usize * 4];
-                    return Some((*tup, (zeros, (0, 0))));
+                    return ((*tup, zeros), (*tup, (0, 0)));
                 }
             };
             let img_slice = image.slice(s![.., i_w_eff..i_w_eff + width_eff, ..]);
@@ -171,18 +171,19 @@ fn crop_caches(
             let pad_right = width as usize - width_eff as usize - pad_left;
             if pad_left + pad_right == 0 {
                 let (img_slice_vec, _) = img_slice.to_owned().into_raw_vec_and_offset();
-                Some((*tup, (img_slice_vec, (0, width))))
+                ((*tup, img_slice_vec), (*tup, (0, width)))
             } else {
                 let img_pad = img_slice.pad((pad_left, pad_right), Axis(1), Default::default());
                 let (img_pad_vec, _) = img_pad.into_raw_vec_and_offset();
-                Some((*tup, (img_pad_vec, (pad_left as u32, width_eff as u32))))
+                (
+                    (*tup, img_pad_vec),
+                    (*tup, (pad_left as u32, width_eff as u32)),
+                )
             }
         })
         .collect();
-    let eff_l_w_vec = vec.iter().map(|(k, (_, eff_l_w))| (*k, *eff_l_w)).collect();
-    let imgs = vec.into_iter().map(|(k, (img, _))| (k, img)).collect();
+    itertools::multiunzip(zipped)
     // println!("crop: {:?}", start.elapsed());
-    (imgs, eff_l_w_vec)
 }
 
 fn categorize_id_ch(

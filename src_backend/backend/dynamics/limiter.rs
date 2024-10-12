@@ -115,13 +115,13 @@ impl PerfectLimiter {
 
         let zero = Array1::zeros(wavs.shape()[0]);
         let attack = self.attack;
-        let gain_seq: Array1<_> = wavs
-            .lanes(Axis(0))
-            .into_iter()
-            .chain(std::iter::repeat(zero.view()).take(attack))
-            .map(|x| self.calc_gain(x))
-            .skip(attack)
-            .collect();
+        let gain_seq: Array1<_> = itertools::chain(
+            wavs.lanes(Axis(0)),
+            itertools::repeat_n(zero.view(), attack),
+        )
+        .map(|x| self.calc_gain(x))
+        .skip(attack)
+        .collect();
 
         wavs.axis_iter_mut(Axis(0))
             .into_par_iter()

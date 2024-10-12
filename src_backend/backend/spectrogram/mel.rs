@@ -131,9 +131,10 @@ mod tests {
         let mel_fb = mel_fb.t();
         assert_eq!(mel_fb.shape(), &[n_mel, n_fft / 2 + 1]);
 
-        let mel0_answer_iter = mel0_answer
-            .into_iter()
-            .chain(std::iter::repeat(0.).take(mel_fb.shape()[1] - mel0_answer.len()));
+        let mel0_answer_iter = itertools::chain(
+            mel0_answer,
+            itertools::repeat_n(0., mel_fb.shape()[1] - mel0_answer.len()),
+        );
         mel_fb
             .iter()
             .zip(mel0_answer_iter)

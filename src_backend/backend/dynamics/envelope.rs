@@ -48,12 +48,10 @@ where
         self.sum = A::zero();
         let buf_length = self.buffer.capacity();
         self.buffer.truncate(0);
-        self.wrap_jump = std::iter::repeat(value)
-            .take(buf_length)
-            .fold(A::zero(), |sum, x| {
-                self.buffer.push(sum);
-                sum + x
-            });
+        self.wrap_jump = itertools::repeat_n(value, buf_length).fold(A::zero(), |sum, x| {
+            self.buffer.push(sum);
+            sum + x
+        });
     }
 
     #[inline]

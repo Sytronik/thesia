@@ -385,7 +385,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray_stats::QuantileExt;
+    use itertools::Itertools;
 
     #[test]
     fn open_audio_works() {
@@ -428,8 +428,8 @@ mod tests {
                 0.00000000e+00,
             ]);
             assert_eq!(wavs.shape(), &[1, 2113529]);
-            assert_eq!(wavs.max().unwrap().clone(), 0.234344482421875);
-            assert_eq!(wavs.min().unwrap().clone(), -0.20355224609375);
+            let (&min, &max) = wavs.iter().minmax().into_option().unwrap();
+            assert_eq!((min, max), (-0.20355224609375, 0.234344482421875));
             assert_eq!(wavs.slice(s![0, ..arr.len()]), arr);
             assert_eq!(format_info, format_info_answer);
         }

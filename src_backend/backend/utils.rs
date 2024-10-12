@@ -3,6 +3,7 @@ use std::mem::MaybeUninit;
 use std::path::{self, Path, PathBuf};
 
 use identity_hash::IntMap;
+use itertools::Itertools;
 use ndarray::prelude::*;
 use ndarray::{Data, OwnedRepr, RemoveAxis};
 use num_traits::Num;
@@ -108,34 +109,31 @@ where
                 }
             }
             PadMode::Reflect => {
-                let pad_left = self
-                    .axis_iter(axis)
-                    .skip(1)
-                    .chain(self.axis_iter(axis).rev().skip(1))
-                    .cycle()
-                    .take(n_pad_left);
+                let pad_left = itertools::chain(
+                    self.axis_iter(axis).skip(1),
+                    self.axis_iter(axis).rev().skip(1),
+                )
+                .cycle()
+                .take(n_pad_left);
                 result
                     .axis_iter_mut(axis)
                     .take(n_pad_left)
                     .rev()
                     .zip(pad_left)
-                    .for_each(|(y, x)| x.assign_to(y));
+                    .for_each(|(tgt, src)| src.assign_to(tgt));
 
                 if n_pad_right > 0 {
-                    let pad_right = self
-                        .axis_iter(axis)
-                        .rev()
-                        .skip(1)
-                        .chain(self.axis_iter(axis).skip(1))
-                        .cycle()
-                        .take(n_pad_right);
+                    let pad_right = itertools::chain(
+                        self.axis_iter(axis).rev().skip(1),
+                        self.axis_iter(axis).skip(1),
+                    )
+                    .cycle()
+                    .take(n_pad_right);
                     result
                         .axis_iter_mut(axis)
-                        .rev()
-                        .take(n_pad_right)
-                        .rev()
+                        .tail(n_pad_right)
                         .zip(pad_right)
-                        .for_each(|(y, x)| x.assign_to(y));
+                        .for_each(|(tgt, src)| src.assign_to(tgt));
                 }
             }
         }

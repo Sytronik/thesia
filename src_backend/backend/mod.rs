@@ -1,7 +1,7 @@
 use fast_image_resize::pixels::U16;
 use identity_hash::IntSet;
+use itertools::Itertools;
 use ndarray::prelude::*;
-use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
 mod audio;
@@ -215,18 +215,15 @@ impl TrackManager {
     /// update spec_greys, max_dB, min_dB, max_sr
     /// clear no_grey_ids
     fn update_greys(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
-        let (mut max, mut min) = self
+        let (mut min, mut max) = self
             .specs
             .par_iter()
-            .map(|(_, spec)| {
-                let max = *spec.max().unwrap_or(&-f32::INFINITY);
-                let min = *spec.min().unwrap_or(&f32::INFINITY);
-                (max, min)
-            })
+            .filter_map(|(_, spec)| spec.iter().minmax().into_option())
+            .map(|(&min, &max)| (min, max))
             .reduce(
-                || (-f32::INFINITY, f32::INFINITY),
-                |(max, min), (current_max, current_min)| {
-                    (max.max(current_max), min.min(current_min))
+                || (f32::INFINITY, f32::NEG_INFINITY),
+                |(min, max), (current_min, current_max)| {
+                    (min.min(current_min), max.max(current_max))
                 },
             );
         max = max.min(0.);
@@ -257,23 +254,20 @@ impl TrackManager {
             let new_spec_greys: Vec<_> = self
                 .specs
                 .par_iter()
-                .filter_map(|(&(id, ch), spec)| {
-                    if ids_need_update.contains(&id) {
-                        let sr = tracklist[id].sr();
-                        let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
-                            self.get_hz_range(),
-                            sr,
-                            spec.shape()[1],
-                        );
-                        let grey = visualize::convert_spec_to_grey(
-                            spec.view(),
-                            i_freq_range,
-                            (self.min_dB, self.max_dB),
-                        );
-                        Some(((id, ch), grey))
-                    } else {
-                        None
-                    }
+                .filter(|((id, _), _)| ids_need_update.contains(id))
+                .map(|(&(id, ch), spec)| {
+                    let sr = tracklist[id].sr();
+                    let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
+                        self.get_hz_range(),
+                        sr,
+                        spec.shape()[1],
+                    );
+                    let grey = visualize::convert_spec_to_grey(
+                        spec.view(),
+                        i_freq_range,
+                        (self.min_dB, self.max_dB),
+                    );
+                    ((id, ch), grey)
                 })
                 .collect();
 
