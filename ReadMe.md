@@ -12,7 +12,7 @@ This project is in a very early stage.
    - Common
      - [Rust](https://www.rust-lang.org/tools/install)
      - [node.js](https://nodejs.org/en/download/current) v16.20.2 ~ v21
-       - The most recent version tested: v21.6.1
+       - The most recent version tested: v21.7.3
    - Windows
      - vcpkg & OpenbLAS
        ```powershell
