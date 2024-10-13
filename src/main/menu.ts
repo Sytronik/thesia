@@ -197,12 +197,6 @@ export default class MenuBuilder {
       label: "Tracks",
       submenu: [
         {
-          id: "select-all-tracks",
-          label: "Select All Tracks",
-          accelerator: "Command+A",
-          click: clickSelectAllTracks,
-        },
-        {
           id: "remove-selected-tracks",
           label: "Remove Selected Tracks",
           accelerator: "Backspace",
@@ -215,6 +209,12 @@ export default class MenuBuilder {
           visible: false,
           acceleratorWorksWhenHidden: true,
           click: clickRemoveTrackMenu,
+        },
+        {
+          id: "select-all-tracks",
+          label: "Select All Tracks",
+          accelerator: "Command+A",
+          click: clickSelectAllTracks,
         },
       ],
     };
@@ -391,13 +391,6 @@ export default class MenuBuilder {
         label: "&Tracks",
         submenu: [
           {
-            id: "select-all-tracks",
-            label: "Select &All Tracks",
-            accelerator: "Ctrl+A",
-            click: clickSelectAllTracks,
-            registerAccelerator: false,
-          },
-          {
             id: "remove-selected-tracks",
             label: "&Remove Selected Tracks",
             accelerator: "Delete",
@@ -410,6 +403,13 @@ export default class MenuBuilder {
             visible: false,
             acceleratorWorksWhenHidden: true,
             click: clickRemoveTrackMenu,
+          },
+          {
+            id: "select-all-tracks",
+            label: "Select &All Tracks",
+            accelerator: "Ctrl+A",
+            click: clickSelectAllTracks,
+            registerAccelerator: false,
           },
         ],
       },
