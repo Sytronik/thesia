@@ -48,15 +48,12 @@ The target binary is under `release/build/<os>/thesia.app`.
 
 ## Plan
 
-- [x] dB colorbar
-- [x] Hi-DPI display support
-- [x] time / frequency info on mouse hover
-- [x] waveform amplitude zoom in/out slider
-- [x] selecting spectrogram mode / waveform mode
-- [x] configurable STFT parameters
-- [x] peak / RMS / LUFS / LKFS level calculator
-- [x] volume normalization
-- [ ] Audio Player
+- [ ] Re-ordering tracks
+- [ ] Releasing v1.0
+- [ ] Selecting audio output device (and exclusive mode)
+- [ ] Region selection and loop playback 
 - [ ] STFT parameters preset
 - [ ] pitch / formant tracker
 - [ ] Adaptive STFT (sth like iZotope RX Editor)
+- [ ] Showing the average FFT magnitude
+- [ ] Export as figures
