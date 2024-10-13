@@ -32,6 +32,7 @@
   }
 }
 .itemContainer {
+  display: block;
   margin: $spacer-4 $spacer-2;
 
   > label {

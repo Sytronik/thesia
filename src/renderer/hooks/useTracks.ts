@@ -3,6 +3,7 @@ import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
 import {setUserSetting} from "renderer/lib/ipc-sender";
 import update from "immutability-helper";
+import {UserSettings} from "backend";
 import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
 
 type AddTracksResultType = {
@@ -10,75 +11,34 @@ type AddTracksResultType = {
   invalidPaths: string[];
 };
 
-function getInitialValue<K extends keyof UserSettings>(
-  userSettings: UserSettings,
-  key: K,
-  getFromBackend: () => NonNullable<UserSettings[K]>,
-  setToBackend: (v: NonNullable<UserSettings[K]>) => void,
-): NonNullable<UserSettings[K]> {
-  const value = userSettings[key];
-  if (value !== undefined) {
-    setToBackend(value);
-    return value;
-  }
-  const valueFromBackend = getFromBackend();
-  setUserSetting(key, valueFromBackend);
-  return valueFromBackend;
-}
-
 function useTracks(userSettings: UserSettings) {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
-  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(() =>
-    getInitialValue(
-      userSettings,
-      "specSetting",
-      BackendAPI.getSpecSetting,
-      BackendAPI.setSpecSetting,
-    ),
+  const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
+    userSettings.specSetting,
   );
-
-  const [blend, setBlend] = useState<number>(() => {
-    if (userSettings.blend !== undefined) return userSettings.blend;
-    setUserSetting("blend", 0.5);
-    return 0.5;
-  });
-
-  const [currentdBRange, setCurrentdBRange] = useState<number>(() =>
-    getInitialValue(userSettings, "dBRange", BackendAPI.getdBRange, BackendAPI.setdBRange),
-  );
-
+  const [blend, setBlend] = useState<number>(userSettings.blend);
+  const [currentdBRange, setCurrentdBRange] = useState<number>(userSettings.dBRange);
   const [currentCommonGuardClipping, setCurrentCommonGuardClipping] = useState<GuardClippingMode>(
-    () =>
-      getInitialValue(
-        userSettings,
-        "commonGuardClipping",
-        BackendAPI.getCommonGuardClipping,
-        BackendAPI.setCommonGuardClipping,
-      ),
+    userSettings.commonGuardClipping,
+  );
+  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>(
+    userSettings.commonNormalize,
   );
 
-  const [currentCommonNormalize, setCurrentCommonNormalize] = useState<NormalizeTarget>(() =>
-    getInitialValue(
-      userSettings,
-      "commonNormalize",
-      BackendAPI.getCommonNormalize,
-      BackendAPI.setCommonNormalize,
-    ),
-  );
-
-  const waitingIdsRef = useRef<number[]>([]);
+  const waitingIdsRef = useRef<Set<number>>(new Set());
   const addToWaitingIds = useEvent((ids: number[]) => {
-    waitingIdsRef.current = waitingIdsRef.current.concat(ids);
-    if (waitingIdsRef.current.length > 1) {
-      waitingIdsRef.current.sort((a, b) => a - b);
-    }
+    ids.forEach((id) => waitingIdsRef.current.add(id));
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const maxTrackSec = useMemo(() => BackendAPI.getLongestTrackLengthSec(), [trackIds]);
+  const maxTrackSec = useMemo(BackendAPI.getLongestTrackLengthSec, [trackIds]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds, needRefreshTrackIdChArr]);
+
   const trackIdChMap: IdChMap = useMemo(
     () =>
       new Map(
@@ -95,9 +55,9 @@ function useTracks(userSettings: UserSettings) {
       const reloadedIds = await BackendAPI.reloadTracks(ids);
       const erroredIds = difference(ids, reloadedIds);
 
-      if (erroredIds && erroredIds.length) {
-        setErroredTrackIds(erroredIds);
-      }
+      if (erroredIds && erroredIds.length) setErroredTrackIds(erroredIds);
+
+      if (reloadedIds.length > 0) setTrackIds((prevTrackIds) => prevTrackIds.slice());
     } catch (err) {
       console.error("Could not reload tracks", err);
     }
@@ -116,15 +76,17 @@ function useTracks(userSettings: UserSettings) {
 
   const addTracks = useEvent(async (paths: string[]): Promise<AddTracksResultType> => {
     try {
-      const idsOfInputPaths = paths.map((path) => BackendAPI.findIdByPath(path));
+      const idsOfInputPaths = await Promise.all(paths.map(BackendAPI.findIdByPath));
       const newPaths = paths.filter((_, index) => idsOfInputPaths[index] === -1);
       const existingIds = idsOfInputPaths.filter((id) => id !== -1);
 
       if (!newPaths.length) return {existingIds, invalidPaths: []};
 
       const newIds = [...Array(newPaths.length).keys()].map((i) => {
-        if (waitingIdsRef.current.length) {
-          return waitingIdsRef.current.shift() as number;
+        if (waitingIdsRef.current.size > 0) {
+          const id = waitingIdsRef.current.values().next().value as number;
+          waitingIdsRef.current.delete(id);
+          return id;
         }
         return trackIds.length + i;
       });
@@ -179,10 +141,10 @@ function useTracks(userSettings: UserSettings) {
 
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
     await BackendAPI.setSpecSetting(v);
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     const specSetting = BackendAPI.getSpecSetting();
     setCurrentSpecSetting(specSetting);
     setUserSetting("specSetting", specSetting);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
   const setBlendAndSetUserSetting = useEvent((v: number) => {
@@ -191,8 +153,8 @@ function useTracks(userSettings: UserSettings) {
   });
 
   const setdBRange = useEvent(async (v: number) => {
-    BackendAPI.setdBRange(v);
-    const dBRange = BackendAPI.getdBRange();
+    await BackendAPI.setdBRange(v);
+    const dBRange = await BackendAPI.getdBRange();
     setCurrentdBRange(dBRange);
     setUserSetting("dBRange", dBRange);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
@@ -200,18 +162,18 @@ function useTracks(userSettings: UserSettings) {
 
   const setCommonGuardClipping = useEvent(async (v: GuardClippingMode) => {
     await BackendAPI.setCommonGuardClipping(v);
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     const commonGuardClipping = BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
     setUserSetting("commonGuardClipping", commonGuardClipping);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
   const setCommonNormalize = useEvent(async (v: NormalizeTarget) => {
     await BackendAPI.setCommonNormalize(v);
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     const commonNormalize = BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
     setUserSetting("commonNormalize", commonNormalize);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
   });
 
   const finishRefreshTracks = useEvent(() => {
@@ -224,6 +186,7 @@ function useTracks(userSettings: UserSettings) {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    maxTrackHz,
     specSetting: currentSpecSetting,
     blend,
     dBRange: currentdBRange,

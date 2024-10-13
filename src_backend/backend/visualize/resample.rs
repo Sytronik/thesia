@@ -4,9 +4,8 @@ use std::sync::Arc;
 use ndarray::prelude::*;
 use ndarray::ScalarOperand;
 use ndarray_stats::QuantileExt;
-use num_traits::{AsPrimitive, NumAssignOps, NumOps};
+use num_traits::{AsPrimitive, Float, FloatConst, NumAssignOps, NumOps};
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};
-use rustfft::num_traits::{Float, FloatConst};
 
 use crate::backend::sinc::calc_windowed_sincs;
 use crate::backend::utils::Pad;
@@ -86,7 +85,7 @@ where
     }
 
     pub fn resample(&mut self, wav_in: ArrayView1<A>) -> ArrayView1<A> {
-        assert_eq!(wav_in.len(), self.input_size);
+        debug_assert_eq!(wav_in.len(), self.input_size);
         // Copy to input buffer and clear padding area
         self.input_buf
             .slice_mut(s![..self.input_size])

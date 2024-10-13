@@ -1,4 +1,4 @@
-import React, {forwardRef, useRef, useImperativeHandle, useState, useContext} from "react";
+import React, {forwardRef, useRef, useImperativeHandle, useState, useContext, useMemo} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
@@ -22,12 +22,20 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {width, height, maxTrackSec, canvasIsFit} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
+  const loadingElem = useRef<HTMLDivElement>(null);
   const startSecRef = useRef<number>(0);
   const pxPerSecRef = useRef<number>(1);
   const tooltipElem = useRef<HTMLSpanElement>(null);
   const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
-  const draw = useEvent((buf: Buffer) => {
+  const draw = useEvent((buf: Buffer | null) => {
+    if (buf === null) {
+      const ctx = canvasElem.current?.getContext("bitmaprenderer");
+      ctx?.transferFromImageBitmap(null);
+      if (loadingElem.current) loadingElem.current.style.display = "block";
+      return;
+    }
+    if (loadingElem.current) loadingElem.current.style.display = "none";
     const bitmapWidth = width * devicePixelRatio;
     const bitmapHeight = height * devicePixelRatio;
     if (buf.byteLength !== 4 * bitmapWidth * bitmapHeight) return;
@@ -79,17 +87,21 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return [`${timeStr} sec`, `${hzStr} Hz`];
   });
 
-  const onMouseMove = throttle(1000 / 120, async (e: React.MouseEvent) => {
-    if (initTooltipInfo === null || tooltipElem.current === null) return;
-    const [left, top] = calcTooltipPos(e);
-    tooltipElem.current.style.left = `${left}px`;
-    tooltipElem.current.style.top = `${top}px`;
-    const lines = await getTooltipLines(e);
-    lines.forEach((v, i) => {
-      const node = tooltipElem.current?.children.item(i) ?? null;
-      if (node) node.innerHTML = v;
-    });
-  });
+  const onMouseMove = useMemo(
+    () =>
+      throttle(1000 / 120, async (e: React.MouseEvent) => {
+        if (initTooltipInfo === null || tooltipElem.current === null) return;
+        const [left, top] = calcTooltipPos(e);
+        tooltipElem.current.style.left = `${left}px`;
+        tooltipElem.current.style.top = `${top}px`;
+        const lines = await getTooltipLines(e);
+        lines.forEach((v, i) => {
+          const node = tooltipElem.current?.children.item(i) ?? null;
+          if (node) node.innerHTML = v;
+        });
+      }),
+    [getTooltipLines, initTooltipInfo],
+  );
 
   return (
     <div
@@ -100,6 +112,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     >
       {initTooltipInfo !== null ? (
         <span
+          key="img-canvas-tooltip"
           ref={tooltipElem}
           className={styles.tooltip}
           style={{left: `${initTooltipInfo.pos[0]}px`, top: `${initTooltipInfo.pos[1]}px`}}
@@ -109,6 +122,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
           ))}
         </span>
       ) : null}
+      <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
       <canvas
         className={styles.ImgCanvas}
         ref={canvasElem}

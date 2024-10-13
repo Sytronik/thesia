@@ -1,19 +1,20 @@
-use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
 
+use identity_hash::{IntMap, IntSet};
 use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
-use super::audio::{open_audio_file, Audio};
+use super::audio::{open_audio_file, Audio, AudioFormatInfo};
 use super::dynamics::{
     AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
     NormalizeTarget, StatCalculator,
 };
 use super::spectrogram::{SpecSetting, SrWinNfft};
+use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
 use super::visualize::{CalcWidth, IdxLen, PartGreyInfo};
 use super::IdChVec;
@@ -38,9 +39,17 @@ macro_rules! indexed_iter_filtered {
     };
 }
 
+macro_rules! indexed_par_iter_mut_filtered {
+    ($vec: expr) => {
+        $vec.par_iter_mut()
+            .enumerate()
+            .filter_map(|(i, x)| x.as_mut().map(|x| (i, x)))
+    };
+}
+
 #[readonly::make]
 pub struct AudioTrack {
-    pub format_desc: String,
+    pub format_info: AudioFormatInfo,
     path: PathBuf,
     original: Audio,
     audio: Audio,
@@ -50,15 +59,15 @@ pub struct AudioTrack {
 
 impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
-        let (wavs, sr, format_desc) = open_audio_file(&path)?;
-        let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, sr);
-        let original = Audio::new(wavs, sr, &mut stat_calculator);
+        let (wavs, format_info) = open_audio_file(&path)?;
+        let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, format_info.sr);
+        let original = Audio::new(wavs, format_info.sr, &mut stat_calculator);
 
         let audio = original.clone();
         let interleaved = (&audio).into();
 
         Ok(AudioTrack {
-            format_desc,
+            format_info,
             path: PathBuf::from(path).canonicalize().unwrap(),
             original,
             audio,
@@ -68,16 +77,19 @@ impl AudioTrack {
     }
 
     pub fn reload(&mut self) -> Result<bool, SymphoniaError> {
-        let (wavs, sr, format_desc) = open_audio_file(self.path.to_string_lossy().as_ref())?;
-        if wavs.view() == self.original.view() && sr == self.sr() && format_desc == self.format_desc
-        {
+        let (wavs, format_info) = open_audio_file(self.path.to_string_lossy().as_ref())?;
+        if wavs.view() == self.original.view() && format_info == self.format_info {
             return Ok(false);
         }
-        let original = Audio::new(wavs, sr, &mut self.stat_calculator);
+        self.stat_calculator
+            .change_parameters(wavs.shape()[0] as u32, format_info.sr);
+        let original = Audio::new(wavs, format_info.sr, &mut self.stat_calculator);
+
+        self.format_info = format_info;
         self.original = original.clone();
-        self.interleaved = (&original).into();
         self.audio = original;
-        self.format_desc = format_desc;
+        self.interleaved = (&self.audio).into();
+
         Ok(true)
     }
 
@@ -225,7 +237,7 @@ impl TrackList {
     pub fn new() -> Self {
         TrackList {
             max_sec: 0.,
-            tracks: Vec::new(),
+            tracks: vec![None],
             filenames: Vec::new(),
             id_max_sec: 0,
             common_normalize: NormalizeTarget::Off,
@@ -234,22 +246,29 @@ impl TrackList {
     }
 
     pub fn add_tracks(&mut self, id_list: Vec<usize>, path_list: Vec<String>) -> Vec<usize> {
-        let mut added_ids = Vec::new();
-        for (id, path) in id_list.into_iter().zip(path_list) {
-            if let Ok(mut track) = AudioTrack::new(path) {
-                track.normalize(self.common_normalize, self.common_guard_clipping);
-                let sec = track.sec();
-                if sec > self.max_sec {
-                    self.max_sec = sec;
-                    self.id_max_sec = id;
-                }
-                if id >= self.tracks.len() {
-                    self.tracks
-                        .extend((self.tracks.len()..(id + 1)).map(|_| None));
-                }
-                self.tracks[id].replace(track);
-                added_ids.push(id);
+        let id_tracks: Vec<_> = id_list
+            .into_par_iter()
+            .zip(path_list.into_par_iter())
+            .filter_map(|(id, path)| {
+                AudioTrack::new(path).ok().map(|mut track| {
+                    track.normalize(self.common_normalize, self.common_guard_clipping);
+                    (id, track)
+                })
+            })
+            .collect();
+        let mut added_ids = Vec::with_capacity(id_tracks.len());
+        for (id, track) in id_tracks.into_iter() {
+            let sec = track.sec();
+            if sec > self.max_sec {
+                self.max_sec = sec;
+                self.id_max_sec = id;
             }
+            if id >= self.tracks.len() {
+                self.tracks
+                    .extend((self.tracks.len()..(id + 1)).map(|_| None));
+            }
+            self.tracks[id].replace(track);
+            added_ids.push(id);
         }
 
         self.update_filenames();
@@ -257,16 +276,26 @@ impl TrackList {
     }
 
     pub fn reload_tracks(&mut self, id_list: &[usize]) -> (Vec<usize>, Vec<usize>) {
+        let reload_results: Vec<_> = indexed_par_iter_mut_filtered!(self.tracks)
+            .filter(|(id, _)| id_list.contains(id))
+            .map(|(id, track)| {
+                let result = track.reload();
+                if let Ok(true) = result {
+                    track.normalize(self.common_normalize, self.common_guard_clipping);
+                }
+                result.map(|res| (id, track.sec(), res))
+            })
+            .collect();
+
+        if reload_results.len() != id_list.len() {
+            panic!("[reload_tracks] Wrong Track IDs {:?}!", id_list);
+        }
+
         let mut reloaded_ids = Vec::new();
         let mut no_err_ids = Vec::new();
-        for &id in id_list {
-            let track = self.tracks[id]
-                .as_mut()
-                .unwrap_or_else(|| panic!("[reload_tracks] Wrong Track ID {}!", id));
-            match track.reload() {
-                Ok(true) => {
-                    track.normalize(self.common_normalize, self.common_guard_clipping);
-                    let sec = track.sec();
+        for result in reload_results.into_iter() {
+            match result {
+                Ok((id, sec, true)) => {
                     if sec > self.max_sec {
                         self.max_sec = sec;
                         self.id_max_sec = id;
@@ -274,7 +303,7 @@ impl TrackList {
                     reloaded_ids.push(id);
                     no_err_ids.push(id);
                 }
-                Ok(false) => {
+                Ok((id, _, false)) => {
                     no_err_ids.push(id);
                 }
                 Err(_) => {}
@@ -297,6 +326,23 @@ impl TrackList {
             } else {
                 eprintln!("Track ID {} does not exist! Skip removing it ...", id);
             }
+        }
+        let last_id =
+            self.tracks
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(i, x)| if x.is_some() { Some(i) } else { None });
+        match last_id {
+            Some(last_id) if self.tracks.len() > 2 * (last_id + 1) => {
+                self.tracks.truncate(last_id + 1);
+                self.tracks.shrink_to_fit();
+            }
+            None => {
+                self.tracks.truncate(1);
+                self.tracks.shrink_to_fit();
+            }
+            _ => {}
         }
 
         if need_update_max_sec {
@@ -337,9 +383,26 @@ impl TrackList {
     }
 
     #[inline]
-    pub fn all_id_set(&self) -> HashSet<usize> {
+    pub fn all_id_set(&self) -> IntSet<usize> {
         indexed_iter_filtered!(self.tracks)
             .map(|(id, _)| id)
+            .collect()
+    }
+
+    #[inline]
+    pub fn id_ch_tuples(&self) -> IdChVec {
+        self.id_ch_tuples_from(&self.all_ids())
+    }
+
+    #[inline]
+    pub fn id_ch_tuples_from(&self, id_list: &[usize]) -> IdChVec {
+        id_list
+            .iter()
+            .filter(|&&id| self.has(id))
+            .flat_map(|&id| {
+                let n_ch = self[id].n_ch();
+                (0..n_ch).map(move |ch| (id, ch))
+            })
             .collect()
     }
 
@@ -355,14 +418,14 @@ impl TrackList {
         &self,
         ids: &[usize],
         setting: &SpecSetting,
-    ) -> HashSet<SrWinNfft> {
+    ) -> TupleIntSet<SrWinNfft> {
         ids.iter()
             .map(|&id| setting.calc_sr_win_nfft(self[id].sr()))
             .collect()
     }
 
     #[inline]
-    pub fn construct_all_sr_win_nfft_set(&self, setting: &SpecSetting) -> HashSet<SrWinNfft> {
+    pub fn construct_all_sr_win_nfft_set(&self, setting: &SpecSetting) -> TupleIntSet<SrWinNfft> {
         self.construct_sr_win_nfft_set(&self.all_ids(), setting)
     }
 
@@ -391,16 +454,13 @@ impl TrackList {
 
     #[inline]
     pub fn filename(&self, id: usize) -> &str {
-        self.filenames[id]
-            .as_ref()
-            .unwrap_or_else(|| panic!("[get_filename] Wrong ID {}!", id))
+        self.filenames[id].as_ref().map_or("", |x| x)
     }
 
     fn update_filenames(&mut self) {
-        let mut paths = HashMap::with_capacity(self.tracks.len());
-        paths.extend(
-            indexed_iter_filtered!(self.tracks).map(|(id, track)| (id, track.path.clone())),
-        );
+        let paths: IntMap<_, _> = indexed_iter_filtered!(self.tracks)
+            .map(|(id, track)| (id, track.path.clone()))
+            .collect();
         let mut filenames = unique_filenames(paths);
         self.filenames = (0..self.tracks.len())
             .map(|i| filenames.remove(&i))

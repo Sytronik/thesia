@@ -5,6 +5,7 @@ import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "renderer/modules/FloatingUserInput";
 import {ipcRenderer} from "electron";
+import type {throttle} from "throttle-debounce";
 import {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
@@ -14,8 +15,12 @@ import {
 import BackendAPI from "../../api";
 
 type FreqAxisProps = {
+  id: number;
   height: number;
-  setHzRange: (minHz: number, maxHz: number) => void;
+  maxTrackHz: number;
+  setHzRange:
+    | ((minHz: number, maxHz: number) => Promise<void>)
+    | throttle<(minHz: number, maxHz: number) => Promise<void>>;
   resetHzRange: () => void;
   enableInteraction: boolean;
 };
@@ -38,37 +43,39 @@ const DEFAULT_DRAG_ANCHOR: FreqAxisDragAnchor = {
   hzRange: [0, Infinity],
 };
 
-const clampMaxHz = (maxHz: number, minHz: number) => {
-  if (maxHz > BackendAPI.getMaxTrackHz()) return Infinity;
-  return Math.max(maxHz, minHz + MIN_HZ_RANGE);
-};
-const clampMinHz = (minHz: number, maxHz: number) => {
-  return Math.min(Math.max(minHz, 0), maxHz - MIN_HZ_RANGE);
-};
-
-const calcDragAnchor = (cursorState: FreqAxisCursorState, cursorPos: number, rect: DOMRect) => {
-  const cursorAxisPos = getAxisPos(cursorPos);
-  const hzRange = BackendAPI.getHzRange();
-  if (cursorState === "shift-hz-range") {
-    const axisHeight = getAxisHeight(rect);
-    const zeroHzPos = BackendAPI.freqHzToPos(0, axisHeight, [hzRange[0], hzRange[1]]);
-    const maxTrackHzPos = BackendAPI.freqHzToPos(BackendAPI.getMaxTrackHz(), axisHeight, [
-      hzRange[0],
-      hzRange[1],
-    ]);
-    return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
-  }
-  return {cursorAxisPos: getAxisPos(cursorPos), hzRange} as FreqAxisDragAnchor;
-};
-
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
-  const {height, setHzRange, resetHzRange, enableInteraction} = props;
+  const {id, height, maxTrackHz, setHzRange, resetHzRange, enableInteraction} = props;
   const [minHzInputHidden, setMinHzInputHidden] = useState(true);
   const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
   const cursorStateRef = useRef<FreqAxisCursorState>("shift-hz-range");
 
+  const clampMaxHz = (maxHz: number, minHz: number) => {
+    if (maxHz > maxTrackHz) return Infinity;
+    return Math.max(maxHz, minHz + MIN_HZ_RANGE);
+  };
+  const clampMinHz = (minHz: number, maxHz: number) => {
+    return Math.min(Math.max(minHz, 0), maxHz - MIN_HZ_RANGE);
+  };
+
+  const calcDragAnchor = useEvent(
+    (cursorState: FreqAxisCursorState, cursorPos: number, rect: DOMRect) => {
+      const cursorAxisPos = getAxisPos(cursorPos);
+      const hzRange = BackendAPI.getHzRange(maxTrackHz);
+      if (cursorState === "shift-hz-range") {
+        const axisHeight = getAxisHeight(rect);
+        const zeroHzPos = BackendAPI.freqHzToPos(0, axisHeight, [hzRange[0], hzRange[1]]);
+        const maxTrackHzPos = BackendAPI.freqHzToPos(maxTrackHz, axisHeight, [
+          hzRange[0],
+          hzRange[1],
+        ]);
+        return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
+      }
+      return {cursorAxisPos: getAxisPos(cursorPos), hzRange} as FreqAxisDragAnchor;
+    },
+  );
+
   const handleDragging = useEvent(
-    (
+    async (
       cursorState: FreqAxisCursorState,
       cursorPos: number,
       dragAnchorValue: FreqAxisDragAnchor,
@@ -121,20 +128,20 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         default:
           break;
       }
-      setHzRange(hzRange[0], hzRange[1]);
+      await setHzRange(hzRange[0], hzRange[1]);
     },
   );
 
-  const onWheel = useEvent((e: WheelEvent) => {
+  const onWheel = useEvent(async (e: WheelEvent) => {
     if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
       // TODO: control minHz
-      const hzRange = BackendAPI.getHzRange();
+      const hzRange = BackendAPI.getHzRange(maxTrackHz);
       const maxHz = BackendAPI.freqPosToHz(e.deltaY, 500, [hzRange[0], hzRange[1]]);
-      setHzRange(hzRange[0], clampMaxHz(maxHz, hzRange[0]));
+      await setHzRange(hzRange[0], clampMaxHz(maxHz, hzRange[0]));
     }
   });
 
@@ -189,19 +196,19 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
     [handleDragging],
   );
 
-  const hzRangeLabel = BackendAPI.getHzRange().map((hz) => BackendAPI.hzToLabel(hz));
+  const hzRangeLabel = BackendAPI.getHzRange(maxTrackHz).map((hz) => BackendAPI.hzToLabel(hz));
 
   const onCursorStateChange = useEvent((cursorState) => {
     cursorStateRef.current = cursorState;
   });
 
-  const onEndEditingFloatingInput = (v: string | null, idx: number) => {
+  const onEndEditingFloatingInput = async (v: string | null, idx: number) => {
     if (v !== null) {
       const hz = BackendAPI.freqLabelToHz(v);
       if (!Number.isNaN(hz)) {
-        const hzRange = BackendAPI.getHzRange();
+        const hzRange = BackendAPI.getHzRange(maxTrackHz);
         hzRange[idx] = idx === 0 ? clampMinHz(hz, hzRange[1]) : clampMaxHz(hz, hzRange[0]);
-        setHzRange(hzRange[0], hzRange[1]);
+        await setHzRange(hzRange[0], hzRange[1]);
       }
     }
     if (idx === 0) setMinHzInputHidden(true);
@@ -210,18 +217,16 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
   const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
   const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
 
-  const onEditAxisRangeMenu = useEvent((_, axisKind: AxisKind, minOrMax: "min" | "max") => {
-    if (axisKind !== "freqAxis") return;
-    if (minOrMax === "min") setMinHzInputHidden(false);
-    else setMaxHzInputHidden(false);
-  });
+  const onEditAxisRangeMenu = useEvent((_, minOrMax: "min" | "max") =>
+    minOrMax === "min" ? setMinHzInputHidden(false) : setMaxHzInputHidden(false),
+  );
 
   useEffect(() => {
-    ipcRenderer.on("edit-axis-range", onEditAxisRangeMenu);
+    ipcRenderer.on(`edit-freqAxis-range-${id}`, onEditAxisRangeMenu);
     return () => {
-      ipcRenderer.removeListener("edit-axis-range", onEditAxisRangeMenu);
+      ipcRenderer.removeListener(`edit-freqAxis-range-${id}`, onEditAxisRangeMenu);
     };
-  }, [onEditAxisRangeMenu]);
+  }, [id, onEditAxisRangeMenu]);
 
   const axisCanvas = (
     <>
@@ -238,6 +243,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         className={styles.maxHzFloatingInput}
       />
       <AxisCanvas
+        id={id}
         ref={ref}
         width={FREQ_CANVAS_WIDTH}
         height={height}
@@ -274,4 +280,4 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
 
 FreqAxis.displayName = "FreqAxis";
 
-export default FreqAxis;
+export default React.memo(FreqAxis);

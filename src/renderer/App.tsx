@@ -4,62 +4,28 @@ import useEvent from "react-use-event-hook";
 import {ipcRenderer} from "electron";
 import {DndProvider} from "react-dnd";
 import {HTML5Backend} from "react-dnd-html5-backend";
+import {UserSettings} from "backend";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {
+  addGlobalFocusInListener,
+  addGlobalFocusOutListener,
   changeMenuDepsOnTrackExistence,
-  disableEditMenu,
-  enableEditMenu,
   notifyAppRendered,
-  showEditContextMenu,
+  removeGlobalFocusInListener,
+  removeGlobalFocusOutListener,
+  showEditContextMenuIfEditableNode,
   showElectronFileOpenErrorMsg,
 } from "./lib/ipc-sender";
-import {SUPPORTED_MIME} from "./prototypes/constants/tracks";
-import "./App.scss";
+import {SUPPORTED_MIME} from "../main/constants";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
+import "./App.scss";
 
 type AppProps = {userSettings: UserSettings};
-
-const callDifferentFuncIfEditableNode = (
-  node: HTMLElement | null,
-  funcForEditable: () => void,
-  funcForNonEditable?: () => void,
-) => {
-  let ancestor = node;
-  let isEditable = false;
-  while (ancestor) {
-    if (ancestor.nodeName.match(/^(input|textarea)$/i) || ancestor.isContentEditable) {
-      funcForEditable();
-      isEditable = true;
-      break;
-    }
-    if (ancestor.parentNode === null) break;
-    ancestor = ancestor.parentNode as HTMLElement;
-  }
-  if (!isEditable && funcForNonEditable) funcForNonEditable();
-};
-
-const showEditContextMenuIfEditableNode = (e: MouseEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, showEditContextMenu);
-};
-
-const changeEditMenuForFocusIn = (e: FocusEvent) => {
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, enableEditMenu, disableEditMenu);
-};
-
-const changeEditMenuForFocusOut = (e: FocusEvent) => {
-  callDifferentFuncIfEditableNode(
-    e.relatedTarget as HTMLElement | null,
-    enableEditMenu,
-    disableEditMenu,
-  );
-};
 
 function MyApp({userSettings}: AppProps) {
   const {
@@ -68,6 +34,7 @@ function MyApp({userSettings}: AppProps) {
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    maxTrackHz,
     specSetting,
     blend,
     dBRange,
@@ -89,6 +56,7 @@ function MyApp({userSettings}: AppProps) {
 
   const {
     selectedTrackIds,
+    selectionIsAdded,
     selectTrack,
     selectAllTracks,
     selectTrackAfterAddTracks,
@@ -100,6 +68,7 @@ function MyApp({userSettings}: AppProps) {
       !erroredTrackIds.includes(selectedTrackIds[selectedTrackIds.length - 1])
       ? selectedTrackIds[selectedTrackIds.length - 1]
       : -1,
+    maxTrackSec,
   );
 
   const prevTrackIds = useRef<number[]>([]);
@@ -193,13 +162,22 @@ function MyApp({userSettings}: AppProps) {
   }, []);
 
   useEffect(() => {
-    document.body.addEventListener("focusin", changeEditMenuForFocusIn);
-    document.body.addEventListener("focusout", changeEditMenuForFocusOut);
+    addGlobalFocusInListener();
+    addGlobalFocusOutListener();
     return () => {
-      document.body.removeEventListener("focusin", changeEditMenuForFocusIn);
-      document.body.removeEventListener("focusout", changeEditMenuForFocusOut);
+      removeGlobalFocusInListener();
+      removeGlobalFocusOutListener();
     };
   }, []);
+
+  useEffect(() => {
+    ipcRenderer.on("add-global-focusout-listener", addGlobalFocusOutListener);
+    ipcRenderer.on("remove-global-focusout-listener", removeGlobalFocusOutListener);
+    return () => {
+      ipcRenderer.removeAllListeners("add-global-focusout-listener");
+      ipcRenderer.removeAllListeners("remove-global-focusout-listener");
+    };
+  });
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;
@@ -240,9 +218,11 @@ function MyApp({userSettings}: AppProps) {
               trackIds={trackIds}
               erroredTrackIds={erroredTrackIds}
               selectedTrackIds={selectedTrackIds}
+              selectionIsAdded={selectionIsAdded}
               trackIdChMap={trackIdChMap}
               needRefreshTrackIdChArr={needRefreshTrackIdChArr}
               maxTrackSec={maxTrackSec}
+              maxTrackHz={maxTrackHz}
               blend={blend}
               player={player}
               addDroppedFile={addDroppedFile}

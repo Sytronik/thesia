@@ -29,6 +29,7 @@ type MarkerPosition = {
 };
 
 type AxisCanvasProps = {
+  id: number;
   width: number;
   height: number;
   axisPadding: number;
@@ -46,7 +47,8 @@ type AxisCanvasProps = {
 
 const AxisCanvas = forwardRef(
   ({endInclusive = false, shiftWhenResize = false, ...props}: AxisCanvasProps, ref) => {
-    const {width, height, axisPadding, markerPos, direction, className, onWheel, onClick} = props;
+    const {id, width, height, axisPadding, markerPos, direction, className, onWheel, onClick} =
+      props;
     const devicePixelRatio = useContext(DevicePixelRatioContext);
     const canvasElem = useRef<HTMLCanvasElement | null>(null);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -174,7 +176,7 @@ const AxisCanvas = forwardRef(
         style={{width, height}}
         onContextMenu={(e) => {
           e.preventDefault();
-          showAxisContextMenu(className);
+          showAxisContextMenu(className, id);
         }}
       />
     );

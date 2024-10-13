@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {areDOMRectsEqual} from "renderer/utils/arrayUtils";
 import styles from "./Locator.module.scss";
@@ -12,7 +12,7 @@ type LocatorProps = {
   zIndex?: number;
 };
 
-function Locator(props: LocatorProps) {
+const Locator = forwardRef((props: LocatorProps, ref) => {
   const {locatorStyle, getTopBottom, getBoundingLeftWidth, calcLocatorPos, onMouseDown, zIndex} =
     props;
   const locatorElem = useRef<HTMLCanvasElement | null>(null);
@@ -53,7 +53,7 @@ function Locator(props: LocatorProps) {
     },
   );
 
-  const draw = useEvent(() => {
+  const draw = useEvent((time, request: boolean = true) => {
     const locatorPos = calcLocatorPos();
     const leftWidth = getBoundingLeftWidth();
 
@@ -92,13 +92,24 @@ function Locator(props: LocatorProps) {
     }
     prevLocatorPos.current = locatorPos;
     if (leftWidth) prevLeftWidth.current = leftWidth;
-    requestRef.current = requestAnimationFrame(draw);
+    if (request) requestRef.current = requestAnimationFrame(draw);
   });
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(requestRef.current);
   }, [draw]);
+
+  const imperativeHandleRef = useRef<LocatorHandleElement>({
+    enableInteraction: () => {
+      if (locatorElem.current) locatorElem.current.style.pointerEvents = "auto";
+    },
+    disableInteraction: () => {
+      if (locatorElem.current) locatorElem.current.style.pointerEvents = "none";
+    },
+    draw: () => draw(0, false),
+  });
+  useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 
   return (
     <canvas
@@ -108,6 +119,8 @@ function Locator(props: LocatorProps) {
       style={{zIndex}}
     />
   );
-}
+});
+
+Locator.displayName = "Locator";
 
 export default Locator;

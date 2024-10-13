@@ -1,9 +1,7 @@
-use std::collections::{HashMap, HashSet};
-
-use dashmap::DashMap;
 use fast_image_resize::pixels::U16;
+use identity_hash::IntSet;
+use itertools::Itertools;
 use ndarray::prelude::*;
-use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
 mod audio;
@@ -11,32 +9,37 @@ mod dynamics;
 mod sinc;
 mod spectrogram;
 mod track;
+mod tuple_hasher;
 mod utils;
 pub mod visualize;
 mod windows;
 
-pub use dynamics::{DeciBel, GuardClippingMode, NormalizeTarget};
+pub use audio::AudioFormatInfo;
+pub use dynamics::{DeciBel, GuardClippingMode};
 pub use spectrogram::SpecSetting;
+pub use track::TrackList;
+pub use tuple_hasher::TupleIntMap;
+use tuple_hasher::{TupleIntDMap, TupleIntSet};
 pub use utils::Pad;
 pub use visualize::{
+    calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
-    CalcAxisMarkers, DrawOption, DrawOptionForWav, TrackDrawer,
+    DrawOption, DrawOptionForWav, TrackDrawer,
 };
 
-pub type IdChVec = Vec<(usize, usize)>;
-pub type IdChArr = [(usize, usize)];
-pub type IdChValueVec<T> = Vec<((usize, usize), T)>;
-pub type IdChValueArr<T> = [((usize, usize), T)];
-pub type IdChMap<T> = HashMap<(usize, usize), T>;
-pub type IdChDMap<T> = DashMap<(usize, usize), T>;
+pub type IdCh = (usize, usize);
+pub type IdChVec = Vec<IdCh>;
+pub type IdChArr = [IdCh];
+pub type IdChValueVec<T> = Vec<(IdCh, T)>;
+pub type IdChValueArr<T> = [(IdCh, T)];
+pub type IdChMap<T> = TupleIntMap<IdCh, T>;
+pub type IdChDMap<T> = TupleIntDMap<IdCh, T>;
 
-use spectrogram::{FreqScale, SpectrogramAnalyzer, SrWinNfft};
-use track::{AudioTrack, TrackList};
+use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 
 #[readonly::make]
 #[allow(non_snake_case)]
 pub struct TrackManager {
-    pub tracklist: TrackList,
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
@@ -55,228 +58,172 @@ impl TrackManager {
             max_dB: -f32::INFINITY,
             min_dB: f32::INFINITY,
             max_sr: 0,
-            spec_greys: HashMap::new(),
-            tracklist: TrackList::new(),
-            setting: SpecSetting {
-                win_ms: 40.,
-                t_overlap: 4,
-                f_overlap: 1,
-                freq_scale: FreqScale::Mel,
-            },
+            spec_greys: IdChMap::with_capacity_and_hasher(2, Default::default()),
+            setting: Default::default(),
             dB_range: 100.,
             hz_range: (0., f32::INFINITY),
             spec_analyzer: SpectrogramAnalyzer::new(),
-            specs: HashMap::new(),
+            specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             no_grey_ids: Vec::new(),
         }
     }
 
-    pub fn add_tracks(&mut self, id_list: Vec<usize>, path_list: Vec<String>) -> Vec<usize> {
-        let added_ids = self.tracklist.add_tracks(id_list, path_list);
-        let sr_win_nfft_set = self
-            .tracklist
-            .construct_sr_win_nfft_set(&added_ids, &self.setting);
-
-        self.update_specs(self.id_ch_tuples_from(&added_ids), Some(&sr_win_nfft_set));
-        self.no_grey_ids.extend(added_ids.iter().cloned());
-        added_ids
-    }
-
-    pub fn reload_tracks(&mut self, id_list: &[usize]) -> Vec<usize> {
-        let (reloaded_ids, no_err_ids) = self.tracklist.reload_tracks(id_list);
-        let sr_win_nfft_set = self
-            .tracklist
-            .construct_sr_win_nfft_set(&reloaded_ids, &self.setting);
+    pub fn add_tracks(&mut self, tracklist: &TrackList, added_ids: &[usize]) {
+        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(added_ids, &self.setting);
 
         self.update_specs(
-            self.id_ch_tuples_from(&reloaded_ids),
+            tracklist,
+            tracklist.id_ch_tuples_from(added_ids),
             Some(&sr_win_nfft_set),
         );
-        self.no_grey_ids.extend(reloaded_ids.iter().cloned());
-        no_err_ids
+        self.no_grey_ids.extend(added_ids.iter().copied());
     }
 
-    pub fn remove_tracks(&mut self, id_list: &[usize]) {
-        let removed_id_ch_tuples = self.tracklist.remove_tracks(id_list);
+    pub fn reload_tracks(&mut self, tracklist: &TrackList, reloaded_ids: &[usize]) {
+        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(reloaded_ids, &self.setting);
+
+        self.update_specs(
+            tracklist,
+            tracklist.id_ch_tuples_from(reloaded_ids),
+            Some(&sr_win_nfft_set),
+        );
+        self.no_grey_ids.extend(reloaded_ids.iter().copied());
+    }
+
+    pub fn remove_tracks(
+        &mut self,
+        tracklist: &TrackList,
+        removed_id_ch_tuples: &IdChArr,
+    ) -> Option<(f32, f32)> {
         for tup in removed_id_ch_tuples {
-            self.specs.remove(&tup);
-            self.spec_greys.remove(&tup);
+            self.specs.remove(tup);
+            self.spec_greys.remove(tup);
+        }
+        if self.specs.capacity() > 2 * self.specs.len() {
+            self.specs.shrink_to(2);
+        }
+        if self.spec_greys.capacity() > 2 * self.spec_greys.len() {
+            self.spec_greys.shrink_to(2);
         }
 
         self.spec_analyzer.retain(
-            &self.tracklist.construct_all_sr_win_nfft_set(&self.setting),
+            &tracklist.construct_all_sr_win_nfft_set(&self.setting),
             self.setting.freq_scale,
         );
-        self.set_hz_range((0., f32::INFINITY));
+        if tracklist.is_empty() {
+            let hz_range = (0., f32::INFINITY);
+            self.set_hz_range(tracklist, hz_range);
+            Some(hz_range)
+        } else {
+            None
+        }
     }
 
-    pub fn apply_track_list_changes(&mut self) -> (HashSet<usize>, u32) {
-        let set = self.update_greys(false);
+    pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (IntSet<usize>, u32) {
+        let set = self.update_greys(tracklist, false);
         (set, self.max_sr)
     }
 
     #[inline]
-    pub fn id_ch_tuples(&self) -> IdChVec {
-        self.id_ch_tuples_from(&self.tracklist.all_ids())
+    pub fn exists(&self, id_ch: &IdCh) -> bool {
+        self.specs.contains_key(id_ch)
     }
 
-    #[inline]
-    pub fn id_ch_tuples_from(&self, id_list: &[usize]) -> IdChVec {
-        id_list
-            .iter()
-            .filter(|&&id| self.has_id(id))
-            .flat_map(|&id| {
-                let n_ch = self.tracklist[id].n_ch();
-                (0..n_ch).map(move |ch| (id, ch))
-            })
-            .collect()
-    }
-
-    #[inline]
-    pub fn convert_freq_pos_to_hz(&self, y: f32, height: u32, hz_range: Option<(f32, f32)>) -> f32 {
-        let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
-        let rel_freq = 1. - y / height as f32;
-        self.setting
-            .freq_scale
-            .relative_freq_to_hz(rel_freq, hz_range)
-    }
-
-    #[inline]
-    pub fn convert_freq_hz_to_pos(
-        &self,
-        hz: f32,
-        height: u32,
-        hz_range: Option<(f32, f32)>,
-    ) -> f32 {
-        let hz_range = hz_range.unwrap_or_else(|| self.get_hz_range());
-        let rel_freq = self.setting.freq_scale.hz_to_relative_freq(hz, hz_range);
-        (1. - rel_freq) * height as f32
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.tracklist.is_empty()
-    }
-
-    #[inline]
-    pub fn exists(&self, &(id, ch): &(usize, usize)) -> bool {
-        self.specs.contains_key(&(id, ch))
-    }
-
-    #[inline]
-    pub fn has_id(&self, id: usize) -> bool {
-        self.tracklist.has(id)
-    }
-
-    #[inline]
-    pub fn track(&self, id: usize) -> Option<&AudioTrack> {
-        self.tracklist.get(id)
-    }
-
-    pub fn set_setting(&mut self, setting: SpecSetting) {
-        let sr_win_nfft_set = self
-            .tracklist
-            .construct_sr_win_nfft_set(&self.tracklist.all_ids(), &setting);
+    pub fn set_setting(&mut self, tracklist: &TrackList, setting: SpecSetting) {
+        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&tracklist.all_ids(), &setting);
 
         self.setting = setting;
         self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
-        self.update_specs(self.id_ch_tuples(), Some(&sr_win_nfft_set));
-        self.update_greys(true);
+        self.update_specs(tracklist, tracklist.id_ch_tuples(), Some(&sr_win_nfft_set));
+        self.update_greys(tracklist, true);
     }
 
-    #[inline]
-    pub fn common_guard_clipping(&self) -> GuardClippingMode {
-        self.tracklist.common_guard_clipping
-    }
-
-    pub fn set_common_guard_clipping(&mut self, mode: GuardClippingMode) {
-        self.tracklist.set_common_guard_clipping(mode);
-
-        self.update_specs(self.id_ch_tuples(), None);
-        self.update_greys(true);
-    }
-
-    #[inline]
-    pub fn common_normalize(&self) -> NormalizeTarget {
-        self.tracklist.common_normalize
-    }
-
-    pub fn set_common_normalize(&mut self, target: NormalizeTarget) {
-        self.tracklist.set_common_normalize(target);
-
-        self.update_specs(self.id_ch_tuples(), None);
-        self.update_greys(true);
+    pub fn update_all_specs_greys(&mut self, tracklist: &TrackList) {
+        self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
+        self.update_greys(tracklist, true);
     }
 
     #[allow(non_snake_case)]
-    pub fn set_dB_range(&mut self, dB_range: f32) {
+    pub fn set_dB_range(&mut self, tracklist: &TrackList, dB_range: f32) {
         self.dB_range = dB_range;
-        self.update_greys(true);
+        self.update_greys(tracklist, true);
     }
 
-    pub fn get_hz_range(&self) -> (f32, f32) {
-        let max_hz = if self.hz_range.1.is_finite() {
-            self.hz_range.1
+    #[inline]
+    fn get_hz_range(&self) -> (f32, f32) {
+        Self::calc_valid_hz_range(&self.hz_range, self.max_sr as f32 / 2.)
+    }
+
+    pub fn calc_valid_hz_range(hz_range: &(f32, f32), max_track_hz: f32) -> (f32, f32) {
+        let max_hz = if hz_range.1.is_finite() {
+            hz_range.1
         } else {
-            self.max_sr as f32 / 2.
+            max_track_hz
         };
-        (self.hz_range.0, max_hz)
+        (hz_range.0, max_hz)
     }
 
     /// set self.hz_range.
     /// If it's different from the existing value, update greys and return true.
     /// else, return false.
-    pub fn set_hz_range(&mut self, hz_range: (f32, f32)) -> bool {
+    pub fn set_hz_range(&mut self, tracklist: &TrackList, hz_range: (f32, f32)) -> bool {
         let prev_hz_range = self.get_hz_range();
         self.hz_range = hz_range;
-        if prev_hz_range == hz_range {
+        let curr_hz_range = self.get_hz_range();
+        if (prev_hz_range.0 - curr_hz_range.0).abs() < 1e-2
+            && (prev_hz_range.1 - curr_hz_range.1).abs() < 1e-2
+        {
             return false;
         }
-        self.update_greys(true);
+        self.update_greys(tracklist, true);
         true
     }
 
-    fn update_specs(&mut self, id_ch_tuples: IdChVec, framing_params: Option<&HashSet<SrWinNfft>>) {
+    fn update_specs(
+        &mut self,
+        tracklist: &TrackList,
+        id_ch_tuples: IdChVec,
+        framing_params: Option<&TupleIntSet<SrWinNfft>>,
+    ) {
         match framing_params {
             Some(p) => {
                 self.spec_analyzer.prepare(p, self.setting.freq_scale);
             }
             None => {
-                let p = self.tracklist.construct_all_sr_win_nfft_set(&self.setting);
+                let p = tracklist.construct_all_sr_win_nfft_set(&self.setting);
                 self.spec_analyzer.prepare(&p, self.setting.freq_scale);
             }
         }
         let len = id_ch_tuples.len();
-        let mut specs = IdChMap::with_capacity(len);
-        specs.par_extend(id_ch_tuples.into_par_iter().map(|(id, ch)| {
-            let track = &self.tracklist[id];
-            let spec = self.spec_analyzer.calc_spec(
-                track.channel(ch),
-                track.sr(),
-                &self.setting,
-                len == 1,
-            );
-            ((id, ch), spec)
-        }));
+        let specs: Vec<_> = id_ch_tuples
+            .into_par_iter()
+            .map(|(id, ch)| {
+                let track = &tracklist[id];
+                let spec = self.spec_analyzer.calc_spec(
+                    track.channel(ch),
+                    track.sr(),
+                    &self.setting,
+                    len == 1,
+                );
+                ((id, ch), spec)
+            })
+            .collect();
         self.specs.extend(specs);
     }
 
     /// update spec_greys, max_dB, min_dB, max_sr
     /// clear no_grey_ids
-    fn update_greys(&mut self, force_update_all: bool) -> HashSet<usize> {
-        let (mut max, mut min) = self
+    fn update_greys(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
+        let (mut min, mut max) = self
             .specs
             .par_iter()
-            .map(|(_, spec)| {
-                let max = *spec.max().unwrap_or(&-f32::INFINITY);
-                let min = *spec.min().unwrap_or(&f32::INFINITY);
-                (max, min)
-            })
+            .filter_map(|(_, spec)| spec.iter().minmax().into_option())
+            .map(|(&min, &max)| (min, max))
             .reduce(
-                || (-f32::INFINITY, f32::INFINITY),
-                |(max, min), (current_max, current_min)| {
-                    (max.max(current_max), min.min(current_min))
+                || (f32::INFINITY, f32::NEG_INFINITY),
+                |(min, max), (current_min, current_max)| {
+                    (min.min(current_min), max.max(current_max))
                 },
             );
         max = max.min(0.);
@@ -291,23 +238,25 @@ impl TrackManager {
             need_update_all = true;
         }
 
-        let max_sr = self.tracklist.max_sr();
+        let max_sr = tracklist.max_sr();
         if self.max_sr != max_sr {
             self.max_sr = max_sr;
             need_update_all = true;
         }
-        let ids_need_update: HashSet<usize> = if need_update_all {
+        let ids_need_update: IntSet<usize> = if need_update_all {
             self.no_grey_ids.clear();
-            self.tracklist.all_id_set()
+            tracklist.all_id_set()
         } else {
             self.no_grey_ids.drain(..).collect()
         };
 
         if !ids_need_update.is_empty() {
-            let mut new_spec_greys = IdChMap::with_capacity(self.specs.len());
-            new_spec_greys.par_extend(self.specs.par_iter().filter_map(|(&(id, ch), spec)| {
-                if ids_need_update.contains(&id) {
-                    let sr = self.tracklist[id].sr();
+            let new_spec_greys: Vec<_> = self
+                .specs
+                .par_iter()
+                .filter(|((id, _), _)| ids_need_update.contains(id))
+                .map(|(&(id, ch), spec)| {
+                    let sr = tracklist[id].sr();
                     let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
                         self.get_hz_range(),
                         sr,
@@ -318,14 +267,12 @@ impl TrackManager {
                         i_freq_range,
                         (self.min_dB, self.max_dB),
                     );
-                    Some(((id, ch), grey))
-                } else {
-                    None
-                }
-            }));
+                    ((id, ch), grey)
+                })
+                .collect();
 
             if need_update_all {
-                self.spec_greys = new_spec_greys;
+                self.spec_greys = new_spec_greys.into_iter().collect();
             } else {
                 self.spec_greys.extend(new_spec_greys)
             }
@@ -351,28 +298,45 @@ mod tests {
             .map(|x| format!("samples/sample_{}.wav", x))
             .collect();
         path_list.push("samples/stereo/sample_48k.wav".into());
+        let mut tracklist = TrackList::new();
         let mut tm = TrackManager::new();
-        let added_ids = tm.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
+        let added_ids = tracklist.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
+        tm.add_tracks(&tracklist, &added_ids);
         assert_eq!(&added_ids, &id_list[0..3]);
-        let added_ids = tm.add_tracks(id_list[3..].to_owned(), path_list[3..].to_owned());
+        let added_ids = tracklist.add_tracks(id_list[3..].to_owned(), path_list[3..].to_owned());
+        tm.add_tracks(&tracklist, &added_ids);
         assert_eq!(&added_ids, &id_list[3..]);
-        assert_eq!(tm.tracklist.all_ids().len(), id_list.len());
+        assert_eq!(tracklist.all_ids().len(), id_list.len());
 
         assert_eq!(tm.spec_greys.len(), 0);
-        let mut updated_ids: Vec<usize> = tm.apply_track_list_changes().0.into_iter().collect();
+        let mut updated_ids: Vec<usize> = tm
+            .apply_track_list_changes(&tracklist)
+            .0
+            .into_iter()
+            .collect();
         updated_ids.sort();
         assert_eq!(updated_ids, id_list);
 
-        dbg!(&tm.tracklist[0]);
-        dbg!(tm.tracklist.filename(5));
-        dbg!(tm.tracklist.filename(6));
+        dbg!(&tracklist[0]);
+        dbg!(tracklist.filename(5));
+        dbg!(tracklist.filename(6));
         let option = DrawOption {
             px_per_sec: 200.,
             height: 500,
         };
         let opt_for_wav = Default::default();
-        let spec_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Spec);
-        let wav_imgs = tm.draw_entire_imgs(&tm.id_ch_tuples(), option, ImageKind::Wav(opt_for_wav));
+        let spec_imgs = tm.draw_entire_imgs(
+            &tracklist,
+            &tracklist.id_ch_tuples(),
+            option,
+            ImageKind::Spec,
+        );
+        let wav_imgs = tm.draw_entire_imgs(
+            &tracklist,
+            &tracklist.id_ch_tuples(),
+            option,
+            ImageKind::Wav(opt_for_wav),
+        );
         for ((id, ch), spec) in spec_imgs {
             let sr_str = tags[id];
             let width = spec.shape()[1] as u32;
@@ -394,6 +358,7 @@ mod tests {
 
         let (id_ch, imvec) = tm
             .draw_part_imgs(
+                &tracklist,
                 &[(0, 0)],
                 20.,
                 1000,
@@ -412,8 +377,9 @@ mod tests {
             .unwrap();
         im.save("samples/wav_part.png").unwrap();
 
-        tm.remove_tracks(&[0]);
-        let (updated_ids, _) = tm.apply_track_list_changes();
+        let removed_id_ch_tuples = tracklist.remove_tracks(&[0]);
+        tm.remove_tracks(&mut tracklist, &removed_id_ch_tuples);
+        let (updated_ids, _) = tm.apply_track_list_changes(&tracklist);
         assert!(updated_ids.is_empty());
     }
 }

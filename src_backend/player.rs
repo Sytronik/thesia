@@ -6,27 +6,17 @@ use std::time::{Duration, Instant};
 use atomic_float::AtomicF32;
 use cpal::traits::DeviceTrait;
 use cpal::SupportedStreamConfigsError;
-use futures::task;
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
-use lazy_static::{initialize, lazy_static};
+use lazy_static::lazy_static;
 use log::{error, info, LevelFilter, SetLoggerError};
+use napi::bindgen_prelude::spawn_blocking;
 use simple_logger::SimpleLogger;
-use tokio::{
-    runtime::{Builder, Runtime},
-    sync::mpsc,
-    sync::watch,
-};
+use tokio::sync::{mpsc, watch};
 
 use crate::backend::DeciBel;
-use crate::TM;
+use crate::TRACK_LIST;
 
 lazy_static! {
-    static ref RUNTIME: Runtime = Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_time()
-        .thread_name("thesia-tokio-audio")
-        .build()
-        .unwrap();
     static ref PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 }
 
@@ -56,7 +46,7 @@ pub enum PlayerCommand {
 }
 
 #[derive(Clone)]
-pub struct PlayerState {
+pub struct InternalPlayerState {
     /// if currently playing
     pub is_playing: bool,
     /// playing position (sec)
@@ -65,7 +55,7 @@ pub struct PlayerState {
     pub instant: Instant,
 }
 
-impl PlayerState {
+impl InternalPlayerState {
     pub fn position_sec_elapsed(&self) -> f64 {
         if self.is_playing {
             self.position_sec + self.instant.elapsed().as_secs_f64()
@@ -75,9 +65,9 @@ impl PlayerState {
     }
 }
 
-impl Default for PlayerState {
+impl Default for InternalPlayerState {
     fn default() -> Self {
-        PlayerState {
+        InternalPlayerState {
             is_playing: false,
             position_sec: 0.,
             instant: Instant::now(),
@@ -87,7 +77,7 @@ impl Default for PlayerState {
 
 #[derive(Clone)]
 pub enum PlayerNotification {
-    Ok(PlayerState),
+    Ok(InternalPlayerState),
     Err(String),
 }
 
@@ -229,9 +219,9 @@ fn main_loop(
                      start_time_sec: f64,
                      is_playing: bool| {
         let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
-        let sound = TM
+        let sound = TRACK_LIST
             .blocking_read()
-            .track(track_id)
+            .get(track_id)
             .map(|track| Sound::from_frames(track.sr(), track.interleaved_frames()));
 
         info!("sound created with track {}", track_id);
@@ -253,7 +243,7 @@ fn main_loop(
         }
     };
 
-    let waker = task::noop_waker();
+    let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
     loop {
         match msg_rx.poll_recv(&mut cx) {
@@ -306,7 +296,7 @@ fn main_loop(
                     );
                 }
                 PlayerCommand::Seek(sec) => {
-                    let max_sec = TM.blocking_read().tracklist.max_sec;
+                    let max_sec = TRACK_LIST.blocking_read().max_sec;
                     let sec = sec.min(max_sec);
                     sound_handle.seek_to(sec);
                     noti_tx.send_modify(|noti| {
@@ -321,7 +311,7 @@ fn main_loop(
                     sound_handle.pause();
                     if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
                         noti_tx
-                            .send(PlayerNotification::Ok(PlayerState {
+                            .send(PlayerNotification::Ok(InternalPlayerState {
                                 is_playing: false,
                                 position_sec: calc_position_sec(&sound_handle),
                                 instant: Instant::now(),
@@ -343,7 +333,7 @@ fn main_loop(
                     }
                     if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
                         noti_tx
-                            .send(PlayerNotification::Ok(PlayerState {
+                            .send(PlayerNotification::Ok(InternalPlayerState {
                                 is_playing: true,
                                 position_sec,
                                 instant: Instant::now(),
@@ -368,7 +358,7 @@ fn main_loop(
                     None
                 };
                 if let Some(prev_state) = prev_state {
-                    let mut state = PlayerState {
+                    let mut state = InternalPlayerState {
                         is_playing: prev_state.is_playing,
                         position_sec: calc_position_sec(&sound_handle),
                         instant: Instant::now(),
@@ -384,7 +374,7 @@ fn main_loop(
                         }
                         let position_sec = prev_state.position_sec
                             + (state.instant - prev_state.instant).as_secs_f64();
-                        let max_sec = TM.blocking_read().tracklist.max_sec;
+                        let max_sec = TRACK_LIST.blocking_read().max_sec;
                         if position_sec >= max_sec {
                             state.is_playing = false;
                             state.position_sec = max_sec;
@@ -443,7 +433,7 @@ fn main_loop(
     }
 }
 
-pub fn spawn_runtime() {
+pub fn spawn_task() {
     unsafe {
         if COMMAND_TX
             .as_ref()
@@ -460,13 +450,12 @@ pub fn spawn_runtime() {
             return;
         }
     }
-    initialize(&RUNTIME);
 
-    let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(10);
+    let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(20);
     let (noti_tx, noti_rx) = watch::channel(PlayerNotification::Ok(Default::default()));
     unsafe {
         COMMAND_TX = Some(command_tx);
         NOTI_RX = Some(noti_rx);
     }
-    RUNTIME.spawn_blocking(|| main_loop(command_rx, noti_tx));
+    spawn_blocking(|| main_loop(command_rx, noti_tx));
 }

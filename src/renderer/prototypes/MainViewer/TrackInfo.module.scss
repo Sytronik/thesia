@@ -5,6 +5,8 @@
   flex: 0 0 auto;
   position: relative;
   user-select: none;
+  scroll-margin-top: $spacer-3 + 5px;
+  scroll-margin-bottom: 5px;
 }
 
 // track summary

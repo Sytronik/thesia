@@ -36,11 +36,9 @@ const FloatRangeInput = forwardRef(
     const textElem = useRef<HTMLInputElement>(null);
     const prevValueRef = useRef<number>(initialValue);
 
-    const getRangeBackground = () => {
-      const rangeRatio = Math.min(
-        Math.max((Number(textElem.current?.value ?? initialValue) - min) / (max - min), 0),
-        1,
-      );
+    const getRangeBackground = (value?: number) => {
+      const v = value ?? Number(textElem.current?.value ?? initialValue);
+      const rangeRatio = Math.min(Math.max((v - min) / (max - min), 0), 1);
       return disabled
         ? ""
         : `linear-gradient(to right, ${DEFAULT_RANGE_COLOR.LEFT} ${rangeRatio * 100}%, ${
@@ -145,7 +143,7 @@ const FloatRangeInput = forwardRef(
           ref={rangeElem}
           id={id}
           style={{
-            background: getRangeBackground(),
+            background: getRangeBackground(initialValue),
           }}
           type="range"
           min={min}

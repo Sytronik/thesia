@@ -52,14 +52,12 @@ function Control(props: ControlProps) {
     setCommonNormalize,
   } = props;
 
+  const isCommonNormalizeOn = commonNormalize.type !== "Off";
   const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(
     commonNormalize.type === "PeakdB" ? commonNormalize.target : 0.0,
   );
   const [commonNormalizedB, setCommonNormalizedB] = useState<number>(
     commonNormalize.type === "LUFS" ? commonNormalize.target : -18.0,
-  );
-  const [isCommonNormalizeOn, setIsCommonNormalizeOn] = useState<boolean>(
-    commonNormalize.type !== "Off",
   );
 
   const winMillisecElem = useRef<FloatingUserInputElement>(null);
@@ -107,22 +105,19 @@ function Control(props: ControlProps) {
 
   const onCommonNormalizeTypeChange = useMemo(
     () =>
-      debounce(250, (e: React.ChangeEvent<HTMLSelectElement>) => {
+      debounce(250, async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const type = e.target.selectedOptions[0].value;
         switch (type) {
           case "Off":
-            setCommonNormalize({type: "Off"});
-            setIsCommonNormalizeOn(false);
+            await setCommonNormalize({type: "Off"});
             break;
           case "PeakdB":
-            setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
-            setIsCommonNormalizeOn(true);
+            await setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
             break;
           default:
-            setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
-            setIsCommonNormalizeOn(true);
+            await setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizedB);
             break;
@@ -311,8 +306,10 @@ function Control(props: ControlProps) {
           </div>
         </div>
         <div className={styles.sectionContainer}>
-          <div className={styles.itemContainer}>
-            <label htmlFor="freqScale">Frequency Scale</label>
+          <label className={styles.itemContainer} htmlFor="freqScale">
+            <label htmlFor="freqScale" style={{pointerEvents: "none"}}>
+              Frequency Scale
+            </label>
             <input
               type="checkbox"
               role="switch"
@@ -349,7 +346,7 @@ function Control(props: ControlProps) {
                 <span>Mel</span>
               </label>
             </div>
-          </div>
+          </label>
         </div>
         <div className={styles.sectionContainer}>
           <div className={styles.itemContainer}>
@@ -402,4 +399,4 @@ function Control(props: ControlProps) {
   );
 }
 
-export default Control;
+export default React.memo(Control);

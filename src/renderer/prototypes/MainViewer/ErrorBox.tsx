@@ -20,7 +20,6 @@ function ErrorBox(props: ErrorBoxProps) {
       style={{width}}
     >
       <p>The file is corrupted and cannot be opened</p>
-      {/* TODO: need optimization? */}
       <div>
         <button type="button" onClick={() => handleReload(trackId)}>
           Reload

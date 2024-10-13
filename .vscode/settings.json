@@ -5,12 +5,7 @@
     ".eslintignore": "ignore"
   },
 
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "html",
-    "typescriptreact"
-  ],
+  "eslint.validate": ["javascript", "javascriptreact", "html", "typescriptreact"],
 
   "javascript.validate.enable": false,
   "javascript.format.enable": false,
@@ -28,7 +23,6 @@
     "*.{css,sass,scss}.d.ts": true
   },
   "editor.formatOnSave": true,
-  "rust-analyzer.linkedProjects": [
-    "./Cargo.toml"
-  ]
+  "rust-analyzer.linkedProjects": ["./Cargo.toml"],
+  "rust-analyzer.procMacro.ignored": {"napi-derive": ["napi"]}
 }

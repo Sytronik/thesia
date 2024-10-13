@@ -2,8 +2,7 @@
 
 use ndarray::prelude::*;
 use ndarray::ScalarOperand;
-use num_traits::{AsPrimitive, NumAssignOps};
-use rustfft::num_traits::Float;
+use num_traits::{AsPrimitive, Float, NumAssignOps};
 
 #[allow(clippy::excessive_precision)]
 pub const MEL_DIFF_2K_1K: f32 = 10.081880157308321; // from_hz(2000) - from_hz(1000)
@@ -54,8 +53,8 @@ where
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
-    assert_eq!(n_fft % 2, 0);
-    assert_ne!(n_mel, 0);
+    debug_assert_eq!(n_fft % 2, 0);
+    debug_assert_ne!(n_mel, 0);
     let f_nyquist = ((sr as f64) / 2.).as_();
     let fmax = if let Some(f) = fmax { f } else { f_nyquist };
     let n_freq = n_fft / 2 + 1;
@@ -132,9 +131,10 @@ mod tests {
         let mel_fb = mel_fb.t();
         assert_eq!(mel_fb.shape(), &[n_mel, n_fft / 2 + 1]);
 
-        let mel0_answer_iter = mel0_answer
-            .into_iter()
-            .chain(std::iter::repeat(0.).take(mel_fb.shape()[1] - mel0_answer.len()));
+        let mel0_answer_iter = itertools::chain(
+            mel0_answer,
+            itertools::repeat_n(0., mel_fb.shape()[1] - mel0_answer.len()),
+        );
         mel_fb
             .iter()
             .zip(mel0_answer_iter)

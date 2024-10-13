@@ -56,9 +56,11 @@ type MainViewerProps = {
   trackIds: number[];
   erroredTrackIds: number[];
   selectedTrackIds: number[];
+  selectionIsAdded: boolean;
   trackIdChMap: IdChMap;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
+  maxTrackHz: number;
   blend: number;
   player: Player;
   addDroppedFile: (e: DragEvent) => Promise<void>;
@@ -77,9 +79,11 @@ function MainViewer(props: MainViewerProps) {
     trackIds,
     erroredTrackIds,
     selectedTrackIds,
+    selectionIsAdded,
     trackIdChMap,
     needRefreshTrackIdChArr,
     maxTrackSec,
+    maxTrackHz,
     blend,
     player,
     addDroppedFile,
@@ -94,7 +98,6 @@ function MainViewer(props: MainViewerProps) {
   } = props;
 
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
-  const throttledSetSelectSec = throttle(1000 / 70, player.setSelectSec);
   const prevTrackCountRef = useRef<number>(0);
 
   const startSecRef = useRef<number>(0);
@@ -119,6 +122,7 @@ function MainViewer(props: MainViewerProps) {
   const splitViewElem = useRef<SplitViewHandleElement>(null);
   const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const selectLocatorElem = useRef<LocatorHandleElement>(null);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
@@ -161,12 +165,13 @@ function MainViewer(props: MainViewerProps) {
     throttledSetTimeMarkers(width, pxPerSecRef.current, {
       startSec: startSecRef.current,
       endSec: calcEndSec(),
+      maxSec: maxTrackSec,
     });
     const [markers] = timeMarkersAndLengthRef.current;
     if (markers.length === 0) return;
     const timeUnit = markers[markers.length - 1][1];
     setTimeUnitLabel(timeUnit);
-  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec]);
+  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec, maxTrackSec]);
 
   const unsetTimeMarkersAndUnit = useEvent(() => {
     resetTimeMarkers();
@@ -217,6 +222,15 @@ function MainViewer(props: MainViewerProps) {
     [blend, devicePixelRatio],
   );
 
+  const throttledSetSelectSec = useMemo(
+    () =>
+      throttle(1000 / 70, (sec) => {
+        player.setSelectSec(sec);
+        selectLocatorElem.current?.draw();
+      }),
+    [player],
+  );
+
   const setAmpRange = useEvent((newRange: [number, number]) => {
     ampRangeRef.current = newRange;
     throttledSetImgState(getIdChArr(), width, imgHeight);
@@ -225,13 +239,15 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetHzRange = useMemo(
     () =>
-      throttle(1000 / 70, (minHz: number, maxHz: number) => {
-        if (BackendAPI.setHzRange(minHz, maxHz)) {
+      throttle(1000 / 70, async (minHz: number, maxHz: number) => {
+        const needUpdateImgState = BackendAPI.setHzRange(minHz, maxHz);
+        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
+        if (await needUpdateImgState) {
+          throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
           throttledSetImgState(getIdChArr(), width, imgHeight);
         }
-        throttledSetFreqMarkers(imgHeight, imgHeight);
       }),
-    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight],
+    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight, maxTrackHz],
   );
 
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
@@ -291,9 +307,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const zoomHeight = useEvent((delta: number) => {
-    const newHeight = Math.round(
-      Math.min(Math.max(height * (1 + delta / 1000), MIN_HEIGHT), MAX_HEIGHT),
-    );
+    const newHeight = Math.round(Math.min(Math.max(height + delta, MIN_HEIGHT), MAX_HEIGHT));
     setHeight(newHeight);
     return newHeight;
   });
@@ -306,7 +320,6 @@ function MainViewer(props: MainViewerProps) {
         const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
         if (imgClientRect === undefined) return;
         const bottom = imgClientRect.y + imgClientRect.height;
-        // TODO: when cursor is out of ImgCanvas
         if (prevBottom <= cursorClientY && cursorClientY < imgClientRect.y) {
           vScrollAnchorInfoRef.current.imgIndex = i;
           vScrollAnchorInfoRef.current.cursorRatioOnImg = 0;
@@ -354,6 +367,8 @@ function MainViewer(props: MainViewerProps) {
 
     if (!e.altKey && !isApplePinch && !horizontal) {
       // vertical scroll (native)
+      selectLocatorElem.current?.disableInteraction();
+      setTimeout(() => selectLocatorElem.current?.enableInteraction(), 1000 / 60);
       updateVScrollAnchorInfo(e.clientY);
       return;
     }
@@ -380,7 +395,7 @@ function MainViewer(props: MainViewerProps) {
         const splitView = splitViewElem.current;
         if (!splitView) return;
 
-        const newHeight = zoomHeight(delta);
+        const newHeight = zoomHeight((delta * height) / 1000);
 
         const cursorY = e.clientY - (splitView.getBoundingClientRect()?.y ?? 0);
         const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
@@ -406,9 +421,9 @@ function MainViewer(props: MainViewerProps) {
       isPlayhead: boolean = false,
       allowOutside: boolean = true,
     ) => {
-      if (e.altKey) return;
       const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
+      if (e.clientY < rect.bottom && e.altKey) return; // alt+click on TimeAxis fires the other event
       e.preventDefault();
       if (trackIds.length === 0) return;
       if (e.clientY < rect.top) return; // when cursor is between Overview and TimeAxis
@@ -447,12 +462,30 @@ function MainViewer(props: MainViewerProps) {
     [trackIds, updateLensParams],
   );
 
-  const freqZoomIn = useEvent(() => {
-    if (trackIds.length > 0) zoomHeight(100);
+  const setScrollTopBySelectedTracks = useEvent((newHeight: number) => {
+    if (splitViewElem.current === null) return;
+    const splitViewHeight =
+      (splitViewElem.current.getBoundingClientRect()?.height ?? 0) - TIME_CANVAS_HEIGHT - 2;
+    const scrollMiddle = splitViewElem.current.scrollTop() + splitViewHeight / 2;
+    const residualHeight = (scrollMiddle - TIME_CANVAS_HEIGHT - 2) % height;
+    const idxViewportTrack = (scrollMiddle - TIME_CANVAS_HEIGHT - 2 - residualHeight) / height;
+    setScrollTop(
+      // TIME_CANVAS_HEIGHT will be added in SplitViewElem.current.scrollTo
+      2 +
+        newHeight * idxViewportTrack +
+        (residualHeight * newHeight) / height -
+        splitViewHeight / 2,
+    );
   });
-  const freqZoomOut = useEvent(() => {
-    if (trackIds.length > 0) zoomHeight(-100);
-  });
+  const zoomHeightAndScroll = (isZoomOut: boolean) => {
+    if (trackIds.length === 0) return;
+
+    let delta = 2 ** (Math.floor(Math.log2(height)) - 1.2);
+    if (isZoomOut) delta = -delta;
+    setScrollTopBySelectedTracks(zoomHeight(delta));
+  };
+  const freqZoomIn = useEvent(() => zoomHeightAndScroll(false));
+  const freqZoomOut = useEvent(() => zoomHeightAndScroll(true));
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
   useEffect(() => {
@@ -465,9 +498,17 @@ function MainViewer(props: MainViewerProps) {
   }, [freqZoomIn, freqZoomOut]);
 
   const zoomLens = useEvent((isZoomOut: boolean) => {
-    let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
+    let pxPerSecDelta = 2 ** (Math.floor(Math.log2(pxPerSecRef.current)) - 1.2);
     if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
-    updateLensParams({pxPerSec: pxPerSecRef.current + pxPerSecDelta});
+
+    const pxPerSec = normalizePxPerSec(pxPerSecRef.current + pxPerSecDelta, 0);
+    const selectSec = player.selectSecRef.current ?? 0;
+    const startSec = normalizeStartSec(
+      selectSec - ((selectSec - startSecRef.current) * pxPerSecRef.current) / pxPerSec,
+      pxPerSec,
+      maxTrackSec,
+    );
+    updateLensParams({startSec, pxPerSec});
   });
   useEffect(() => {
     ipcRenderer.on("time-zoom-in", () => {
@@ -483,6 +524,7 @@ function MainViewer(props: MainViewerProps) {
   }, [trackIds, zoomLens]);
 
   // Track Selection Hotkeys
+  useHotkeys("mod+a", () => selectAllTracks(trackIds), {preventDefault: true}, [trackIds]);
   useEffect(() => {
     ipcRenderer.on("select-all-tracks", () => selectAllTracks(trackIds));
     return () => {
@@ -531,7 +573,7 @@ function MainViewer(props: MainViewerProps) {
     };
   }, [resetAxisRange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
   }, [scrollTop]);
 
@@ -550,7 +592,7 @@ function MainViewer(props: MainViewerProps) {
       needFollowCursor.current = true;
       const endSec = calcEndSec();
       const diff = selectSec - prevSelectSecRef.current;
-      if (diff > 1e-6 && (endSec < selectSec || startSecRef.current > selectSec)) {
+      if (Math.abs(diff) > 1e-6 && (endSec < selectSec || startSecRef.current > selectSec)) {
         let newStartSec = startSecRef.current + diff;
         const newEndSec = endSec + diff;
 
@@ -569,7 +611,11 @@ function MainViewer(props: MainViewerProps) {
 
     const images = BackendAPI.getImages();
     Object.entries(images).forEach(([idChStr, buf]) => {
+      if (needRefreshTrackIdChArr.includes(idChStr)) return;
       imgCanvasesRef.current[idChStr]?.draw(buf);
+    });
+    needRefreshTrackIdChArr.forEach((idChStr) => {
+      imgCanvasesRef.current[idChStr]?.draw(null);
     });
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -618,15 +664,19 @@ function MainViewer(props: MainViewerProps) {
       : -Infinity,
   );
 
-  const trackSummaryArr = useMemo(
+  const trackSummaryArr: TrackSummaryData[] = useMemo(
     () =>
       trackIds.map((trackId) => {
+        const formatInfo = BackendAPI.getFormatInfo(trackId);
         return {
           fileName: BackendAPI.getFileName(trackId),
           time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
-          sampleFormat: BackendAPI.getSampleFormat(trackId),
-          sampleRate: `${BackendAPI.getSampleRate(trackId) / 1000} kHz`,
+          formatName: formatInfo.name,
+          bitDepth: formatInfo.bitDepth,
+          bitrate: formatInfo.bitrate,
+          sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
           globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
+          guardClipStats: BackendAPI.getGuardClipStats(trackId),
         };
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
@@ -642,16 +692,19 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetFreqMarkers(imgHeight, imgHeight);
-  }, [throttledSetFreqMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+    throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
+  }, [throttledSetFreqMarkers, imgHeight, maxTrackHz, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) {
       resetdBMarkers();
       return;
     }
-
-    throttledSetdBMarkers(colorBarHeight, colorBarHeight);
+    Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()])
+      .then(([mindB, maxdB]) =>
+        throttledSetdBMarkers(colorBarHeight, colorBarHeight, {mindB, maxdB}),
+      )
+      .catch(() => {});
   }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
@@ -675,22 +728,78 @@ function MainViewer(props: MainViewerProps) {
       overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
   }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // auto-scroll to the recently selected track
+  const reducerForTrackInfoElemRange = useEvent(
+    (
+      prev: {
+        topPlusHalf: number;
+        bottomMinusHalf: number;
+        topElem: TrackInfoElement | null;
+        bottomElem: TrackInfoElement | null;
+        topId: number;
+        bottomId: number;
+      },
+      id: number,
+    ) => {
+      const chCount = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1])?.length ?? 0;
+      if (chCount <= 0) return prev;
+      const trackInfoElem = trackInfosRef.current[`${id}`];
+      if (trackInfoElem === null) return prev;
+      const infoRect = trackInfoElem.getBoundingClientRect();
+      if (infoRect === null) return prev;
+      let currTopPlusHalf = infoRect.top + infoRect.height / chCount / 2;
+      let currTopElem = prev.topElem;
+      let currTopId = prev.topId;
+      if (currTopPlusHalf < prev.topPlusHalf) {
+        currTopElem = trackInfoElem;
+        currTopId = id;
+      } else {
+        currTopPlusHalf = prev.topPlusHalf;
+      }
+      let currBottomMinusHalf = infoRect.bottom - infoRect.height / chCount / 2;
+      let currBottomElem = prev.bottomElem;
+      let currBottomId = prev.bottomId;
+      if (currBottomMinusHalf > prev.bottomMinusHalf) {
+        currBottomElem = trackInfoElem;
+        currBottomId = id;
+      } else {
+        currBottomMinusHalf = prev.bottomMinusHalf;
+      }
+      return {
+        topPlusHalf: currTopPlusHalf,
+        bottomMinusHalf: currBottomMinusHalf,
+        topElem: currTopElem,
+        bottomElem: currBottomElem,
+        topId: currTopId,
+        bottomId: currBottomId,
+      };
+    },
+  );
   useEffect(() => {
-    if (selectedTrackIds.length === 0) return;
-    const selectedIdStr = `${selectedTrackIds[selectedTrackIds.length - 1]}`;
-    const trackInfo = trackInfosRef.current[selectedIdStr];
-    if (trackInfo === null) return;
-    const infoRect = trackInfo.getBoundingClientRect();
-    const viewElem = splitViewElem.current;
-    const viewRect = viewElem?.getBoundingClientRect() ?? null;
-    if (infoRect === null || viewElem === null || viewRect === null) return;
-    const infoMiddle = infoRect.top + infoRect.height / 2;
-    if (infoMiddle < viewRect.top) {
-      viewElem.scrollTo({top: infoRect.top - viewRect.top, behavior: "smooth"});
-    } else if (infoMiddle > viewRect.bottom) {
-      viewElem.scrollTo({top: infoRect.bottom - viewRect.bottom, behavior: "smooth"});
+    if (selectedTrackIds.length === 0 || !selectionIsAdded) return;
+    const viewRect = splitViewElem.current?.getBoundingClientRect() ?? null;
+    if (viewRect === null) return;
+    const {topPlusHalf, bottomMinusHalf, topElem, bottomElem, topId, bottomId} =
+      selectedTrackIds.reduce(reducerForTrackInfoElemRange, {
+        topPlusHalf: Infinity,
+        bottomMinusHalf: -Infinity,
+        topElem: null,
+        bottomElem: null,
+        topId: -1,
+        bottomId: -1,
+      });
+    if (
+      topId === selectedTrackIds[selectedTrackIds.length - 1] &&
+      topPlusHalf < viewRect.top + TIME_CANVAS_HEIGHT
+    ) {
+      topElem?.scrollIntoView(true);
+    } else if (
+      bottomId === selectedTrackIds[selectedTrackIds.length - 1] &&
+      bottomMinusHalf > viewRect.bottom
+    ) {
+      bottomElem?.scrollIntoView(false);
     }
-  }, [selectedTrackIds, trackInfosRef]);
+  }, [selectedTrackIds, selectionIsAdded, reducerForTrackInfoElemRange]);
 
   // set LensParams when track list or width change
   useLayoutEffect(() => {
@@ -823,6 +932,7 @@ function MainViewer(props: MainViewerProps) {
                   />
                 ) : null}
                 <AmpAxis
+                  id={id}
                   ref={registerAmpCanvas(idChStr)}
                   height={height}
                   ampRangeRef={ampRangeRef}
@@ -831,8 +941,10 @@ function MainViewer(props: MainViewerProps) {
                   enableInteraction={blend < 1}
                 />
                 <FreqAxis
+                  id={id}
                   ref={registerFreqCanvas(idChStr)}
                   height={height}
+                  maxTrackHz={maxTrackHz}
                   setHzRange={throttledSetHzRange}
                   resetHzRange={resetHzRange}
                   enableInteraction={blend > 0}
@@ -889,6 +1001,7 @@ function MainViewer(props: MainViewerProps) {
           calcLocatorPos={calcPlayheadPos}
         />
         <Locator
+          ref={selectLocatorElem}
           locatorStyle="selection"
           getTopBottom={getSelectLocatorTopBottom}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}

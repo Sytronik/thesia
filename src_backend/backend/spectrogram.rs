@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use identity_hash::IntMap;
 use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 pub mod mel;
 mod stft;
 
+use super::tuple_hasher::TupleIntSet;
 use super::windows::{calc_normalized_win, WindowType};
+use super::TupleIntMap;
 use crate::backend::dynamics::decibel::DeciBelInplace;
 use stft::perform_stft;
 
@@ -95,6 +97,17 @@ pub struct SpecSetting {
     pub freq_scale: FreqScale,
 }
 
+impl Default for SpecSetting {
+    fn default() -> Self {
+        Self {
+            win_ms: 40.,
+            t_overlap: 4,
+            f_overlap: 1,
+            freq_scale: FreqScale::Mel,
+        }
+    }
+}
+
 impl SpecSetting {
     #[inline]
     pub fn calc_win_length(&self, sr: u32) -> usize {
@@ -142,21 +155,21 @@ impl SpecSetting {
 }
 
 pub struct SpectrogramAnalyzer {
-    windows: HashMap<WinNfft, Array1<f32>>,
-    fft_modules: HashMap<usize, Arc<dyn RealToComplex<f32>>>,
-    mel_fbs: HashMap<SrNfft, Array2<f32>>,
+    windows: TupleIntMap<WinNfft, Array1<f32>>,
+    fft_modules: IntMap<usize, Arc<dyn RealToComplex<f32>>>,
+    mel_fbs: TupleIntMap<SrNfft, Array2<f32>>,
 }
 
 impl SpectrogramAnalyzer {
     pub fn new() -> Self {
         SpectrogramAnalyzer {
-            windows: HashMap::new(),
-            fft_modules: HashMap::new(),
-            mel_fbs: HashMap::new(),
+            windows: TupleIntMap::with_capacity_and_hasher(1, Default::default()),
+            fft_modules: IntMap::with_capacity_and_hasher(1, Default::default()),
+            mel_fbs: TupleIntMap::with_capacity_and_hasher(1, Default::default()),
         }
     }
 
-    pub fn prepare(&mut self, params: &HashSet<SrWinNfft>, freq_scale: FreqScale) {
+    pub fn prepare(&mut self, params: &TupleIntSet<SrWinNfft>, freq_scale: FreqScale) {
         let mut real_fft_planner = RealFftPlanner::<f32>::new();
         let entries: Vec<_> = params
             .par_iter()
@@ -192,25 +205,38 @@ impl SpectrogramAnalyzer {
             self.mel_fbs.extend(entries);
         } else {
             self.mel_fbs.clear();
+            self.mel_fbs.shrink_to_fit();
         }
     }
 
-    pub fn retain(&mut self, params: &HashSet<SrWinNfft>, freq_scale: FreqScale) {
+    pub fn retain(&mut self, params: &TupleIntSet<SrWinNfft>, freq_scale: FreqScale) {
         self.windows.retain(|&(win_length, n_fft), _| {
             params
                 .iter()
                 .any(|&param| win_length == param.win_length && n_fft == param.n_fft)
         });
+        if self.windows.capacity() > 2 * self.windows.len() {
+            self.windows.shrink_to(1);
+        }
+
         self.fft_modules
             .retain(|&n_fft, _| params.iter().any(|&param| n_fft == param.n_fft));
+        if self.fft_modules.capacity() > 2 * self.fft_modules.len() {
+            self.fft_modules.shrink_to(1);
+        }
+
         if freq_scale == FreqScale::Mel {
             self.mel_fbs.retain(|&(sr, n_fft), _| {
                 params
                     .iter()
                     .any(|&param| sr == param.sr && n_fft == param.n_fft)
             });
+            if self.mel_fbs.capacity() > 2 * self.mel_fbs.len() {
+                self.mel_fbs.shrink_to(1);
+            }
         } else {
             self.mel_fbs.clear();
+            self.mel_fbs.shrink_to_fit();
         }
     }
 

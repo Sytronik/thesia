@@ -1,9 +1,10 @@
 {
   "recommendations": [
     "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
     "EditorConfig.EditorConfig",
+    "fill-labs.dependi",
     "tamasfe.even-better-toml",
-    "serayuzgur.crates",
     "rust-lang.rust-analyzer"
   ]
 }

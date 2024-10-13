@@ -1,7 +1,6 @@
 use ndarray::prelude::*;
 use ndarray::{AssignElem, ScalarOperand};
-use num_traits::{AsPrimitive, NumAssignOps};
-use rustfft::num_traits::{Float, FloatConst};
+use num_traits::{AsPrimitive, Float, FloatConst, NumAssignOps};
 
 use super::windows::{calc_normalized_win, WindowType};
 

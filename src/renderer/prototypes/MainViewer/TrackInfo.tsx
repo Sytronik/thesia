@@ -41,6 +41,17 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
 
+  const imperativeHandleRef = useRef<TrackInfoElement>({
+    getBoundingClientRect: () => trackInfoElem.current?.getBoundingClientRect() ?? null,
+    scrollIntoView: (alignToTop: boolean) =>
+      trackInfoElem.current?.scrollIntoView({
+        behavior: "smooth",
+        block: alignToTop ? "start" : "end",
+        inline: "nearest",
+      }),
+  });
+  useImperativeHandle(ref, () => imperativeHandleRef.current, []);
+
   const channels = trackIdCh.map((idChStr, ch) => {
     return (
       <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
@@ -48,11 +59,6 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       </div>
     );
   });
-
-  const imperativeHandleRef = useRef<TrackInfoElement>({
-    getBoundingClientRect: () => trackInfoElem.current?.getBoundingClientRect() ?? null,
-  });
-  useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 
   const [{handlerId}, drop] = useDrop<DragItem, void, {handlerId: Identifier | null}>(
     {
@@ -138,7 +144,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       onContextMenu={(e) => {
         e.preventDefault();
         showTrackContextMenu();
-      }} // TODO: if (!isSelected), show highlight instead
+      }}
       style={{
         margin: `${VERTICAL_AXIS_PADDING}px 0`,
         height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,
@@ -146,7 +152,11 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       }}
       data-handler-id={handlerId}
     >
-      <MemoizedTrackSummary className={styles.TrackSummary} data={trackSummary} />
+      <MemoizedTrackSummary
+        className={styles.TrackSummary}
+        data={trackSummary}
+        chCount={trackIdCh.length}
+      />
       <div className={styles.channels}>{channels}</div>
     </div>
   );

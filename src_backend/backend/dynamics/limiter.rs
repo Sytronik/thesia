@@ -1,8 +1,7 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
-use std::sync::Arc;
-
 use dashmap::DashMap;
+use identity_hash::BuildIdentityHasher;
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use num_traits::{Float, NumAssignOps, NumOps};
@@ -61,10 +60,10 @@ pub struct PerfectLimiter {
 
 impl PerfectLimiter {
     pub fn new(sr: u32, threshold: f64, attack_ms: f64, hold_ms: f64, release_ms: f64) -> Self {
-        assert!(threshold > f32::EPSILON as f64);
-        assert!(attack_ms >= 0.);
-        assert!(hold_ms >= 0.);
-        assert!(release_ms >= 0.);
+        debug_assert!(threshold > f32::EPSILON as f64);
+        debug_assert!(attack_ms >= 0.);
+        debug_assert!(hold_ms >= 0.);
+        debug_assert!(release_ms >= 0.);
         let ms_to_samples = |x: f64| (x * sr as f64 / 1000.);
         let attack = ms_to_samples(attack_ms).round() as usize;
         let mut smoother = BoxStackFilter::with_num_layers(attack, 3);
@@ -116,13 +115,13 @@ impl PerfectLimiter {
 
         let zero = Array1::zeros(wavs.shape()[0]);
         let attack = self.attack;
-        let gain_seq: Array1<_> = wavs
-            .lanes(Axis(0))
-            .into_iter()
-            .chain(std::iter::repeat(zero.view()).take(attack))
-            .map(|x| self.calc_gain(x))
-            .skip(attack)
-            .collect();
+        let gain_seq: Array1<_> = itertools::chain(
+            wavs.lanes(Axis(0)),
+            itertools::repeat_n(zero.view(), attack),
+        )
+        .map(|x| self.calc_gain(x))
+        .skip(attack)
+        .collect();
 
         wavs.axis_iter_mut(Axis(0))
             .into_par_iter()
@@ -195,10 +194,10 @@ impl SimpleLimiter {
         lookahead_ms: f64,
         threshold: f64,
     ) -> SimpleLimiter {
-        assert!((0.0..1.0).contains(&attack));
-        assert!((0.0..1.0).contains(&release));
-        assert!(lookahead_ms > 0.);
-        assert!(threshold > 0.);
+        debug_assert!((0.0..1.0).contains(&attack));
+        debug_assert!((0.0..1.0).contains(&release));
+        debug_assert!(lookahead_ms > 0.);
+        debug_assert!(threshold > 0.);
         let sr = sr as f64;
         let lookahead = (sr * lookahead_ms / 1000.).round() as usize;
         let lookahead_buf = vec![0.; lookahead];
@@ -246,11 +245,11 @@ impl SimpleLimiter {
     }
 }
 
-struct LimiterManager(DashMap<u32, PerfectLimiter>);
+struct LimiterManager(DashMap<u32, PerfectLimiter, BuildIdentityHasher<u32>>);
 
 impl LimiterManager {
     pub fn new() -> Self {
-        LimiterManager(DashMap::new())
+        LimiterManager(Default::default())
     }
 
     pub fn get(&self, sr: u32) -> Option<PerfectLimiter> {
@@ -266,7 +265,7 @@ impl LimiterManager {
 
 pub fn get_cached_limiter(sr: u32) -> PerfectLimiter {
     lazy_static! {
-        static ref LIMITER_MANAGER: Arc<LimiterManager> = Arc::new(LimiterManager::new());
+        static ref LIMITER_MANAGER: LimiterManager = LimiterManager::new();
     }
 
     let limiter_or_none = LIMITER_MANAGER.get(sr);
@@ -283,8 +282,8 @@ mod tests {
     #[test]
     fn limiter_works() {
         let path = "samples/sample_48k.wav";
-        let (mut wavs, sr, _) = open_audio_file(path).unwrap();
-        let mut limiter = PerfectLimiter::new(sr, 1., 5., 15., 40.);
+        let (mut wavs, format_info) = open_audio_file(path).unwrap();
+        let mut limiter = PerfectLimiter::new(format_info.sr, 1., 5., 15., 40.);
         wavs *= 8.;
         let gain_seq = limiter.process_inplace(wavs.view_mut());
         assert!(
@@ -296,7 +295,7 @@ mod tests {
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: sr,
+            sample_rate: format_info.sr,
             bits_per_sample: 32,
             sample_format: hound::SampleFormat::Float,
         };

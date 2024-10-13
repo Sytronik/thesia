@@ -17,42 +17,53 @@ export type Markers = [TickPxPosition, TickLabel][];
 export type MarkerDrawOption = {
   startSec?: number;
   endSec?: number;
+  maxSec?: number;
+  maxTrackHz?: number;
   ampRange?: [number, number];
+  mindB?: number;
+  maxdB?: number;
 };
 
 /* draw tracks */
 /* time axis */
-export async function getTimeAxisMarkers(
+export function getTimeAxisMarkers(
   subTickSec: number,
   subTickUnitCount: number,
   markerDrawOptions?: MarkerDrawOption,
-): Promise<Markers> {
-  const {startSec, endSec} = markerDrawOptions || {};
+): Markers {
+  const {startSec, endSec, maxSec} = markerDrawOptions || {};
 
-  if (startSec === undefined || endSec === undefined) {
-    console.error("no start sec of px per sec value exist");
+  if (startSec === undefined || endSec === undefined || maxSec === undefined) {
+    console.error("no markerDrawOptions for time axis exist");
     return [];
   }
-  return backend.getTimeAxisMarkers(startSec, endSec, subTickSec, subTickUnitCount);
+  return backend.getTimeAxisMarkers(startSec, endSec, subTickSec, subTickUnitCount, maxSec);
 }
 
 /* track axis */
-export async function getFreqAxisMarkers(
-  maxNumTicks: number,
-  maxNumLabels: number,
-): Promise<Markers> {
-  return backend.getFreqAxisMarkers(maxNumTicks, maxNumLabels);
-}
-
-export async function getAmpAxisMarkers(
+export function getFreqAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
-): Promise<Markers> {
+): Markers {
+  const {maxTrackHz} = markerDrawOptions || {};
+
+  if (maxTrackHz === undefined) {
+    console.error("no markerDrawOptions for freq axis exist");
+    return [];
+  }
+  return backend.getFreqAxisMarkers(maxNumTicks, maxNumLabels, maxTrackHz);
+}
+
+export function getAmpAxisMarkers(
+  maxNumTicks: number,
+  maxNumLabels: number,
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
   const {ampRange} = markerDrawOptions || {};
 
   if (!ampRange) {
-    console.error("no draw option for wav exist");
+    console.error("no markerDrawOption for amp axis exist");
     return [];
   }
 
@@ -61,11 +72,19 @@ export async function getAmpAxisMarkers(
 
 /* dB Axis */
 
-export async function getdBAxisMarkers(
+export function getdBAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
-): Promise<Markers> {
-  return backend.getdBAxisMarkers(maxNumTicks, maxNumLabels);
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
+  const {mindB, maxdB} = markerDrawOptions || {};
+
+  if (mindB === undefined || maxdB === undefined) {
+    console.error("no markerDrawOptions for dB axis exist");
+    return [];
+  }
+
+  return backend.getdBAxisMarkers(maxNumTicks, maxNumLabels, mindB, maxdB);
 }
 
 // IdChannel is form of id#_ch#
@@ -141,8 +160,7 @@ export const {
   getPath,
   getFileName,
   getLengthSec,
-  getSampleRate,
-  getSampleFormat,
+  getFormatInfo,
   getGlobalLUFS,
   getRMSdB,
   getMaxPeakdB,

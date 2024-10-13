@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use std::path::{self, Path, PathBuf};
 
+use identity_hash::IntMap;
+use itertools::Itertools;
 use ndarray::prelude::*;
 use ndarray::{Data, OwnedRepr, RemoveAxis};
 use num_traits::Num;
 
-pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String> {
-    let mut groups = HashMap::<String, HashMap<usize, PathBuf>>::new();
-    let mut result = HashMap::<usize, String>::new();
+pub fn unique_filenames(paths: IntMap<usize, PathBuf>) -> IntMap<usize, String> {
+    let mut groups = HashMap::<String, IntMap<usize, PathBuf>>::new();
+    let mut result = IntMap::<usize, String>::default();
     for (id, path) in paths {
         match path.file_name() {
             Some(x) => {
@@ -19,7 +21,10 @@ pub fn unique_filenames(paths: HashMap<usize, PathBuf>) -> HashMap<usize, String
                         value.insert(id, parent);
                     }
                     None => {
-                        let mut hm = HashMap::<usize, PathBuf>::with_capacity(1);
+                        let mut hm = IntMap::<usize, PathBuf>::with_capacity_and_hasher(
+                            1,
+                            Default::default(),
+                        );
                         hm.insert(id, parent);
                         groups.insert(name, hm);
                     }
@@ -104,34 +109,31 @@ where
                 }
             }
             PadMode::Reflect => {
-                let pad_left = self
-                    .axis_iter(axis)
-                    .skip(1)
-                    .chain(self.axis_iter(axis).rev().skip(1))
-                    .cycle()
-                    .take(n_pad_left);
+                let pad_left = itertools::chain(
+                    self.axis_iter(axis).skip(1),
+                    self.axis_iter(axis).rev().skip(1),
+                )
+                .cycle()
+                .take(n_pad_left);
                 result
                     .axis_iter_mut(axis)
                     .take(n_pad_left)
                     .rev()
                     .zip(pad_left)
-                    .for_each(|(y, x)| x.assign_to(y));
+                    .for_each(|(tgt, src)| src.assign_to(tgt));
 
                 if n_pad_right > 0 {
-                    let pad_right = self
-                        .axis_iter(axis)
-                        .rev()
-                        .skip(1)
-                        .chain(self.axis_iter(axis).skip(1))
-                        .cycle()
-                        .take(n_pad_right);
+                    let pad_right = itertools::chain(
+                        self.axis_iter(axis).rev().skip(1),
+                        self.axis_iter(axis).skip(1),
+                    )
+                    .cycle()
+                    .take(n_pad_right);
                     result
                         .axis_iter_mut(axis)
-                        .rev()
-                        .take(n_pad_right)
-                        .rev()
+                        .tail(n_pad_right)
                         .zip(pad_right)
-                        .for_each(|(y, x)| x.assign_to(y));
+                        .for_each(|(tgt, src)| src.assign_to(tgt));
                 }
             }
         }

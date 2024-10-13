@@ -46,6 +46,7 @@ function ColorMap(props: ColorMapProps) {
       <div className={styles.colorMapBody}>
         <ColorBarCanvas width={COLORBAR_CANVAS_WIDTH} height={colorBarHeight} />
         <AxisCanvas
+          id={0}
           ref={dBAxisCanvasElem}
           width={DB_CANVAS_WIDTH}
           height={height}

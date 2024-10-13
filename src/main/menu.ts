@@ -1,6 +1,6 @@
 import {Menu, shell, BrowserWindow, MenuItemConstructorOptions, MenuItem} from "electron";
 import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "./constants";
-import {showOpenDialog} from "./ipc";
+import {mutateEditMenu, showOpenDialog} from "./ipc";
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
   selector?: string;
@@ -13,8 +13,22 @@ type MenuItemClick = (
   event: Electron.KeyboardEvent,
 ) => void;
 
-const clickOpenMenu: MenuItemClick = async (_, browserWindow) =>
+const clickOpenMenu: MenuItemClick = async (_, browserWindow) => {
+  browserWindow?.webContents.send("remove-global-focusout-listener");
+  mutateEditMenu((item) => {
+    item.enabled = true;
+  });
+  const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
+  if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
+
   browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
+
+  mutateEditMenu((item) => {
+    item.enabled = false;
+  });
+  if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
+  browserWindow?.webContents.send("add-global-focusout-listener");
+};
 
 const clickFreqZoomIn: MenuItemClick = (_, browserWindow, event) => {
   if (!event.triggeredByAccelerator) browserWindow?.webContents.send("freq-zoom-in");
@@ -28,8 +42,9 @@ const clickTimeZoomIn: MenuItemClick = (_, browserWindow) =>
 const clickTimeZoomOut: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("time-zoom-out");
 
-const clickSelectAllTracks: MenuItemClick = (_, browserWindow) =>
-  browserWindow?.webContents.send("select-all-tracks");
+const clickSelectAllTracks: MenuItemClick = (_, browserWindow, event) => {
+  if (!event.triggeredByAccelerator) browserWindow?.webContents.send("select-all-tracks");
+};
 
 const clickRemoveTrackMenu: MenuItemClick = (_, browserWindow) =>
   browserWindow?.webContents.send("remove-selected-tracks");
@@ -48,6 +63,14 @@ const clickJumpPlayerMenus = (
   jumpSec: number,
 ) => {
   if (!event.triggeredByAccelerator) browserWindow?.webContents.send("jump-player", jumpSec);
+};
+
+const killAndReload: MenuItemClick = (_, browserWindow) => {
+  // The next line is needed to kill the backend on Windows.
+  browserWindow?.webContents.forcefullyCrashRenderer();
+  // The next reload sometimes fails. So "renderer-process-gone" listener is needed.
+  // (refer to webContents.on("renderer-process-gone") in main.ts)
+  browserWindow?.webContents.reload();
 };
 
 export default class MenuBuilder {
@@ -174,12 +197,6 @@ export default class MenuBuilder {
       label: "Tracks",
       submenu: [
         {
-          id: "select-all-tracks",
-          label: "Select All Tracks",
-          accelerator: "Command+A",
-          click: clickSelectAllTracks,
-        },
-        {
           id: "remove-selected-tracks",
           label: "Remove Selected Tracks",
           accelerator: "Backspace",
@@ -192,6 +209,12 @@ export default class MenuBuilder {
           visible: false,
           acceleratorWorksWhenHidden: true,
           click: clickRemoveTrackMenu,
+        },
+        {
+          id: "select-all-tracks",
+          label: "Select All Tracks",
+          accelerator: "Command+A",
+          click: clickSelectAllTracks,
         },
       ],
     };
@@ -329,12 +352,7 @@ export default class MenuBuilder {
       {
         label: "&File",
         submenu: [
-          {
-            label: "&Open Audio Tracks...",
-            accelerator: "Ctrl+O",
-            click: async (_, browserWindow) =>
-              browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog()),
-          },
+          {label: "&Open Audio Tracks...", accelerator: "Ctrl+O", click: clickOpenMenu},
           {type: "separator"},
           {role: "close"},
         ],
@@ -347,7 +365,7 @@ export default class MenuBuilder {
                 {
                   label: "&Reload",
                   accelerator: "Ctrl+R",
-                  click: () => this.mainWindow.webContents.reload(),
+                  click: killAndReload,
                 },
                 {
                   label: "Toggle &Full Screen",
@@ -373,12 +391,6 @@ export default class MenuBuilder {
         label: "&Tracks",
         submenu: [
           {
-            id: "select-all-tracks",
-            label: "Select &All Tracks",
-            accelerator: "Ctrl+A",
-            click: clickSelectAllTracks,
-          },
-          {
             id: "remove-selected-tracks",
             label: "&Remove Selected Tracks",
             accelerator: "Delete",
@@ -391,6 +403,13 @@ export default class MenuBuilder {
             visible: false,
             acceleratorWorksWhenHidden: true,
             click: clickRemoveTrackMenu,
+          },
+          {
+            id: "select-all-tracks",
+            label: "Select &All Tracks",
+            accelerator: "Ctrl+A",
+            click: clickSelectAllTracks,
+            registerAccelerator: false,
           },
         ],
       },

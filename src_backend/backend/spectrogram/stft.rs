@@ -3,13 +3,9 @@ use std::sync::Arc;
 
 use ndarray::prelude::*;
 use ndarray::ScalarOperand;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Float, FloatConst};
 use rayon::prelude::*;
-use rustfft::{
-    num_complex::Complex,
-    num_traits::{Float, FloatConst},
-    FftNum,
-};
+use realfft::{num_complex::Complex, FftNum};
 
 use super::super::utils::{Pad, PadMode};
 use super::super::windows::{calc_normalized_win, WindowType};
@@ -32,7 +28,7 @@ where
     let window = window.map_or_else(
         || calc_normalized_win(WindowType::Hann, win_length, n_fft).into(),
         |w| {
-            assert_eq!(w.len(), win_length);
+            debug_assert_eq!(w.len(), win_length);
             w
         },
     );
@@ -135,8 +131,8 @@ fn to_windowed_frames<A: Float>(
 #[cfg(test)]
 mod tests {
     use ndarray::{arr2, Array1};
-    use rustfft::num_complex::Complex;
-    use rustfft::num_traits::{One, Zero};
+    use num_traits::{One, Zero};
+    use realfft::num_complex::Complex;
 
     trait Impulse {
         fn impulse(size: usize, location: usize) -> Self;

@@ -4,6 +4,15 @@ import path from "path";
 import settings from "electron-settings";
 import {SUPPORTED_TYPES} from "./constants";
 
+export function mutateEditMenu(func: (item: Electron.MenuItem) => void) {
+  const appMenu = Menu.getApplicationMenu();
+  if (!appMenu) return;
+  const editMenu = appMenu.getMenuItemById("edit-menu");
+  if (editMenu) {
+    editMenu.submenu?.items.forEach(func);
+  }
+}
+
 function labelAndSublabel(
   label: string,
   darwinAccelerator: string,
@@ -53,36 +62,59 @@ export default function addIPCListeners() {
   ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
 
   ipcMain.on("show-open-dialog", async (event) => {
-    event.reply("open-dialog-closed", await showOpenDialog());
-  });
-
-  ipcMain.on("show-file-open-err-msg", async (event, unsupportedPaths, invalidPaths) => {
-    const msgUnsupported = unsupportedPaths.length
-      ? `-- Not Supported Type --
-      ${unsupportedPaths.join("\n")}
-      `
-      : "";
-    const msgInvalid = invalidPaths.length
-      ? `-- Not Valid Format --
-      ${invalidPaths.join("\n")}
-      `
-      : "";
-    await dialog.showMessageBox({
-      type: "error",
-      buttons: ["OK"],
-      defaultId: 0,
-      title: "File Open Error",
-      message: "The following files could not be opened",
-      detail: `${msgUnsupported}\
-        ${msgInvalid}\
-
-        Please ensure that the file properties are correct and that it is a supported file type.
-        Only files with the following extensions are allowed: ${SUPPORTED_TYPES.join(", ")}`,
-      cancelId: 0,
-      noLink: false,
-      normalizeAccessKeys: false,
+    event.reply("remove-global-focusout-listener");
+    mutateEditMenu((item) => {
+      item.enabled = true;
     });
+    const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
+    if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
+
+    event.reply("open-dialog-closed", await showOpenDialog());
+
+    mutateEditMenu((item) => {
+      item.enabled = false;
+    });
+    if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
+    event.reply("add-global-focusout-listener");
   });
+
+  const numFilesLabel = (numFiles: number) => (numFiles >= 5 ? ` (${numFiles} files)` : ``);
+  const joinManyPaths = (paths: string[]) => {
+    // join with newline if less than 5 elements, else show first 2 elems + ellipse + the last elem
+    return paths.length < 5
+      ? paths.join("\n")
+      : `${paths.slice(2).join("\n")}\n...\n${paths[paths.length - 1]}`;
+  };
+  ipcMain.on(
+    "show-file-open-err-msg",
+    (event, unsupportedPaths: string[], invalidPaths: string[]) => {
+      const msgUnsupported = unsupportedPaths.length
+        ? `-- Not Supported Type${numFilesLabel(unsupportedPaths.length)} --\n` +
+          `${joinManyPaths(unsupportedPaths)}\n`
+        : "";
+      const msgInvalid = invalidPaths.length
+        ? `-- Not Valid Format${numFilesLabel(invalidPaths.length)} --\n` +
+          `${joinManyPaths(invalidPaths)}\n`
+        : "";
+      dialog.showMessageBoxSync({
+        type: "error",
+        buttons: ["OK"],
+        defaultId: 0,
+        title: "File Open Error",
+        message: "The following files could not be opened",
+        detail:
+          `${msgUnsupported}\n` +
+          `${msgInvalid}\n` +
+          "\n" +
+          "Please ensure that the file properties are correct and that it is a supported file type.\n" +
+          `Only files with the following extensions are allowed:\n${SUPPORTED_TYPES.join(", ")}`,
+        textWidth: 290,
+        cancelId: 0,
+        noLink: false,
+        normalizeAccessKeys: false,
+      });
+    },
+  );
 
   ipcMain.on("show-track-context-menu", (event) => {
     const menu = Menu.buildFromTemplate([
@@ -98,24 +130,24 @@ export default function addIPCListeners() {
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
   });
 
-  ipcMain.on("show-axis-context-menu", (event, axisKind) => {
+  ipcMain.on("show-axis-context-menu", (event, axisKind, id) => {
     const template: MenuItemConstructorOptions[] = [];
     if (axisKind === "ampAxis") {
       template.push({
         ...labelAndSublabel("Edit Range", "Double Cick", "Double Click", 2),
-        click: () => event.sender.send("edit-axis-range", axisKind),
+        click: () => event.sender.send(`edit-${axisKind}-range-${id}`),
       });
     } else if (axisKind === "freqAxis") {
       template.push(
         {
           ...labelAndSublabel("Edit Upper Limit", "Double Click"),
           click: () => {
-            event.sender.send("edit-axis-range", axisKind, "max");
+            event.sender.send(`edit-${axisKind}-range-${id}`, "max");
           },
         },
         {
           ...labelAndSublabel("Edit Lower Limit", "Double Click"),
-          click: () => event.sender.send("edit-axis-range", axisKind, "min"),
+          click: () => event.sender.send(`edit-${axisKind}-range-${id}`, "min"),
         },
       );
     }
@@ -143,27 +175,17 @@ export default function addIPCListeners() {
 
   ipcMain
     .on("enable-edit-menu", () => {
-      const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) return;
-      const editMenu = appMenu.getMenuItemById("edit-menu");
-      if (editMenu) {
-        editMenu.submenu?.items.forEach((item) => {
-          item.enabled = true;
-        });
-      }
-      const selectAllTracksMenu = appMenu.getMenuItemById("select-all-tracks");
+      mutateEditMenu((item) => {
+        item.enabled = true;
+      });
+      const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
       if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
     })
     .on("disable-edit-menu", () => {
-      const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) return;
-      const editMenu = appMenu.getMenuItemById("edit-menu");
-      if (editMenu) {
-        editMenu.submenu?.items.forEach((item) => {
-          item.enabled = false;
-        });
-      }
-      const selectAllTracksMenu = appMenu.getMenuItemById("select-all-tracks");
+      mutateEditMenu((item) => {
+        item.enabled = false;
+      });
+      const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
       if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
     });
 

@@ -29,6 +29,10 @@ impl StatCalculator {
         StatCalculator(loudness_analyzer)
     }
 
+    pub fn change_parameters(&mut self, n_ch: u32, sr: u32) {
+        self.0.change_parameters(n_ch, sr).unwrap();
+    }
+
     pub fn calc(&mut self, wavs: ArrayView2<f32>) -> AudioStats {
         self.0.reset();
         let (global_lufs, mean_squared) = rayon::join(
@@ -110,13 +114,17 @@ impl GuardClippingStats {
         <A as MaybeNan>::NotNan: Ord,
         D: Dimension,
     {
-        let max_reduction_gain = wav_before_clip.max_peak().recip();
-        GuardClippingStats {
-            max_reduction_gain_dB: max_reduction_gain.dB_from_amp_default().as_(),
-            reduction_cnt: wav_before_clip
-                .iter()
-                .filter(|x| x.abs() > A::one())
-                .count(),
+        let max_peak = wav_before_clip.max_peak();
+        if max_peak > A::one() {
+            GuardClippingStats {
+                max_reduction_gain_dB: max_peak.recip().dB_from_amp_default().as_(),
+                reduction_cnt: wav_before_clip
+                    .iter()
+                    .filter(|x| x.abs() > A::one())
+                    .count(),
+            }
+        } else {
+            Default::default()
         }
     }
 

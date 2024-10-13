@@ -8,20 +8,8 @@ export const CHANNEL = [
   ["L", "R"], // stereo
 ];
 
-export const SUPPORTED_MIME = [
-  "audio/aac",
-  "audio/x-flac",
-  "audio/mpeg",
-  "audio/ogg",
-  "audio/wav",
-  "audio/x-wav",
-  "audio/mp4",
-  "audio/m4a",
-  "audio/x-m4a",
-];
-
-export const SHIFT_PX = 10; // css px
-export const BIG_SHIFT_PX = 50; // css px
+export const SHIFT_PX = 40; // css px
+export const BIG_SHIFT_PX = 200; // css px
 
 // axis
 const createBoundaries = (tickScaleTable: TickScaleTable) => {
@@ -190,7 +178,7 @@ export const DB_TICK_NUM = {
 export const DB_BOUNDARIES = createBoundaries(DB_TICK_NUM);
 
 export const MIN_TICK_SCALE_BOUNDARY = 80;
-export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 70;
+export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 73;
 export const MAX_HEIGHT = 5000;
 
 export const VERTICAL_AXIS_PADDING = 4;

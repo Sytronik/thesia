@@ -18,18 +18,27 @@ type SplitViewHandleElement = {
 };
 
 type ImgCanvasHandleElement = {
-  draw: (buf: Buffer) => void;
+  draw: (buf: Buffer | null) => void;
   updateLensParams: (params: OptionalLensParams) => void;
   getBoundingClientRect: () => DOMRect;
+};
+
+type LocatorHandleElement = {
+  enableInteraction: () => void;
+  disableInteraction: () => void;
+  draw: () => void;
 };
 
 // Track Summary
 type TrackSummaryData = {
   fileName: string;
   time: string;
-  sampleFormat: string;
+  formatName: string;
+  bitDepth: string;
+  bitrate: string;
   sampleRate: string;
   globalLUFS: string;
+  guardClipStats: string;
 };
 
 // Axis Tick
@@ -59,14 +68,7 @@ type FloatingUserInputElement = {
 
 type TrackInfoElement = {
   getBoundingClientRect: () => DOMRect | null;
+  scrollIntoView: (alignToTop: boolean) => void;
 };
 
 type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
-
-type UserSettings = {
-  specSetting?: SpecSetting;
-  blend?: number;
-  dBRange?: number;
-  commonGuardClipping?: GuardClippingMode;
-  commonNormalize?: NormalizeTarget;
-};

@@ -95,6 +95,14 @@ const createWindow = async (pathsToOpen: string[]) => {
     else mainWindow.show();
   });
 
+  // This is needed to reload the window on Windows.
+  // contents.reload in menu.ts randomly fails after forcefullyCrashRenderer.
+  // (refer to killAndReload in menu.ts)
+  mainWindow.webContents.on("render-process-gone", () => {
+    console.log("renderer process gone. reloading ...");
+    mainWindow?.webContents.reload();
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });

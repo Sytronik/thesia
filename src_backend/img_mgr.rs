@@ -4,34 +4,26 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
-use futures::task;
-use lazy_static::{initialize, lazy_static};
+use napi::bindgen_prelude::spawn;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
-use parking_lot::RwLock;
 use rayon::prelude::*;
 use tokio::{
-    runtime::{Builder, Runtime},
-    sync::mpsc::{self, Receiver, Sender},
+    join,
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        RwLock,
+    },
     task::JoinHandle,
 };
 
 use crate::visualize::*;
-use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad, TM};
+use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad, TM, TRACK_LIST};
 
 type Images = IdChValueVec<Vec<u8>>;
 type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
 
 const MAX_IMG_CACHE_WIDTH: u32 = 16384;
-
-lazy_static! {
-    static ref RUNTIME: Runtime = Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_time()
-        .thread_name("thesia-tokio")
-        .build()
-        .unwrap();
-}
 
 static mut MSG_TX: Option<Sender<ImgMsg>> = None;
 static mut IMG_RX: Option<Receiver<(Wrapping<usize>, Images)>> = None;
@@ -130,7 +122,7 @@ where
 
 pub fn recv() -> Option<Images> {
     static RECENT_REQ_ID: AtomicUsize = AtomicUsize::new(0);
-    let waker = task::noop_waker();
+    let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
 
     let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
@@ -161,17 +153,17 @@ fn crop_caches(
     // let start = Instant::now();
     let i_w = (start_sec * option.px_per_sec).round() as isize;
     let pad_left = (-i_w.min(0)) as usize;
-    let vec: Vec<_> = id_ch_tuples
+    let zipped: Vec<_> = id_ch_tuples
         .par_iter()
-        .filter_map(|tup| {
-            let image = images.get(tup)?;
+        .filter_map(|tup| images.get(tup).map(|image| (tup, image)))
+        .map(|(tup, image)| {
             let total_width = image.len() / 4 / option.height as usize;
             let (i_w_eff, width_eff) = match calc_effective_slice(i_w, width as usize, total_width)
             {
                 Some((i, w)) => (i as isize, w as isize),
                 None => {
                     let zeros = vec![0u8; width as usize * option.height as usize * 4];
-                    return Some((*tup, (zeros, (0, 0))));
+                    return ((*tup, zeros), (*tup, (0, 0)));
                 }
             };
             let img_slice = image.slice(s![.., i_w_eff..i_w_eff + width_eff, ..]);
@@ -179,18 +171,19 @@ fn crop_caches(
             let pad_right = width as usize - width_eff as usize - pad_left;
             if pad_left + pad_right == 0 {
                 let (img_slice_vec, _) = img_slice.to_owned().into_raw_vec_and_offset();
-                Some((*tup, (img_slice_vec, (0, width))))
+                ((*tup, img_slice_vec), (*tup, (0, width)))
             } else {
                 let img_pad = img_slice.pad((pad_left, pad_right), Axis(1), Default::default());
                 let (img_pad_vec, _) = img_pad.into_raw_vec_and_offset();
-                Some((*tup, (img_pad_vec, (pad_left as u32, width_eff as u32))))
+                (
+                    (*tup, img_pad_vec),
+                    (*tup, (pad_left as u32, width_eff as u32)),
+                )
             }
         })
         .collect();
-    let eff_l_w_vec = vec.iter().map(|(k, (_, eff_l_w))| (*k, *eff_l_w)).collect();
-    let imgs = vec.into_iter().map(|(k, (img, _))| (k, img)).collect();
+    itertools::multiunzip(zipped)
     // println!("crop: {:?}", start.elapsed());
-    (imgs, eff_l_w_vec)
 }
 
 fn categorize_id_ch(
@@ -256,7 +249,7 @@ fn categorize_id_ch(
             }
         }
     }
-    assert!(
+    debug_assert!(
         cat_by_spec.need_parts.is_empty()
             || cat_by_wav.need_parts.is_empty()
             || cat_by_spec.need_parts.len() == cat_by_wav.need_parts.len()
@@ -325,15 +318,17 @@ async fn categorize_blend_caches(
         opt_for_wav,
         blend,
     } = params;
-    let tm = TM.read().await;
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
-    let mut total_widths = IdChMap::with_capacity(id_ch_tuples.len());
-    total_widths.extend(id_ch_tuples.iter().map(|&(id, ch)| {
-        let width = tm
-            .track(id)
-            .map_or(0, |track| track.calc_width(option.px_per_sec));
-        ((id, ch), width)
-    }));
+    let total_widths: IdChMap<_> = id_ch_tuples
+        .iter()
+        .map(|&(id, ch)| {
+            let width = tracklist
+                .get(id)
+                .map_or(0, |track| track.calc_width(option.px_per_sec));
+            ((id, ch), width)
+        })
+        .collect();
 
     let (cat_by_spec, cat_by_wav, need_wav_parts_only) = categorize_id_ch(
         &id_ch_tuples,
@@ -374,6 +369,7 @@ async fn categorize_blend_caches(
     );
     if !need_wav_parts_only.is_empty() {
         wav_imgs.extend(tm.draw_part_imgs(
+            &tracklist,
             &need_wav_parts_only,
             start_sec,
             width,
@@ -405,7 +401,7 @@ async fn draw_part_imgs(
     need_parts_wav: &IdChArr,
     params: &DrawParams,
 ) -> Images {
-    let tm = TM.read().await;
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     if need_parts_spec.is_empty() && need_parts_wav.is_empty() {
         return Vec::new();
     }
@@ -422,6 +418,7 @@ async fn draw_part_imgs(
     );
     // let fast_resize_vec = Some(vec![true; cat_by_spec.need_parts.len()]);
     tm.draw_part_imgs(
+        &tracklist,
         need_parts,
         params.start_sec,
         params.width,
@@ -446,12 +443,17 @@ async fn draw_new_caches(
         opt_for_wav,
         blend,
     } = params;
-    let tm = TM.read().await;
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
 
     // draw new caches
-    let new_spec_caches = tm.draw_entire_imgs(&need_new_spec_caches, option, ImageKind::Spec);
-    let new_wav_caches =
-        tm.draw_entire_imgs(&need_new_wav_caches, option, ImageKind::Wav(opt_for_wav));
+    let new_spec_caches =
+        tm.draw_entire_imgs(&tracklist, &need_new_spec_caches, option, ImageKind::Spec);
+    let new_wav_caches = tm.draw_entire_imgs(
+        &tracklist,
+        &need_new_wav_caches,
+        option,
+        ImageKind::Wav(opt_for_wav),
+    );
 
     new_spec_caches.into_par_iter().for_each(|(k, v)| {
         spec_caches.insert(k, v);
@@ -505,7 +507,7 @@ async fn draw_imgs(
     img_tx: Sender<(Wrapping<usize>, Images)>,
     req_id: Wrapping<usize>,
 ) {
-    let params_backup = params.read().clone();
+    let params_backup = params.read().await.clone();
     let (total_widths, cat_by_spec, cat_by_wav, blended_imgs) = categorize_blend_caches(
         id_ch_tuples,
         &params_backup,
@@ -520,7 +522,7 @@ async fn draw_imgs(
         ); */
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
-    if *params.read() != params_backup {
+    if *params.read().await != params_backup {
         return;
     }
 
@@ -536,7 +538,7 @@ async fn draw_imgs(
         // println!("[part] req_id: {}, blend: {}", req_id, params_backup.blend);
         img_tx.send((req_id, blended_imgs)).await.unwrap();
     }
-    if *params.read() != params_backup {
+    if *params.read().await != params_backup {
         return;
     }
     tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
@@ -558,9 +560,16 @@ async fn draw_imgs(
     }
 }
 
+async fn take_abort_await(task_handle: &mut Option<JoinHandle<()>>) {
+    if let Some(prev_task) = task_handle.take() {
+        prev_task.abort();
+        prev_task.await.ok();
+    }
+}
+
 async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>, Images)>) {
-    let spec_caches = Arc::new(IdChDMap::new());
-    let wav_caches = Arc::new(IdChDMap::new());
+    let spec_caches = Arc::new(IdChDMap::default());
+    let wav_caches = Arc::new(IdChDMap::default());
     let prev_params = Arc::new(RwLock::new(DrawParams::default()));
     let mut req_id = Wrapping(0);
     let mut task_handle: Option<JoinHandle<()>> = None;
@@ -568,10 +577,8 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
         match msg {
             ImgMsg::Draw((id_ch_tuples, draw_params)) => {
                 {
-                    let mut prev_params_write = prev_params.write();
-                    if let Some(prev_task) = task_handle.take() {
-                        prev_task.abort();
-                    }
+                    let mut prev_params_write = prev_params.write().await;
+                    take_abort_await(&mut task_handle).await;
                     if draw_params.option != prev_params_write.option {
                         spec_caches.clear();
                         wav_caches.clear();
@@ -580,7 +587,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
                     }
                     *prev_params_write = draw_params;
                 }
-                task_handle = Some(RUNTIME.spawn(draw_imgs(
+                task_handle = Some(spawn(draw_imgs(
                     id_ch_tuples,
                     Arc::clone(&prev_params),
                     Arc::clone(&spec_caches),
@@ -591,9 +598,7 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
                 req_id += 1;
             }
             ImgMsg::Remove(id_ch_tuples) => {
-                if let Some(prev_task) = task_handle.take() {
-                    prev_task.await.ok();
-                }
+                take_abort_await(&mut task_handle).await;
                 id_ch_tuples.par_iter().for_each(|tup| {
                     spec_caches.remove(tup);
                     wav_caches.remove(tup);
@@ -603,19 +608,18 @@ async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>
     }
 }
 
-pub fn spawn_runtime() {
+pub fn spawn_task() {
     unsafe {
         if MSG_TX.is_some() && IMG_RX.is_some() {
             return;
         }
     }
-    initialize(&RUNTIME);
 
-    let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(60);
-    let (img_tx, img_rx) = mpsc::channel(60);
+    let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(70);
+    let (img_tx, img_rx) = mpsc::channel(70);
     unsafe {
         MSG_TX = Some(msg_tx);
         IMG_RX = Some(img_rx);
     }
-    RUNTIME.spawn(main_loop(msg_rx, img_tx));
+    spawn(main_loop(msg_rx, img_tx));
 }
