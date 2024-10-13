@@ -305,9 +305,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const zoomHeight = useEvent((delta: number) => {
-    const newHeight = Math.round(
-      Math.min(Math.max(height * (1 + delta / 1000), MIN_HEIGHT), MAX_HEIGHT),
-    );
+    const newHeight = Math.round(Math.min(Math.max(height + delta, MIN_HEIGHT), MAX_HEIGHT));
     setHeight(newHeight);
     return newHeight;
   });
@@ -395,7 +393,7 @@ function MainViewer(props: MainViewerProps) {
         const splitView = splitViewElem.current;
         if (!splitView) return;
 
-        const newHeight = zoomHeight(delta);
+        const newHeight = zoomHeight((delta * height) / 1000);
 
         const cursorY = e.clientY - (splitView.getBoundingClientRect()?.y ?? 0);
         const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
@@ -477,14 +475,15 @@ function MainViewer(props: MainViewerProps) {
         splitViewHeight / 2,
     );
   });
-  const freqZoomIn = useEvent(() => {
+  const zoomHeightAndScroll = (isZoomOut: boolean) => {
     if (trackIds.length === 0) return;
-    setScrollTopBySelectedTracks(zoomHeight(100));
-  });
-  const freqZoomOut = useEvent(() => {
-    if (trackIds.length === 0) return;
-    setScrollTopBySelectedTracks(zoomHeight(-100));
-  });
+
+    let delta = 2 ** (Math.floor(Math.log2(height)) - 1.2);
+    if (isZoomOut) delta = -delta;
+    setScrollTopBySelectedTracks(zoomHeight(delta));
+  };
+  const freqZoomIn = useEvent(() => zoomHeightAndScroll(false));
+  const freqZoomOut = useEvent(() => zoomHeightAndScroll(true));
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
   useEffect(() => {
@@ -497,7 +496,7 @@ function MainViewer(props: MainViewerProps) {
   }, [freqZoomIn, freqZoomOut]);
 
   const zoomLens = useEvent((isZoomOut: boolean) => {
-    let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
+    let pxPerSecDelta = 2 ** (Math.floor(Math.log2(pxPerSecRef.current)) - 1.2);
     if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
 
     const pxPerSec = normalizePxPerSec(pxPerSecRef.current + pxPerSecDelta, 0);
