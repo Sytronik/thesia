@@ -499,7 +499,15 @@ function MainViewer(props: MainViewerProps) {
   const zoomLens = useEvent((isZoomOut: boolean) => {
     let pxPerSecDelta = 10 ** (Math.floor(Math.log10(pxPerSecRef.current)) - 0.5);
     if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
-    updateLensParams({pxPerSec: pxPerSecRef.current + pxPerSecDelta});
+
+    const pxPerSec = normalizePxPerSec(pxPerSecRef.current + pxPerSecDelta, 0);
+    const selectSec = player.selectSecRef.current ?? 0;
+    const startSec = normalizeStartSec(
+      selectSec - ((selectSec - startSecRef.current) * pxPerSecRef.current) / pxPerSec,
+      pxPerSec,
+      maxTrackSec,
+    );
+    updateLensParams({startSec, pxPerSec});
   });
   useEffect(() => {
     ipcRenderer.on("time-zoom-in", () => {
