@@ -8,8 +8,8 @@ export const CHANNEL = [
   ["L", "R"], // stereo
 ];
 
-export const SHIFT_PX = 10; // css px
-export const BIG_SHIFT_PX = 50; // css px
+export const SHIFT_PX = 40; // css px
+export const BIG_SHIFT_PX = 200; // css px
 
 // axis
 const createBoundaries = (tickScaleTable: TickScaleTable) => {
