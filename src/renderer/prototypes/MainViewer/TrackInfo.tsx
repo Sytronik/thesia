@@ -171,10 +171,10 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [id, selectedTrackIds, trackSummaryChild, style, channels],
   );
 
-  drag(drop(trackInfoElem));
   useEffect(() => {
+    drag(drop(trackInfoElem));
     preview(getEmptyImage(), {captureDraggingState: true});
-  }, [preview]);
+  }, [drag, drop, preview]);
 
   return (
     <div
