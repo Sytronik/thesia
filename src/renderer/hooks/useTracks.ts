@@ -13,6 +13,7 @@ type AddTracksResultType = {
 
 function useTracks(userSettings: UserSettings) {
   const [trackIds, setTrackIds] = useState<number[]>([]);
+  const [hiddenTrackIds, setHiddenTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
@@ -128,7 +129,17 @@ function useTracks(userSettings: UserSettings) {
     }
   });
 
-  const changeTrackOrder = useEvent((dragIndex: number, hoverIndex: number) => {
+  const hideTracks = useEvent((dragId: number, ids: number[]) => {
+    const newTrackIds = trackIds.filter((id) => !ids.includes(id));
+    const dragIndex = newTrackIds.indexOf(dragId);
+    setTimeout(() => {
+      setTrackIds(newTrackIds);
+      setHiddenTrackIds(ids);
+    });
+    return dragIndex;
+  });
+
+  const changeTrackOrder = useEvent((dragIndex: number, hoverIndex: number) =>
     setTrackIds((prevTrackOrder) =>
       update(prevTrackOrder, {
         $splice: [
@@ -136,7 +147,14 @@ function useTracks(userSettings: UserSettings) {
           [hoverIndex, 0, prevTrackOrder[dragIndex]],
         ],
       }),
+    ),
+  );
+
+  const showHiddenTracks = useEvent((hoverIndex: number) => {
+    setTrackIds((prevTrackIds) =>
+      update(prevTrackIds, {$splice: [[hoverIndex + 1, 0, ...hiddenTrackIds]]}),
     );
+    setHiddenTrackIds([]);
   });
 
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
@@ -182,6 +200,7 @@ function useTracks(userSettings: UserSettings) {
 
   return {
     trackIds,
+    hiddenTrackIds,
     erroredTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
@@ -196,7 +215,9 @@ function useTracks(userSettings: UserSettings) {
     refreshTracks,
     addTracks,
     removeTracks,
+    hideTracks,
     changeTrackOrder,
+    showHiddenTracks,
     ignoreError,
     setSpecSetting,
     setBlend: setBlendAndSetUserSetting,

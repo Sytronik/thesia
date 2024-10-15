@@ -1,24 +1,28 @@
-import React, {forwardRef, useImperativeHandle, useRef} from "react";
+import React, {forwardRef, useEffect, useImperativeHandle, useMemo, useRef} from "react";
 import type {Identifier, XYCoord} from "dnd-core";
 import {useDrag, useDrop} from "react-dnd";
+import {getEmptyImage} from "react-dnd-html5-backend";
 import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
+import {DndItemTypes} from "./ItemTypes";
 
-const DndItemTypes = {TRACK: "track"};
 const MemoizedTrackSummary = React.memo(TrackSummary);
 
 type TrackInfoProps = {
   id: number;
   index: number;
   trackIdChArr: IdChArr;
+  selectedTrackIds: number[];
   trackSummary: TrackSummaryData;
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
+  hideTracks: (dragId: number, ids: number[]) => number;
   onDnd: (dragIndex: number, hoverIndex: number) => void;
+  showHiddenTracks: (hoverIndex: number) => void;
 };
 
 interface DragItem {
@@ -32,12 +36,15 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     id,
     index,
     trackIdChArr: trackIdCh,
+    selectedTrackIds,
     trackSummary,
     channelHeight,
     imgHeight,
     isSelected,
     onMouseDown,
+    hideTracks,
     onDnd,
+    showHiddenTracks,
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
 
@@ -52,13 +59,34 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 
-  const channels = trackIdCh.map((idChStr, ch) => {
-    return (
-      <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
-        <span>{CHANNEL[trackIdCh.length][ch] || ""}</span>
-      </div>
-    );
-  });
+  const style = useMemo(
+    () => ({
+      margin: `${VERTICAL_AXIS_PADDING}px 0`,
+      height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,
+    }),
+    [channelHeight, trackIdCh],
+  );
+  const channels = useMemo(
+    () =>
+      trackIdCh.map((idChStr, ch) => {
+        return (
+          <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
+            <span>{CHANNEL[trackIdCh.length][ch] || ""}</span>
+          </div>
+        );
+      }),
+    [trackIdCh, imgHeight],
+  );
+  const trackSummaryChild = useMemo(
+    () => (
+      <MemoizedTrackSummary
+        className={styles.TrackSummary}
+        data={trackSummary}
+        chCount={trackIdCh.length}
+      />
+    ),
+    [trackSummary, trackIdCh],
+  );
 
   const [{handlerId}, drop] = useDrop<DragItem, void, {handlerId: Identifier | null}>(
     {
@@ -69,16 +97,13 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
         };
       },
       hover(item: DragItem, monitor) {
-        if (!trackInfoElem.current) {
-          return;
-        }
+        if (!trackInfoElem.current) return;
+
         const dragIndex = item.index;
         const hoverIndex = index;
 
         // Don't replace items with themselves
-        if (dragIndex === hoverIndex) {
-          return;
-        }
+        if (dragIndex === hoverIndex) return;
 
         // Determine rectangle on screen
         const hoverBoundingRect = trackInfoElem.current?.getBoundingClientRect();
@@ -97,14 +122,10 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
         // When dragging upwards, only move when the cursor is above 50%
 
         // Dragging downwards
-        if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
-          return;
-        }
+        if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
 
         // Dragging upwards
-        if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
-          return;
-        }
+        if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
 
         // Time to actually perform the action
         onDnd(dragIndex, hoverIndex);
@@ -119,21 +140,39 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [index, onDnd],
   );
 
-  const [{isDragging}, drag] = useDrag(
+  const [{isDragging}, drag, preview] = useDrag(
     {
       type: DndItemTypes.TRACK,
       item: () => {
-        return {id, index};
+        const hiddenIds = selectedTrackIds.filter((selectedId) => id !== selectedId);
+        return {
+          id,
+          index: hideTracks(id, hiddenIds),
+          trackSummaryChild,
+          style,
+          channels,
+          width: trackInfoElem.current?.clientWidth ?? 0,
+          numDragging: selectedTrackIds.length,
+        };
       },
-      collect: (monitor: any) => ({
+      // previewOptions: {captureDraggingState: true},
+      isDragging: (monitor) => {
+        return id === monitor.getItem().id;
+      },
+      end: (item) => {
+        showHiddenTracks(item.index);
+      },
+      collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
     },
-    [id, index],
+    [id, selectedTrackIds, trackSummaryChild, style, channels],
   );
 
-  const opacity = isDragging ? 0 : 1;
   drag(drop(trackInfoElem));
+  useEffect(() => {
+    preview(getEmptyImage(), {captureDraggingState: true});
+  }, [preview]);
 
   return (
     <div
@@ -145,18 +184,10 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
         e.preventDefault();
         showTrackContextMenu();
       }}
-      style={{
-        margin: `${VERTICAL_AXIS_PADDING}px 0`,
-        height: channelHeight * trackIdCh.length - 2 * VERTICAL_AXIS_PADDING,
-        opacity,
-      }}
+      style={{opacity: isDragging ? 0 : 1, ...style}}
       data-handler-id={handlerId}
     >
-      <MemoizedTrackSummary
-        className={styles.TrackSummary}
-        data={trackSummary}
-        chCount={trackIdCh.length}
-      />
+      {trackSummaryChild}
       <div className={styles.channels}>{channels}</div>
     </div>
   );

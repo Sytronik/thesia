@@ -30,6 +30,7 @@ type AppProps = {userSettings: UserSettings};
 function MyApp({userSettings}: AppProps) {
   const {
     trackIds,
+    hiddenTrackIds,
     erroredTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
@@ -44,7 +45,9 @@ function MyApp({userSettings}: AppProps) {
     refreshTracks,
     addTracks,
     removeTracks,
+    hideTracks,
     changeTrackOrder,
+    showHiddenTracks,
     ignoreError,
     setSpecSetting,
     setBlend,
@@ -71,7 +74,7 @@ function MyApp({userSettings}: AppProps) {
     maxTrackSec,
   );
 
-  const prevTrackIds = useRef<number[]>([]);
+  const prevTrackIds = useRef<number[]>([]); // includes hidden tracks
 
   const addDroppedFile = useEvent(async (e: DragEvent) => {
     e.preventDefault();
@@ -181,7 +184,7 @@ function MyApp({userSettings}: AppProps) {
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;
-    const currTrackIdsCount = trackIds.length;
+    const currTrackIdsCount = trackIds.length + hiddenTrackIds.length;
 
     if (prevTrackIdsCount === currTrackIdsCount) return;
 
@@ -193,8 +196,8 @@ function MyApp({userSettings}: AppProps) {
       selectTrackAfterRemoveTracks(prevTrackIds.current, trackIds);
     }
 
-    prevTrackIds.current = trackIds;
-  }, [trackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
+    prevTrackIds.current = trackIds.concat(hiddenTrackIds);
+  }, [trackIds, hiddenTrackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
 
   return (
     <div id="App" className="App">
@@ -230,7 +233,9 @@ function MyApp({userSettings}: AppProps) {
               refreshTracks={refreshTracks}
               reloadTracks={reloadTracks}
               removeTracks={removeTracks}
+              hideTracks={hideTracks}
               changeTrackOrder={changeTrackOrder}
+              showHiddenTracks={showHiddenTracks}
               selectTrack={selectTrack}
               selectAllTracks={selectAllTracks}
               finishRefreshTracks={finishRefreshTracks}
