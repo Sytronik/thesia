@@ -6,7 +6,7 @@ import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
-import {DndItemTypes} from "./ItemTypes";
+import DndItemTypes from "../constants/DndItemTypes";
 
 const MemoizedTrackSummary = React.memo(TrackSummary);
 

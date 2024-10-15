@@ -1,6 +1,6 @@
 import type {XYCoord} from "react-dnd";
 import {useDragLayer} from "react-dnd";
-import {DndItemTypes} from "./ItemTypes";
+import DndItemTypes from "../constants/DndItemTypes";
 import styles from "./TrackInfo.module.scss";
 
 function getItemStyles(initialOffset: XYCoord | null, currentOffset: XYCoord | null) {
