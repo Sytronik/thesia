@@ -19,6 +19,7 @@ type SplitViewHandleElement = {
 
 type ImgCanvasHandleElement = {
   draw: (buf: Buffer | null) => void;
+  showLoading: () => void;
   updateLensParams: (params: OptionalLensParams) => void;
   getBoundingClientRect: () => DOMRect;
 };

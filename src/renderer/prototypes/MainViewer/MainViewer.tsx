@@ -141,6 +141,7 @@ function MainViewer(props: MainViewerProps) {
     cursorRatioOnImg: 0.0,
     cursorOffset: 0,
   });
+  const hiddenImgIdRef = useRef<number>(-1);
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
@@ -616,11 +617,16 @@ function MainViewer(props: MainViewerProps) {
 
     const images = BackendAPI.getImages();
     Object.entries(images).forEach(([idChStr, buf]) => {
+      if (trackIdChMap.get(hiddenImgIdRef.current)?.includes(idChStr) ?? false) return;
       if (needRefreshTrackIdChArr.includes(idChStr)) return;
       imgCanvasesRef.current[idChStr]?.draw(buf);
     });
+    trackIdChMap.get(hiddenImgIdRef.current)?.forEach((idChStr) => {
+      imgCanvasesRef.current[idChStr]?.draw(null);
+    });
     needRefreshTrackIdChArr.forEach((idChStr) => {
       imgCanvasesRef.current[idChStr]?.draw(null);
+      imgCanvasesRef.current[idChStr]?.showLoading();
     });
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -859,6 +865,12 @@ function MainViewer(props: MainViewerProps) {
     [handleWheel],
   );
 
+  const hideImage = useEvent((id) => {
+    hiddenImgIdRef.current = id;
+  });
+  const showHiddenImage = useEvent(() => {
+    hiddenImgIdRef.current = -1;
+  });
   const createLeftPane = (leftWidth: number) => (
     <>
       <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
@@ -888,8 +900,10 @@ function MainViewer(props: MainViewerProps) {
               selectTrack(e, trackId, trackIds);
             }}
             hideTracks={hideTracks}
+            hideImage={hideImage}
             onDnd={changeTrackOrder}
             showHiddenTracks={showHiddenTracks}
+            showHiddenImage={showHiddenImage}
           />
         );
       })}

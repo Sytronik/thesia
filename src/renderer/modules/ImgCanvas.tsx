@@ -32,7 +32,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     if (buf === null) {
       const ctx = canvasElem.current?.getContext("bitmaprenderer");
       ctx?.transferFromImageBitmap(null);
-      if (loadingElem.current) loadingElem.current.style.display = "block";
       return;
     }
     if (loadingElem.current) loadingElem.current.style.display = "none";
@@ -55,6 +54,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       })
       .catch(() => {});
   });
+  const showLoading = useEvent(() => {
+    if (loadingElem.current) loadingElem.current.style.display = "block";
+  });
 
   const updateLensParams = useEvent((params: OptionalLensParams) => {
     startSecRef.current = params.startSec ?? startSecRef.current;
@@ -67,6 +69,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({
     draw,
+    showLoading,
     updateLensParams,
     getBoundingClientRect,
   });

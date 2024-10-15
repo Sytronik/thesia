@@ -20,9 +20,11 @@ type TrackInfoProps = {
   imgHeight: number;
   isSelected: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
+  hideImage: (id: number) => void;
   hideTracks: (dragId: number, ids: number[]) => number;
   onDnd: (dragIndex: number, hoverIndex: number) => void;
   showHiddenTracks: (hoverIndex: number) => void;
+  showHiddenImage: () => void;
 };
 
 interface DragItem {
@@ -43,8 +45,10 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     isSelected,
     onMouseDown,
     hideTracks,
+    hideImage,
     onDnd,
     showHiddenTracks,
+    showHiddenImage,
   } = props;
   const trackInfoElem = useRef<HTMLDivElement>(null);
 
@@ -145,6 +149,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       type: DndItemTypes.TRACK,
       item: () => {
         const hiddenIds = selectedTrackIds.filter((selectedId) => id !== selectedId);
+        hideImage(id);
         return {
           id,
           index: hideTracks(id, hiddenIds),
@@ -155,12 +160,12 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
           numDragging: selectedTrackIds.length,
         };
       },
-      // previewOptions: {captureDraggingState: true},
       isDragging: (monitor) => {
         return id === monitor.getItem().id;
       },
       end: (item) => {
         showHiddenTracks(item.index);
+        showHiddenImage();
       },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
