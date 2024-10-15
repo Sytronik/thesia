@@ -13,33 +13,34 @@ function useDropzone(props: DropzoneProps) {
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
 
   const onDragOver = useEvent((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (isDragActive) e.preventDefault();
   });
 
   const onDragEnter = useEvent((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    dragCounterRef.current += 1;
-    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
-      setIsDragActive(true);
+    if (
+      e.dataTransfer?.items === undefined ||
+      e.dataTransfer.items.length === 0 ||
+      e.dataTransfer.items[0].kind !== "file"
+    ) {
+      return;
     }
-    return false;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragActive(true);
   });
 
   const onDragLeave = useEvent((e: DragEvent) => {
+    if (!isDragActive) return;
     e.preventDefault();
-    e.stopPropagation();
 
     dragCounterRef.current -= 1;
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);
     }
-    return false;
   });
 
   const onDrop = useEvent(async (e: DragEvent) => {
+    if (!isDragActive) return;
     await handleDrop(e);
     dragCounterRef.current = 0;
     setIsDragActive(false);

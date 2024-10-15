@@ -2,6 +2,7 @@ import {useRef, useState, useMemo} from "react";
 import {difference} from "renderer/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
 import {setUserSetting} from "renderer/lib/ipc-sender";
+import update from "immutability-helper";
 import {UserSettings} from "backend";
 import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
 
@@ -12,6 +13,7 @@ type AddTracksResultType = {
 
 function useTracks(userSettings: UserSettings) {
   const [trackIds, setTrackIds] = useState<number[]>([]);
+  const [hiddenTrackIds, setHiddenTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
@@ -127,6 +129,34 @@ function useTracks(userSettings: UserSettings) {
     }
   });
 
+  const hideTracks = useEvent((dragId: number, ids: number[]) => {
+    const newTrackIds = trackIds.filter((id) => !ids.includes(id));
+    const dragIndex = newTrackIds.indexOf(dragId);
+    setTimeout(() => {
+      setTrackIds(newTrackIds);
+      setHiddenTrackIds(ids);
+    });
+    return dragIndex;
+  });
+
+  const changeTrackOrder = useEvent((dragIndex: number, hoverIndex: number) =>
+    setTrackIds((prevTrackOrder) =>
+      update(prevTrackOrder, {
+        $splice: [
+          [dragIndex, 1],
+          [hoverIndex, 0, prevTrackOrder[dragIndex]],
+        ],
+      }),
+    ),
+  );
+
+  const showHiddenTracks = useEvent((hoverIndex: number) => {
+    setTrackIds((prevTrackIds) =>
+      update(prevTrackIds, {$splice: [[hoverIndex + 1, 0, ...hiddenTrackIds]]}),
+    );
+    setHiddenTrackIds([]);
+  });
+
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
     await BackendAPI.setSpecSetting(v);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
@@ -170,6 +200,7 @@ function useTracks(userSettings: UserSettings) {
 
   return {
     trackIds,
+    hiddenTrackIds,
     erroredTrackIds,
     trackIdChMap,
     needRefreshTrackIdChArr,
@@ -184,6 +215,9 @@ function useTracks(userSettings: UserSettings) {
     refreshTracks,
     addTracks,
     removeTracks,
+    hideTracks,
+    changeTrackOrder,
+    showHiddenTracks,
     ignoreError,
     setSpecSetting,
     setBlend: setBlendAndSetUserSetting,

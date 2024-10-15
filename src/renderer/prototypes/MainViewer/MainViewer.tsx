@@ -51,6 +51,7 @@ import {
   TIME_CANVAS_HEIGHT,
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
+import TrackInfoDragLayer from "./TrackInfoDragLayer";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -68,6 +69,9 @@ type MainViewerProps = {
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
   removeTracks: (ids: number[]) => void;
+  hideTracks: (dragId: number, ids: number[]) => number;
+  changeTrackOrder: (dragIndex: number, hoverIndex: number) => void;
+  showHiddenTracks: (hoverIndex: number) => void;
   selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
   selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
@@ -90,6 +94,9 @@ function MainViewer(props: MainViewerProps) {
     refreshTracks,
     reloadTracks,
     removeTracks,
+    hideTracks,
+    changeTrackOrder,
+    showHiddenTracks,
     selectTrack,
     selectAllTracks,
     finishRefreshTracks,
@@ -134,6 +141,7 @@ function MainViewer(props: MainViewerProps) {
     cursorRatioOnImg: 0.0,
     cursorOffset: 0,
   });
+  const hiddenImgIdRef = useRef<number>(-1);
 
   const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
 
@@ -609,11 +617,16 @@ function MainViewer(props: MainViewerProps) {
 
     const images = BackendAPI.getImages();
     Object.entries(images).forEach(([idChStr, buf]) => {
+      if (trackIdChMap.get(hiddenImgIdRef.current)?.includes(idChStr) ?? false) return;
       if (needRefreshTrackIdChArr.includes(idChStr)) return;
       imgCanvasesRef.current[idChStr]?.draw(buf);
     });
+    trackIdChMap.get(hiddenImgIdRef.current)?.forEach((idChStr) => {
+      imgCanvasesRef.current[idChStr]?.draw(null);
+    });
     needRefreshTrackIdChArr.forEach((idChStr) => {
       imgCanvasesRef.current[idChStr]?.draw(null);
+      imgCanvasesRef.current[idChStr]?.showLoading();
     });
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -852,24 +865,40 @@ function MainViewer(props: MainViewerProps) {
     [handleWheel],
   );
 
+  const selectTrackByTrackInfo = useEvent((e, id) => selectTrack(e, id, trackIds));
+  const hideImage = useEvent((id) => {
+    hiddenImgIdRef.current = id;
+  });
+  const showHiddenImage = useEvent(() => {
+    hiddenImgIdRef.current = -1;
+  });
   const createLeftPane = (leftWidth: number) => (
     <>
       <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
         <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
+      <TrackInfoDragLayer />
       {trackIds.map((trackId, i) => {
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
             ref={registerTrackInfos(`${trackId}`)}
             key={trackId}
+            id={trackId}
+            index={i}
             trackIdChArr={trackIdChMap.get(trackId) || []}
+            selectedTrackIds={selectedTrackIds}
             trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
-            onClick={(e) => selectTrack(e, trackId, trackIds)}
+            selectTrack={selectTrackByTrackInfo}
+            hideTracks={hideTracks}
+            hideImage={hideImage}
+            onDnd={changeTrackOrder}
+            showHiddenTracks={showHiddenTracks}
+            showHiddenImage={showHiddenImage}
           />
         );
       })}

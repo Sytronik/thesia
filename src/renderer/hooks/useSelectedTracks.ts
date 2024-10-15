@@ -8,7 +8,6 @@ function useSelectedTracks() {
   const [pivotId, setPivotId] = useState<number>(0);
 
   const selectTrack = useEvent((e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => {
-    e.preventDefault();
     setSelectionIsAdded(false); // by default, consider selection not added
 
     if (isCommand(e)) {
