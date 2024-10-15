@@ -1,6 +1,6 @@
 import React, {forwardRef, useEffect, useImperativeHandle, useMemo, useRef} from "react";
 import type {Identifier, XYCoord} from "dnd-core";
-import {useDrag, useDrop} from "react-dnd";
+import {DragSourceMonitor, useDrag, useDrop} from "react-dnd";
 import {getEmptyImage} from "react-dnd-html5-backend";
 import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
@@ -19,7 +19,7 @@ type TrackInfoProps = {
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
-  onMouseDown: (e: React.MouseEvent) => void;
+  selectTrack: (e: React.MouseEvent, id: number) => void;
   hideImage: (id: number) => void;
   hideTracks: (dragId: number, ids: number[]) => number;
   onDnd: (dragIndex: number, hoverIndex: number) => void;
@@ -43,7 +43,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     channelHeight,
     imgHeight,
     isSelected,
-    onMouseDown,
+    selectTrack,
     hideTracks,
     hideImage,
     onDnd,
@@ -160,14 +160,11 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
           numDragging: selectedTrackIds.length,
         };
       },
-      isDragging: (monitor) => {
-        return id === monitor.getItem().id;
-      },
       end: (item) => {
         showHiddenTracks(item.index);
         showHiddenImage();
       },
-      collect: (monitor) => ({
+      collect: (monitor: DragSourceMonitor) => ({
         isDragging: monitor.isDragging(),
       }),
     },
@@ -184,7 +181,13 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       ref={trackInfoElem}
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
-      onMouseDown={onMouseDown}
+      onMouseDown={(e) => {
+        if (e.button === 2 && !selectedTrackIds.includes(id)) selectTrack(e, id);
+      }}
+      onDragStart={(e) => {
+        if (e.button === 0 && !selectedTrackIds.includes(id)) selectTrack(e, id);
+      }}
+      onClick={(e) => selectTrack(e, id)}
       onContextMenu={(e) => {
         e.preventDefault();
         showTrackContextMenu();
