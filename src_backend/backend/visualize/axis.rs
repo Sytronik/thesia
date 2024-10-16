@@ -62,7 +62,7 @@ pub fn calc_time_axis_markers(
                 return (x, String::new());
             }
             let sec_floor = sec.floor() as u32;
-            let milli = (sec.mul_add(1000., -((sec_floor * 1000) as f64))).floor() as u32;
+            let milli = (sec * 1000.).floor() as u32 - (sec_floor * 1000);
             let sec_u32 = sec_floor + milli / 1000;
             let milli = milli - milli / 1000 * 1000;
             let nano = if milli_format.is_empty() {
