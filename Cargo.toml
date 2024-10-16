@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 path = "src_backend/lib.rs"
 
 [dependencies]
-napi = {version = "2.16.11", features = ["async", "serde-json"]}
+napi = {version = "2.16.12", features = ["async", "serde-json"]}
 napi-derive = "2.16.12"
 
 approx = "0.5.1"
