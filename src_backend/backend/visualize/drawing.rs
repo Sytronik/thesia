@@ -14,9 +14,9 @@ use tiny_skia::{
 use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to, DrawOptionForWav};
 use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights, PartGreyInfo};
 use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
+use crate::backend::track::TrackList;
 use crate::backend::utils::Pad;
 use crate::backend::{IdChArr, IdChValueVec, TrackManager};
-use crate::TrackList;
 
 const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];
@@ -396,18 +396,22 @@ pub fn convert_spec_to_grey(
     let dB_span = dB_range.1 - dB_range.0;
     let width = spec.shape()[0];
     let height = i_freq_end - i_freq_start;
-    Array2::from_shape_fn((height, width), |(i, j)| {
-        let i_freq = i_freq_start + height - 1 - i;
-        if i_freq < spec.raw_dim()[1] {
-            U16::new(
-                ((spec[[j, i_freq]] - dB_range.0) * (u16::MAX - 1) as f32 / dB_span + 1.)
+    Array2::from_shape_fn(
+        (height, width),
+        |(i, j)| -> fast_image_resize::pixels::Pixel<u16, u16, 1> {
+            let i_freq = i_freq_start + height - 1 - i;
+            if i_freq < spec.raw_dim()[1] {
+                U16::new(
+                    (((spec[[j, i_freq]] - dB_range.0) / dB_span)
+                        .mul_add((u16::MAX - 1) as f32, 1.))
                     .clamp(1., u16::MAX as f32)
                     .round() as u16,
-            )
-        } else {
-            U16::new(0)
-        }
-    })
+                )
+            } else {
+                U16::new(0)
+            }
+        },
+    )
 }
 
 pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
@@ -445,7 +449,8 @@ fn blend_wav_img_to(
                 .to_rect();
             let path = PathBuilder::from_rect(rect);
             let mut paint = Paint::default();
-            paint.set_color_rgba8(0, 0, 0, (u8::MAX as f64 * (1. - 2. * blend)).round() as u8);
+            let alpha = (u8::MAX as f64 * (blend.mul_add(-2., 1.))).round() as u8;
+            paint.set_color_rgba8(0, 0, 0, alpha);
             pixmap.fill_path(
                 &path,
                 &paint,
@@ -456,7 +461,7 @@ fn blend_wav_img_to(
         }
     }
     let paint = PixmapPaint {
-        opacity: (2. - 2. * blend).min(1.) as f32,
+        opacity: blend.mul_add(-2., 2.).min(1.) as f32,
         ..Default::default()
     };
     pixmap.draw_pixmap(0, 0, wav_pixmap, &paint, Transform::identity(), None);
@@ -464,10 +469,9 @@ fn blend_wav_img_to(
 
 #[inline]
 fn interpolate<const L: usize>(color1: &[u8; L], color2: &[u8; L], ratio: f32) -> [u8; L] {
-    let mut iter = color1
-        .iter()
-        .zip(color2)
-        .map(|(&a, &b)| (ratio * a as f32 + (1. - ratio) * b as f32).round() as u8);
+    let mut iter = color1.iter().zip(color2).map(|(&a, &b)| {
+        (ratio.mul_add(a as f32, (b as f32).mul_add(-ratio, b as f32))).round() as u8
+    });
     [(); L].map(|_| iter.next().unwrap())
 }
 

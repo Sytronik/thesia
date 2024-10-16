@@ -39,7 +39,7 @@ impl<A: Float + NumOps + NumAssignOps> ExponentialRelease<A> {
     }
 
     pub fn step(&mut self, input: A) -> A {
-        let output = input.min(self.output + (input - self.output) * self.release_slew);
+        let output = input.min((input - self.output).mul_add(self.release_slew, self.output));
         self.output = output;
         output
     }
@@ -229,7 +229,7 @@ impl SimpleLimiter {
                 1.
             };
 
-            gain = gain * self.attack + target_gain * (1. - self.attack);
+            gain = gain.mul_add(self.attack, target_gain.mul_add(-self.attack, target_gain));
 
             if i_look >= self.lookahead {
                 let out = self.lookahead_buf[delay_index] as f64 * gain;

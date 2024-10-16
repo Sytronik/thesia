@@ -62,7 +62,7 @@ pub fn calc_time_axis_markers(
                 return (x, String::new());
             }
             let sec_floor = sec.floor() as u32;
-            let milli = (sec * 1000. - (sec_floor * 1000) as f64).floor() as u32;
+            let milli = (sec.mul_add(1000., -((sec_floor * 1000) as f64))).floor() as u32;
             let sec_u32 = sec_floor + milli / 1000;
             let milli = milli - milli / 1000 * 1000;
             let nano = if milli_format.is_empty() {
@@ -123,9 +123,9 @@ pub fn calc_freq_axis_markers(
                         // divide [min, 1kHz] region
                         let band = coarse_band(fine_band);
                         let mut freq = band;
-                        let max_minus_band = 1000. - fine_band * 0.66;
+                        let max_minus_band = fine_band.mul_add(-0.66, 1000.);
                         while freq < max_minus_band {
-                            if freq > hz_range.0 + fine_band * 0.66 {
+                            if freq > fine_band.mul_add(0.66, hz_range.0) {
                                 result.push((
                                     mel_to_pos(mel::from_hz(freq)),
                                     convert_hz_to_label(freq),
@@ -134,7 +134,8 @@ pub fn calc_freq_axis_markers(
                             freq += band;
                         }
                     }
-                    if hz_range.0 > fine_band * 0.33 && 1000. <= hz_range.0 + fine_band * 0.66 {
+                    if hz_range.0 > fine_band * 0.33 && 1000. <= fine_band.mul_add(0.66, hz_range.0)
+                    {
                         result.pop();
                     }
                     result.push((mel_to_pos(mel_1k), convert_hz_to_label(1000.)));
@@ -147,7 +148,7 @@ pub fn calc_freq_axis_markers(
                     let mut mel_f = mel::from_hz(freq);
                     let max_mel_minus_band = max_mel - fine_band_mel * 0.66;
                     while mel_f < max_mel_minus_band {
-                        if mel_f > min_mel + fine_band_mel * 0.66 {
+                        if mel_f > fine_band_mel.mul_add(0.66, min_mel) {
                             result.push((mel_to_pos(mel_f), convert_hz_to_label(freq)));
                         }
                         freq *= ratio_step as f32;
@@ -160,8 +161,8 @@ pub fn calc_freq_axis_markers(
                 let fine_band = hz_interval / (max_num_ticks as f32 - 1.);
                 let band = coarse_band(fine_band);
                 let mut freq = band;
-                while freq < hz_range.1 - fine_band * 0.66 {
-                    if freq > hz_range.0 + fine_band * 0.66 {
+                while freq < fine_band.mul_add(-0.66, hz_range.1) {
+                    if freq > fine_band.mul_add(0.66, hz_range.0) {
                         result.push(((hz_range.1 - freq) / hz_interval, convert_hz_to_label(freq)));
                     }
                     freq += band;
@@ -284,7 +285,7 @@ fn omit_labels_from_linear_axis<Y>(
 
 pub fn convert_sec_to_label(sec: f64) -> String {
     let sec_floor = sec.floor() as u32;
-    let milli = (sec * 1000. - (sec_floor * 1000) as f64).floor() as u32;
+    let milli = (sec.mul_add(1000., -((sec_floor * 1000) as f64))).floor() as u32;
     let sec_u32 = sec_floor + milli / 1000;
     let milli = milli - milli / 1000 * 1000;
     let nano: u32 = milli * 1_000_000;
@@ -304,7 +305,7 @@ pub fn convert_time_label_to_sec(label: &str) -> Result<f64, <f64 as FromStr>::E
                 parsed = parsed.and_then(|sec| {
                     split_item
                         .parse::<u32>()
-                        .map(|x| sec + 60f64.powi(i as i32) * x as f64)
+                        .map(|x| 60f64.powi(i as i32).mul_add(x as f64, sec))
                         .or_else(|_| "err".parse::<f64>())
                 });
             }

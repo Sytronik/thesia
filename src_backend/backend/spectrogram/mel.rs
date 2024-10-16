@@ -87,7 +87,7 @@ where
 
 pub fn calc_mel_fb_default(sr: u32, n_fft: usize) -> Array2<f32> {
     let mut n_mel =
-        (2. * from_hz(sr as f32 / 2.) / from_hz(sr as f32 / n_fft as f32) - 1.) as usize;
+        (from_hz(sr as f32 / 2.) / from_hz(sr as f32 / n_fft as f32)).mul_add(2., -1.) as usize;
     n_mel = n_mel.min(n_fft / 2 + 1);
 
     loop {

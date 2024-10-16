@@ -33,10 +33,10 @@ impl FreqScale {
     #[inline]
     pub fn relative_freq_to_hz(&self, rel_freq: f32, hz_range: (f32, f32)) -> f32 {
         match self {
-            FreqScale::Linear => (hz_range.1 - hz_range.0) * rel_freq + hz_range.0,
+            FreqScale::Linear => (hz_range.1 - hz_range.0).mul_add(rel_freq, hz_range.0),
             FreqScale::Mel => {
                 let mel_range = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
-                mel::to_hz((mel_range.1 - mel_range.0) * rel_freq + mel_range.0)
+                mel::to_hz((mel_range.1 - mel_range.0).mul_add(rel_freq, mel_range.0))
             }
         }
     }

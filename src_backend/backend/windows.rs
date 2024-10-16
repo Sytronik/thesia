@@ -55,7 +55,7 @@ where
     (0..size2)
         .map(|x| {
             let x_float = x.as_();
-            a - b * (pi2 * x_float / np_f).cos() + c * (pi4 * x_float / np_f).cos()
+            a - b.mul_add((pi2 * x_float / np_f).cos(), c * (pi4 * x_float / np_f).cos())
         })
         .skip(if symmetric { 1 } else { 0 })
         .collect()

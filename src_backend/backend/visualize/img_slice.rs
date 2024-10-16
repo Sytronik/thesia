@@ -111,7 +111,7 @@ impl CalcWidth for Audio {
     fn decompose_width_of(&self, start_sec: f64, width: u32, px_per_sec: f64) -> (u32, u32, u32) {
         let total_width = (px_per_sec * self.len() as f64 / self.sr as f64).max(1.);
         let pad_left = ((-start_sec * px_per_sec).max(0.).round() as u32).min(width);
-        let pad_right = ((start_sec * px_per_sec + width as f64 - total_width)
+        let pad_right = ((start_sec.mul_add(px_per_sec, width as f64) - total_width)
             .max(0.)
             .round() as u32)
             .min(width - pad_left);

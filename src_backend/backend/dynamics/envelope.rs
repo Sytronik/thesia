@@ -301,12 +301,12 @@ where
             let inv_n = 1. / num_layers_f64;
             let sqrt_n = num_layers_f64.sqrt();
             let p = 1. - inv_n;
-            let k = 1. + 4.5 / sqrt_n + 0.08 * sqrt_n;
+            let k = 0.08.mul_add(sqrt_n, 1. + 4.5 / sqrt_n);
 
             let mut result: Array1<_> = (0..num_layers)
                 .map(|i| {
                     let x = i as f64 * inv_n;
-                    let power = -x * (1. - p * (-x * k).exp());
+                    let power = (p * (-x * k).exp()).mul_add(x, -x);
                     2.0f64.powf(power)
                 })
                 .collect();
@@ -317,7 +317,7 @@ where
 
     /// Approximate (optimal) bandwidth for a given number of layers
     fn _layers_to_bandwidth(num_layers: usize) -> f64 {
-        1.58 * (num_layers as f64 + 0.1)
+        (num_layers as f64).mul_add(1.58, 0.158)
     }
 
     /// Approximate (optimal) peak in the stop-band

@@ -1,6 +1,6 @@
 use ndarray::prelude::*;
 use ndarray::{AssignElem, ScalarOperand};
-use num_traits::{AsPrimitive, Float, FloatConst, NumAssignOps};
+use num_traits::{AsPrimitive, Float, FloatConst, MulAdd, NumAssignOps};
 
 use super::windows::{calc_normalized_win, WindowType};
 
@@ -42,7 +42,7 @@ where
     let mut sincs = Array2::uninit((factor, npoints));
     for p in 0..npoints {
         for n in 0..factor {
-            sincs[[factor - n - 1, p]].assign_elem(y[factor * p + n] / sum);
+            sincs[[factor - n - 1, p]].assign_elem(y[factor.mul_add(p, n)] / sum);
         }
     }
     unsafe { sincs.assume_init() }
