@@ -77,7 +77,6 @@ mimalloc = "0.1.43"
 hound = "3.5.1"
 image = "0.25.2"
 ndarray-rand = "0.15.0"
-resize = "0.8.7"
 
 [build-dependencies]
 napi-build = "2.1.3"

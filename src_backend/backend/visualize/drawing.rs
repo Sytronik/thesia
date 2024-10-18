@@ -2,7 +2,7 @@ use std::ops::Neg;
 // use std::time::Instant;
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
-use fast_image_resize::pixels::U16;
+use fast_image_resize::pixels;
 use fast_image_resize::{FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
 use napi_derive::napi;
 use ndarray::prelude::*;
@@ -389,29 +389,25 @@ pub fn convert_spec_to_grey(
     spec: ArrayView2<f32>,
     i_freq_range: (usize, usize),
     dB_range: (f32, f32),
-) -> Array2<U16> {
+) -> Array2<pixels::U16> {
     // spec: T x F
     // return: grey image with F(inverted) x T
     let (i_freq_start, i_freq_end) = i_freq_range;
     let dB_span = dB_range.1 - dB_range.0;
     let width = spec.shape()[0];
     let height = i_freq_end - i_freq_start;
-    Array2::from_shape_fn(
-        (height, width),
-        |(i, j)| -> fast_image_resize::pixels::Pixel<u16, u16, 1> {
-            let i_freq = i_freq_start + height - 1 - i;
-            if i_freq < spec.raw_dim()[1] {
-                U16::new(
-                    (((spec[[j, i_freq]] - dB_range.0) / dB_span)
-                        .mul_add((u16::MAX - 1) as f32, 1.))
+    Array2::from_shape_fn((height, width), |(i, j)| {
+        let i_freq = i_freq_start + height - 1 - i;
+        if i_freq < spec.raw_dim()[1] {
+            pixels::U16::new(
+                (((spec[[j, i_freq]] - dB_range.0) / dB_span).mul_add((u16::MAX - 1) as f32, 1.))
                     .clamp(1., u16::MAX as f32)
                     .round() as u16,
-                )
-            } else {
-                U16::new(0)
-            }
-        },
-    )
+            )
+        } else {
+            pixels::U16::new(0)
+        }
+    })
 }
 
 pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
@@ -496,7 +492,7 @@ fn map_grey_to_color(x: u16) -> [u8; 3] {
 }
 
 fn colorize_resize_grey(
-    grey: ArrWithSliceInfo<U16, Ix2>,
+    grey: ArrWithSliceInfo<pixels::U16, Ix2>,
     width: u32,
     height: u32,
     fast_resize: bool,
@@ -524,7 +520,7 @@ fn colorize_resize_grey(
                 FilterType::Lanczos3
             }));
 
-        let mut dst_image = TypedImage::<U16>::new(width, height);
+        let mut dst_image = TypedImage::<pixels::U16>::new(width, height);
         resizer
             .resize_typed(&src_image, &mut dst_image, Some(&resize_opt))
             .unwrap();
@@ -541,7 +537,7 @@ fn colorize_resize_grey(
 
 /// blend can be < 0 for not drawing spec
 fn draw_blended_spec_wav(
-    spec_grey: ArrWithSliceInfo<U16, Ix2>,
+    spec_grey: ArrWithSliceInfo<pixels::U16, Ix2>,
     wav: ArrWithSliceInfo<f32, Ix1>,
     width: u32,
     height: u32,
@@ -584,28 +580,30 @@ mod tests {
     use super::*;
 
     use image::RgbImage;
-    use resize::Pixel::RGB8;
-    use rgb::FromSlice;
 
     #[test]
     fn show_colorbar() {
         let (width, height) = (50, 500);
-        let colormap: Vec<u8> = COLORMAP.iter().rev().flatten().copied().collect();
-        let mut imvec = vec![0u8; width * height * 3];
-        let mut resizer = resize::new(
-            1,
-            COLORMAP.len(),
-            width,
-            height,
-            RGB8,
-            resize::Type::Triangle,
-        )
-        .unwrap();
-        resizer
-            .resize(&colormap.as_rgb(), imvec.as_rgb_mut())
+        let colormap: Vec<pixels::U8x3> = COLORMAP
+            .iter()
+            .rev()
+            .copied()
+            .map(pixels::U8x3::new)
+            .collect();
+        let src_image = TypedImageRef::new(1, colormap.len() as u32, colormap.as_slice()).unwrap();
+        let mut dst_image = TypedImage::new(width, height);
+        let options =
+            ResizeOptions::new().resize_alg(ResizeAlg::Interpolation(FilterType::Bilinear));
+        Resizer::new()
+            .resize_typed(&src_image, &mut dst_image, &options)
             .unwrap();
-
-        RgbImage::from_raw(width as u32, height as u32, imvec)
+        let dst_raw_vec = dst_image
+            .pixels()
+            .into_iter()
+            .map(|x| x.0)
+            .flatten()
+            .collect();
+        RgbImage::from_raw(width, height, dst_raw_vec)
             .unwrap()
             .save("samples/colorbar.png")
             .unwrap();
