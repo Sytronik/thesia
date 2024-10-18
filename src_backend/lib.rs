@@ -3,8 +3,6 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
-use std::sync::atomic::{self, AtomicBool};
-
 use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -37,8 +35,6 @@ use player::{PlayerCommand, PlayerNotification};
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 lazy_static! {
-    static ref INITIALIZED_ONCE: AtomicBool = AtomicBool::new(false);
-
     static ref TRACK_LIST: AsyncRwLock<TrackList> = AsyncRwLock::new(TrackList::new());
     static ref TM: AsyncRwLock<TrackManager> = AsyncRwLock::new(TrackManager::new());
 
@@ -47,16 +43,23 @@ lazy_static! {
     static ref SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(Default::default());
 }
 
+#[napi::module_init]
+fn _napi_init() {
+    create_custom_tokio_runtime(
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .max_blocking_threads(4) // at least 1 for TM-related operations, 1 for player.rs
+            .build()
+            .unwrap(),
+    );
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get_physical())
+        .build_global()
+        .unwrap();
+}
+
 #[napi]
 fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
-    if !INITIALIZED_ONCE.load(atomic::Ordering::Acquire) {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get_physical())
-            .build_global()
-            .map_err(|e| napi::Error::new(napi::Status::Unknown, e))?;
-    }
-    INITIALIZED_ONCE.store(true, atomic::Ordering::Release);
-
     let user_settings = {
         let mut tracklist = TRACK_LIST.blocking_write();
         let mut tm = TM.blocking_write();
