@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::ops::Neg;
 // use std::time::Instant;
 
@@ -497,10 +498,13 @@ fn colorize_resize_grey(
     height: u32,
     fast_resize: bool,
 ) -> Vec<u8> {
+    thread_local! {
+        static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
+    }
+
     // let start = Instant::now();
     let (grey, trim_left, trim_width) = (grey.arr, grey.index, grey.length);
-    let resized = {
-        let mut resizer = Resizer::new();
+    let resized = RESIZER.with_borrow_mut(|resizer| {
         let src_image = TypedImageRef::new(
             grey.shape()[1] as u32,
             grey.shape()[0] as u32,
@@ -525,7 +529,7 @@ fn colorize_resize_grey(
             .resize_typed(&src_image, &mut dst_image, Some(&resize_opt))
             .unwrap();
         dst_image
-    };
+    });
 
     resized
         .pixels()

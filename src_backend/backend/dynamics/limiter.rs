@@ -1,8 +1,6 @@
 //! Limiter Implementation motivated by https://signalsmith-audio.co.uk/writing/2022/limiter/
 
-use dashmap::DashMap;
-use identity_hash::BuildIdentityHasher;
-use lazy_static::lazy_static;
+use identity_hash::IntMap;
 use ndarray::prelude::*;
 use num_traits::{Float, NumAssignOps, NumOps};
 use rayon::iter::IntoParallelIterator;
@@ -245,35 +243,21 @@ impl SimpleLimiter {
     }
 }
 
-struct LimiterManager(DashMap<u32, PerfectLimiter, BuildIdentityHasher<u32>>);
+pub struct LimiterManager(IntMap<u32, PerfectLimiter>);
 
 impl LimiterManager {
     pub fn new() -> Self {
         LimiterManager(Default::default())
     }
 
-    pub fn get(&self, sr: u32) -> Option<PerfectLimiter> {
-        self.0.get(&sr).map(|v| v.to_owned())
-    }
-
-    pub fn insert(&self, sr: u32) -> PerfectLimiter {
-        let limiter = PerfectLimiter::with_default(sr);
-        self.0.insert(sr, limiter.clone());
-        limiter
+    pub fn get_or_insert(&mut self, sr: u32) -> &mut PerfectLimiter {
+        if !self.0.contains_key(&sr) {
+            self.0.insert(sr, PerfectLimiter::with_default(sr));
+        }
+        self.0.get_mut(&sr).unwrap()
     }
 }
 
-pub fn get_cached_limiter(sr: u32) -> PerfectLimiter {
-    lazy_static! {
-        static ref LIMITER_MANAGER: LimiterManager = LimiterManager::new();
-    }
-
-    let limiter_or_none = LIMITER_MANAGER.get(sr);
-    match limiter_or_none {
-        Some(limiter) => limiter,
-        None => LIMITER_MANAGER.insert(sr),
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;

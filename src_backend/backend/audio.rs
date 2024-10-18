@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::io;
 use std::path::Path;
 
@@ -13,8 +14,8 @@ use symphonia::core::formats::Track as SymphoniaTrack;
 use symphonia::core::io::MediaSourceStream;
 
 use super::dynamics::{
-    get_cached_limiter, AudioStats, GuardClipping, GuardClippingMode, GuardClippingResult,
-    GuardClippingStats, MaxPeak, StatCalculator,
+    AudioStats, GuardClipping, GuardClippingMode, GuardClippingResult, GuardClippingStats,
+    LimiterManager, MaxPeak, StatCalculator,
 };
 
 #[readonly::make]
@@ -114,11 +115,17 @@ impl GuardClipping<Ix2> for Audio {
     }
 
     fn limit(&mut self) -> GuardClippingResult<Ix2> {
+        thread_local! {
+            pub static LIMITER_MANAGER: RefCell<LimiterManager> = RefCell::new(LimiterManager::new());
+        }
+
         let peak = self.wavs.max_peak();
         let gain_shape = (1, self.wavs.shape()[1]);
         let gain_seq = if peak > 1. {
-            let mut limiter = get_cached_limiter(self.sr);
-            let gain_seq = limiter.process_inplace(self.wavs.view_mut());
+            let gain_seq = LIMITER_MANAGER.with_borrow_mut(|manager| {
+                let limiter = manager.get_or_insert(self.sr);
+                limiter.process_inplace(self.wavs.view_mut())
+            });
             gain_seq.into_shape_with_order(gain_shape).unwrap()
         } else {
             Array2::ones(gain_shape)
