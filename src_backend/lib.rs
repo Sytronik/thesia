@@ -44,13 +44,6 @@ lazy_static! {
 }
 
 fn _init_once() {
-    create_custom_tokio_runtime(
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .max_blocking_threads(4) // at least 1 for TM-related operations, 1 for player.rs
-            .build()
-            .unwrap(),
-    );
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
         .build_global()
