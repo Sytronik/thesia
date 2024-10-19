@@ -27,7 +27,12 @@
     {
       "name": "Crackyachae",
       "email": "crackyachae@gmail.com",
-      "url": "https://github.com/crackyachae"
+      "url": "https://crackyachae.github.io"
+    },
+    {
+      "name": "KwonWonpyo",
+      "email": "commi1106@naver.com",
+      "url": "https://kwonwonpyo.github.io/Wonpyo-hompage/"
     }
   ],
   "main": "./src/main/main.ts",
@@ -212,7 +217,7 @@
   },
   "build": {
     "productName": "thesia",
-    "appId": "com.bremen13.thesia",
+    "appId": "com.bremen.thesia",
     "asar": true,
     "asarUnpack": "**\\*.{node,dll}",
     "copyright": "Copyright © 2021 Sytronik",

@@ -1,7 +1,12 @@
 [package]
 authors = [
+  # Owner / Maintainer
   "Sytronik <sytronik210@gmail.com>",
+
+  # Contributors
   "crackyachae <crackyache@gmail.com>",
+
+  "KwonWonpyo <commi1106@naver.com>",
 ]
 edition = "2021"
 license-file = "LICENSE"
