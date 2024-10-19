@@ -6,7 +6,7 @@ extern crate blas_src;
 use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use parking_lot::RwLock as SyncRwLock;
+use parking_lot::{Once, RwLock as SyncRwLock};
 use serde_json::json;
 use tokio::join;
 use tokio::sync::RwLock as AsyncRwLock;
@@ -43,8 +43,7 @@ lazy_static! {
     static ref SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(Default::default());
 }
 
-#[napi::module_init]
-fn _napi_init() {
+fn _init_once() {
     create_custom_tokio_runtime(
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -58,8 +57,24 @@ fn _napi_init() {
         .unwrap();
 }
 
+// On Windows, this cause hanging.
+#[cfg(not(windows))]
+#[napi::module_init]
+fn _napi_init() {
+    _init_once();
+}
+
 #[napi]
 fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
+    // On Windows, reloading cause restarting of renderer process.
+    // (See killAndReload in src/main/menu.ts)
+    // So INITIALIZED_ONCE may not be needed, but use it for defensive purpose.
+    #[cfg(windows)]
+    {
+        static INIT: Once = Once::new();
+        INIT.call_once(_init_once);
+    }
+
     let user_settings = {
         let mut tracklist = TRACK_LIST.blocking_write();
         let mut tm = TM.blocking_write();
