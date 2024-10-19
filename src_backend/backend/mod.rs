@@ -24,7 +24,7 @@ pub use utils::Pad;
 pub use visualize::{
     calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
-    DrawOption, DrawOptionForWav, TrackDrawer,
+    DrawOptionForWav, DrawParams, TrackDrawer,
 };
 
 pub type IdCh = (usize, usize);
@@ -74,7 +74,7 @@ impl TrackManager {
         self.update_specs(
             tracklist,
             tracklist.id_ch_tuples_from(added_ids),
-            Some(&sr_win_nfft_set),
+            &sr_win_nfft_set,
         );
         self.no_grey_ids.extend(added_ids.iter().copied());
     }
@@ -85,7 +85,7 @@ impl TrackManager {
         self.update_specs(
             tracklist,
             tracklist.id_ch_tuples_from(reloaded_ids),
-            Some(&sr_win_nfft_set),
+            &sr_win_nfft_set,
         );
         self.no_grey_ids.extend(reloaded_ids.iter().copied());
     }
@@ -135,7 +135,7 @@ impl TrackManager {
         self.setting = setting;
         self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
-        self.update_specs(tracklist, tracklist.id_ch_tuples(), Some(&sr_win_nfft_set));
+        self.update_specs(tracklist, tracklist.id_ch_tuples(), &sr_win_nfft_set);
         self.update_greys(tracklist, true);
     }
 
@@ -180,13 +180,13 @@ impl TrackManager {
         true
     }
 
-    fn update_specs(
+    fn update_specs<'a>(
         &mut self,
         tracklist: &TrackList,
         id_ch_tuples: IdChVec,
-        framing_params: Option<&TupleIntSet<SrWinNfft>>,
+        framing_params: impl Into<Option<&'a TupleIntSet<SrWinNfft>>>,
     ) {
-        match framing_params {
+        match framing_params.into() {
             Some(p) => {
                 self.spec_analyzer.prepare(p, self.setting.freq_scale);
             }
@@ -284,6 +284,7 @@ impl TrackManager {
 #[cfg(test)]
 mod tests {
     use image::RgbaImage;
+    use visualize::DrawParams;
 
     use super::visualize::ImageKind;
     use super::*;
@@ -320,28 +321,28 @@ mod tests {
         dbg!(&tracklist[0]);
         dbg!(tracklist.filename(5));
         dbg!(tracklist.filename(6));
-        let option = DrawOption {
-            px_per_sec: 200.,
-            height: 500,
-        };
+
+        let height = 500;
+        let px_per_sec = 200.;
         let opt_for_wav = Default::default();
         let spec_imgs = tm.draw_entire_imgs(
             &tracklist,
             &tracklist.id_ch_tuples(),
-            option,
+            height,
+            px_per_sec,
             ImageKind::Spec,
         );
         let wav_imgs = tm.draw_entire_imgs(
             &tracklist,
             &tracklist.id_ch_tuples(),
-            option,
-            ImageKind::Wav(opt_for_wav),
+            height,
+            px_per_sec,
+            ImageKind::Wav(&opt_for_wav),
         );
         for ((id, ch), spec) in spec_imgs {
             let sr_str = tags[id];
             let width = spec.shape()[1] as u32;
-            let img = RgbaImage::from_vec(width, option.height, spec.into_raw_vec_and_offset().0)
-                .unwrap();
+            let img = RgbaImage::from_vec(width, height, spec.into_raw_vec_and_offset().0).unwrap();
             img.save(format!("samples/spec_{}_{}.png", sr_str, ch))
                 .unwrap();
             let (wav_img, _) = wav_imgs
@@ -351,7 +352,7 @@ mod tests {
                 .to_owned()
                 .into_raw_vec_and_offset();
 
-            let img = RgbaImage::from_vec(width, option.height, wav_img).unwrap();
+            let img = RgbaImage::from_vec(width, height, wav_img).unwrap();
             img.save(format!("samples/wav_{}_{}.png", sr_str, ch))
                 .unwrap();
         }
@@ -360,21 +361,20 @@ mod tests {
             .draw_part_imgs(
                 &tracklist,
                 &[(0, 0)],
-                20.,
-                1000,
-                DrawOption {
+                &DrawParams {
+                    start_sec: 20.,
+                    width: 1000,
+                    height,
                     px_per_sec: 16000.,
-                    height: option.height,
+                    opt_for_wav,
+                    blend: 0.,
                 },
-                opt_for_wav,
-                0.,
-                Some(vec![false]),
+                vec![false],
             )
             .pop()
             .unwrap();
         assert_eq!(id_ch, (0, 0));
-        let im = RgbaImage::from_vec(imvec.len() as u32 / option.height / 4, option.height, imvec)
-            .unwrap();
+        let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
         im.save("samples/wav_part.png").unwrap();
 
         let removed_id_ch_tuples = tracklist.remove_tracks(&[0]);

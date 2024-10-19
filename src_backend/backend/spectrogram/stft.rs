@@ -11,13 +11,13 @@ use super::super::utils::{Pad, PadMode};
 use super::super::windows::{calc_normalized_win, WindowType};
 use realfft::{RealFftPlanner, RealToComplex};
 
-pub fn perform_stft<A>(
+pub fn perform_stft<'a, A>(
     input: ArrayView1<A>,
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
-    window: Option<CowArray<A, Ix1>>,
-    fft_module: Option<Arc<dyn RealToComplex<A>>>,
+    window: impl Into<Option<CowArray<'a, A, Ix1>>>,
+    fft_module: impl Into<Option<Arc<dyn RealToComplex<A>>>>,
     parallel: bool,
 ) -> Array2<Complex<A>>
 where
@@ -25,13 +25,10 @@ where
     f32: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {
-    let window = window.map_or_else(
-        || calc_normalized_win(WindowType::Hann, win_length, n_fft).into(),
-        |w| {
-            debug_assert_eq!(w.len(), win_length);
-            w
-        },
-    );
+    let window = window
+        .into()
+        .inspect(|w| debug_assert_eq!(w.len(), win_length))
+        .unwrap_or_else(|| calc_normalized_win(WindowType::Hann, win_length, n_fft).into());
 
     let to_frames_wrapper = move |x| {
         let n_pad_left = (n_fft - win_length) / 2;
@@ -39,8 +36,9 @@ where
         to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right))
     };
 
-    let fft_module =
-        fft_module.unwrap_or_else(|| RealFftPlanner::<A>::new().plan_fft_forward(n_fft));
+    let fft_module = fft_module
+        .into()
+        .unwrap_or_else(|| RealFftPlanner::<A>::new().plan_fft_forward(n_fft));
     let do_fft = move |(x, y): (&mut Array1<A>, &mut [Complex<A>])| {
         let x = x.as_slice_mut().unwrap();
         fft_module.process(x, y).unwrap();

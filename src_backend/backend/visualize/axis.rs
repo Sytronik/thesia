@@ -263,7 +263,7 @@ fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> AxisMarkers {
         .map(|i| {
             let value = i as f32 * unit;
             let y_ratio = (max - value) / (max - min);
-            (y_ratio, format_ticklabel(value, Some(unit_exponent)))
+            (y_ratio, format_ticklabel(value, unit_exponent))
         })
         .collect()
 }
@@ -348,12 +348,12 @@ pub fn convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Er
     parsed.and_then(|x| if x >= 0. { Ok(x) } else { "err".parse() })
 }
 
-fn format_ticklabel(value: f32, unit_exponent: Option<i32>) -> String {
+fn format_ticklabel(value: f32, unit_exponent: impl Into<Option<i32>>) -> String {
     if value.is_zero() {
         return "0".into();
     }
     let exponent = value.abs().log10().floor() as i32;
-    match unit_exponent {
+    match unit_exponent.into() {
         Some(unit_exponent) => {
             let rounded = (value * 10f32.powi(-unit_exponent)).round() * 10f32.powi(unit_exponent);
             let n_effs = (exponent - unit_exponent).max(0) as usize;

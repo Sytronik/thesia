@@ -5,15 +5,15 @@ use std::ops::Neg;
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::pixels;
 use fast_image_resize::{FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
-use napi_derive::napi;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use tiny_skia::{
     FillRule, IntRect, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint, PixmapRef, Transform,
 };
 
-use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to, DrawOptionForWav};
+use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to};
 use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights, PartGreyInfo};
+use super::params::{DrawOptionForWav, DrawParams, ImageKind};
 use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
 use crate::backend::track::TrackList;
 use crate::backend::utils::Pad;
@@ -62,24 +62,13 @@ const OVERVIEW_MAX_CH: usize = 4;
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
 const LIMITER_GAIN_HEIGHT_DENOM: usize = 5; // 1/5 of the height will be used for draw limiter gain
 
-#[napi(object)]
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct DrawOption {
-    pub px_per_sec: f64,
-    pub height: u32,
-}
-
-pub enum ImageKind {
-    Spec,
-    Wav(DrawOptionForWav),
-}
-
 pub trait TrackDrawer {
     fn draw_entire_imgs(
         &self,
         tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
-        option: DrawOption,
+        height: u32,
+        px_per_sec: f64,
         kind: ImageKind,
     ) -> IdChValueVec<Array3<u8>>;
 
@@ -87,12 +76,8 @@ pub trait TrackDrawer {
         &self,
         tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
-        start_sec: f64,
-        width: u32,
-        option: DrawOption,
-        opt_for_wav: DrawOptionForWav,
-        blend: f64,
-        fast_resize_vec: Option<Vec<bool>>,
+        params: &DrawParams,
+        fast_resize_vec: impl Into<Option<Vec<bool>>>,
     ) -> IdChValueVec<Vec<u8>>;
 
     fn draw_overview(
@@ -110,11 +95,11 @@ impl TrackDrawer for TrackManager {
         &self,
         tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
-        option: DrawOption,
+        height: u32,
+        px_per_sec: f64,
         kind: ImageKind,
     ) -> IdChValueVec<Array3<u8>> {
         // let start = Instant::now();
-        let DrawOption { px_per_sec, height } = option;
         id_ch_tuples
             .par_iter()
             .map(|&(id, ch)| {
@@ -126,7 +111,7 @@ impl TrackDrawer for TrackManager {
                 };
                 let width = track.calc_width(px_per_sec);
                 let shape = (height as usize, width as usize, 4);
-                let arr = match kind {
+                let arr = match &kind {
                     ImageKind::Spec => {
                         let grey = if let Some(grey) = self.spec_greys.get(&(id, ch)) {
                             grey.view()
@@ -144,7 +129,7 @@ impl TrackDrawer for TrackManager {
                             wav.into(),
                             width,
                             height,
-                            &opt_for_wav,
+                            opt_for_wav,
                             show_clipping,
                             true,
                         );
@@ -162,15 +147,19 @@ impl TrackDrawer for TrackManager {
         &self,
         tracklist: &TrackList,
         id_ch_tuples: &IdChArr,
-        start_sec: f64,
-        width: u32,
-        option: DrawOption,
-        opt_for_wav: DrawOptionForWav,
-        blend: f64,
-        fast_resize_vec: Option<Vec<bool>>,
+        params: &DrawParams,
+        fast_resize_vec: impl Into<Option<Vec<bool>>>,
     ) -> IdChValueVec<Vec<u8>> {
         // let start = Instant::now();
-        let DrawOption { px_per_sec, height } = option;
+        let &DrawParams {
+            start_sec,
+            width,
+            height,
+            px_per_sec,
+            ref opt_for_wav,
+            blend,
+        } = params;
+        let fast_resize_vec = fast_resize_vec.into();
         id_ch_tuples
             .par_iter()
             .enumerate()
@@ -214,7 +203,7 @@ impl TrackDrawer for TrackManager {
                     wav_part,
                     drawing_width_with_margin,
                     height,
-                    &opt_for_wav,
+                    opt_for_wav,
                     blend,
                     fast_resize_vec.as_ref().map_or(false, |v| v[i]),
                     show_clipping,
@@ -423,7 +412,7 @@ pub fn blend_img_to(
     width: u32,
     height: u32,
     blend: f64,
-    eff_l_w: Option<LeftWidth>,
+    eff_l_w: impl Into<Option<LeftWidth>>,
 ) {
     debug_assert!(0. < blend && blend < 1.);
     let mut pixmap = PixmapMut::from_bytes(spec_background, width, height).unwrap();
@@ -436,10 +425,10 @@ fn blend_wav_img_to(
     pixmap: &mut PixmapMut,
     wav_pixmap: PixmapRef,
     blend: f64,
-    eff_l_w: Option<LeftWidth>,
+    eff_l_w: impl Into<Option<LeftWidth>>,
 ) {
     // black
-    if let Some((left, width)) = eff_l_w {
+    if let Some((left, width)) = eff_l_w.into() {
         if (0.0..0.5).contains(&blend) && width > 0 {
             let rect = IntRect::from_xywh(left as i32, 0, width, pixmap.height())
                 .unwrap()
@@ -526,7 +515,7 @@ fn colorize_resize_grey(
 
         let mut dst_image = TypedImage::<pixels::U16>::new(width, height);
         resizer
-            .resize_typed(&src_image, &mut dst_image, Some(&resize_opt))
+            .resize_typed(&src_image, &mut dst_image, &resize_opt)
             .unwrap();
         dst_image
     });
@@ -574,7 +563,7 @@ fn draw_blended_spec_wav(
             show_clipping,
             blend != 0.,
         );
-        blend_wav_img_to(&mut pixmap, wav_pixmap.as_ref(), blend, Some((0, width)));
+        blend_wav_img_to(&mut pixmap, wav_pixmap.as_ref(), blend, (0, width));
     }
     result
 }

@@ -104,25 +104,6 @@ export type DrawOptionForWav = {
   dpr: number;
 };
 
-export async function setImageState(
-  idChArr: string[],
-  startSec: number,
-  width: number,
-  height: number,
-  pxPerSec: number,
-  drawOptionForWav: DrawOptionForWav,
-  blend: number,
-) {
-  return backend.setImageState(
-    idChArr,
-    startSec,
-    width,
-    {pxPerSec, height},
-    drawOptionForWav,
-    blend,
-  );
-}
-
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
 export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
 export type NormalizeTarget =
@@ -156,6 +137,7 @@ export const {
   reloadTracks,
   removeTracks,
   applyTrackListChanges,
+  setImageState,
   findIdByPath,
   getPath,
   getFileName,

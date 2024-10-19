@@ -3,12 +3,12 @@
 use cached::proc_macro::cached;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
-use serde::{Deserialize, Serialize};
 use tiny_skia::{
     BlendMode, FillRule, LineCap, Paint, PathBuilder, PixmapMut, Rect, Stroke, Transform,
 };
 
 use super::img_slice::ArrWithSliceInfo;
+use super::params::DrawOptionForWav;
 use super::resample::FftResampler;
 
 const WAV_COLOR: [u8; 3] = [19, 137, 235];
@@ -32,30 +32,6 @@ impl DprDependentConstants {
             thr_long_height: 2. * dpr,
             topbottom_context_size: 2. * dpr,
             wav_stroke_width: 1.75 * dpr,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
-pub struct DrawOptionForWav {
-    pub amp_range: (f32, f32),
-    pub dpr: f32,
-}
-
-impl DrawOptionForWav {
-    pub fn with_dpr(dpr: f32) -> Self {
-        DrawOptionForWav {
-            dpr,
-            ..Default::default()
-        }
-    }
-}
-
-impl Default for DrawOptionForWav {
-    fn default() -> Self {
-        DrawOptionForWav {
-            amp_range: (-1., 1.),
-            dpr: 1.,
         }
     }
 }

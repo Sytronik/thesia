@@ -21,7 +21,7 @@ mod interface;
 mod player;
 
 use backend::*;
-use img_mgr::{DrawParams, ImgMsg};
+use img_mgr::ImgMsg;
 use interface::*;
 use player::{PlayerCommand, PlayerNotification};
 
@@ -176,7 +176,8 @@ async fn set_image_state(
     id_ch_strs: Vec<String>,
     start_sec: f64,
     width: u32,
-    option: DrawOption,
+    height: u32,
+    px_per_sec: f64,
     opt_for_wav: serde_json::Value,
     blend: f64,
 ) -> Result<()> {
@@ -184,9 +185,9 @@ async fn set_image_state(
     let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
     assert!(!id_ch_strs.is_empty());
     assert!(width >= 1);
-    assert!(option.px_per_sec.is_finite());
-    assert!(option.px_per_sec >= 0.);
-    assert!(option.height >= 1);
+    assert!(px_per_sec.is_finite());
+    assert!(px_per_sec >= 0.);
+    assert!(height >= 1);
     assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
     assert!((0.0..=1.0).contains(&blend));
 
@@ -197,11 +198,15 @@ async fn set_image_state(
             .filter(|id_ch| tm.exists(id_ch))
             .collect()
     };
-    img_mgr::send(ImgMsg::Draw((
-        id_ch_tuples,
-        DrawParams::new(start_sec, width, option, opt_for_wav, blend),
-    )))
-    .await;
+    let params = DrawParams {
+        start_sec,
+        width,
+        height,
+        px_per_sec,
+        opt_for_wav,
+        blend,
+    };
+    img_mgr::send(ImgMsg::Draw((id_ch_tuples, params))).await;
     Ok(())
 }
 

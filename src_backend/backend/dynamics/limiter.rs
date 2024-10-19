@@ -251,10 +251,9 @@ impl LimiterManager {
     }
 
     pub fn get_or_insert(&mut self, sr: u32) -> &mut PerfectLimiter {
-        if !self.0.contains_key(&sr) {
-            self.0.insert(sr, PerfectLimiter::with_default(sr));
-        }
-        self.0.get_mut(&sr).unwrap()
+        self.0
+            .entry(sr)
+            .or_insert_with(|| PerfectLimiter::with_default(sr))
     }
 }
 

@@ -80,7 +80,7 @@ impl FreqScale {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SrWinNfft {
     pub sr: u32,
     pub win_length: usize,
@@ -184,7 +184,7 @@ impl SpectrogramAnalyzer {
             })
             .collect();
         self.windows.extend(entries);
-        for &param in params.iter() {
+        for param in params.iter() {
             self.fft_modules
                 .entry(param.n_fft)
                 .or_insert_with(|| real_fft_planner.plan_fft_forward(param.n_fft));
@@ -192,7 +192,7 @@ impl SpectrogramAnalyzer {
         if let FreqScale::Mel = freq_scale {
             let entries: Vec<_> = params
                 .par_iter()
-                .filter_map(|&param| {
+                .filter_map(|param| {
                     let k = (param.sr, param.n_fft);
                     if !self.mel_fbs.contains_key(&k) {
                         let v = mel::calc_mel_fb_default(param.sr, param.n_fft);
@@ -213,14 +213,14 @@ impl SpectrogramAnalyzer {
         self.windows.retain(|&(win_length, n_fft), _| {
             params
                 .iter()
-                .any(|&param| win_length == param.win_length && n_fft == param.n_fft)
+                .any(|param| win_length == param.win_length && n_fft == param.n_fft)
         });
         if self.windows.capacity() > 2 * self.windows.len() {
             self.windows.shrink_to(1);
         }
 
         self.fft_modules
-            .retain(|&n_fft, _| params.iter().any(|&param| n_fft == param.n_fft));
+            .retain(|&n_fft, _| params.iter().any(|param| n_fft == param.n_fft));
         if self.fft_modules.capacity() > 2 * self.fft_modules.len() {
             self.fft_modules.shrink_to(1);
         }
@@ -229,7 +229,7 @@ impl SpectrogramAnalyzer {
             self.mel_fbs.retain(|&(sr, n_fft), _| {
                 params
                     .iter()
-                    .any(|&param| sr == param.sr && n_fft == param.n_fft)
+                    .any(|param| sr == param.sr && n_fft == param.n_fft)
             });
             if self.mel_fbs.capacity() > 2 * self.mel_fbs.len() {
                 self.mel_fbs.shrink_to(1);
@@ -251,13 +251,7 @@ impl SpectrogramAnalyzer {
         let window = self.window(win_length, n_fft);
         let fft_module = self.fft_module(n_fft);
         let stft = perform_stft(
-            wav,
-            win_length,
-            hop_length,
-            n_fft,
-            Some(window),
-            Some(fft_module),
-            parallel,
+            wav, win_length, hop_length, n_fft, window, fft_module, parallel,
         );
         let mut linspec = stft.mapv(|x| x.norm());
         match setting.freq_scale {
