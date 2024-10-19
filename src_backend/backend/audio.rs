@@ -232,7 +232,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
     }
 
     // Probe the media source.
-    let mut format = symphonia::default::get_probe().format(
+    let mut format = symphonia::default::get_probe().probe(
         &hint,
         mss,
         Default::default(),
