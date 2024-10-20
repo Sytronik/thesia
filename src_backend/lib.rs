@@ -8,7 +8,7 @@ use napi::bindgen_prelude::*;
 use napi::tokio::join;
 use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
-use parking_lot::{Once, RwLock as SyncRwLock};
+use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
 
 #[warn(dead_code)]
@@ -64,6 +64,7 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     // So INITIALIZED_ONCE may not be needed, but use it for defensive purpose.
     #[cfg(windows)]
     {
+        use parking_lot::Once;
         static INIT: Once = Once::new();
         INIT.call_once(_init_once);
     }
