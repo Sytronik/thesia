@@ -5,11 +5,11 @@ extern crate blas_src;
 
 use lazy_static::lazy_static;
 use napi::bindgen_prelude::*;
+use napi::tokio::join;
+use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
 use parking_lot::{Once, RwLock as SyncRwLock};
 use serde_json::json;
-use tokio::join;
-use tokio::sync::RwLock as AsyncRwLock;
 
 #[warn(dead_code)]
 mod backend;

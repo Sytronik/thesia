@@ -10,8 +10,8 @@ use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use lazy_static::lazy_static;
 use log::{error, info, LevelFilter, SetLoggerError};
 use napi::bindgen_prelude::spawn_blocking;
+use napi::tokio::sync::{mpsc, watch};
 use simple_logger::SimpleLogger;
-use tokio::sync::{mpsc, watch};
 
 use crate::backend::DeciBel;
 use crate::TRACK_LIST;

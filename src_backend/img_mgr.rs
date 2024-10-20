@@ -5,17 +5,12 @@ use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
 use napi::bindgen_prelude::spawn;
+use napi::tokio::sync::{mpsc, RwLock};
+use napi::tokio::task::JoinHandle;
+use napi::tokio::{self, join};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
 use rayon::prelude::*;
-use tokio::{
-    join,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        RwLock,
-    },
-    task::JoinHandle,
-};
 
 use crate::visualize::*;
 use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad, TM, TRACK_LIST};
@@ -25,8 +20,8 @@ type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
 
 const MAX_IMG_CACHE_WIDTH: u32 = 16384;
 
-static mut MSG_TX: Option<Sender<ImgMsg>> = None;
-static mut IMG_RX: Option<Receiver<(Wrapping<usize>, Images)>> = None;
+static mut MSG_TX: Option<mpsc::Sender<ImgMsg>> = None;
+static mut IMG_RX: Option<mpsc::Receiver<(Wrapping<usize>, Images)>> = None;
 
 pub enum ImgMsg {
     Draw((IdChVec, DrawParams)),
@@ -428,7 +423,7 @@ async fn draw_imgs(
     params: Arc<RwLock<DrawParams>>,
     spec_caches: ArcImgCaches,
     wav_caches: ArcImgCaches,
-    img_tx: Sender<(Wrapping<usize>, Images)>,
+    img_tx: mpsc::Sender<(Wrapping<usize>, Images)>,
     req_id: Wrapping<usize>,
 ) {
     let params_backup = params.read().await.clone();
@@ -491,7 +486,10 @@ async fn take_abort_await(task_handle: &mut Option<JoinHandle<()>>) {
     }
 }
 
-async fn main_loop(mut msg_rx: Receiver<ImgMsg>, img_tx: Sender<(Wrapping<usize>, Images)>) {
+async fn main_loop(
+    mut msg_rx: mpsc::Receiver<ImgMsg>,
+    img_tx: mpsc::Sender<(Wrapping<usize>, Images)>,
+) {
     let spec_caches = Arc::new(IdChDMap::default());
     let wav_caches = Arc::new(IdChDMap::default());
     let prev_params = Arc::new(RwLock::new(DrawParams::default()));
