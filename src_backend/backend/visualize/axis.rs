@@ -335,15 +335,25 @@ pub fn convert_hz_to_label(freq: f32) -> String {
 
 pub fn convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Err> {
     let label = label.trim();
-    if label.starts_with("k") || label.starts_with("-k") || label.starts_with(".") {
-        return "k".parse::<f32>(); // Error
+    if label.starts_with("k")
+        || label.starts_with("-k")
+        || label.starts_with("K")
+        || label.starts_with("-K")
+        || label.starts_with(".")
+        || (label.contains("k") && label.contains("K"))
+    {
+        return "k".parse(); // Error
     }
-    let parsed = if let Some(khz) = label.strip_suffix("k") {
-        khz.parse::<f32>().map(|x| x * 1000.)
-    } else if label.contains("k") && !label.contains(".") {
-        label.replace("k", ".").parse::<f32>().map(|x| x * 1000.)
+    let parsed = if let Some(khz) = label.strip_suffix("k").or_else(|| label.strip_suffix("K")) {
+        khz.parse().map(|x: f32| x * 1000.)
+    } else if (label.contains("k") || label.contains("K")) && !label.contains(".") {
+        label
+            .replace("k", ".")
+            .replace("K", ".")
+            .parse()
+            .map(|x: f32| x * 1000.)
     } else {
-        label.parse::<f32>()
+        label.parse()
     };
     parsed.and_then(|x| if x >= 0. { Ok(x) } else { "err".parse() })
 }
