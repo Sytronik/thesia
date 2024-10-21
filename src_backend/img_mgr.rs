@@ -1,7 +1,6 @@
 use std::num::Wrapping;
 use std::sync::atomic::{self, AtomicUsize};
 use std::sync::{Arc, OnceLock};
-use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
 use napi::bindgen_prelude::spawn;
@@ -74,13 +73,11 @@ where
 
 pub fn recv() -> Option<Images> {
     static RECENT_REQ_ID: AtomicUsize = AtomicUsize::new(0);
-    let waker = futures::task::noop_waker();
-    let mut cx = Context::from_waker(&waker);
 
-    let img_rx = unsafe { IMG_RX.get_mut().unwrap() };
     let mut max_req_id = Wrapping(RECENT_REQ_ID.load(atomic::Ordering::Acquire));
     let mut opt_images: Option<Images> = None;
-    while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
+    let img_rx = unsafe { IMG_RX.get_mut().unwrap() };
+    while let Ok((curr_req_id, imgs)) = img_rx.try_recv() {
         if curr_req_id.slightly_larger_than_or_equal_to(max_req_id) {
             max_req_id = curr_req_id;
             opt_images = Some(imgs);

@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::sync::atomic::{self, AtomicU32, AtomicUsize};
 use std::sync::OnceLock;
-use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 use atomic_float::AtomicF32;
@@ -9,7 +8,8 @@ use cpal::{traits::DeviceTrait, SupportedStreamConfigsError};
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use log::{error, info, LevelFilter, SetLoggerError};
 use napi::bindgen_prelude::spawn_blocking;
-use napi::tokio::sync::{mpsc, watch};
+use napi::tokio::sync::mpsc::{self, error::TryRecvError};
+use napi::tokio::sync::watch;
 use simple_logger::SimpleLogger;
 
 use crate::{DeciBel, TRACK_LIST};
@@ -240,11 +240,9 @@ fn main_loop(
         }
     };
 
-    let waker = futures::task::noop_waker();
-    let mut cx = Context::from_waker(&waker);
     loop {
-        match msg_rx.poll_recv(&mut cx) {
-            Poll::Ready(Some(msg)) => match msg {
+        match msg_rx.try_recv() {
+            Ok(msg) => match msg {
                 PlayerCommand::Initialize => {
                     mixer = init_mixer(None, true);
                 }
@@ -350,7 +348,7 @@ fn main_loop(
                     info!("play");
                 }
             },
-            Poll::Pending => {
+            Err(TryRecvError::Empty) => {
                 // TODO: error handling
                 // if !mixer.backend.is_locked() {
                 //     mixer.handle_errors(|err| {
@@ -433,7 +431,7 @@ fn main_loop(
                 }
                 std::thread::sleep(PLAYER_NOTI_INTERVAL);
             }
-            Poll::Ready(None) => {
+            Err(TryRecvError::Disconnected) => {
                 break;
             }
         }
