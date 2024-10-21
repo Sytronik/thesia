@@ -316,20 +316,16 @@ async fn categorize_blend_caches(
         let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
         wav_imgs.extend(tm.draw_part_imgs(&tracklist, &need_wav_parts_only, &params, None));
     };
-    (
-        total_widths,
-        cat_by_spec,
-        cat_by_wav,
-        blend_imgs(
-            spec_imgs,
-            wav_imgs,
-            &spec_eff_l_w_vec,
-            &wav_eff_l_w_vec,
-            params.width,
-            params.height,
-            params.blend,
-        ),
-    )
+    let blended_imgs = blend_imgs(
+        spec_imgs,
+        wav_imgs,
+        &spec_eff_l_w_vec,
+        &wav_eff_l_w_vec,
+        params.width,
+        params.height,
+        params.blend,
+    );
+    (total_widths, cat_by_spec, cat_by_wav, blended_imgs)
 }
 
 async fn draw_part_imgs(
@@ -373,21 +369,26 @@ async fn draw_new_caches(
     // draw new caches
     let (new_spec_caches, new_wav_caches) = {
         let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
-        let new_spec_caches = tm.draw_entire_imgs(
-            &tracklist,
-            &need_new_spec_caches,
-            height,
-            px_per_sec,
-            ImageKind::Spec,
-        );
-        let new_wav_caches = tm.draw_entire_imgs(
-            &tracklist,
-            &need_new_wav_caches,
-            height,
-            px_per_sec,
-            ImageKind::Wav(&params.opt_for_wav),
-        );
-        (new_spec_caches, new_wav_caches)
+        rayon::join(
+            || {
+                tm.draw_entire_imgs(
+                    &tracklist,
+                    &need_new_spec_caches,
+                    height,
+                    px_per_sec,
+                    ImageKind::Spec,
+                )
+            },
+            || {
+                tm.draw_entire_imgs(
+                    &tracklist,
+                    &need_new_wav_caches,
+                    height,
+                    px_per_sec,
+                    ImageKind::Wav(&params.opt_for_wav),
+                )
+            },
+        )
     };
 
     new_spec_caches.into_par_iter().for_each(|(k, v)| {
