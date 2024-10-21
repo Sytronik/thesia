@@ -297,9 +297,19 @@ fn main_loop(
                 PlayerCommand::Seek(sec) => {
                     let max_sec = TRACK_LIST.blocking_read().max_sec;
                     let sec = sec.min(max_sec);
-                    sound_handle.seek_to(sec);
                     noti_tx.send_modify(|noti| {
                         if let PlayerNotification::Ok(state) = noti {
+                            if state.is_playing && mixer.is_finished() {
+                                set_track(
+                                    &mut mixer,
+                                    &mut sound_handle,
+                                    Some(current_track_id.load(atomic::Ordering::Acquire)),
+                                    sec,
+                                    state.is_playing,
+                                );
+                            } else {
+                                sound_handle.seek_to(sec);
+                            }
                             state.position_sec = sec;
                             state.instant = Instant::now();
                         }
