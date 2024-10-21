@@ -266,17 +266,22 @@ async fn categorize_blend_caches(
     spec_caches: ArcImgCaches,
     wav_caches: ArcImgCaches,
 ) -> (IdChMap<u32>, CategorizedIdChVec, CategorizedIdChVec, Images) {
-    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
-    let id_ch_tuples: IdChVec = id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect();
-    let total_widths: IdChMap<_> = id_ch_tuples
-        .iter()
-        .map(|&(id, ch)| {
-            let width = tracklist
-                .get(id)
-                .map_or(0, |track| track.calc_width(params.px_per_sec));
-            ((id, ch), width)
-        })
-        .collect();
+    let id_ch_tuples: IdChVec = {
+        let tm = TM.read().await;
+        id_ch_tuples.into_iter().filter(|x| tm.exists(x)).collect()
+    };
+    let total_widths: IdChMap<_> = {
+        let tracklist = TRACK_LIST.read().await;
+        id_ch_tuples
+            .iter()
+            .map(|&(id, ch)| {
+                let width = tracklist
+                    .get(id)
+                    .map_or(0, |track| track.calc_width(params.px_per_sec));
+                ((id, ch), width)
+            })
+            .collect()
+    };
 
     let (cat_by_spec, cat_by_wav, need_wav_parts_only) = categorize_id_ch(
         &id_ch_tuples,
@@ -308,6 +313,7 @@ async fn categorize_blend_caches(
             blend: -1.,
             ..params.clone()
         };
+        let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
         wav_imgs.extend(tm.draw_part_imgs(&tracklist, &need_wav_parts_only, &params, None));
     };
     (
@@ -332,7 +338,6 @@ async fn draw_part_imgs(
     need_parts_wav: &IdChArr,
     params: &DrawParams,
 ) -> Images {
-    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     if need_parts_spec.is_empty() && need_parts_wav.is_empty() {
         return Vec::new();
     }
@@ -346,6 +351,7 @@ async fn draw_part_imgs(
         .map(|tup| *total_widths.get(tup).unwrap() <= MAX_IMG_CACHE_WIDTH)
         .collect();
     // let fast_resize_vec = vec![true; cat_by_spec.need_parts.len()];
+    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
     tm.draw_part_imgs(&tracklist, need_parts, params, fast_resize_vec)
 }
 
@@ -363,23 +369,26 @@ async fn draw_new_caches(
         blend,
         ..
     } = params;
-    let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
 
     // draw new caches
-    let new_spec_caches = tm.draw_entire_imgs(
-        &tracklist,
-        &need_new_spec_caches,
-        height,
-        px_per_sec,
-        ImageKind::Spec,
-    );
-    let new_wav_caches = tm.draw_entire_imgs(
-        &tracklist,
-        &need_new_wav_caches,
-        height,
-        px_per_sec,
-        ImageKind::Wav(&params.opt_for_wav),
-    );
+    let (new_spec_caches, new_wav_caches) = {
+        let (tracklist, tm) = join!(TRACK_LIST.read(), TM.read());
+        let new_spec_caches = tm.draw_entire_imgs(
+            &tracklist,
+            &need_new_spec_caches,
+            height,
+            px_per_sec,
+            ImageKind::Spec,
+        );
+        let new_wav_caches = tm.draw_entire_imgs(
+            &tracklist,
+            &need_new_wav_caches,
+            height,
+            px_per_sec,
+            ImageKind::Wav(&params.opt_for_wav),
+        );
+        (new_spec_caches, new_wav_caches)
+    };
 
     new_spec_caches.into_par_iter().for_each(|(k, v)| {
         spec_caches.insert(k, v);
