@@ -10,10 +10,9 @@ use serde::{Deserialize, Serialize};
 pub mod mel;
 mod stft;
 
-use super::tuple_hasher::TupleIntSet;
+use super::dynamics::decibel::DeciBelInplace;
+use super::tuple_hasher::{TupleIntMap, TupleIntSet};
 use super::windows::{calc_normalized_win, WindowType};
-use super::TupleIntMap;
-use crate::backend::dynamics::decibel::DeciBelInplace;
 use stft::perform_stft;
 
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;

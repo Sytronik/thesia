@@ -3,8 +3,7 @@
 use identity_hash::IntMap;
 use ndarray::prelude::*;
 use num_traits::{Float, NumAssignOps, NumOps};
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
 
 use super::envelope::{BoxStackFilter, PeakHold};
 

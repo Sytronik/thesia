@@ -1,6 +1,6 @@
 use ndarray::prelude::*;
 
-use crate::backend::audio::Audio;
+use super::super::audio::Audio;
 
 pub type LeftWidth = (u32, u32);
 pub type IdxLen = (isize, usize);

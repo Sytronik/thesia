@@ -9,8 +9,7 @@ use rayon::prelude::*;
 use symphonia::core::audio::GenericAudioBufferRef;
 use symphonia::core::codecs::audio::AudioCodecParameters;
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::probe::Hint;
-use symphonia::core::formats::Track as SymphoniaTrack;
+use symphonia::core::formats::{probe::Hint, Track as SymphoniaTrack};
 use symphonia::core::io::MediaSourceStream;
 
 use super::dynamics::{

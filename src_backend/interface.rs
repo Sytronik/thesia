@@ -6,7 +6,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use crate::backend::{GuardClippingMode, IdChValueVec, IdChVec, SpecSetting};
+use crate::{GuardClippingMode, IdChValueVec, IdChVec, SpecSetting};
 
 #[napi(object)]
 pub struct UserSettingsOptionals {

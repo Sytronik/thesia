@@ -1,13 +1,12 @@
 use std::num::Wrapping;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{self, AtomicUsize};
 use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
 use napi::bindgen_prelude::spawn;
 use napi::tokio::sync::{mpsc, RwLock};
-use napi::tokio::task::JoinHandle;
-use napi::tokio::{self, join};
+use napi::tokio::{self, join, task::JoinHandle};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};
 use rayon::prelude::*;
@@ -79,7 +78,7 @@ pub fn recv() -> Option<Images> {
     let mut cx = Context::from_waker(&waker);
 
     let img_rx = unsafe { IMG_RX.get_mut().unwrap() };
-    let mut max_req_id = Wrapping(RECENT_REQ_ID.load(std::sync::atomic::Ordering::Acquire));
+    let mut max_req_id = Wrapping(RECENT_REQ_ID.load(atomic::Ordering::Acquire));
     let mut opt_images: Option<Images> = None;
     while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
         if curr_req_id.slightly_larger_than_or_equal_to(max_req_id) {
@@ -92,7 +91,7 @@ pub fn recv() -> Option<Images> {
         println!("return req_id={}", max_req_id);
     } */
 
-    RECENT_REQ_ID.store(max_req_id.0, std::sync::atomic::Ordering::Release);
+    RECENT_REQ_ID.store(max_req_id.0, atomic::Ordering::Release);
     opt_images
 }
 

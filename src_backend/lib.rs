@@ -6,8 +6,7 @@ extern crate blas_src;
 use std::sync::LazyLock;
 
 use napi::bindgen_prelude::*;
-use napi::tokio::join;
-use napi::tokio::sync::RwLock as AsyncRwLock;
+use napi::tokio::{join, sync::RwLock as AsyncRwLock};
 use napi_derive::napi;
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;

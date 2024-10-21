@@ -3,21 +3,20 @@ use std::ops::Neg;
 // use std::time::Instant;
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
-use fast_image_resize::pixels;
-use fast_image_resize::{FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
+use fast_image_resize::{pixels, FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use tiny_skia::{
     FillRule, IntRect, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint, PixmapRef, Transform,
 };
 
+use super::super::dynamics::{GuardClippingResult, MaxPeak};
+use super::super::track::TrackList;
+use super::super::utils::Pad;
+use super::super::{IdChArr, IdChValueVec, TrackManager};
 use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to};
 use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights, PartGreyInfo};
 use super::params::{DrawOptionForWav, DrawParams, ImageKind};
-use crate::backend::dynamics::{GuardClippingResult, MaxPeak};
-use crate::backend::track::TrackList;
-use crate::backend::utils::Pad;
-use crate::backend::{IdChArr, IdChValueVec, TrackManager};
 
 const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];

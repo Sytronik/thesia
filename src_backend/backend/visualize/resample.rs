@@ -7,9 +7,9 @@ use ndarray_stats::QuantileExt;
 use num_traits::{AsPrimitive, Float, FloatConst, NumAssignOps, NumOps};
 use realfft::{num_complex::Complex, ComplexToReal, FftNum, RealFftPlanner, RealToComplex};
 
-use crate::backend::sinc::calc_windowed_sincs;
-use crate::backend::utils::Pad;
-use crate::backend::windows::WindowType;
+use super::super::sinc::calc_windowed_sincs;
+use super::super::utils::Pad;
+use super::super::windows::WindowType;
 
 #[derive(Clone)]
 pub struct FftResampler<A> {

@@ -5,16 +5,14 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 use atomic_float::AtomicF32;
-use cpal::traits::DeviceTrait;
-use cpal::SupportedStreamConfigsError;
+use cpal::{traits::DeviceTrait, SupportedStreamConfigsError};
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use log::{error, info, LevelFilter, SetLoggerError};
 use napi::bindgen_prelude::spawn_blocking;
 use napi::tokio::sync::{mpsc, watch};
 use simple_logger::SimpleLogger;
 
-use crate::backend::DeciBel;
-use crate::TRACK_LIST;
+use crate::{DeciBel, TRACK_LIST};
 
 const PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 
