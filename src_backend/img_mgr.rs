@@ -545,8 +545,8 @@ pub fn spawn_task() {
         return;
     }
 
-    let (msg_tx, msg_rx) = mpsc::channel(70);
-    let (img_tx, img_rx) = mpsc::channel(70);
+    let (msg_tx, msg_rx) = mpsc::channel(180);
+    let (img_tx, img_rx) = mpsc::channel(180);
     MSG_TX.set(msg_tx).unwrap();
     unsafe {
         IMG_RX.set(img_rx).unwrap();
