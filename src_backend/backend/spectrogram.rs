@@ -99,6 +99,12 @@ pub struct SpecSetting {
 
 impl Default for SpecSetting {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SpecSetting {
+    pub const fn new() -> Self {
         Self {
             win_ms: 40.,
             t_overlap: 4,
@@ -106,9 +112,7 @@ impl Default for SpecSetting {
             freq_scale: FreqScale::Mel,
         }
     }
-}
 
-impl SpecSetting {
     #[inline]
     pub fn calc_win_length(&self, sr: u32) -> usize {
         self.calc_hop_length(sr) * self.t_overlap as usize

@@ -40,7 +40,6 @@ futures = "0.3.31"
 identity-hash = "0.1.0"
 itertools = "0.13.0"
 kittyaudio = {git = "https://github.com/Sytronik/kittyaudio.git", branch = "master"}
-lazy_static = "1.5.0"
 log = "0.4.22"
 ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"]}
 ndarray-stats = "0.6.0"

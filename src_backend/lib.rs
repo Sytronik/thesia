@@ -3,7 +3,8 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
+
 use napi::bindgen_prelude::*;
 use napi::tokio::join;
 use napi::tokio::sync::RwLock as AsyncRwLock;
@@ -34,14 +35,14 @@ use player::{PlayerCommand, PlayerNotification};
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-lazy_static! {
-    static ref TRACK_LIST: AsyncRwLock<TrackList> = AsyncRwLock::new(TrackList::new());
-    static ref TM: AsyncRwLock<TrackManager> = AsyncRwLock::new(TrackManager::new());
+static TRACK_LIST: LazyLock<AsyncRwLock<TrackList>> =
+    LazyLock::new(|| AsyncRwLock::new(TrackList::new()));
+static TM: LazyLock<AsyncRwLock<TrackManager>> =
+    LazyLock::new(|| AsyncRwLock::new(TrackManager::new()));
 
-    // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
-    static ref HZ_RANGE: SyncRwLock<(f32, f32)> = SyncRwLock::new((0., f32::INFINITY));
-    static ref SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(Default::default());
-}
+// TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
+static HZ_RANGE: SyncRwLock<(f32, f32)> = SyncRwLock::new((0., f32::INFINITY));
+static SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(SpecSetting::new());
 
 fn _init_once() {
     rayon::ThreadPoolBuilder::new()

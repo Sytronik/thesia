@@ -1,6 +1,6 @@
 use std::num::Wrapping;
 use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 
 use approx::abs_diff_eq;
@@ -20,8 +20,8 @@ type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
 
 const MAX_IMG_CACHE_WIDTH: u32 = 16384;
 
-static mut MSG_TX: Option<mpsc::Sender<ImgMsg>> = None;
-static mut IMG_RX: Option<mpsc::Receiver<(Wrapping<usize>, Images)>> = None;
+static MSG_TX: OnceLock<mpsc::Sender<ImgMsg>> = OnceLock::new();
+static mut IMG_RX: OnceLock<mpsc::Receiver<(Wrapping<usize>, Images)>> = OnceLock::new();
 
 pub enum ImgMsg {
     Draw((IdChVec, DrawParams)),
@@ -36,7 +36,7 @@ struct CategorizedIdChVec {
 }
 
 pub async fn send(msg: ImgMsg) {
-    let img_mgr_tx = unsafe { MSG_TX.clone().unwrap() };
+    let img_mgr_tx = MSG_TX.get().unwrap().clone();
     if let Err(e) = img_mgr_tx.send(msg).await {
         panic!("DRAW_TX error: {}", e);
     }
@@ -78,7 +78,7 @@ pub fn recv() -> Option<Images> {
     let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
 
-    let img_rx = unsafe { IMG_RX.as_mut().unwrap() };
+    let img_rx = unsafe { IMG_RX.get_mut().unwrap() };
     let mut max_req_id = Wrapping(RECENT_REQ_ID.load(std::sync::atomic::Ordering::Acquire));
     let mut opt_images: Option<Images> = None;
     while let Poll::Ready(Some((curr_req_id, imgs))) = img_rx.poll_recv(&mut cx) {
@@ -531,17 +531,15 @@ async fn main_loop(
 }
 
 pub fn spawn_task() {
-    unsafe {
-        if MSG_TX.is_some() && IMG_RX.is_some() {
-            return;
-        }
+    if MSG_TX.get().is_some() && unsafe { IMG_RX.get().is_some() } {
+        return;
     }
 
-    let (msg_tx, msg_rx) = mpsc::channel::<ImgMsg>(70);
+    let (msg_tx, msg_rx) = mpsc::channel(70);
     let (img_tx, img_rx) = mpsc::channel(70);
+    MSG_TX.set(msg_tx).unwrap();
     unsafe {
-        MSG_TX = Some(msg_tx);
-        IMG_RX = Some(img_rx);
+        IMG_RX.set(img_rx).unwrap();
     }
     spawn(main_loop(msg_rx, img_tx));
 }

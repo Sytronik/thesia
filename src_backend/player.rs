@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::sync::atomic::{self, AtomicU32, AtomicUsize};
+use std::sync::OnceLock;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
@@ -7,7 +8,6 @@ use atomic_float::AtomicF32;
 use cpal::traits::DeviceTrait;
 use cpal::SupportedStreamConfigsError;
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
-use lazy_static::lazy_static;
 use log::{error, info, LevelFilter, SetLoggerError};
 use napi::bindgen_prelude::spawn_blocking;
 use napi::tokio::sync::{mpsc, watch};
@@ -16,12 +16,10 @@ use simple_logger::SimpleLogger;
 use crate::backend::DeciBel;
 use crate::TRACK_LIST;
 
-lazy_static! {
-    static ref PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
-}
+const PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 
-static mut COMMAND_TX: Option<mpsc::Sender<PlayerCommand>> = None;
-static mut NOTI_RX: Option<watch::Receiver<PlayerNotification>> = None;
+static COMMAND_TX: OnceLock<mpsc::Sender<PlayerCommand>> = OnceLock::new();
+static NOTI_RX: OnceLock<watch::Receiver<PlayerNotification>> = OnceLock::new();
 
 pub fn init_logger() -> Result<(), SetLoggerError> {
     SimpleLogger::new().with_level(LevelFilter::Info).init()
@@ -45,7 +43,7 @@ pub enum PlayerCommand {
     Resume,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InternalPlayerState {
     /// if currently playing
     pub is_playing: bool,
@@ -75,21 +73,22 @@ impl Default for InternalPlayerState {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PlayerNotification {
     Ok(InternalPlayerState),
     Err(String),
 }
 
 pub async fn send(msg: PlayerCommand) {
-    let msg_tx = unsafe { COMMAND_TX.clone().unwrap() };
+    let msg_tx = COMMAND_TX.get().unwrap().clone();
     if let Err(e) = msg_tx.send(msg).await {
         panic!("PLAYER MSG_TX error: {}", e);
     }
 }
 
 pub fn recv() -> PlayerNotification {
-    let noti = unsafe { (*NOTI_RX.as_ref().unwrap().borrow()).clone() };
+    let noti_rx = NOTI_RX.get().unwrap();
+    let noti = (noti_rx.borrow()).clone();
     match noti {
         PlayerNotification::Ok(mut state) if state.is_playing => {
             state.position_sec = state.position_sec_elapsed();
@@ -424,7 +423,7 @@ fn main_loop(
                         continue;
                     }
                 }
-                std::thread::sleep(*PLAYER_NOTI_INTERVAL);
+                std::thread::sleep(PLAYER_NOTI_INTERVAL);
             }
             Poll::Ready(None) => {
                 break;
@@ -434,28 +433,22 @@ fn main_loop(
 }
 
 pub fn spawn_task() {
-    unsafe {
-        if COMMAND_TX
-            .as_ref()
-            .is_some_and(|cmd_tx| !cmd_tx.is_closed())
-            && NOTI_RX
-                .as_ref()
-                .is_some_and(|noti_rx| noti_rx.has_changed().is_ok())
-        {
-            COMMAND_TX
-                .as_ref()
-                .unwrap()
-                .blocking_send(PlayerCommand::Initialize)
-                .unwrap();
-            return;
-        }
+    if COMMAND_TX.get().is_some_and(|cmd_tx| !cmd_tx.is_closed())
+        && NOTI_RX
+            .get()
+            .is_some_and(|noti_rx| noti_rx.has_changed().is_ok())
+    {
+        COMMAND_TX
+            .get()
+            .unwrap()
+            .blocking_send(PlayerCommand::Initialize)
+            .unwrap();
+        return;
     }
 
     let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(20);
     let (noti_tx, noti_rx) = watch::channel(PlayerNotification::Ok(Default::default()));
-    unsafe {
-        COMMAND_TX = Some(command_tx);
-        NOTI_RX = Some(noti_rx);
-    }
+    COMMAND_TX.set(command_tx).unwrap();
+    NOTI_RX.set(noti_rx).unwrap();
     spawn_blocking(|| main_loop(command_rx, noti_tx));
 }
