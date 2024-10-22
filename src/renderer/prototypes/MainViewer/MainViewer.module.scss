@@ -44,6 +44,7 @@
 .dummyBoxForStickyHeader {
   height: $time-ruler-height;
   margin-bottom: $track-margin;
+  flex: none;
 }
 
 .axisLabelSection {

@@ -1,14 +1,17 @@
 @import "../styles/index.scss";
 
 .SplitView {
-  flex: 1 1 auto;
   width: calc(100% - #{$colorbar-width + $component-gap * 2});
   margin: $component-gap * 0.5;
 
-  display: flex;
   overflow-y: scroll;
-  flex-direction: row;
-  align-items: flex-start;
+}
+
+.Scrolled {
+  display: flex;
+  align-items: stretch;
+  height: fit-content;
+  min-height: 100%;
 }
 
 .LeftPane {
@@ -16,7 +19,6 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  min-height: 100%;
   z-index: 2;
   background-color: $bg-main;
 
@@ -27,9 +29,6 @@
 
 .divider {
   cursor: col-resize;
-  display: flex;
-  align-self: stretch;
-  align-items: center;
 }
 
 .dividerLine {

@@ -130,19 +130,21 @@ const SplitView = forwardRef(({className = "", ...props}: SplitViewProps, ref) =
 
   return (
     <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
-      <div className={styles.LeftPane} style={{width: leftWidth}}>
-        {createLeft(leftWidth)}
-      </div>
-      <div
-        role="presentation"
-        className={styles.divider}
-        onMouseDown={onMouseDown}
-        onTouchStart={onTouchStart}
-      >
-        <div className={styles.dividerLine} />
-      </div>
-      <div className={styles.RightPane} ref={rightPaneElem}>
-        {rightVisibility ? right : null}
+      <div className={styles.Scrolled}>
+        <div className={styles.LeftPane} style={{width: leftWidth}}>
+          {createLeft(leftWidth)}
+        </div>
+        <div
+          role="presentation"
+          className={styles.divider}
+          onMouseDown={onMouseDown}
+          onTouchStart={onTouchStart}
+        >
+          <div className={styles.dividerLine} />
+        </div>
+        <div className={styles.RightPane} ref={rightPaneElem}>
+          {rightVisibility ? right : null}
+        </div>
       </div>
     </div>
   );
