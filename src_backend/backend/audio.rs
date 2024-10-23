@@ -115,7 +115,7 @@ impl GuardClipping<Ix2> for Audio {
 
     fn limit(&mut self) -> GuardClippingResult<Ix2> {
         thread_local! {
-            pub static LIMITER_MANAGER: RefCell<LimiterManager> = RefCell::new(LimiterManager::new());
+            static LIMITER_MANAGER: RefCell<LimiterManager> = RefCell::new(LimiterManager::new());
         }
 
         let peak = self.wavs.max_peak();
