@@ -16,7 +16,7 @@ use crate::{IdChArr, IdChDMap, IdChMap, IdChValueArr, IdChValueVec, IdChVec, Pad
 type Images = IdChValueVec<Vec<u8>>;
 type ArcImgCaches = Arc<IdChDMap<Array3<u8>>>;
 
-const MAX_IMG_CACHE_WIDTH: u32 = 16384;
+const MAX_IMG_CACHE_WIDTH: u32 = 32768;
 
 static MSG_TX: OnceLock<mpsc::Sender<ImgMsg>> = OnceLock::new();
 static mut IMG_RX: OnceLock<mpsc::Receiver<(Wrapping<usize>, Images)>> = OnceLock::new();
