@@ -5,11 +5,13 @@ extern crate blas_src;
 
 use std::sync::LazyLock;
 
+use log::LevelFilter;
 use napi::bindgen_prelude::*;
 use napi::tokio::{join, sync::RwLock as AsyncRwLock};
 use napi_derive::napi;
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
+use simple_logger::SimpleLogger;
 
 #[warn(dead_code)]
 mod backend;
@@ -47,6 +49,10 @@ fn _init_once() {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
         .build_global()
+        .unwrap();
+    SimpleLogger::new()
+        .with_level(LevelFilter::Info)
+        .init()
         .unwrap();
 }
 

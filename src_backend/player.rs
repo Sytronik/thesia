@@ -6,11 +6,10 @@ use std::time::{Duration, Instant};
 use atomic_float::AtomicF32;
 use cpal::{traits::DeviceTrait, SupportedStreamConfigsError};
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
-use log::{error, info, LevelFilter, SetLoggerError};
+use log::{error, info};
 use napi::bindgen_prelude::spawn_blocking;
 use napi::tokio::sync::mpsc::{self, error::TryRecvError};
 use napi::tokio::sync::watch;
-use simple_logger::SimpleLogger;
 
 use crate::{DeciBel, TRACK_LIST};
 
@@ -18,10 +17,6 @@ const PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 
 static COMMAND_TX: OnceLock<mpsc::Sender<PlayerCommand>> = OnceLock::new();
 static NOTI_RX: OnceLock<watch::Receiver<PlayerNotification>> = OnceLock::new();
-
-pub fn init_logger() -> Result<(), SetLoggerError> {
-    SimpleLogger::new().with_level(LevelFilter::Info).init()
-}
 
 pub enum PlayerCommand {
     /// only caused by refreshing of frontend
@@ -165,7 +160,6 @@ fn main_loop(
     mut msg_rx: mpsc::Receiver<PlayerCommand>,
     noti_tx: watch::Sender<PlayerNotification>,
 ) {
-    init_logger().unwrap();
     let current_sr = AtomicU32::new(48000);
     let current_volume = AtomicF32::new(1.);
     let current_track_id = AtomicUsize::new(0);
