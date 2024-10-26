@@ -1,6 +1,7 @@
 use std::ops::*;
 use std::sync::Arc;
 
+use itertools::Itertools;
 use ndarray::prelude::*;
 use ndarray::ScalarOperand;
 use num_traits::{AsPrimitive, Float, FloatConst};
@@ -44,21 +45,31 @@ where
         fft_module.process(x, y).unwrap();
     };
 
+    let n_chunks = rayon::current_num_threads();
+
     if input.len() < win_length {
         let padded = input.pad((win_length / 2, win_length / 2), Axis(0), PadMode::Reflect);
         let mut frames = to_frames_wrapper(padded.view());
 
         let n_frames = frames.len();
         let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
-        let out_frames: Vec<&mut [Complex<A>]> = output
+        let mut out_frames: Vec<&mut [Complex<A>]> = output
             .axis_iter_mut(Axis(0))
             .map(|x| x.into_slice().unwrap())
             .collect();
 
         if parallel {
-            frames.par_iter_mut().zip_eq(out_frames).for_each(do_fft);
+            frames
+                .par_chunks_mut(n_chunks)
+                .zip_eq(out_frames.par_chunks_mut(n_chunks))
+                .for_each(|(in_chunk, out_chunk)| {
+                    in_chunk
+                        .iter_mut()
+                        .zip_eq(out_chunk)
+                        .for_each(|(frame, out_frame)| do_fft((frame, *out_frame)))
+                });
         } else {
-            frames.iter_mut().zip(out_frames).for_each(do_fft);
+            frames.iter_mut().zip_eq(out_frames).for_each(do_fft);
         }
         return output;
     }
@@ -83,23 +94,37 @@ where
 
     let n_frames = front_frames.len() + frames.len() + back_frames.len();
     let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
-    let out_frames: Vec<&mut [Complex<A>]> = output
+    let mut out_frames: Vec<&mut [Complex<A>]> = output
         .axis_iter_mut(Axis(0))
         .map(|x| x.into_slice().unwrap())
         .collect();
 
     if parallel {
+        let (front_out_frames, out_frames) = out_frames.split_at_mut(front_frames.len());
+        let (out_frames, back_out_frames) = out_frames.split_at_mut(frames.len());
         let in_frames = front_frames
-            .par_iter_mut()
-            .chain(frames.par_iter_mut())
-            .chain(back_frames.par_iter_mut());
-        in_frames.zip(out_frames).for_each(do_fft);
+            .par_chunks_mut(n_chunks)
+            .chain(frames.par_chunks_mut(n_chunks))
+            .chain(back_frames.par_chunks_mut(n_chunks));
+        in_frames
+            .zip_eq(
+                front_out_frames
+                    .par_chunks_mut(n_chunks)
+                    .chain(out_frames.par_chunks_mut(n_chunks))
+                    .chain(back_out_frames.par_chunks_mut(n_chunks)),
+            )
+            .for_each(|(in_chunk, out_chunk)| {
+                in_chunk
+                    .iter_mut()
+                    .zip_eq(out_chunk)
+                    .for_each(|(frame, out_frame)| do_fft((frame, *out_frame)))
+            });
     } else {
         let in_frames = front_frames
             .iter_mut()
             .chain(frames.iter_mut())
             .chain(back_frames.iter_mut());
-        in_frames.zip(out_frames).for_each(do_fft);
+        in_frames.zip_eq(out_frames).for_each(do_fft);
     }
 
     output

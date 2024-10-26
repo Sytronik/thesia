@@ -195,7 +195,7 @@ impl TrackManager {
                 self.spec_analyzer.prepare(&p, self.setting.freq_scale);
             }
         }
-        let len = id_ch_tuples.len();
+        let parallel = id_ch_tuples.len() < rayon::current_num_threads();
         let specs: Vec<_> = id_ch_tuples
             .into_par_iter()
             .map(|(id, ch)| {
@@ -204,7 +204,7 @@ impl TrackManager {
                     track.channel(ch),
                     track.sr(),
                     &self.setting,
-                    len == 1,
+                    parallel,
                 );
                 ((id, ch), spec)
             })

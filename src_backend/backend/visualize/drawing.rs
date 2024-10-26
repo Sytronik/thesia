@@ -99,6 +99,7 @@ impl TrackDrawer for TrackManager {
         kind: ImageKind,
     ) -> IdChValueVec<Array3<u8>> {
         // let start = Instant::now();
+        let parallel = id_ch_tuples.len() < rayon::current_num_threads();
         id_ch_tuples
             .par_iter()
             .map(|&(id, ch)| {
@@ -117,7 +118,7 @@ impl TrackDrawer for TrackManager {
                         } else {
                             return out_for_not_exist();
                         };
-                        let vec = colorize_resize_grey(grey.into(), width, height, false);
+                        let vec = colorize_resize_grey(grey.into(), width, height, false, parallel);
                         Array3::from_shape_vec(shape, vec).unwrap()
                     }
                     ImageKind::Wav(opt_for_wav) => {
@@ -159,6 +160,7 @@ impl TrackDrawer for TrackManager {
             blend,
         } = params;
         let fast_resize_vec = fast_resize_vec.into();
+        let parallel = id_ch_tuples.len() < rayon::current_num_threads();
         id_ch_tuples
             .par_iter()
             .enumerate()
@@ -206,6 +208,7 @@ impl TrackDrawer for TrackManager {
                     blend,
                     fast_resize_vec.as_ref().map_or(false, |v| v[i]),
                     show_clipping,
+                    parallel,
                 );
                 let mut arr = Array3::from_shape_vec(
                     (height as usize, drawing_width_with_margin as usize, 4),
@@ -485,6 +488,7 @@ fn colorize_resize_grey(
     width: u32,
     height: u32,
     fast_resize: bool,
+    parallel: bool,
 ) -> Vec<u8> {
     thread_local! {
         static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
@@ -519,11 +523,16 @@ fn colorize_resize_grey(
         dst_image
     });
 
-    resized
-        .pixels()
-        .iter()
-        .flat_map(|x| map_grey_to_color(x.0).into_iter().chain(Some(u8::MAX)))
-        .collect()
+    let grey_to_rgba = |x: &pixels::U16| map_grey_to_color(x.0).into_iter().chain(Some(u8::MAX));
+    if parallel {
+        resized
+            .pixels()
+            .par_chunks(rayon::current_num_threads())
+            .flat_map_iter(|chunk| chunk.iter().flat_map(grey_to_rgba))
+            .collect()
+    } else {
+        resized.pixels().iter().flat_map(grey_to_rgba).collect()
+    }
     // println!("drawing spec: {:?}", start.elapsed());
 }
 
@@ -537,13 +546,14 @@ fn draw_blended_spec_wav(
     blend: f64,
     fast_resize: bool,
     show_clipping: bool,
+    parallel: bool,
 ) -> Vec<u8> {
     // spec
     if spec_grey.length == 0 || wav.length == 0 {
         return vec![0u8; height as usize * width as usize * 4];
     }
     let mut result = if blend > 0. {
-        colorize_resize_grey(spec_grey, width, height, fast_resize)
+        colorize_resize_grey(spec_grey, width, height, fast_resize, parallel)
     } else {
         vec![0u8; height as usize * width as usize * 4]
     };
