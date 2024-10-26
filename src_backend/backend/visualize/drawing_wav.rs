@@ -193,7 +193,7 @@ pub fn draw_limiter_gain_to(
                 .max(0.) as usize;
             let i_end =
                 (((i_px + half_context_size) * samples_per_px).round() as usize).min(gain.len());
-            amp_to_px(gain.slice(s![i_start..i_end]).mean().unwrap())
+            amp_to_px(gain.slice(s![i_start..i_end]).mean().unwrap_or_default())
         }
     });
 
@@ -265,8 +265,11 @@ fn stroke_line_to(
     paint: &Paint,
     stroke_border_width: f32,
 ) {
+    let len = y_px_iter.len();
+    if len == 0 {
+        return;
+    }
     let path = {
-        let len = y_px_iter.len();
         let mut pb = PathBuilder::with_capacity(len + 1, len + 1);
         let first_elem = y_px_iter.next().unwrap();
         pb.move_to(0., first_elem);
@@ -329,13 +332,14 @@ fn fill_topbottom_envelope_with_clipping_to(
             fill_topbottom_envelope_to(pixmap, top_envlop_iter, btm_envlop_iter, envlop_len, &paint)
         }
     };
-
-    if need_border {
-        let stroke = Stroke {
-            width: 0.,
-            ..Default::default()
-        };
-        pixmap.stroke_path(&path, &Paint::default(), &stroke);
+    if let Some(path) = path {
+        if need_border {
+            let stroke = Stroke {
+                width: 0.,
+                ..Default::default()
+            };
+            pixmap.stroke_path(&path, &Paint::default(), &stroke);
+        }
     }
 }
 
@@ -345,11 +349,12 @@ fn fill_topbottom_envelope_to(
     btm_envlop_iter: &mut dyn DoubleEndedIterator<Item = f32>,
     envlop_len: usize,
     paint: &Paint,
-) -> tiny_skia::Path {
+) -> Option<tiny_skia::Path> {
     let path = {
+        let first_elem = top_envlop_iter.next()?;
         let len = envlop_len * 2 + 2;
         let mut pb = PathBuilder::with_capacity(len, len);
-        pb.move_to(0., top_envlop_iter.next().unwrap());
+        pb.move_to(0., first_elem);
         let point_per_px = pixmap.width() as f32 / envlop_len as f32;
         for (x, y) in (1..envlop_len).zip(top_envlop_iter) {
             pb.line_to(x as f32 * point_per_px, y);
@@ -362,7 +367,7 @@ fn fill_topbottom_envelope_to(
     };
 
     pixmap.fill_path(&path, paint);
-    path
+    Some(path)
 }
 
 #[inline]

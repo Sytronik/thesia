@@ -163,12 +163,11 @@ fn main_loop(
     let current_sr = AtomicU32::new(48000);
     let current_volume = AtomicF32::new(1.);
     let current_track_id = AtomicUsize::new(0);
-    let get_device_name = || match Device::Default.name() {
-        Ok(n) => n,
-        Err(err) => {
+    let get_device_name = || {
+        Device::Default.name().unwrap_or_else(|err| {
             noti_err(&noti_tx, err);
             "".into()
-        }
+        })
     };
     let device_name = RefCell::new(String::new());
     let init_mixer = |sr: Option<u32>, change_device: bool| {

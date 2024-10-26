@@ -405,7 +405,7 @@ pub fn convert_spec_to_grey(
 pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
     image
         .slice_mut(s![.., left as isize..(left + width) as isize, 3])
-        .mapv_inplace(|_| u8::MAX);
+        .fill(u8::MAX);
 }
 
 pub fn blend_img_to(
@@ -473,14 +473,15 @@ fn map_grey_to_color(x: u16) -> [u8; 3] {
     if x == u16::MAX {
         return WHITE;
     }
-    let position = (x - 1) as f32 * COLORMAP.len() as f32 / (u16::MAX - 1) as f32;
+    const GREY_TO_POS: f32 = COLORMAP.len() as f32 / (u16::MAX - 1) as f32;
+    let position = (x as f32).mul_add(GREY_TO_POS, -GREY_TO_POS);
     let index = position.floor() as usize;
     let rgb1 = if index >= COLORMAP.len() - 1 {
         &WHITE
     } else {
         &COLORMAP[index + 1]
     };
-    interpolate(rgb1, &COLORMAP[index], position - index as f32)
+    interpolate(rgb1, &COLORMAP[index], position.fract())
 }
 
 fn colorize_resize_grey(
