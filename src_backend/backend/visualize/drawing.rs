@@ -2,8 +2,13 @@ use std::cell::RefCell;
 use std::ops::Neg;
 // use std::time::Instant;
 
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::{__m128, __m128i, __m256, __m256i};
+
+use aligned::{Aligned, A16, A32};
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{pixels, FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
+use itertools::{multizip, Itertools};
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use tiny_skia::{
@@ -20,42 +25,70 @@ use super::params::{DrawOptionForWav, DrawParams, ImageKind};
 
 const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];
+// const BLACK_F32: [f32; 3] = [0.; 3];
+const WHITE_F32: [f32; 3] = [255.; 3];
 
-#[rustfmt::skip]
-pub const COLORMAP: [[u8; 3]; 256] = [
-    [0, 0, 4], [1, 0, 5], [1, 1, 6], [1, 1, 8], [2, 1, 10], [2, 2, 12], [2, 2, 14], [3, 2, 16],
-    [4, 3, 18], [4, 3, 21], [5, 4, 23], [6, 4, 25], [7, 5, 27], [8, 6, 29], [9, 6, 32], [10, 7, 34],
-    [11, 7, 36], [12, 8, 38], [13, 8, 41], [14, 9, 43], [16, 9, 45], [17, 10, 48], [18, 10, 50], [20, 11, 53],
-    [21, 11, 55], [22, 11, 58], [24, 12, 60], [25, 12, 62], [27, 12, 65], [28, 12, 67], [30, 12, 70], [31, 12, 72],
-    [33, 12, 74], [35, 12, 77], [36, 12, 79], [38, 12, 81], [40, 11, 83], [42, 11, 85], [43, 11, 87], [45, 11, 89],
-    [47, 10, 91], [49, 10, 93], [51, 10, 94], [52, 10, 96], [54, 9, 97], [56, 9, 98], [58, 9, 99], [59, 9, 100],
-    [61, 9, 101], [63, 9, 102], [64, 10, 103], [66, 10, 104], [68, 10, 105], [69, 10, 105], [71, 11, 106], [73, 11, 107],
-    [74, 12, 107], [76, 12, 108], [78, 13, 108], [79, 13, 108], [81, 14, 109], [83, 14, 109], [84, 15, 109], [86, 15, 110],
-    [87, 16, 110], [89, 17, 110], [91, 17, 110], [92, 18, 110], [94, 18, 111], [95, 19, 111], [97, 20, 111], [99, 20, 111],
-    [100, 21, 111], [102, 21, 111], [103, 22, 111], [105, 23, 111], [107, 23, 111], [108, 24, 111], [110, 24, 111], [111, 25, 111],
-    [113, 25, 110], [115, 26, 110], [116, 27, 110], [118, 27, 110], [119, 28, 110], [121, 28, 110], [123, 29, 109], [124, 29, 109],
-    [126, 30, 109], [127, 31, 109], [129, 31, 108], [130, 32, 108], [132, 32, 108], [134, 33, 107], [135, 33, 107], [137, 34, 107],
-    [138, 34, 106], [140, 35, 106], [142, 36, 105], [143, 36, 105], [145, 37, 105], [146, 37, 104], [148, 38, 104], [150, 38, 103],
-    [151, 39, 102], [153, 40, 102], [154, 40, 101], [156, 41, 101], [158, 41, 100], [159, 42, 100], [161, 43, 99], [162, 43, 98],
-    [164, 44, 98], [165, 45, 97], [167, 45, 96], [169, 46, 95], [170, 46, 95], [172, 47, 94], [173, 48, 93], [175, 49, 92],
-    [176, 49, 92], [178, 50, 91], [179, 51, 90], [181, 51, 89], [182, 52, 88], [184, 53, 87], [185, 54, 86], [187, 54, 85],
-    [188, 55, 85], [190, 56, 84], [191, 57, 83], [193, 58, 82], [194, 59, 81], [196, 60, 80], [197, 60, 79], [198, 61, 78],
-    [200, 62, 77], [201, 63, 76], [203, 64, 75], [204, 65, 74], [205, 66, 72], [207, 67, 71], [208, 68, 70], [209, 69, 69],
-    [211, 70, 68], [212, 72, 67], [213, 73, 66], [214, 74, 65], [216, 75, 64], [217, 76, 62], [218, 77, 61], [219, 79, 60],
-    [220, 80, 59], [221, 81, 58], [223, 82, 57], [224, 84, 56], [225, 85, 54], [226, 86, 53], [227, 88, 52], [228, 89, 51],
-    [229, 90, 50], [230, 92, 48], [231, 93, 47], [232, 95, 46], [233, 96, 45], [234, 98, 43], [235, 99, 42], [235, 101, 41],
-    [236, 102, 40], [237, 104, 38], [238, 105, 37], [239, 107, 36], [240, 109, 35], [240, 110, 33], [241, 112, 32], [242, 113, 31],
-    [242, 115, 30], [243, 117, 28], [244, 118, 27], [244, 120, 26], [245, 122, 24], [246, 123, 23], [246, 125, 22], [247, 127, 20],
-    [247, 129, 19], [248, 130, 18], [248, 132, 16], [249, 134, 15], [249, 136, 14], [249, 137, 12], [250, 139, 11], [250, 141, 10],
-    [250, 143, 9], [251, 145, 8], [251, 146, 7], [251, 148, 7], [252, 150, 6], [252, 152, 6], [252, 154, 6], [252, 156, 6],
-    [252, 158, 7], [253, 160, 7], [253, 161, 8], [253, 163, 9], [253, 165, 10], [253, 167, 12], [253, 169, 13], [253, 171, 15],
-    [253, 173, 17], [253, 175, 19], [253, 177, 20], [253, 179, 22], [253, 181, 24], [252, 183, 27], [252, 185, 29], [252, 186, 31],
-    [252, 188, 33], [252, 190, 35], [251, 192, 38], [251, 194, 40], [251, 196, 43], [251, 198, 45], [250, 200, 48], [250, 202, 50],
-    [250, 204, 53], [249, 206, 56], [249, 208, 58], [248, 210, 61], [248, 212, 64], [247, 214, 67], [247, 216, 70], [246, 218, 73],
-    [246, 220, 76], [245, 222, 80], [245, 224, 83], [244, 226, 86], [244, 228, 90], [244, 229, 94], [243, 231, 97], [243, 233, 101],
-    [243, 235, 105], [242, 237, 109], [242, 238, 113], [242, 240, 117], [242, 241, 122], [243, 243, 126], [243, 244, 130], [244, 246, 134],
-    [244, 247, 138], [245, 249, 142], [246, 250, 146], [247, 251, 150], [249, 252, 154], [250, 253, 158], [251, 254, 162], [253, 255, 165],
+const COLORMAP_R: [f32; 256] = [
+    0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 4.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+    13.0, 14.0, 16.0, 17.0, 18.0, 20.0, 21.0, 22.0, 24.0, 25.0, 27.0, 28.0, 30.0, 31.0, 33.0, 35.0,
+    36.0, 38.0, 40.0, 42.0, 43.0, 45.0, 47.0, 49.0, 51.0, 52.0, 54.0, 56.0, 58.0, 59.0, 61.0, 63.0,
+    64.0, 66.0, 68.0, 69.0, 71.0, 73.0, 74.0, 76.0, 78.0, 79.0, 81.0, 83.0, 84.0, 86.0, 87.0, 89.0,
+    91.0, 92.0, 94.0, 95.0, 97.0, 99.0, 100.0, 102.0, 103.0, 105.0, 107.0, 108.0, 110.0, 111.0,
+    113.0, 115.0, 116.0, 118.0, 119.0, 121.0, 123.0, 124.0, 126.0, 127.0, 129.0, 130.0, 132.0,
+    134.0, 135.0, 137.0, 138.0, 140.0, 142.0, 143.0, 145.0, 146.0, 148.0, 150.0, 151.0, 153.0,
+    154.0, 156.0, 158.0, 159.0, 161.0, 162.0, 164.0, 165.0, 167.0, 169.0, 170.0, 172.0, 173.0,
+    175.0, 176.0, 178.0, 179.0, 181.0, 182.0, 184.0, 185.0, 187.0, 188.0, 190.0, 191.0, 193.0,
+    194.0, 196.0, 197.0, 198.0, 200.0, 201.0, 203.0, 204.0, 205.0, 207.0, 208.0, 209.0, 211.0,
+    212.0, 213.0, 214.0, 216.0, 217.0, 218.0, 219.0, 220.0, 221.0, 223.0, 224.0, 225.0, 226.0,
+    227.0, 228.0, 229.0, 230.0, 231.0, 232.0, 233.0, 234.0, 235.0, 235.0, 236.0, 237.0, 238.0,
+    239.0, 240.0, 240.0, 241.0, 242.0, 242.0, 243.0, 244.0, 244.0, 245.0, 246.0, 246.0, 247.0,
+    247.0, 248.0, 248.0, 249.0, 249.0, 249.0, 250.0, 250.0, 250.0, 251.0, 251.0, 251.0, 252.0,
+    252.0, 252.0, 252.0, 252.0, 253.0, 253.0, 253.0, 253.0, 253.0, 253.0, 253.0, 253.0, 253.0,
+    253.0, 253.0, 253.0, 252.0, 252.0, 252.0, 252.0, 252.0, 251.0, 251.0, 251.0, 251.0, 250.0,
+    250.0, 250.0, 249.0, 249.0, 248.0, 248.0, 247.0, 247.0, 246.0, 246.0, 245.0, 245.0, 244.0,
+    244.0, 244.0, 243.0, 243.0, 243.0, 242.0, 242.0, 242.0, 242.0, 243.0, 243.0, 244.0, 244.0,
+    245.0, 246.0, 247.0, 249.0, 250.0, 251.0, 253.0,
 ];
+const COLORMAP_G: [f32; 256] = [
+    0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 6.0, 6.0, 7.0, 7.0, 8.0, 8.0,
+    9.0, 9.0, 10.0, 10.0, 11.0, 11.0, 11.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0,
+    12.0, 11.0, 11.0, 11.0, 11.0, 10.0, 10.0, 10.0, 10.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 10.0, 10.0,
+    10.0, 10.0, 11.0, 11.0, 12.0, 12.0, 13.0, 13.0, 14.0, 14.0, 15.0, 15.0, 16.0, 17.0, 17.0, 18.0,
+    18.0, 19.0, 20.0, 20.0, 21.0, 21.0, 22.0, 23.0, 23.0, 24.0, 24.0, 25.0, 25.0, 26.0, 27.0, 27.0,
+    28.0, 28.0, 29.0, 29.0, 30.0, 31.0, 31.0, 32.0, 32.0, 33.0, 33.0, 34.0, 34.0, 35.0, 36.0, 36.0,
+    37.0, 37.0, 38.0, 38.0, 39.0, 40.0, 40.0, 41.0, 41.0, 42.0, 43.0, 43.0, 44.0, 45.0, 45.0, 46.0,
+    46.0, 47.0, 48.0, 49.0, 49.0, 50.0, 51.0, 51.0, 52.0, 53.0, 54.0, 54.0, 55.0, 56.0, 57.0, 58.0,
+    59.0, 60.0, 60.0, 61.0, 62.0, 63.0, 64.0, 65.0, 66.0, 67.0, 68.0, 69.0, 70.0, 72.0, 73.0, 74.0,
+    75.0, 76.0, 77.0, 79.0, 80.0, 81.0, 82.0, 84.0, 85.0, 86.0, 88.0, 89.0, 90.0, 92.0, 93.0, 95.0,
+    96.0, 98.0, 99.0, 101.0, 102.0, 104.0, 105.0, 107.0, 109.0, 110.0, 112.0, 113.0, 115.0, 117.0,
+    118.0, 120.0, 122.0, 123.0, 125.0, 127.0, 129.0, 130.0, 132.0, 134.0, 136.0, 137.0, 139.0,
+    141.0, 143.0, 145.0, 146.0, 148.0, 150.0, 152.0, 154.0, 156.0, 158.0, 160.0, 161.0, 163.0,
+    165.0, 167.0, 169.0, 171.0, 173.0, 175.0, 177.0, 179.0, 181.0, 183.0, 185.0, 186.0, 188.0,
+    190.0, 192.0, 194.0, 196.0, 198.0, 200.0, 202.0, 204.0, 206.0, 208.0, 210.0, 212.0, 214.0,
+    216.0, 218.0, 220.0, 222.0, 224.0, 226.0, 228.0, 229.0, 231.0, 233.0, 235.0, 237.0, 238.0,
+    240.0, 241.0, 243.0, 244.0, 246.0, 247.0, 249.0, 250.0, 251.0, 252.0, 253.0, 254.0, 255.0,
+];
+const COLORMAP_B: [f32; 256] = [
+    4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 21.0, 23.0, 25.0, 27.0, 29.0, 32.0, 34.0,
+    36.0, 38.0, 41.0, 43.0, 45.0, 48.0, 50.0, 53.0, 55.0, 58.0, 60.0, 62.0, 65.0, 67.0, 70.0, 72.0,
+    74.0, 77.0, 79.0, 81.0, 83.0, 85.0, 87.0, 89.0, 91.0, 93.0, 94.0, 96.0, 97.0, 98.0, 99.0,
+    100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 105.0, 106.0, 107.0, 107.0, 108.0, 108.0, 108.0,
+    109.0, 109.0, 109.0, 110.0, 110.0, 110.0, 110.0, 110.0, 111.0, 111.0, 111.0, 111.0, 111.0,
+    111.0, 111.0, 111.0, 111.0, 111.0, 111.0, 111.0, 110.0, 110.0, 110.0, 110.0, 110.0, 110.0,
+    109.0, 109.0, 109.0, 109.0, 108.0, 108.0, 108.0, 107.0, 107.0, 107.0, 106.0, 106.0, 105.0,
+    105.0, 105.0, 104.0, 104.0, 103.0, 102.0, 102.0, 101.0, 101.0, 100.0, 100.0, 99.0, 98.0, 98.0,
+    97.0, 96.0, 95.0, 95.0, 94.0, 93.0, 92.0, 92.0, 91.0, 90.0, 89.0, 88.0, 87.0, 86.0, 85.0, 85.0,
+    84.0, 83.0, 82.0, 81.0, 80.0, 79.0, 78.0, 77.0, 76.0, 75.0, 74.0, 72.0, 71.0, 70.0, 69.0, 68.0,
+    67.0, 66.0, 65.0, 64.0, 62.0, 61.0, 60.0, 59.0, 58.0, 57.0, 56.0, 54.0, 53.0, 52.0, 51.0, 50.0,
+    48.0, 47.0, 46.0, 45.0, 43.0, 42.0, 41.0, 40.0, 38.0, 37.0, 36.0, 35.0, 33.0, 32.0, 31.0, 30.0,
+    28.0, 27.0, 26.0, 24.0, 23.0, 22.0, 20.0, 19.0, 18.0, 16.0, 15.0, 14.0, 12.0, 11.0, 10.0, 9.0,
+    8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 7.0, 7.0, 8.0, 9.0, 10.0, 12.0, 13.0, 15.0, 17.0, 19.0,
+    20.0, 22.0, 24.0, 27.0, 29.0, 31.0, 33.0, 35.0, 38.0, 40.0, 43.0, 45.0, 48.0, 50.0, 53.0, 56.0,
+    58.0, 61.0, 64.0, 67.0, 70.0, 73.0, 76.0, 80.0, 83.0, 86.0, 90.0, 94.0, 97.0, 101.0, 105.0,
+    109.0, 113.0, 117.0, 122.0, 126.0, 130.0, 134.0, 138.0, 142.0, 146.0, 150.0, 154.0, 158.0,
+    162.0, 165.0,
+];
+const GREY_TO_POS: f32 = COLORMAP_R.len() as f32 / (u16::MAX - 1) as f32;
 
 const OVERVIEW_MAX_CH: usize = 4;
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
@@ -369,10 +402,9 @@ impl TrackDrawer for TrackManager {
 
 #[inline]
 pub fn get_colormap_rgb() -> Vec<u8> {
-    COLORMAP
-        .iter()
-        .chain(Some(&WHITE))
-        .flat_map(|x| x.iter().copied())
+    multizip((COLORMAP_R.iter(), COLORMAP_G.iter(), COLORMAP_B.iter()))
+        .flat_map(|(&r, &g, &b)| [r as u8, g as u8, b as u8].into_iter())
+        .chain(WHITE.iter().copied())
         .collect()
 }
 
@@ -456,9 +488,10 @@ fn blend_wav_img_to(
 }
 
 #[inline]
-fn interpolate<const L: usize>(color1: &[u8; L], color2: &[u8; L], ratio: f32) -> [u8; L] {
+fn interpolate<const L: usize>(color1: &[f32; L], color2: &[f32; L], ratio: f32) -> [u8; L] {
     let mut iter = color1.iter().zip(color2).map(|(&a, &b)| {
-        (ratio.mul_add(a as f32, (b as f32).mul_add(-ratio, b as f32))).round() as u8
+        let out_f32 = ratio.mul_add(a, b.mul_add(-ratio, b));
+        out_f32.round_ties_even() as u8 // to match with AVX2 rounding
     });
     [(); L].map(|_| iter.next().unwrap())
 }
@@ -473,15 +506,302 @@ fn map_grey_to_color(x: u16) -> [u8; 3] {
     if x == u16::MAX {
         return WHITE;
     }
-    const GREY_TO_POS: f32 = COLORMAP.len() as f32 / (u16::MAX - 1) as f32;
     let position = (x as f32).mul_add(GREY_TO_POS, -GREY_TO_POS);
-    let index = position.floor() as usize;
-    let rgb1 = if index >= COLORMAP.len() - 1 {
-        &WHITE
+    let idx2 = position.floor() as usize;
+    let idx1 = idx2 + 1;
+    let ratio = position.fract();
+    // dbg!(idx2, idx1, ratio);
+    let rgb1 = if idx2 >= COLORMAP_R.len() - 1 {
+        &WHITE_F32
     } else {
-        &COLORMAP[index + 1]
+        &[COLORMAP_R[idx1], COLORMAP_G[idx1], COLORMAP_B[idx1]]
     };
-    interpolate(rgb1, &COLORMAP[index], position.fract())
+    let rgb2 = &[COLORMAP_R[idx2], COLORMAP_G[idx2], COLORMAP_B[idx2]];
+    interpolate(rgb1, rgb2, ratio)
+}
+
+fn map_grey_to_color_iter_fallback(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
+    grey.iter()
+        .flat_map(|&x| map_grey_to_color(x).into_iter().chain(Some(u8::MAX)))
+}
+
+/// slower than scalar version
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+unsafe fn _map_grey_to_color_sse41(
+    chunk_f32: Aligned<A16, [f32; 4]>,
+    grey_to_pos: __m128,
+    colormap_len: __m128i,
+) -> impl Iterator<Item = u8> {
+    use std::arch::x86_64::*;
+    use std::mem::{self, MaybeUninit};
+
+    type AlignedUninitI32x4 = Aligned<A16, [MaybeUninit<i32>; 4]>;
+    type AlignedI32x4 = Aligned<A16, [i32; 4]>;
+
+    let chunk_simd = _mm_load_ps(chunk_f32.as_ptr());
+
+    // position = chunk_simd * grey_to_pos - grey_to_pos
+    let position = _mm_sub_ps(_mm_mul_ps(chunk_simd, grey_to_pos), grey_to_pos);
+
+    // position_floor = floor(position)
+    let position_floor = _mm_floor_ps(position);
+
+    // idx2 = (int)position_floor
+    let idx2 = _mm_cvtps_epi32(position_floor);
+
+    // idx1 = idx2 + 1
+    let idx1 = _mm_add_epi32(idx2, _mm_set1_epi32(1));
+
+    // idx2 = min(idx2, colormap_len)
+    let idx2 = _mm_min_epi32(idx2, colormap_len);
+
+    // idx1 = max(idx1, 0)
+    let idx1 = _mm_max_epi32(idx1, _mm_setzero_si128());
+
+    // ratio = position - position_floor
+    let ratio = _mm_sub_ps(position, position_floor);
+
+    // into arr
+    let mut idx1_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
+    _mm_store_si128(idx1_arr.as_mut_ptr() as *mut __m128i, idx1);
+    let idx1_arr = mem::transmute::<_, AlignedI32x4>(idx1_arr);
+
+    let mut idx2_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
+    _mm_store_si128(idx2_arr.as_mut_ptr() as *mut __m128i, idx2);
+    let idx2_arr = mem::transmute::<_, AlignedI32x4>(idx2_arr);
+
+    // mask1 = colormap_len > idx1
+    let mask1 = _mm_cmpgt_epi32(colormap_len, idx1);
+    let mut mask1_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
+    _mm_store_si128(mask1_arr.as_mut_ptr() as *mut __m128i, mask1);
+    let mask1_arr = mem::transmute::<_, AlignedI32x4>(mask1_arr);
+
+    // mask2 = idx2 >= 0
+    let mask2 = _mm_cmpgt_epi32(idx2, _mm_set1_epi32(-1));
+    let mut mask2_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
+    _mm_store_si128(mask2_arr.as_mut_ptr() as *mut __m128i, mask2);
+    let mask2_arr = mem::transmute::<_, AlignedI32x4>(mask2_arr);
+
+    let mut rgb1 = [MaybeUninit::<__m128>::uninit(); 3];
+    let mut rgb2 = [MaybeUninit::<__m128>::uninit(); 3];
+
+    for i in 0..3 {
+        let mut values1 = Aligned::<A16, _>([0f32; 4]);
+        let mut values2 = Aligned::<A16, _>([0f32; 4]);
+
+        for j in 0..4 {
+            let idx1_val = idx1_arr[j] as usize;
+            let idx2_val = idx2_arr[j] as usize;
+
+            if mask1_arr[j] != 0 && idx1_val < COLORMAP_R.len() {
+                let colormap = match i {
+                    0 => &COLORMAP_R,
+                    1 => &COLORMAP_G,
+                    2 => &COLORMAP_B,
+                    _ => unreachable!(),
+                };
+                values1[j] = colormap[idx1_val];
+            } else {
+                values1[j] = u8::MAX as f32;
+            }
+
+            if mask2_arr[j] != 0 && idx2_val < COLORMAP_R.len() {
+                let colormap = match i {
+                    0 => &COLORMAP_R,
+                    1 => &COLORMAP_G,
+                    2 => &COLORMAP_B,
+                    _ => unreachable!(),
+                };
+                values2[j] = colormap[idx2_val];
+            } else {
+                values2[j] = 0.;
+            }
+        }
+
+        rgb1[i].write(_mm_load_ps(&values1[0]));
+        rgb2[i].write(_mm_load_ps(&values2[0]));
+    }
+    let rgb1 = mem::transmute::<_, [__m128; 3]>(rgb1);
+    let rgb2 = mem::transmute::<_, [__m128; 3]>(rgb2);
+
+    let mut out_r4g4b4 = Aligned::<A16, _>([0u8; 12]); // 4 RGB pixels
+
+    for (out_chunk, color1, color2) in multizip((out_r4g4b4.chunks_exact_mut(4), rgb1, rgb2)) {
+        // x = -(color2 * ratio) + color2 = color2 * (1 - ratio)
+        let one_minus_ratio = _mm_sub_ps(_mm_set1_ps(1.0), ratio);
+        let x = _mm_mul_ps(color2, one_minus_ratio);
+
+        // out_f32 = color1 * ratio + x
+        let out_f32 = _mm_add_ps(_mm_mul_ps(color1, ratio), x);
+
+        // round to integer
+        let out = _mm_cvtps_epi32(_mm_round_ps(
+            out_f32,
+            _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC,
+        ));
+
+        // into arr
+        let mut out_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
+        _mm_store_si128(out_arr.as_mut_ptr() as *mut __m128i, out);
+        let out_arr = mem::transmute::<_, AlignedI32x4>(out_arr);
+
+        for i in 0..4 {
+            if chunk_f32[i] == 0. {
+                continue;
+            }
+
+            if chunk_f32[i] == u16::MAX as f32 {
+                out_chunk[i] = u8::MAX;
+            } else {
+                out_chunk[i] = out_arr[i] as u8;
+            }
+        }
+    }
+
+    (0..4).cartesian_product(0..4).map(move |(i, j)| {
+        if j < 3 {
+            out_r4g4b4[j * 4 + i] as u8
+        } else {
+            u8::MAX
+        }
+    })
+}
+
+/// slower than scalar version
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+unsafe fn _map_grey_to_color_iter_sse41(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
+    use std::arch::x86_64::*;
+
+    use aligned::{Aligned, A16};
+
+    let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
+    let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
+
+    let grey_sse41 = grey.chunks_exact(4);
+    let grey_fallback = grey_sse41.remainder();
+    grey_sse41
+        .flat_map(move |chunk| {
+            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+            let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+            _map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
+        })
+        .chain(map_grey_to_color_iter_fallback(grey_fallback))
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn map_grey_to_color_avx2(
+    chunk_f32: Aligned<A32, [f32; 8]>,
+    grey_to_pos: __m256,
+    colormap_len: __m256i,
+) -> impl Iterator<Item = u8> {
+    use std::arch::x86_64::*;
+
+    use aligned::{Aligned, A32};
+
+    let chunk_simd = _mm256_load_ps(chunk_f32.as_ptr());
+    let position = _mm256_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos);
+    let position_floor = _mm256_floor_ps(position);
+    let idx2 = _mm256_cvtps_epi32(position_floor);
+    let idx1 = _mm256_add_epi32(idx2, _mm256_set1_epi32(1));
+    let idx2 = _mm256_min_epi32(idx2, colormap_len);
+    let idx1 = _mm256_max_epi32(idx1, _mm256_setzero_si256());
+    let ratio = _mm256_sub_ps(position, position_floor);
+
+    // dbg!(position_floor);
+    // let mut tmp = [0i32; 8];
+    // _mm256_storeu_si256(tmp.as_mut_ptr() as _, idx2);
+    // println!("idx2: {:?}", tmp);
+    // _mm256_storeu_si256(tmp.as_mut_ptr() as _, idx1);
+    // println!("idx1: {:?}", tmp);
+    // dbg!(ratio);
+
+    let mask1 = _mm256_castsi256_ps(_mm256_cmpgt_epi32(colormap_len, idx1));
+    let white = _mm256_set1_ps(u8::MAX as f32);
+    let rgb1 = [
+        _mm256_mask_i32gather_ps::<4>(white, COLORMAP_R.as_ptr(), idx1, mask1),
+        _mm256_mask_i32gather_ps::<4>(white, COLORMAP_G.as_ptr(), idx1, mask1),
+        _mm256_mask_i32gather_ps::<4>(white, COLORMAP_B.as_ptr(), idx1, mask1),
+    ];
+
+    let mask2 = _mm256_castsi256_ps(_mm256_cmpgt_epi32(idx2, _mm256_set1_epi32(-1)));
+    let black = _mm256_setzero_ps();
+    let rgb2 = [
+        _mm256_mask_i32gather_ps::<4>(black, COLORMAP_R.as_ptr(), idx2, mask2),
+        _mm256_mask_i32gather_ps::<4>(black, COLORMAP_G.as_ptr(), idx2, mask2),
+        _mm256_mask_i32gather_ps::<4>(black, COLORMAP_B.as_ptr(), idx2, mask2),
+    ];
+
+    let mask = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_NEQ_UQ>(
+        chunk_simd,
+        _mm256_setzero_ps(),
+    ));
+    let mask_white = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_EQ_UQ>(
+        chunk_simd,
+        _mm256_set1_ps(u16::MAX as f32),
+    ));
+    let white = _mm256_set1_epi32(u8::MAX as i32);
+    let mut out_r8g8b8 = Aligned::<A32, _>([0; 24]);
+    for (out_chunk, color1, color2) in multizip((out_r8g8b8.chunks_exact_mut(8), rgb1, rgb2)) {
+        let x = _mm256_fnmadd_ps(color2, ratio, color2);
+        let out_f32 = _mm256_fmadd_ps(ratio, color1, x);
+        // dbg!(out_f32);
+        let out = _mm256_cvtps_epi32(_mm256_round_ps::<0>(out_f32));
+        _mm256_maskstore_epi32(out_chunk.as_mut_ptr() as _, mask, out);
+        _mm256_maskstore_epi32(out_chunk.as_mut_ptr() as _, mask_white, white);
+    }
+    (0..8).cartesian_product(0..4).map(move |(i, j)| {
+        if j < 3 {
+            out_r8g8b8[j * 8 + i] as u8
+        } else {
+            u8::MAX
+        }
+    })
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn map_grey_to_color_iter_avx2(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
+    use std::arch::x86_64::*;
+
+    use aligned::{Aligned, A32};
+
+    let grey_to_pos_avx2 = _mm256_set1_ps(GREY_TO_POS);
+    let colormap_len_avx2 = _mm256_set1_epi32(COLORMAP_R.len() as i32);
+    // let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
+    // let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
+
+    let grey_avx2 = grey.chunks_exact(8);
+    let grey_remainder = grey_avx2.remainder();
+    // let grey_sse41 = grey_remainder.chunks_exact(4);
+    // let grey_fallback = grey_sse41.remainder();
+    let grey_fallback = grey_remainder;
+    grey_avx2
+        .flat_map(move |chunk| {
+            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+            let chunk_f32 = Aligned::<A32, _>([(); 8].map(|_| chunk_iter.next().unwrap()));
+            map_grey_to_color_avx2(chunk_f32, grey_to_pos_avx2, colormap_len_avx2)
+        })
+        // .chain(grey_sse41.flat_map(move |chunk| {
+        //     let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+        //     let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+        //     map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
+        // }))
+        .chain(map_grey_to_color_iter_fallback(grey_fallback))
+}
+
+fn map_grey_to_color_iter(grey: &[u16]) -> Box<dyn Iterator<Item = u8> + '_> {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx2") {
+            return unsafe { Box::new(map_grey_to_color_iter_avx2(grey)) };
+        } /* else if is_x86_feature_detected!("sse4.1") {
+              return unsafe { Box::new(map_grey_to_color_iter_sse41(grey)) };
+          } */
+    }
+    Box::new(map_grey_to_color_iter_fallback(grey))
 }
 
 fn colorize_resize_grey(
@@ -497,7 +817,7 @@ fn colorize_resize_grey(
 
     // let start = Instant::now();
     let (grey, trim_left, trim_width) = (grey.arr, grey.index, grey.length);
-    let resized = RESIZER.with_borrow_mut(|resizer| {
+    let resized_buf = RESIZER.with_borrow_mut(|resizer| {
         let src_image = TypedImageRef::new(
             grey.shape()[1] as u32,
             grey.shape()[0] as u32,
@@ -517,22 +837,25 @@ fn colorize_resize_grey(
                 FilterType::Lanczos3
             }));
 
-        let mut dst_image = TypedImage::<pixels::U16>::new(width, height);
+        let mut dst_buf = vec![0; width as usize * height as usize * 2];
+        let mut dst_image =
+            TypedImage::<pixels::U16>::from_buffer(width, height, &mut dst_buf).unwrap();
         resizer
             .resize_typed(&src_image, &mut dst_image, &resize_opt)
             .unwrap();
-        dst_image
+        dst_buf
     });
+    let resized = unsafe {
+        std::slice::from_raw_parts(resized_buf.as_ptr() as *const u16, resized_buf.len() / 2)
+    };
 
-    let grey_to_rgba = |x: &pixels::U16| map_grey_to_color(x.0).into_iter().chain(Some(u8::MAX));
     if parallel {
         resized
-            .pixels()
             .par_chunks(rayon::current_num_threads())
-            .flat_map_iter(|chunk| chunk.iter().flat_map(grey_to_rgba))
+            .flat_map_iter(map_grey_to_color_iter)
             .collect()
     } else {
-        resized.pixels().iter().flat_map(grey_to_rgba).collect()
+        map_grey_to_color_iter(resized).collect()
     }
     // println!("drawing spec: {:?}", start.elapsed());
 }
@@ -587,10 +910,9 @@ mod tests {
     #[test]
     fn show_colorbar() {
         let (width, height) = (50, 500);
-        let colormap: Vec<pixels::U8x3> = COLORMAP
-            .iter()
+        let colormap: Vec<pixels::U8x3> = multizip((COLORMAP_R, COLORMAP_G, COLORMAP_B))
             .rev()
-            .copied()
+            .map(|(r, g, b)| [r as u8, g as u8, b as u8])
             .map(pixels::U8x3::new)
             .collect();
         let src_image = TypedImageRef::new(1, colormap.len() as u32, colormap.as_slice()).unwrap();
@@ -610,5 +932,83 @@ mod tests {
             .unwrap()
             .save("samples/colorbar.png")
             .unwrap();
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn grey_to_color_work_with_avx2() {
+        use std::time::{Duration, Instant};
+
+        use ndarray_rand::{rand_distr::Uniform, RandomExt};
+
+        if !is_x86_feature_detected!("avx2") {
+            return;
+        }
+        let mut sum_elapsed = Duration::ZERO;
+        let mut sum_elapsed_avx2 = Duration::ZERO;
+        for _ in 0..10 {
+            let grey_arr = Array::random((149, 110), Uniform::new_inclusive(0, u16::MAX));
+            let (grey, _) = grey_arr.into_raw_vec_and_offset();
+            // let grey = vec![32832u16; 8];
+            let grey_len = grey.len();
+            let start_time = Instant::now();
+            let rgba_avx2: Vec<_> = unsafe { map_grey_to_color_iter_avx2(&grey).collect() };
+            sum_elapsed_avx2 += start_time.elapsed();
+            let start_time = Instant::now();
+            let rgba: Vec<_> = map_grey_to_color_iter_fallback(&grey).collect();
+            sum_elapsed += start_time.elapsed();
+            multizip((grey, rgba_avx2.chunks(4), rgba.chunks(4))).enumerate().for_each(|(i, (x, y_avx2, y))| {
+                assert_eq!(
+                    y_avx2, y,
+                    "the difference between avx2 output {:?} and the answer {:?} is too large for the {}-th grey value {} (grey len: {})",
+                    y_avx2, y, i, x, grey_len
+                );
+            });
+        }
+        println!(
+            "AVX2 operations reduced {:.2} % of the elapsed duration.",
+            100. - sum_elapsed_avx2.as_secs_f64() / sum_elapsed.as_secs_f64() * 100.
+        );
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn _grey_to_color_work_with_sse41() {
+        use std::time::{Duration, Instant};
+
+        use ndarray_rand::{rand_distr::Uniform, RandomExt};
+
+        if !is_x86_feature_detected!("sse4.1") {
+            return;
+        }
+        let mut sum_elapsed = Duration::ZERO;
+        let mut sum_elapsed_sse41 = Duration::ZERO;
+        for i in 0..10 {
+            let grey_arr = Array::random((149, 110), Uniform::new_inclusive(0, u16::MAX));
+            let (grey, _) = grey_arr.into_raw_vec_and_offset();
+            // let grey = vec![32832u16; 8];
+            let grey_len = grey.len();
+            let start_time = Instant::now();
+            let rgba_sse41: Vec<_> = unsafe { _map_grey_to_color_iter_sse41(&grey).collect() };
+            if i > 0 {
+                sum_elapsed_sse41 += start_time.elapsed();
+            }
+            let start_time = Instant::now();
+            let rgba: Vec<_> = map_grey_to_color_iter_fallback(&grey).collect();
+            if i > 0 {
+                sum_elapsed += start_time.elapsed();
+            }
+            multizip((grey, rgba_sse41.chunks(4), rgba.chunks(4))).enumerate().for_each(|(i, (x, y_avx2, y))| {
+                assert_eq!(
+                    y_avx2, y,
+                    "the difference between sse4.1 output {:?} and the answer {:?} is too large for the {}-th grey value {} (grey len: {})",
+                    y_avx2, y, i, x, grey_len
+                );
+            });
+        }
+        println!(
+            "AVX2 operations reduced {:.2} % of the elapsed duration.",
+            100. - sum_elapsed_sse41.as_secs_f64() / sum_elapsed.as_secs_f64() * 100.
+        );
     }
 }
