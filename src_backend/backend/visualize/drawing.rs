@@ -5,6 +5,10 @@ use std::ops::Neg;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::{__m128, __m128i, __m256, __m256i};
 
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::{float32x4_t, int32x4_t};
+
+#[allow(unused_imports)]
 use aligned::{Aligned, A16, A32};
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{pixels, FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
@@ -491,7 +495,14 @@ fn blend_wav_img_to(
 fn interpolate<const L: usize>(color1: &[f32; L], color2: &[f32; L], ratio: f32) -> [u8; L] {
     let mut iter = color1.iter().zip(color2).map(|(&a, &b)| {
         let out_f32 = ratio.mul_add(a, b.mul_add(-ratio, b));
-        out_f32.round_ties_even() as u8 // to match with AVX2 rounding
+        #[cfg(target_arch = "x86_64")]
+        {
+            out_f32.round_ties_even() as u8 // to match with AVX2 rounding
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            out_f32.round() as u8
+        }
     });
     [(); L].map(|_| iter.next().unwrap())
 }
@@ -699,8 +710,6 @@ unsafe fn map_grey_to_color_avx2(
 ) -> impl Iterator<Item = u8> {
     use std::arch::x86_64::*;
 
-    use aligned::{Aligned, A32};
-
     let chunk_simd = _mm256_load_ps(chunk_f32.as_ptr());
     let position = _mm256_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos);
     let position_floor = _mm256_floor_ps(position);
@@ -766,8 +775,6 @@ unsafe fn map_grey_to_color_avx2(
 unsafe fn map_grey_to_color_iter_avx2(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
     use std::arch::x86_64::*;
 
-    use aligned::{Aligned, A32};
-
     let grey_to_pos_avx2 = _mm256_set1_ps(GREY_TO_POS);
     let colormap_len_avx2 = _mm256_set1_epi32(COLORMAP_R.len() as i32);
     // let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
@@ -792,14 +799,157 @@ unsafe fn map_grey_to_color_iter_avx2(grey: &[u16]) -> impl Iterator<Item = u8> 
         .chain(map_grey_to_color_iter_fallback(grey_fallback))
 }
 
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn map_grey_to_color_neon(
+    chunk_f32: Aligned<A16, [f32; 4]>,
+    grey_to_pos: float32x4_t,
+    colormap_len: int32x4_t,
+) -> impl Iterator<Item = u8> {
+    use std::arch::aarch64::*;
+
+    // Load the chunk into a NEON vector
+    let chunk_simd = vld1q_f32(chunk_f32.as_ptr());
+
+    // Correct computation of position
+    let position = vsubq_f32(vmulq_f32(chunk_simd, grey_to_pos), grey_to_pos);
+
+    // Floor the position to get idx2 and add 1 to get idx1
+    let position_floor = vrndmq_f32(position);
+    let idx2 = vcvtq_s32_f32(position_floor);
+    let idx1 = vaddq_s32(idx2, vdupq_n_s32(1));
+
+    // Clamp indices to colormap bounds
+    let zero = vdupq_n_s32(0);
+    let max_idx = vsubq_s32(colormap_len, vdupq_n_s32(1));
+    let idx2 = vmaxq_s32(vminq_s32(idx2, max_idx), zero);
+    let idx1 = vmaxq_s32(vminq_s32(idx1, colormap_len), zero);
+
+    // Compute the ratio
+    let ratio = vsubq_f32(position, position_floor);
+
+    // Masks for special cases
+    let mask_zero = vceqq_f32(chunk_simd, vdupq_n_f32(0.0));
+    let mask_max = vceqq_f32(chunk_simd, vdupq_n_f32(u16::MAX as f32));
+    let mask_normal = vmvnq_u32(vorrq_u32(mask_zero, mask_max));
+
+    // Prepare output arrays
+    let mut out_r8g8b8 = [0u8; 12]; // 4 pixels x 3 color channels
+
+    // Process each color channel
+    for c in 0..3 {
+        // Assuming COLORMAP_R, COLORMAP_G, COLORMAP_B are &[f32]
+        let colormap = match c {
+            0 => COLORMAP_R,
+            1 => COLORMAP_G,
+            _ => COLORMAP_B,
+        };
+
+        // Emulate gather operation for idx1 and idx2
+        let idx1_array = [
+            vgetq_lane_s32::<0>(idx1),
+            vgetq_lane_s32::<1>(idx1),
+            vgetq_lane_s32::<2>(idx1),
+            vgetq_lane_s32::<3>(idx1),
+        ];
+        let idx2_array = [
+            vgetq_lane_s32::<0>(idx2),
+            vgetq_lane_s32::<1>(idx2),
+            vgetq_lane_s32::<2>(idx2),
+            vgetq_lane_s32::<3>(idx2),
+        ];
+
+        // Load colors for idx1 and idx2
+        let mut color1 = vdupq_n_f32(255.0);
+        if idx1_array[0] < 256 {
+            color1 = vsetq_lane_f32(colormap[idx1_array[0] as usize], color1, 0);
+        }
+        if idx1_array[1] < 256 {
+            color1 = vsetq_lane_f32(colormap[idx1_array[1] as usize], color1, 1);
+        }
+        if idx1_array[2] < 256 {
+            color1 = vsetq_lane_f32(colormap[idx1_array[2] as usize], color1, 2);
+        }
+        if idx1_array[3] < 256 {
+            color1 = vsetq_lane_f32(colormap[idx1_array[3] as usize], color1, 3);
+        }
+
+        let color2 = vsetq_lane_f32(colormap[idx2_array[0] as usize], vdupq_n_f32(0.0), 0);
+        let color2 = vsetq_lane_f32(colormap[idx2_array[1] as usize], color2, 1);
+        let color2 = vsetq_lane_f32(colormap[idx2_array[2] as usize], color2, 2);
+        let color2 = vsetq_lane_f32(colormap[idx2_array[3] as usize], color2, 3);
+
+        // Compute interpolated color
+        let interpolated = vmlaq_f32(
+            vmulq_f32(color1, ratio),
+            color2,
+            vsubq_f32(vdupq_n_f32(1.0), ratio),
+        );
+
+        // Apply masks
+        let masked_color = vbslq_f32(mask_normal, interpolated, vdupq_n_f32(0.0));
+        let masked_color = vbslq_f32(mask_max, vdupq_n_f32(255.0), masked_color);
+
+        // Convert to u8 and store in the output array
+        let color_u32 = vcvtq_u32_f32(vrndaq_f32(masked_color));
+        let color_u16 = vmovn_u32(color_u32);
+        let color_u8 = vmovn_u16(vcombine_u16(color_u16, vdup_n_u16(0)));
+
+        // Store the color components
+        vst1_lane_u8(&mut out_r8g8b8[c * 4 + 0] as *mut u8, color_u8, 0);
+        vst1_lane_u8(&mut out_r8g8b8[c * 4 + 1] as *mut u8, color_u8, 1);
+        vst1_lane_u8(&mut out_r8g8b8[c * 4 + 2] as *mut u8, color_u8, 2);
+        vst1_lane_u8(&mut out_r8g8b8[c * 4 + 3] as *mut u8, color_u8, 3);
+    }
+
+    // Create an iterator over the output pixels
+    (0..4).cartesian_product(0..4).map(move |(i, j)| {
+        if j < 3 {
+            out_r8g8b8[j * 4 + i]
+        } else {
+            u8::MAX
+        }
+    })
+}
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn map_grey_to_color_iter_neon(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
+    use std::arch::aarch64::*;
+
+    let grey_to_pos_neon = vdupq_n_f32(GREY_TO_POS);
+    let colormap_len_neon = vdupq_n_s32(COLORMAP_R.len() as i32);
+
+    let grey_neon = grey.chunks_exact(4);
+    let grey_remainder = grey_neon.remainder();
+    let grey_fallback = grey_remainder;
+    grey_neon
+        .flat_map(move |chunk| {
+            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+            let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+            map_grey_to_color_neon(chunk_f32, grey_to_pos_neon, colormap_len_neon)
+        })
+        .chain(map_grey_to_color_iter_fallback(grey_fallback))
+}
+
 fn map_grey_to_color_iter(grey: &[u16]) -> Box<dyn Iterator<Item = u8> + '_> {
     #[cfg(target_arch = "x86_64")]
     {
+        use std::arch::is_x86_feature_detected;
+
         if is_x86_feature_detected!("avx2") {
             return unsafe { Box::new(map_grey_to_color_iter_avx2(grey)) };
         } /* else if is_x86_feature_detected!("sse4.1") {
               return unsafe { Box::new(map_grey_to_color_iter_sse41(grey)) };
           } */
+    }
+    #[cfg(target_arch = "aarch64")]
+    {
+        use std::arch::is_aarch64_feature_detected;
+
+        if is_aarch64_feature_detected!("neon") {
+            return unsafe { Box::new(map_grey_to_color_iter_neon(grey)) };
+        }
     }
     Box::new(map_grey_to_color_iter_fallback(grey))
 }
@@ -905,7 +1055,10 @@ fn draw_blended_spec_wav(
 mod tests {
     use super::*;
 
+    use std::time::{Duration, Instant};
+
     use image::RgbImage;
+    use ndarray_rand::{rand_distr::Uniform, RandomExt};
 
     #[test]
     fn show_colorbar() {
@@ -937,9 +1090,7 @@ mod tests {
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn grey_to_color_work_with_avx2() {
-        use std::time::{Duration, Instant};
-
-        use ndarray_rand::{rand_distr::Uniform, RandomExt};
+        use std::arch::is_x86_feature_detected;
 
         if !is_x86_feature_detected!("avx2") {
             return;
@@ -949,7 +1100,6 @@ mod tests {
         for _ in 0..10 {
             let grey_arr = Array::random((149, 110), Uniform::new_inclusive(0, u16::MAX));
             let (grey, _) = grey_arr.into_raw_vec_and_offset();
-            // let grey = vec![32832u16; 8];
             let grey_len = grey.len();
             let start_time = Instant::now();
             let rgba_avx2: Vec<_> = unsafe { map_grey_to_color_iter_avx2(&grey).collect() };
@@ -974,9 +1124,7 @@ mod tests {
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn _grey_to_color_work_with_sse41() {
-        use std::time::{Duration, Instant};
-
-        use ndarray_rand::{rand_distr::Uniform, RandomExt};
+        use std::arch::is_x86_feature_detected;
 
         if !is_x86_feature_detected!("sse4.1") {
             return;
@@ -986,7 +1134,6 @@ mod tests {
         for i in 0..10 {
             let grey_arr = Array::random((149, 110), Uniform::new_inclusive(0, u16::MAX));
             let (grey, _) = grey_arr.into_raw_vec_and_offset();
-            // let grey = vec![32832u16; 8];
             let grey_len = grey.len();
             let start_time = Instant::now();
             let rgba_sse41: Vec<_> = unsafe { _map_grey_to_color_iter_sse41(&grey).collect() };
@@ -1009,6 +1156,40 @@ mod tests {
         println!(
             "AVX2 operations reduced {:.2} % of the elapsed duration.",
             100. - sum_elapsed_sse41.as_secs_f64() / sum_elapsed.as_secs_f64() * 100.
+        );
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    #[test]
+    fn grey_to_color_work_with_neon() {
+        use std::arch::is_aarch64_feature_detected;
+
+        if !is_aarch64_feature_detected!("neon") {
+            return;
+        }
+        let mut sum_elapsed = Duration::ZERO;
+        let mut sum_elapsed_neon = Duration::ZERO;
+        for _ in 0..10 {
+            let grey_arr = Array::random((149, 110), Uniform::new_inclusive(0, u16::MAX));
+            let (grey, _) = grey_arr.into_raw_vec_and_offset();
+            let grey_len = grey.len();
+            let start_time = Instant::now();
+            let rgba_neon: Vec<_> = unsafe { map_grey_to_color_iter_neon(&grey).collect() };
+            sum_elapsed_neon += start_time.elapsed();
+            let start_time = Instant::now();
+            let rgba: Vec<_> = map_grey_to_color_iter_fallback(&grey).collect();
+            sum_elapsed += start_time.elapsed();
+            multizip((grey, rgba_neon.chunks(4), rgba.chunks(4))).enumerate().for_each(|(i, (x, y_neon, y))| {
+                assert_eq!(
+                    y_neon, y,
+                    "the difference between neon output {:?} and the answer {:?} is too large for the {}-th grey value {} (grey len: {})",
+                    y_neon, y, i, x, grey_len
+                );
+            });
+        }
+        println!(
+            "neon operations reduced {:.2} % of the elapsed duration.",
+            100. - sum_elapsed_neon.as_secs_f64() / sum_elapsed.as_secs_f64() * 100.
         );
     }
 }
