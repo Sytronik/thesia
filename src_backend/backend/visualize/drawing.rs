@@ -1154,7 +1154,7 @@ mod tests {
             });
         }
         println!(
-            "AVX2 operations reduced {:.2} % of the elapsed duration.",
+            "SSE4.1 operations reduced {:.2} % of the elapsed duration.",
             100. - sum_elapsed_sse41.as_secs_f64() / sum_elapsed.as_secs_f64() * 100.
         );
     }
