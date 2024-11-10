@@ -100,4 +100,4 @@ lto = false
 [profile.release]
 lto = true
 panic = "abort"
-strip = "debuginfo"
+strip = "symbols"
