@@ -179,20 +179,25 @@ unsafe fn map_grey_to_color_sse41(
     let mut out = Aligned::<A16, _>([u8::MAX; 16]);
 
     // Process each of the 4 pixels
-    for i in 0..4 {
-        let chunk_value = chunk_f32[i];
+    for (chunk_value, idx1_scalar, idx2_scalar, ratio_scalar, out_chunk) in multizip((
+        chunk_f32.into_iter(),
+        idx1_arr.into_iter(),
+        idx2_arr.into_iter(),
+        ratio_arr.into_iter(),
+        out.chunks_exact_mut(4),
+    )) {
         if chunk_value == u16::MAX as f32 {
             continue;
         }
         if chunk_value == 0.0 {
-            out[i * 4 + 0] = 0;
-            out[i * 4 + 1] = 0;
-            out[i * 4 + 2] = 0;
+            out_chunk[0] = 0;
+            out_chunk[1] = 0;
+            out_chunk[2] = 0;
             continue;
         }
 
-        let idx1_scalar = idx1_arr[i] as usize;
-        let idx2_scalar = idx2_arr[i] as usize;
+        let idx1_scalar = idx1_scalar as usize;
+        let idx2_scalar = idx2_scalar as usize;
 
         // Load colormap values
         let (color1_r, color1_g, color1_b) = if idx1_scalar <= 255 {
@@ -210,7 +215,6 @@ unsafe fn map_grey_to_color_sse41(
         let color2_b = COLORMAP_B[idx2_scalar] as f32;
 
         // Retrieve the ratio for this pixel
-        let ratio_scalar = ratio_arr[i];
         let one_minus_ratio = 1.0 - ratio_scalar;
 
         // Interpolate colors
@@ -219,9 +223,9 @@ unsafe fn map_grey_to_color_sse41(
         let out_b = color1_b * ratio_scalar + color2_b * one_minus_ratio;
 
         // Store interpolated colors
-        out[i * 4 + 0] = out_r.round_ties_even() as u8;
-        out[i * 4 + 1] = out_g.round_ties_even() as u8;
-        out[i * 4 + 2] = out_b.round_ties_even() as u8;
+        out_chunk[0] = out_r.round_ties_even() as u8;
+        out_chunk[1] = out_g.round_ties_even() as u8;
+        out_chunk[2] = out_b.round_ties_even() as u8;
     }
 
     out.into_iter()
