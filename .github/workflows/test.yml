@@ -43,9 +43,18 @@ jobs:
         run: |
           .\.vcpkg\vcpkg install openblas --triplet x64-windows-static
 
-      - name: cargo test
+      - name: cargo clippy
         run: |
           cargo clippy
+
+      - if: matrix.os == 'windows-latest'
+        name: cargo test
+        run: | # TODO: remove the option if napi fix this
+          cargo test --config profile.test.debug-assertions=false
+
+      - if: matrix.os != 'windows-latest'
+        name: cargo test
+        run: |
           cargo test
 
       - name: npm install
