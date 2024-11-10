@@ -536,10 +536,9 @@ fn map_grey_to_color_iter_fallback(grey: &[u16]) -> impl Iterator<Item = u8> + u
         .flat_map(|&x| map_grey_to_color(x).into_iter().chain(Some(u8::MAX)))
 }
 
-/// slower than scalar version
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse4.1")]
-unsafe fn _map_grey_to_color_sse41(
+unsafe fn map_grey_to_color_sse41(
     chunk_f32: Aligned<A16, [f32; 4]>,
     grey_to_pos: __m128,
     colormap_len: __m128i,
@@ -547,142 +546,95 @@ unsafe fn _map_grey_to_color_sse41(
     use std::arch::x86_64::*;
     use std::mem::{self, MaybeUninit};
 
-    type AlignedUninitI32x4 = Aligned<A16, [MaybeUninit<i32>; 4]>;
-    type AlignedI32x4 = Aligned<A16, [i32; 4]>;
-
+    // Load chunk_f32 into a SIMD register
     let chunk_simd = _mm_load_ps(chunk_f32.as_ptr());
 
-    // position = chunk_simd * grey_to_pos - grey_to_pos
+    // Compute position = chunk_simd * grey_to_pos - grey_to_pos
     let position = _mm_sub_ps(_mm_mul_ps(chunk_simd, grey_to_pos), grey_to_pos);
 
-    // position_floor = floor(position)
+    // Compute floor of position
     let position_floor = _mm_floor_ps(position);
 
-    // idx2 = (int)position_floor
+    // Convert position_floor to integer indices
     let idx2 = _mm_cvtps_epi32(position_floor);
 
     // idx1 = idx2 + 1
     let idx1 = _mm_add_epi32(idx2, _mm_set1_epi32(1));
 
-    // idx2 = min(idx2, colormap_len)
-    let idx2 = _mm_min_epi32(idx2, colormap_len);
+    // Clamp idx1 and idx2 to [0, colormap_len]
+    let idx1 = _mm_min_epi32(idx1, colormap_len);
+    let idx2 = _mm_max_epi32(idx2, _mm_setzero_si128());
 
-    // idx1 = max(idx1, 0)
-    let idx1 = _mm_max_epi32(idx1, _mm_setzero_si128());
-
-    // ratio = position - position_floor
+    // Compute ratio = position - position_floor
     let ratio = _mm_sub_ps(position, position_floor);
 
-    // into arr
-    let mut idx1_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
-    _mm_store_si128(idx1_arr.as_mut_ptr() as *mut __m128i, idx1);
-    let idx1_arr = mem::transmute::<_, AlignedI32x4>(idx1_arr);
+    // Store idx1, idx2, and ratio into arrays
+    let mut idx1_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
+    let mut idx2_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
+    let mut ratio_arr = Aligned::<A16, _>([MaybeUninit::<f32>::uninit(); 4]);
+    _mm_store_si128(idx1_arr.as_mut_ptr() as _, idx1);
+    _mm_store_si128(idx2_arr.as_mut_ptr() as _, idx2);
+    _mm_store_ps(ratio_arr.as_mut_ptr() as _, ratio);
+    let idx1_arr = mem::transmute::<_, Aligned<A16, [i32; 4]>>(idx1_arr);
+    let idx2_arr = mem::transmute::<_, Aligned<A16, [i32; 4]>>(idx2_arr);
+    let ratio_arr = mem::transmute::<_, Aligned<A16, [f32; 4]>>(ratio_arr);
 
-    let mut idx2_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
-    _mm_store_si128(idx2_arr.as_mut_ptr() as *mut __m128i, idx2);
-    let idx2_arr = mem::transmute::<_, AlignedI32x4>(idx2_arr);
+    // Prepare output array
+    let mut out = Aligned::<A16, _>([u8::MAX; 16]);
 
-    // mask1 = colormap_len > idx1
-    let mask1 = _mm_cmpgt_epi32(colormap_len, idx1);
-    let mut mask1_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
-    _mm_store_si128(mask1_arr.as_mut_ptr() as *mut __m128i, mask1);
-    let mask1_arr = mem::transmute::<_, AlignedI32x4>(mask1_arr);
-
-    // mask2 = idx2 >= 0
-    let mask2 = _mm_cmpgt_epi32(idx2, _mm_set1_epi32(-1));
-    let mut mask2_arr: AlignedUninitI32x4 = Aligned([MaybeUninit::uninit(); 4]);
-    _mm_store_si128(mask2_arr.as_mut_ptr() as *mut __m128i, mask2);
-    let mask2_arr = mem::transmute::<_, AlignedI32x4>(mask2_arr);
-
-    let mut rgb1 = [MaybeUninit::<__m128>::uninit(); 3];
-    let mut rgb2 = [MaybeUninit::<__m128>::uninit(); 3];
-
-    for i in 0..3 {
-        let mut values1 = Aligned::<A16, _>([0f32; 4]);
-        let mut values2 = Aligned::<A16, _>([0f32; 4]);
-
-        for j in 0..4 {
-            let idx1_val = idx1_arr[j] as usize;
-            let idx2_val = idx2_arr[j] as usize;
-
-            if mask1_arr[j] != 0 && idx1_val < COLORMAP_R.len() {
-                let colormap = match i {
-                    0 => &COLORMAP_R,
-                    1 => &COLORMAP_G,
-                    2 => &COLORMAP_B,
-                    _ => unreachable!(),
-                };
-                values1[j] = colormap[idx1_val];
-            } else {
-                values1[j] = u8::MAX as f32;
-            }
-
-            if mask2_arr[j] != 0 && idx2_val < COLORMAP_R.len() {
-                let colormap = match i {
-                    0 => &COLORMAP_R,
-                    1 => &COLORMAP_G,
-                    2 => &COLORMAP_B,
-                    _ => unreachable!(),
-                };
-                values2[j] = colormap[idx2_val];
-            } else {
-                values2[j] = 0.;
-            }
+    // Process each of the 4 pixels
+    for i in 0..4 {
+        let chunk_value = chunk_f32[i];
+        if chunk_value == u16::MAX as f32 {
+            continue;
+        }
+        if chunk_value == 0.0 {
+            out[i * 4 + 0] = 0;
+            out[i * 4 + 1] = 0;
+            out[i * 4 + 2] = 0;
+            continue;
         }
 
-        rgb1[i].write(_mm_load_ps(&values1[0]));
-        rgb2[i].write(_mm_load_ps(&values2[0]));
-    }
-    let rgb1 = mem::transmute::<_, [__m128; 3]>(rgb1);
-    let rgb2 = mem::transmute::<_, [__m128; 3]>(rgb2);
+        let idx1_scalar = idx1_arr[i] as usize;
+        let idx2_scalar = idx2_arr[i] as usize;
 
-    let mut out_r4g4b4 = Aligned::<A16, _>([0u8; 12]); // 4 RGB pixels
-
-    for (out_chunk, color1, color2) in multizip((out_r4g4b4.chunks_exact_mut(4), rgb1, rgb2)) {
-        // x = -(color2 * ratio) + color2 = color2 * (1 - ratio)
-        let one_minus_ratio = _mm_sub_ps(_mm_set1_ps(1.0), ratio);
-        let x = _mm_mul_ps(color2, one_minus_ratio);
-
-        // out_f32 = color1 * ratio + x
-        let out_f32 = _mm_add_ps(_mm_mul_ps(color1, ratio), x);
-
-        // round to integer
-        let out = _mm_cvtps_epi32(_mm_round_ps(
-            out_f32,
-            _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC,
-        ));
-
-        // into arr
-        let mut out_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
-        _mm_store_si128(out_arr.as_mut_ptr() as *mut __m128i, out);
-        let out_arr = mem::transmute::<_, AlignedI32x4>(out_arr);
-
-        for i in 0..4 {
-            if chunk_f32[i] == 0. {
-                continue;
-            }
-
-            if chunk_f32[i] == u16::MAX as f32 {
-                out_chunk[i] = u8::MAX;
-            } else {
-                out_chunk[i] = out_arr[i] as u8;
-            }
-        }
-    }
-
-    (0..4).cartesian_product(0..4).map(move |(i, j)| {
-        if j < 3 {
-            out_r4g4b4[j * 4 + i] as u8
+        // Load colormap values
+        let (color1_r, color1_g, color1_b) = if idx1_scalar <= 255 {
+            (
+                COLORMAP_R[idx1_scalar] as f32,
+                COLORMAP_G[idx1_scalar] as f32,
+                COLORMAP_B[idx1_scalar] as f32,
+            )
         } else {
-            u8::MAX
-        }
-    })
+            (u8::MAX as f32, u8::MAX as f32, u8::MAX as f32)
+        };
+
+        let color2_r = COLORMAP_R[idx2_scalar] as f32;
+        let color2_g = COLORMAP_G[idx2_scalar] as f32;
+        let color2_b = COLORMAP_B[idx2_scalar] as f32;
+
+        // Retrieve the ratio for this pixel
+        let ratio_scalar = ratio_arr[i];
+        let one_minus_ratio = 1.0 - ratio_scalar;
+
+        // Interpolate colors
+        let out_r = color1_r * ratio_scalar + color2_r * one_minus_ratio;
+        let out_g = color1_g * ratio_scalar + color2_g * one_minus_ratio;
+        let out_b = color1_b * ratio_scalar + color2_b * one_minus_ratio;
+
+        // Store interpolated colors
+        out[i * 4 + 0] = out_r.round_ties_even() as u8;
+        out[i * 4 + 1] = out_g.round_ties_even() as u8;
+        out[i * 4 + 2] = out_b.round_ties_even() as u8;
+    }
+
+    out.into_iter()
 }
 
 /// slower than scalar version
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse4.1")]
-unsafe fn _map_grey_to_color_iter_sse41(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
+unsafe fn map_grey_to_color_iter_sse41(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
     use std::arch::x86_64::*;
 
     use aligned::{Aligned, A16};
@@ -696,7 +648,7 @@ unsafe fn _map_grey_to_color_iter_sse41(grey: &[u16]) -> impl Iterator<Item = u8
         .flat_map(move |chunk| {
             let mut chunk_iter = chunk.iter().map(|&x| x as f32);
             let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
-            _map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
+            map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
         })
         .chain(map_grey_to_color_iter_fallback(grey_fallback))
 }
@@ -777,25 +729,24 @@ unsafe fn map_grey_to_color_iter_avx2(grey: &[u16]) -> impl Iterator<Item = u8> 
 
     let grey_to_pos_avx2 = _mm256_set1_ps(GREY_TO_POS);
     let colormap_len_avx2 = _mm256_set1_epi32(COLORMAP_R.len() as i32);
-    // let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
-    // let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
+    let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
+    let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
 
     let grey_avx2 = grey.chunks_exact(8);
     let grey_remainder = grey_avx2.remainder();
-    // let grey_sse41 = grey_remainder.chunks_exact(4);
-    // let grey_fallback = grey_sse41.remainder();
-    let grey_fallback = grey_remainder;
+    let grey_sse41 = grey_remainder.chunks_exact(4);
+    let grey_fallback = grey_sse41.remainder();
     grey_avx2
         .flat_map(move |chunk| {
             let mut chunk_iter = chunk.iter().map(|&x| x as f32);
             let chunk_f32 = Aligned::<A32, _>([(); 8].map(|_| chunk_iter.next().unwrap()));
             map_grey_to_color_avx2(chunk_f32, grey_to_pos_avx2, colormap_len_avx2)
         })
-        // .chain(grey_sse41.flat_map(move |chunk| {
-        //     let mut chunk_iter = chunk.iter().map(|&x| x as f32);
-        //     let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
-        //     map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
-        // }))
+        .chain(grey_sse41.flat_map(move |chunk| {
+            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+            let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+            map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
+        }))
         .chain(map_grey_to_color_iter_fallback(grey_fallback))
 }
 
@@ -939,9 +890,9 @@ fn map_grey_to_color_iter(grey: &[u16]) -> Box<dyn Iterator<Item = u8> + '_> {
 
         if is_x86_feature_detected!("avx2") {
             return unsafe { Box::new(map_grey_to_color_iter_avx2(grey)) };
-        } /* else if is_x86_feature_detected!("sse4.1") {
-              return unsafe { Box::new(map_grey_to_color_iter_sse41(grey)) };
-          } */
+        } else if is_x86_feature_detected!("sse4.1") {
+            return unsafe { Box::new(map_grey_to_color_iter_sse41(grey)) };
+        }
     }
     #[cfg(target_arch = "aarch64")]
     {
@@ -1123,7 +1074,7 @@ mod tests {
 
     #[cfg(target_arch = "x86_64")]
     #[test]
-    fn _grey_to_color_work_with_sse41() {
+    fn grey_to_color_work_with_sse41() {
         use std::arch::is_x86_feature_detected;
 
         if !is_x86_feature_detected!("sse4.1") {
@@ -1136,7 +1087,7 @@ mod tests {
             let (grey, _) = grey_arr.into_raw_vec_and_offset();
             let grey_len = grey.len();
             let start_time = Instant::now();
-            let rgba_sse41: Vec<_> = unsafe { _map_grey_to_color_iter_sse41(&grey).collect() };
+            let rgba_sse41: Vec<_> = unsafe { map_grey_to_color_iter_sse41(&grey).collect() };
             if i > 0 {
                 sum_elapsed_sse41 += start_time.elapsed();
             }
