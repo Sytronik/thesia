@@ -142,7 +142,11 @@ unsafe fn map_grey_to_color_sse41(
     let chunk_simd = _mm_load_ps(chunk_f32.as_ptr());
 
     // Compute position = chunk_simd * grey_to_pos - grey_to_pos
-    let position = _mm_sub_ps(_mm_mul_ps(chunk_simd, grey_to_pos), grey_to_pos);
+    let position = if is_x86_feature_detected!("fma") {
+        _mm_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos)
+    } else {
+        _mm_sub_ps(_mm_mul_ps(chunk_simd, grey_to_pos), grey_to_pos)
+    };
 
     // Compute floor of position
     let position_floor = _mm_floor_ps(position);
