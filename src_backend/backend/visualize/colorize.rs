@@ -447,7 +447,7 @@ unsafe fn map_grey_to_color_neon(
         let color_u8 = vmovn_u16(vcombine_u16(color_u16, vdup_n_u16(0)));
 
         // Store the color components
-        vst1_lane_u8::<0>(&mut out_r8g8b8[c * 4 + 0] as _, color_u8);
+        vst1_lane_u8::<0>(&mut out_r8g8b8[c * 4] as _, color_u8);
         vst1_lane_u8::<1>(&mut out_r8g8b8[c * 4 + 1] as _, color_u8);
         vst1_lane_u8::<2>(&mut out_r8g8b8[c * 4 + 2] as _, color_u8);
         vst1_lane_u8::<3>(&mut out_r8g8b8[c * 4 + 3] as _, color_u8);

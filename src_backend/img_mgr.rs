@@ -76,7 +76,10 @@ pub fn recv() -> Option<Images> {
 
     let mut max_req_id = Wrapping(RECENT_REQ_ID.load(atomic::Ordering::Acquire));
     let mut opt_images: Option<Images> = None;
-    let img_rx = unsafe { IMG_RX.get_mut().unwrap() };
+    let img_rx = unsafe {
+        #[allow(static_mut_refs)]
+        IMG_RX.get_mut().unwrap()
+    };
     while let Ok((curr_req_id, imgs)) = img_rx.try_recv() {
         if curr_req_id.slightly_larger_than_or_equal_to(max_req_id) {
             max_req_id = curr_req_id;
@@ -537,14 +540,18 @@ async fn main_loop(
 }
 
 pub fn spawn_task() {
-    if MSG_TX.get().is_some() && unsafe { IMG_RX.get().is_some() } {
-        return;
+    if MSG_TX.get().is_some() {
+        #[allow(static_mut_refs)]
+        if unsafe { IMG_RX.get().is_some() } {
+            return;
+        }
     }
 
     let (msg_tx, msg_rx) = mpsc::channel(180);
     let (img_tx, img_rx) = mpsc::channel(180);
     MSG_TX.set(msg_tx).unwrap();
     unsafe {
+        #[allow(static_mut_refs)]
         IMG_RX.set(img_rx).unwrap();
     }
     spawn(main_loop(msg_rx, img_tx));

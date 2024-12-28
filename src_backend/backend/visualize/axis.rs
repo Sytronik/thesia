@@ -19,11 +19,7 @@ pub fn calc_time_axis_markers(
 ) -> AxisMarkers {
     let first_unit = (start_sec / tick_unit).ceil() as u32;
     // The label just before start_sec (at negative coordinate) should be drawn.
-    let first_unit = if first_unit > label_interval {
-        first_unit - label_interval
-    } else {
-        0
-    };
+    let first_unit = first_unit.saturating_sub(label_interval);
     let last_unit = (end_sec / tick_unit).ceil() as u32;
     let label_unit = tick_unit * label_interval as f64;
     let (hms_format, hms_display) = if max_sec > 3599. {
