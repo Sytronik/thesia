@@ -378,7 +378,7 @@ mod tests {
         im.save("samples/wav_part.png").unwrap();
 
         let removed_id_ch_tuples = tracklist.remove_tracks(&[0]);
-        tm.remove_tracks(&mut tracklist, &removed_id_ch_tuples);
+        tm.remove_tracks(&tracklist, &removed_id_ch_tuples);
         let (updated_ids, _) = tm.apply_track_list_changes(&tracklist);
         assert!(updated_ids.is_empty());
     }

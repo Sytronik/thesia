@@ -168,7 +168,7 @@ impl TrackDrawer for TrackManager {
                     height,
                     opt_for_wav,
                     blend,
-                    fast_resize_vec.as_ref().map_or(false, |v| v[i]),
+                    fast_resize_vec.as_ref().is_some_and(|v| v[i]),
                     show_clipping,
                     parallel,
                 );

@@ -386,8 +386,8 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     fn assert_axis_eq(a: &[(f32, String)], b: &[(f32, &str)]) {
-        a.into_iter()
-            .zip(b.into_iter())
+        a.iter()
+            .zip(b)
             .for_each(|((y0, s0), (y1, s1))| {
                 assert_abs_diff_eq!(*y0, *y1);
                 assert_eq!(s0, s1);
@@ -399,15 +399,9 @@ mod tests {
         assert_eq!(convert_sec_to_label(1.999), "00:00:01.999");
         assert_eq!(convert_sec_to_label(1.9991), "00:00:01.999");
         assert_eq!(convert_sec_to_label(1.9999), "00:00:01.999");
-        assert_eq!(
-            convert_sec_to_label(2.0 - std::f64::EPSILON),
-            "00:00:01.999"
-        );
+        assert_eq!(convert_sec_to_label(2.0 - f64::EPSILON), "00:00:01.999");
         assert_eq!(convert_sec_to_label(2.0), "00:00:02.000");
-        assert_eq!(
-            convert_sec_to_label(2.0 + std::f64::EPSILON),
-            "00:00:02.000"
-        );
+        assert_eq!(convert_sec_to_label(2.0 + f64::EPSILON), "00:00:02.000");
     }
 
     #[test]
@@ -440,78 +434,66 @@ mod tests {
     fn freq_axis_works() {
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 2, 2),
-            &vec![(1., "0"), (0., "12k")],
+            &[(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 8, 8),
-            &vec![
-                (1., "0"),
+            &[(1., "0"),
                 (5. / 6., "2k"),
                 (4. / 6., "4k"),
                 (3. / 6., "6k"),
                 (2. / 6., "8k"),
                 (1. / 6., "10k"),
-                (0., "12k"),
-            ],
+                (0., "12k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 24, 24)[..3],
-            &vec![(1., "0"), (11. / 12., "1k"), (10. / 12., "2k")],
+            &[(1., "0"), (11. / 12., "1k"), (10. / 12., "2k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 25, 25)[..3],
-            &vec![(1., "0"), (23. / 24., "500"), (22. / 24., "1k")],
+            &[(1., "0"), (23. / 24., "500"), (22. / 24., "1k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 11025.), FreqScale::Linear, 24, 24)[20..],
-            &vec![
-                (1. - 10000. / 11025., "10k"),
+            &[(1. - 10000. / 11025., "10k"),
                 (1. - 10500. / 11025., "10.5k"),
-                (0., "11.025k"),
-            ],
+                (0., "11.025k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 2, 2),
-            &vec![(1., "0"), (0., "12k")],
+            &[(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 3, 3),
-            &vec![
-                (1., "0"),
+            &[(1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
-                (0., "12k"),
-            ],
+                (0., "12k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 1500.), FreqScale::Mel, 4, 4),
-            &vec![
-                (1., "0"),
+            &[(1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(1500.), "500"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(1500.), "1k"),
-                (0., "1.5k"),
-            ],
+                (0., "1.5k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 8, 8),
-            &vec![
-                (1., "0"),
+            &[(1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(12000.), "500"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
                 (1. - mel::from_hz(2000.) / mel::from_hz(12000.), "2k"),
                 (1. - mel::from_hz(4000.) / mel::from_hz(12000.), "4k"),
                 (1. - mel::from_hz(8000.) / mel::from_hz(12000.), "8k"),
-                (0., "12k"),
-            ],
+                (0., "12k")],
         );
         assert_axis_eq(
             &calc_freq_axis_markers((0., 48000.), FreqScale::Mel, 6, 6),
-            &vec![
-                (1., "0"),
+            &[(1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(48000.), "1k"),
                 (1. - mel::from_hz(4000.) / mel::from_hz(48000.), "4k"),
                 (1. - mel::from_hz(16000.) / mel::from_hz(48000.), "16k"),
-                (0., "48k"),
-            ],
+                (0., "48k")],
         );
     }
 
@@ -520,15 +502,15 @@ mod tests {
     fn dB_axis_works() {
         assert_axis_eq(
             &calc_dB_axis_markers(2, 2, (-100., 0.)),
-            &vec![(0., "0"), (1., "-100")],
+            &[(0., "0"), (1., "-100")],
         );
         assert_axis_eq(
             &calc_dB_axis_markers(3, 3, (-12., 0.)),
-            &vec![(0., "0"), (-5. / -12., "-5"), (-10. / -12., "-10")],
+            &[(0., "0"), (-5. / -12., "-5"), (-10. / -12., "-10")],
         );
         assert_axis_eq(
             &calc_dB_axis_markers(3, 3, (-2., -1.1)),
-            &vec![((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
+            &[((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
         );
     }
 }

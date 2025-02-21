@@ -534,9 +534,8 @@ mod tests {
             .unwrap();
         let dst_raw_vec = dst_image
             .pixels()
-            .into_iter()
-            .map(|x| x.0)
-            .flatten()
+            .iter()
+            .flat_map(|x| x.0)
             .collect();
         RgbImage::from_raw(width, height, dst_raw_vec)
             .unwrap()
