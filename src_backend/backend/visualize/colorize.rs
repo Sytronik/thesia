@@ -532,11 +532,7 @@ mod tests {
         Resizer::new()
             .resize_typed(&src_image, &mut dst_image, &options)
             .unwrap();
-        let dst_raw_vec = dst_image
-            .pixels()
-            .iter()
-            .flat_map(|x| x.0)
-            .collect();
+        let dst_raw_vec = dst_image.pixels().iter().flat_map(|x| x.0).collect();
         RgbImage::from_raw(width, height, dst_raw_vec)
             .unwrap()
             .save("samples/colorbar.png")

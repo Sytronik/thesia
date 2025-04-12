@@ -136,7 +136,8 @@ impl AudioTrack {
     #[inline]
     pub fn is_path_same(&self, path: &str) -> bool {
         PathBuf::from(path)
-            .canonicalize().is_ok_and(|x| x == self.path)
+            .canonicalize()
+            .is_ok_and(|x| x == self.path)
     }
 
     #[inline]
