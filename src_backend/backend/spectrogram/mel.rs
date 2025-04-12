@@ -1,7 +1,7 @@
 // https://librosa.org/doc/0.8.0/_modules/librosa/filters.html#mel
 
-use ndarray::prelude::*;
 use ndarray::ScalarOperand;
+use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Float, NumAssignOps};
 
 #[allow(clippy::excessive_precision)]

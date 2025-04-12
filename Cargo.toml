@@ -8,7 +8,7 @@ authors = [
 
   "KwonWonpyo <commi1106@naver.com>",
 ]
-edition = "2021"
+edition = "2024"
 license-file = "LICENSE"
 name = "thesia-native-backend"
 version = "0.1.0"

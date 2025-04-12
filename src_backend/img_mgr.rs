@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 
 use approx::abs_diff_eq;
 use napi::bindgen_prelude::spawn;
-use napi::tokio::sync::{mpsc, RwLock};
+use napi::tokio::sync::{RwLock, mpsc};
 use napi::tokio::{self, join, task::JoinHandle};
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Num, NumOps};

@@ -1,4 +1,4 @@
-use approx::{relative_ne, AbsDiffEq, RelativeEq};
+use approx::{AbsDiffEq, RelativeEq, relative_ne};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq)]

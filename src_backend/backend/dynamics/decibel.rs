@@ -1,8 +1,8 @@
 // reference: https://librosa.org/doc/0.8.0/_modules/librosa/core/spectrum.html
 #![allow(non_snake_case)]
 
-use ndarray::prelude::*;
 use ndarray::DataMut;
+use ndarray::prelude::*;
 use ndarray_stats::{MaybeNan, QuantileExt};
 use num_traits::{AsPrimitive, Float};
 

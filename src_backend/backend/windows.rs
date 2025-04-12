@@ -1,5 +1,5 @@
-use ndarray::prelude::*;
 use ndarray::ScalarOperand;
+use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Float, FloatConst, NumOps};
 
 pub enum WindowType {

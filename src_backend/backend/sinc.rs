@@ -2,7 +2,7 @@ use ndarray::prelude::*;
 use ndarray::{AssignElem, ScalarOperand};
 use num_traits::{AsPrimitive, Float, FloatConst, MulAdd, NumAssignOps};
 
-use super::windows::{calc_normalized_win, WindowType};
+use super::windows::{WindowType, calc_normalized_win};
 
 /// Helper function: sinc(x) = sin(pi*x)/(pi*x)
 pub fn sinc<A>(value: A) -> A

@@ -2,14 +2,14 @@ use std::ops::*;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use ndarray::prelude::*;
 use ndarray::ScalarOperand;
+use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Float, FloatConst};
 use rayon::prelude::*;
-use realfft::{num_complex::Complex, FftNum};
+use realfft::{FftNum, num_complex::Complex};
 
 use super::super::utils::{Pad, PadMode};
-use super::super::windows::{calc_normalized_win, WindowType};
+use super::super::windows::{WindowType, calc_normalized_win};
 use realfft::{RealFftPlanner, RealToComplex};
 
 pub fn perform_stft<'a, A>(
@@ -153,7 +153,7 @@ fn to_windowed_frames<A: Float>(
 
 #[cfg(test)]
 mod tests {
-    use ndarray::{arr2, Array1};
+    use ndarray::{Array1, arr2};
     use num_traits::{One, Zero};
     use realfft::num_complex::Complex;
 

@@ -3,7 +3,7 @@ use std::ops::Neg;
 // use std::time::Instant;
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
-use fast_image_resize::{pixels, FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer};
+use fast_image_resize::{FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer, pixels};
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use tiny_skia::{

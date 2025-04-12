@@ -5,8 +5,8 @@ use std::arch::x86_64::{__m128, __m128i, __m256, __m256i};
 use std::arch::aarch64::{float32x4_t, int32x4_t};
 
 #[allow(unused_imports)]
-use aligned::{Aligned, A16, A32};
-use itertools::{multizip, Itertools};
+use aligned::{A16, A32, Aligned};
+use itertools::{Itertools, multizip};
 
 const BLACK: [u8; 3] = [000; 3];
 const WHITE: [u8; 3] = [255; 3];
@@ -237,7 +237,7 @@ unsafe fn map_grey_to_color_sse41(
 pub unsafe fn map_grey_to_color_iter_sse41(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
     use std::arch::x86_64::*;
 
-    use aligned::{Aligned, A16};
+    use aligned::{A16, Aligned};
 
     let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
     let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
@@ -357,130 +357,134 @@ unsafe fn map_grey_to_color_neon(
     grey_to_pos: float32x4_t,
     colormap_len: int32x4_t,
 ) -> impl Iterator<Item = u8> {
-    use std::arch::aarch64::*;
+    unsafe {
+        use std::arch::aarch64::*;
 
-    // Load the chunk into a NEON vector
-    let chunk_simd = vld1q_f32(chunk_f32.as_ptr());
+        // Load the chunk into a NEON vector
+        let chunk_simd = vld1q_f32(chunk_f32.as_ptr());
 
-    // Correct computation of position
-    let position = vsubq_f32(vmulq_f32(chunk_simd, grey_to_pos), grey_to_pos);
+        // Correct computation of position
+        let position = vsubq_f32(vmulq_f32(chunk_simd, grey_to_pos), grey_to_pos);
 
-    // Floor the position to get idx2 and add 1 to get idx1
-    let position_floor = vrndmq_f32(position);
-    let idx2 = vcvtq_s32_f32(position_floor);
-    let idx1 = vaddq_s32(idx2, vdupq_n_s32(1));
+        // Floor the position to get idx2 and add 1 to get idx1
+        let position_floor = vrndmq_f32(position);
+        let idx2 = vcvtq_s32_f32(position_floor);
+        let idx1 = vaddq_s32(idx2, vdupq_n_s32(1));
 
-    // Clamp indices to colormap bounds
-    let zero = vdupq_n_s32(0);
-    let max_idx = vsubq_s32(colormap_len, vdupq_n_s32(1));
-    let idx2 = vminq_s32(vmaxq_s32(idx2, zero), max_idx);
-    let idx1 = vminq_s32(idx1, colormap_len);
+        // Clamp indices to colormap bounds
+        let zero = vdupq_n_s32(0);
+        let max_idx = vsubq_s32(colormap_len, vdupq_n_s32(1));
+        let idx2 = vminq_s32(vmaxq_s32(idx2, zero), max_idx);
+        let idx1 = vminq_s32(idx1, colormap_len);
 
-    // Compute the ratio
-    let ratio = vsubq_f32(position, position_floor);
+        // Compute the ratio
+        let ratio = vsubq_f32(position, position_floor);
 
-    // Masks for special cases
-    let mask_zero = vceqq_f32(chunk_simd, vdupq_n_f32(0.0));
-    let mask_max = vceqq_f32(chunk_simd, vdupq_n_f32(u16::MAX as f32));
-    let mask_normal = vmvnq_u32(vorrq_u32(mask_zero, mask_max));
+        // Masks for special cases
+        let mask_zero = vceqq_f32(chunk_simd, vdupq_n_f32(0.0));
+        let mask_max = vceqq_f32(chunk_simd, vdupq_n_f32(u16::MAX as f32));
+        let mask_normal = vmvnq_u32(vorrq_u32(mask_zero, mask_max));
 
-    // Prepare output arrays
-    let mut out_r8g8b8 = [0u8; 12]; // 4 pixels x 3 color channels
+        // Prepare output arrays
+        let mut out_r8g8b8 = [0u8; 12]; // 4 pixels x 3 color channels
 
-    // Process each color channel
-    for c in 0..3 {
-        // Assuming COLORMAP_R, COLORMAP_G, COLORMAP_B are &[f32]
-        let colormap = match c {
-            0 => COLORMAP_R,
-            1 => COLORMAP_G,
-            _ => COLORMAP_B,
-        };
+        // Process each color channel
+        for c in 0..3 {
+            // Assuming COLORMAP_R, COLORMAP_G, COLORMAP_B are &[f32]
+            let colormap = match c {
+                0 => COLORMAP_R,
+                1 => COLORMAP_G,
+                _ => COLORMAP_B,
+            };
 
-        // Emulate gather operation for idx1 and idx2
-        let idx1_array = [
-            vgetq_lane_s32::<0>(idx1),
-            vgetq_lane_s32::<1>(idx1),
-            vgetq_lane_s32::<2>(idx1),
-            vgetq_lane_s32::<3>(idx1),
-        ];
-        let idx2_array = [
-            vgetq_lane_s32::<0>(idx2),
-            vgetq_lane_s32::<1>(idx2),
-            vgetq_lane_s32::<2>(idx2),
-            vgetq_lane_s32::<3>(idx2),
-        ];
+            // Emulate gather operation for idx1 and idx2
+            let idx1_array = [
+                vgetq_lane_s32::<0>(idx1),
+                vgetq_lane_s32::<1>(idx1),
+                vgetq_lane_s32::<2>(idx1),
+                vgetq_lane_s32::<3>(idx1),
+            ];
+            let idx2_array = [
+                vgetq_lane_s32::<0>(idx2),
+                vgetq_lane_s32::<1>(idx2),
+                vgetq_lane_s32::<2>(idx2),
+                vgetq_lane_s32::<3>(idx2),
+            ];
 
-        // Load colors for idx1 and idx2
-        let mut color1 = vdupq_n_f32(u8::MAX as f32);
-        if idx1_array[0] <= u8::MAX as i32 {
-            color1 = vsetq_lane_f32::<0>(colormap[idx1_array[0] as usize], color1);
+            // Load colors for idx1 and idx2
+            let mut color1 = vdupq_n_f32(u8::MAX as f32);
+            if idx1_array[0] <= u8::MAX as i32 {
+                color1 = vsetq_lane_f32::<0>(colormap[idx1_array[0] as usize], color1);
+            }
+            if idx1_array[1] <= u8::MAX as i32 {
+                color1 = vsetq_lane_f32::<1>(colormap[idx1_array[1] as usize], color1);
+            }
+            if idx1_array[2] <= u8::MAX as i32 {
+                color1 = vsetq_lane_f32::<2>(colormap[idx1_array[2] as usize], color1);
+            }
+            if idx1_array[3] <= u8::MAX as i32 {
+                color1 = vsetq_lane_f32::<3>(colormap[idx1_array[3] as usize], color1);
+            }
+
+            let color2 = vsetq_lane_f32::<0>(colormap[idx2_array[0] as usize], vdupq_n_f32(0.0));
+            let color2 = vsetq_lane_f32::<1>(colormap[idx2_array[1] as usize], color2);
+            let color2 = vsetq_lane_f32::<2>(colormap[idx2_array[2] as usize], color2);
+            let color2 = vsetq_lane_f32::<3>(colormap[idx2_array[3] as usize], color2);
+
+            // Compute interpolated color
+            let interpolated = vmlaq_f32(
+                vmulq_f32(color1, ratio),
+                color2,
+                vsubq_f32(vdupq_n_f32(1.0), ratio),
+            );
+
+            // Apply masks
+            let masked_color = vbslq_f32(mask_normal, interpolated, vdupq_n_f32(0.0));
+            let masked_color = vbslq_f32(mask_max, vdupq_n_f32(255.0), masked_color);
+
+            // Convert to u8 and store in the output array
+            let color_u32 = vcvtq_u32_f32(vrndaq_f32(masked_color));
+            let color_u16 = vmovn_u32(color_u32);
+            let color_u8 = vmovn_u16(vcombine_u16(color_u16, vdup_n_u16(0)));
+
+            // Store the color components
+            vst1_lane_u8::<0>(&mut out_r8g8b8[c * 4] as _, color_u8);
+            vst1_lane_u8::<1>(&mut out_r8g8b8[c * 4 + 1] as _, color_u8);
+            vst1_lane_u8::<2>(&mut out_r8g8b8[c * 4 + 2] as _, color_u8);
+            vst1_lane_u8::<3>(&mut out_r8g8b8[c * 4 + 3] as _, color_u8);
         }
-        if idx1_array[1] <= u8::MAX as i32 {
-            color1 = vsetq_lane_f32::<1>(colormap[idx1_array[1] as usize], color1);
-        }
-        if idx1_array[2] <= u8::MAX as i32 {
-            color1 = vsetq_lane_f32::<2>(colormap[idx1_array[2] as usize], color1);
-        }
-        if idx1_array[3] <= u8::MAX as i32 {
-            color1 = vsetq_lane_f32::<3>(colormap[idx1_array[3] as usize], color1);
-        }
 
-        let color2 = vsetq_lane_f32::<0>(colormap[idx2_array[0] as usize], vdupq_n_f32(0.0));
-        let color2 = vsetq_lane_f32::<1>(colormap[idx2_array[1] as usize], color2);
-        let color2 = vsetq_lane_f32::<2>(colormap[idx2_array[2] as usize], color2);
-        let color2 = vsetq_lane_f32::<3>(colormap[idx2_array[3] as usize], color2);
-
-        // Compute interpolated color
-        let interpolated = vmlaq_f32(
-            vmulq_f32(color1, ratio),
-            color2,
-            vsubq_f32(vdupq_n_f32(1.0), ratio),
-        );
-
-        // Apply masks
-        let masked_color = vbslq_f32(mask_normal, interpolated, vdupq_n_f32(0.0));
-        let masked_color = vbslq_f32(mask_max, vdupq_n_f32(255.0), masked_color);
-
-        // Convert to u8 and store in the output array
-        let color_u32 = vcvtq_u32_f32(vrndaq_f32(masked_color));
-        let color_u16 = vmovn_u32(color_u32);
-        let color_u8 = vmovn_u16(vcombine_u16(color_u16, vdup_n_u16(0)));
-
-        // Store the color components
-        vst1_lane_u8::<0>(&mut out_r8g8b8[c * 4] as _, color_u8);
-        vst1_lane_u8::<1>(&mut out_r8g8b8[c * 4 + 1] as _, color_u8);
-        vst1_lane_u8::<2>(&mut out_r8g8b8[c * 4 + 2] as _, color_u8);
-        vst1_lane_u8::<3>(&mut out_r8g8b8[c * 4 + 3] as _, color_u8);
+        // Create an iterator over the output pixels
+        (0..4).cartesian_product(0..4).map(move |(i, j)| {
+            if j < 3 {
+                out_r8g8b8[j * 4 + i]
+            } else {
+                u8::MAX
+            }
+        })
     }
-
-    // Create an iterator over the output pixels
-    (0..4).cartesian_product(0..4).map(move |(i, j)| {
-        if j < 3 {
-            out_r8g8b8[j * 4 + i]
-        } else {
-            u8::MAX
-        }
-    })
 }
 
 #[cfg(target_arch = "aarch64")]
 #[target_feature(enable = "neon")]
 pub unsafe fn map_grey_to_color_iter_neon(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
-    use std::arch::aarch64::*;
+    unsafe {
+        use std::arch::aarch64::*;
 
-    let grey_to_pos_neon = vdupq_n_f32(GREY_TO_POS);
-    let colormap_len_neon = vdupq_n_s32(COLORMAP_R.len() as i32);
+        let grey_to_pos_neon = vdupq_n_f32(GREY_TO_POS);
+        let colormap_len_neon = vdupq_n_s32(COLORMAP_R.len() as i32);
 
-    let grey_neon = grey.chunks_exact(4);
-    let grey_remainder = grey_neon.remainder();
-    let grey_fallback = grey_remainder;
-    grey_neon
-        .flat_map(move |chunk| {
-            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
-            let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
-            map_grey_to_color_neon(chunk_f32, grey_to_pos_neon, colormap_len_neon)
-        })
-        .chain(map_grey_to_color_iter_fallback(grey_fallback))
+        let grey_neon = grey.chunks_exact(4);
+        let grey_remainder = grey_neon.remainder();
+        let grey_fallback = grey_remainder;
+        grey_neon
+            .flat_map(move |chunk| {
+                let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+                let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+                map_grey_to_color_neon(chunk_f32, grey_to_pos_neon, colormap_len_neon)
+            })
+            .chain(map_grey_to_color_iter_fallback(grey_fallback))
+    }
 }
 
 pub fn map_grey_to_color_iter(grey: &[u16]) -> Box<dyn Iterator<Item = u8> + '_> {
@@ -512,10 +516,10 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use fast_image_resize::images::{TypedImage, TypedImageRef};
-    use fast_image_resize::{pixels, FilterType, ResizeAlg, ResizeOptions, Resizer};
+    use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
     use image::RgbImage;
     use ndarray::prelude::*;
-    use ndarray_rand::{rand_distr::Uniform, RandomExt};
+    use ndarray_rand::{RandomExt, rand_distr::Uniform};
 
     #[test]
     fn show_colorbar() {

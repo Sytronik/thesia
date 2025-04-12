@@ -1,10 +1,10 @@
 use std::cell::RefCell;
-use std::sync::atomic::{self, AtomicU32, AtomicUsize};
 use std::sync::OnceLock;
+use std::sync::atomic::{self, AtomicU32, AtomicUsize};
 use std::time::{Duration, Instant};
 
 use atomic_float::AtomicF32;
-use cpal::{traits::DeviceTrait, SupportedStreamConfigsError};
+use cpal::{SupportedStreamConfigsError, traits::DeviceTrait};
 use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
 use log::{error, info};
 use napi::bindgen_prelude::spawn_blocking;

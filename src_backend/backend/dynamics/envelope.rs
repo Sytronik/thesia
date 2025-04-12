@@ -509,7 +509,7 @@ where
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
-    use ndarray_rand::{rand::prelude::*, rand_distr::Uniform, RandomExt};
+    use ndarray_rand::{RandomExt, rand::prelude::*, rand_distr::Uniform};
 
     #[test]
     fn box_sum_works() {

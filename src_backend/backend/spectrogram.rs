@@ -12,7 +12,7 @@ mod stft;
 
 use super::dynamics::decibel::DeciBelInplace;
 use super::tuple_hasher::{TupleIntMap, TupleIntSet};
-use super::windows::{calc_normalized_win, WindowType};
+use super::windows::{WindowType, calc_normalized_win};
 use stft::perform_stft;
 
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;

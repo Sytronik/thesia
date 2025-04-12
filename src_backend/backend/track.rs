@@ -8,7 +8,8 @@ use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
-use super::audio::{open_audio_file, Audio, AudioFormatInfo};
+use super::IdChVec;
+use super::audio::{Audio, AudioFormatInfo, open_audio_file};
 use super::dynamics::{
     AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
     NormalizeTarget, StatCalculator,
@@ -17,7 +18,6 @@ use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
 use super::visualize::{CalcWidth, IdxLen, PartGreyInfo};
-use super::IdChVec;
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -327,12 +327,12 @@ impl TrackList {
                 eprintln!("Track ID {} does not exist! Skip removing it ...", id);
             }
         }
-        let last_id =
-            self.tracks
-                .iter()
-                .enumerate()
-                .rev()
-                .find_map(|(i, x)| if x.is_some() { Some(i) } else { None });
+        let last_id = self
+            .tracks
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(i, x)| if x.is_some() { Some(i) } else { None });
         match last_id {
             Some(last_id) if self.tracks.len() > 2 * (last_id + 1) => {
                 self.tracks.truncate(last_id + 1);
@@ -351,11 +351,7 @@ impl TrackList {
                 .fold(
                     (0, 0.),
                     |(id_max, max), (id, sec)| {
-                        if sec > max {
-                            (id, sec)
-                        } else {
-                            (id_max, max)
-                        }
+                        if sec > max { (id, sec) } else { (id_max, max) }
                     },
                 );
             self.id_max_sec = id;

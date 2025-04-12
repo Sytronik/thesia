@@ -4,7 +4,7 @@ use approx::abs_diff_ne;
 use chrono::naive::NaiveTime;
 use num_traits::Zero;
 
-use super::super::spectrogram::{mel, FreqScale};
+use super::super::spectrogram::{FreqScale, mel};
 
 pub type AxisMarkers = Vec<(f32, String)>;
 
