@@ -37,11 +37,10 @@ cpal = "0.15.3"
 dashmap = {version = "6.1.0", features = ["inline"]}
 dunce = "1.0.5"
 ebur128 = "0.1.10"
-fast_image_resize = {version = "5.1.3"}
+fast_image_resize = "5.1.3"
 futures = "0.3.31"
 identity-hash = "0.1.0"
 itertools = "0.14.0"
-kittyaudio = {git = "https://github.com/Sytronik/kittyaudio.git", branch = "master"}
 log = "0.4.27"
 ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"]}
 ndarray-stats = "0.6.0"
@@ -57,11 +56,27 @@ serde_json = "1.0.140"
 simple_logger = "5.0.0"
 tiny-skia = "0.11.4"
 
+[dependencies.kittyaudio]
+git = "https://github.com/Sytronik/kittyaudio.git"
+rev = "31e85229c336d81f29a3940181799c29e01a4171"
+
 [dependencies.symphonia]
 default-features = false
-features = ["aac", "alac", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"]
+features = [
+  "aac",
+  "alac",
+  "flac",
+  "id3v2",
+  "isomp4",
+  "mp3",
+  "ogg",
+  "opt-simd",
+  "pcm",
+  "vorbis",
+  "wav",
+]
 git = "https://github.com/Sytronik/Symphonia.git"
-rev = "7a228ca6437e5121846721aad05e9fed78e6a0c5"
+rev = "f510ab9bda06e8690b1909915dfb99045a68605d"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 accelerate-src = {version = "0.3.2"}
