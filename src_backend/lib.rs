@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unexpected_cfgs)] // napi-rs issue
 
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
