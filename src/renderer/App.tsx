@@ -76,19 +76,16 @@ function MyApp({userSettings}: AppProps) {
 
   const prevTrackIds = useRef<number[]>([]); // includes hidden tracks
 
-  const addDroppedFile = useEvent(async (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+  const addDroppedFile = useEvent(async (item: {files: File[]}, index: number) => {
     const newPaths: string[] = [];
     const unsupportedPaths: string[] = [];
 
-    if (!e?.dataTransfer?.files) {
+    if (item.files.length === 0) {
       console.error("no file exists in dropzone");
       return;
     }
 
-    const droppedFiles = Array.from(e.dataTransfer.files);
+    const droppedFiles = Array.from(item.files);
 
     droppedFiles.forEach((file: File) => {
       if (SUPPORTED_MIME.includes(file.type)) {
@@ -98,7 +95,7 @@ function MyApp({userSettings}: AppProps) {
       }
     });
 
-    const {existingIds, invalidPaths} = await addTracks(newPaths);
+    const {existingIds, invalidPaths} = await addTracks(newPaths, index);
 
     if (unsupportedPaths.length || invalidPaths.length) {
       showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);

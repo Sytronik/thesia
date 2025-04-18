@@ -75,42 +75,51 @@ function useTracks(userSettings: UserSettings) {
     }
   });
 
-  const addTracks = useEvent(async (paths: string[]): Promise<AddTracksResultType> => {
-    try {
-      const idsOfInputPaths = await Promise.all(paths.map(BackendAPI.findIdByPath));
-      const newPaths = paths.filter((_, index) => idsOfInputPaths[index] === -1);
-      const existingIds = idsOfInputPaths.filter((id) => id !== -1);
+  const addTracks = useEvent(
+    async (paths: string[], index: number | null = null): Promise<AddTracksResultType> => {
+      try {
+        const idsOfInputPaths = await Promise.all(paths.map(BackendAPI.findIdByPath));
+        const newPaths = paths.filter((_, i) => idsOfInputPaths[i] === -1);
+        const existingIds = idsOfInputPaths.filter((id) => id !== -1);
 
-      if (!newPaths.length) return {existingIds, invalidPaths: []};
+        if (!newPaths.length) return {existingIds, invalidPaths: []};
 
-      const newIds = [...Array(newPaths.length).keys()].map((i) => {
-        if (waitingIdsRef.current.size > 0) {
-          const id = waitingIdsRef.current.values().next().value as number;
-          waitingIdsRef.current.delete(id);
-          return id;
+        const newIds = [...Array(newPaths.length).keys()].map((i) => {
+          if (waitingIdsRef.current.size > 0) {
+            const id = waitingIdsRef.current.values().next().value as number;
+            waitingIdsRef.current.delete(id);
+            return id;
+          }
+          return trackIds.length + i;
+        });
+
+        const addedIds = await BackendAPI.addTracks(newIds, newPaths);
+        if (addedIds.length) {
+          setTrackIds((prevTrackIds) => {
+            if (index === null) {
+              return prevTrackIds.concat(addedIds);
+            }
+            const newTrackIds = [...prevTrackIds];
+            newTrackIds.splice(index, 0, ...addedIds);
+            return newTrackIds;
+          });
         }
-        return trackIds.length + i;
-      });
 
-      const addedIds = await BackendAPI.addTracks(newIds, newPaths);
-      if (addedIds.length) {
-        setTrackIds((prevTrackIds) => prevTrackIds.concat(addedIds));
+        if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
+
+        const invalidIds = difference(newIds, addedIds);
+        const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
+        addToWaitingIds(invalidIds);
+
+        return {existingIds, invalidPaths};
+      } catch (err) {
+        console.error("Track adds error", err);
+        alert("Track adds error");
+
+        return {existingIds: [], invalidPaths: []};
       }
-
-      if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
-
-      const invalidIds = difference(newIds, addedIds);
-      const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
-      addToWaitingIds(invalidIds);
-
-      return {existingIds, invalidPaths};
-    } catch (err) {
-      console.error("Track adds error", err);
-      alert("Track adds error");
-
-      return {existingIds: [], invalidPaths: []};
-    }
-  });
+    },
+  );
 
   const ignoreError = useEvent((erroredId: number) => {
     setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, [erroredId]));

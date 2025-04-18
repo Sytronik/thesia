@@ -9,18 +9,10 @@
   height: 0;
 }
 
-// Dropzone
-.dropzone {
-  $margin: $spacer * 1.5;
-
-  position: absolute;
-  z-index: 3;
-  width: calc(100% - #{$margin * 2});
-  height: calc(100% - #{$margin * 2});
-  margin: $margin;
-  border: 2px dashed $border-primary-light;
-  border-radius: $spacer-1;
-  pointer-events: none;
+.fileDropIndicator {
+  margin: 4px 0;
+  border-top: 2.5px dashed $border-primary-light;
+  background-color: $bg-primary-semilight !important;
 }
 
 /* Track Control */

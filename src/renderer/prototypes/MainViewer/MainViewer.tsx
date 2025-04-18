@@ -8,7 +8,6 @@ import React, {
   useLayoutEffect,
 } from "react";
 import {throttle} from "throttle-debounce";
-import useDropzone from "renderer/hooks/useDropzone";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
@@ -19,6 +18,7 @@ import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
 import Locator from "renderer/modules/Locator";
 import {ipcRenderer} from "electron";
+import {DropTargetMonitor, XYCoord} from "react-dnd";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -64,7 +64,7 @@ type MainViewerProps = {
   maxTrackHz: number;
   blend: number;
   player: Player;
-  addDroppedFile: (e: DragEvent) => Promise<void>;
+  addDroppedFile: (item: {files: File[]}, index: number) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
@@ -143,7 +143,40 @@ function MainViewer(props: MainViewerProps) {
   });
   const hiddenImgIdRef = useRef<number>(-1);
 
-  const {isDropzoneActive} = useDropzone({targetRef: mainViewerElem, handleDrop: addDroppedFile});
+  const [fileDropIndex, setFileDropIndex] = useState<number>(-1);
+
+  const trackIdsWithFileDropIndicator = useMemo(() => {
+    // >=0 means a normal track, -1 means a file drop indicator
+    if (fileDropIndex === -1) return trackIds;
+    const result = [...trackIds];
+    result.splice(fileDropIndex, 0, -1);
+    return result;
+  }, [trackIds, fileDropIndex]);
+
+  const onFileHover = useEvent((item: any, monitor: DropTargetMonitor) => {
+    const clientOffset = monitor.getClientOffset();
+    if (clientOffset === null) return;
+
+    const notlast = trackIds.some((id, index) => {
+      const trackInfoElem = trackInfosRef.current[`${id}`];
+      if (!trackInfoElem) return false;
+      const rect = trackInfoElem.getBoundingClientRect();
+      if (!rect) return false;
+      if ((clientOffset as XYCoord).y >= rect.y + rect.height / 2) {
+        return false;
+      }
+      setFileDropIndex(index);
+      return true;
+    });
+    if (!notlast) setFileDropIndex(trackIds.length);
+  });
+
+  const onFileHoverLeave = useEvent(() => setFileDropIndex(-1));
+
+  const onFileDrop = useEvent((item) => {
+    addDroppedFile(item, fileDropIndex);
+    setFileDropIndex(-1);
+  });
 
   const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
 
@@ -879,7 +912,14 @@ function MainViewer(props: MainViewerProps) {
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
       <TrackInfoDragLayer />
-      {trackIds.map((trackId, i) => {
+      {trackIdsWithFileDropIndicator.map((trackId, iWithIndicator) => {
+        if (trackId === -1) {
+          return <div key="file_drop_indicator_left" className={styles.fileDropIndicator} />;
+        }
+        const i =
+          fileDropIndex > -1 && iWithIndicator > fileDropIndex
+            ? iWithIndicator - 1
+            : iWithIndicator;
         const isSelected = selectedTrackIds.includes(trackId);
         return (
           <TrackInfo
@@ -924,55 +964,60 @@ function MainViewer(props: MainViewerProps) {
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
-      {trackIds.map((id) => (
-        <div key={`${id}`} className={`${styles.trackRight}`}>
-          {trackIdChMap.get(id)?.map((idChStr) => {
-            return (
-              <div
-                key={idChStr}
-                className={styles.chCanvases}
-                role="presentation"
-                onClick={(e) => selectTrack(e, id, trackIds)}
-              >
-                <ImgCanvas
-                  ref={registerImgCanvas(idChStr)}
-                  width={width}
-                  height={imgHeight}
-                  maxTrackSec={maxTrackSec}
-                  canvasIsFit={canvasIsFit}
-                />
-                {erroredTrackIds.includes(id) ? (
-                  <ErrorBox
-                    trackId={id}
+      {trackIdsWithFileDropIndicator.map((id) => {
+        if (id === -1) {
+          return <div key="file_drop_indicator_right" className={styles.fileDropIndicator} />;
+        }
+        return (
+          <div key={`${id}`} className={styles.trackRight}>
+            {trackIdChMap.get(id)?.map((idChStr) => {
+              return (
+                <div
+                  key={idChStr}
+                  className={styles.chCanvases}
+                  role="presentation"
+                  onClick={(e) => selectTrack(e, id, trackIds)}
+                >
+                  <ImgCanvas
+                    ref={registerImgCanvas(idChStr)}
                     width={width}
-                    handleReload={(trackId) => reloadAndRefreshTracks([trackId])}
-                    handleIgnore={ignoreError}
-                    handleClose={(trackId) => removeAndRefreshTracks([trackId])}
+                    height={imgHeight}
+                    maxTrackSec={maxTrackSec}
+                    canvasIsFit={canvasIsFit}
                   />
-                ) : null}
-                <AmpAxis
-                  id={id}
-                  ref={registerAmpCanvas(idChStr)}
-                  height={height}
-                  ampRangeRef={ampRangeRef}
-                  setAmpRange={setAmpRange}
-                  resetAmpRange={resetAmpRange}
-                  enableInteraction={blend < 1}
-                />
-                <FreqAxis
-                  id={id}
-                  ref={registerFreqCanvas(idChStr)}
-                  height={height}
-                  maxTrackHz={maxTrackHz}
-                  setHzRange={throttledSetHzRange}
-                  resetHzRange={resetHzRange}
-                  enableInteraction={blend > 0}
-                />
-              </div>
-            );
-          })}
-        </div>
-      ))}
+                  {erroredTrackIds.includes(id) ? (
+                    <ErrorBox
+                      trackId={id}
+                      width={width}
+                      handleReload={(trackId) => reloadAndRefreshTracks([trackId])}
+                      handleIgnore={ignoreError}
+                      handleClose={(trackId) => removeAndRefreshTracks([trackId])}
+                    />
+                  ) : null}
+                  <AmpAxis
+                    id={id}
+                    ref={registerAmpCanvas(idChStr)}
+                    height={height}
+                    ampRangeRef={ampRangeRef}
+                    setAmpRange={setAmpRange}
+                    resetAmpRange={resetAmpRange}
+                    enableInteraction={blend < 1}
+                  />
+                  <FreqAxis
+                    id={id}
+                    ref={registerFreqCanvas(idChStr)}
+                    height={height}
+                    maxTrackHz={maxTrackHz}
+                    setHzRange={throttledSetHzRange}
+                    resetHzRange={resetHzRange}
+                    enableInteraction={blend > 0}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
       <Locator // on track img
         locatorStyle="playhead"
         getTopBottom={getTrackPlayheadTopBottom}
@@ -1006,12 +1051,14 @@ function MainViewer(props: MainViewerProps) {
         onClick={(e) => changeLocatorByMouse(e, player.isPlaying, false)}
         role="presentation"
       >
-        {isDropzoneActive && <div className={styles.dropzone} />}
         <SplitView
           ref={splitViewElem}
           createLeft={createLeftPane}
           right={rightPane}
           setCanvasWidth={setWidth}
+          onFileHover={onFileHover}
+          onFileHoverLeave={onFileHoverLeave}
+          onFileDrop={onFileDrop}
         />
         <Locator // on time axis
           locatorStyle="playhead"
