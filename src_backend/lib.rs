@@ -68,7 +68,7 @@ fn _napi_init() {
 fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     // On Windows, reloading cause restarting of renderer process.
     // (See killAndReload in src/main/menu.ts)
-    // So INITIALIZED_ONCE may not be needed, but use it for defensive purpose.
+    // So INIT may not be needed, but use it for defensive purpose.
     #[cfg(windows)]
     {
         use parking_lot::Once;
