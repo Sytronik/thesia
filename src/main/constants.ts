@@ -1,16 +1,16 @@
-export const SUPPORTED_TYPES = ["aac", "flac", "m4a", "mp3", "oga", "ogg", "wav"]; // keep ascending order
+// keep ascending order
+export const SUPPORTED_TYPES = ["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav"];
 
 export const SUPPORTED_MIME = [
   "audio/aac",
-  "audio/m4a",
+  "audio/flac",
   "audio/mp4",
   "audio/mpeg",
   "audio/ogg",
+  "audio/opus",
   "audio/vorbis",
   "audio/wav",
-  "audio/x-flac",
   "audio/x-m4a",
-  "audio/x-wav",
 ]; // keep ascending order;
 
 export const PLAY_JUMP_SEC = 1.0; // sec
