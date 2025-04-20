@@ -135,122 +135,126 @@ unsafe fn map_grey_to_color_sse41(
     grey_to_pos: __m128,
     colormap_len: __m128i,
 ) -> impl Iterator<Item = u8> {
-    use std::arch::x86_64::*;
-    use std::mem::{self, MaybeUninit};
+    unsafe {
+        use std::arch::x86_64::*;
+        use std::mem::{self, MaybeUninit};
 
-    // Load chunk_f32 into a SIMD register
-    let chunk_simd = _mm_load_ps(chunk_f32.as_ptr());
+        // Load chunk_f32 into a SIMD register
+        let chunk_simd = _mm_load_ps(chunk_f32.as_ptr());
 
-    // Compute position = chunk_simd * grey_to_pos - grey_to_pos
-    let position = if is_x86_feature_detected!("fma") {
-        _mm_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos)
-    } else {
-        _mm_sub_ps(_mm_mul_ps(chunk_simd, grey_to_pos), grey_to_pos)
-    };
-
-    // Compute floor of position
-    let position_floor = _mm_floor_ps(position);
-
-    // Convert position_floor to integer indices
-    let idx2 = _mm_cvtps_epi32(position_floor);
-
-    // idx1 = idx2 + 1
-    let idx1 = _mm_add_epi32(idx2, _mm_set1_epi32(1));
-
-    // Clamp idx1 and idx2 to [0, colormap_len]
-    let idx1 = _mm_min_epi32(idx1, colormap_len);
-    let idx2 = _mm_max_epi32(idx2, _mm_setzero_si128());
-
-    // Compute ratio = position - position_floor
-    let ratio = _mm_sub_ps(position, position_floor);
-
-    // Store idx1, idx2, and ratio into arrays
-    let mut idx1_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
-    let mut idx2_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
-    let mut ratio_arr = Aligned::<A16, _>([MaybeUninit::<f32>::uninit(); 4]);
-    _mm_store_si128(idx1_arr.as_mut_ptr() as _, idx1);
-    _mm_store_si128(idx2_arr.as_mut_ptr() as _, idx2);
-    _mm_store_ps(ratio_arr.as_mut_ptr() as _, ratio);
-    let idx1_arr = mem::transmute::<_, Aligned<A16, [i32; 4]>>(idx1_arr);
-    let idx2_arr = mem::transmute::<_, Aligned<A16, [i32; 4]>>(idx2_arr);
-    let ratio_arr = mem::transmute::<_, Aligned<A16, [f32; 4]>>(ratio_arr);
-
-    // Prepare output array
-    let mut out = Aligned::<A16, _>([u8::MAX; 16]);
-
-    // Process each of the 4 pixels
-    for (chunk_value, idx1_scalar, idx2_scalar, ratio_scalar, out_chunk) in multizip((
-        chunk_f32.into_iter(),
-        idx1_arr.into_iter(),
-        idx2_arr.into_iter(),
-        ratio_arr.into_iter(),
-        out.chunks_exact_mut(4),
-    )) {
-        if chunk_value == u16::MAX as f32 {
-            continue;
-        }
-        if chunk_value == 0.0 {
-            out_chunk[0] = 0;
-            out_chunk[1] = 0;
-            out_chunk[2] = 0;
-            continue;
-        }
-
-        let idx1_scalar = idx1_scalar as usize;
-        let idx2_scalar = idx2_scalar as usize;
-
-        // Load colormap values
-        let (color1_r, color1_g, color1_b) = if idx1_scalar <= 255 {
-            (
-                COLORMAP_R[idx1_scalar] as f32,
-                COLORMAP_G[idx1_scalar] as f32,
-                COLORMAP_B[idx1_scalar] as f32,
-            )
+        // Compute position = chunk_simd * grey_to_pos - grey_to_pos
+        let position = if is_x86_feature_detected!("fma") {
+            _mm_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos)
         } else {
-            (u8::MAX as f32, u8::MAX as f32, u8::MAX as f32)
+            _mm_sub_ps(_mm_mul_ps(chunk_simd, grey_to_pos), grey_to_pos)
         };
 
-        let color2_r = COLORMAP_R[idx2_scalar] as f32;
-        let color2_g = COLORMAP_G[idx2_scalar] as f32;
-        let color2_b = COLORMAP_B[idx2_scalar] as f32;
+        // Compute floor of position
+        let position_floor = _mm_floor_ps(position);
 
-        // Retrieve the ratio for this pixel
-        let one_minus_ratio = 1.0 - ratio_scalar;
+        // Convert position_floor to integer indices
+        let idx2 = _mm_cvtps_epi32(position_floor);
 
-        // Interpolate colors
-        let out_r = color1_r * ratio_scalar + color2_r * one_minus_ratio;
-        let out_g = color1_g * ratio_scalar + color2_g * one_minus_ratio;
-        let out_b = color1_b * ratio_scalar + color2_b * one_minus_ratio;
+        // idx1 = idx2 + 1
+        let idx1 = _mm_add_epi32(idx2, _mm_set1_epi32(1));
 
-        // Store interpolated colors
-        out_chunk[0] = out_r.round_ties_even() as u8;
-        out_chunk[1] = out_g.round_ties_even() as u8;
-        out_chunk[2] = out_b.round_ties_even() as u8;
+        // Clamp idx1 and idx2 to [0, colormap_len]
+        let idx1 = _mm_min_epi32(idx1, colormap_len);
+        let idx2 = _mm_max_epi32(idx2, _mm_setzero_si128());
+
+        // Compute ratio = position - position_floor
+        let ratio = _mm_sub_ps(position, position_floor);
+
+        // Store idx1, idx2, and ratio into arrays
+        let mut idx1_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
+        let mut idx2_arr = Aligned::<A16, _>([MaybeUninit::<i32>::uninit(); 4]);
+        let mut ratio_arr = Aligned::<A16, _>([MaybeUninit::<f32>::uninit(); 4]);
+        _mm_store_si128(idx1_arr.as_mut_ptr() as _, idx1);
+        _mm_store_si128(idx2_arr.as_mut_ptr() as _, idx2);
+        _mm_store_ps(ratio_arr.as_mut_ptr() as _, ratio);
+        let idx1_arr = mem::transmute::<_, Aligned<A16, [i32; 4]>>(idx1_arr);
+        let idx2_arr = mem::transmute::<_, Aligned<A16, [i32; 4]>>(idx2_arr);
+        let ratio_arr = mem::transmute::<_, Aligned<A16, [f32; 4]>>(ratio_arr);
+
+        // Prepare output array
+        let mut out = Aligned::<A16, _>([u8::MAX; 16]);
+
+        // Process each of the 4 pixels
+        for (chunk_value, idx1_scalar, idx2_scalar, ratio_scalar, out_chunk) in multizip((
+            chunk_f32.into_iter(),
+            idx1_arr.into_iter(),
+            idx2_arr.into_iter(),
+            ratio_arr.into_iter(),
+            out.chunks_exact_mut(4),
+        )) {
+            if chunk_value == u16::MAX as f32 {
+                continue;
+            }
+            if chunk_value == 0.0 {
+                out_chunk[0] = 0;
+                out_chunk[1] = 0;
+                out_chunk[2] = 0;
+                continue;
+            }
+
+            let idx1_scalar = idx1_scalar as usize;
+            let idx2_scalar = idx2_scalar as usize;
+
+            // Load colormap values
+            let (color1_r, color1_g, color1_b) = if idx1_scalar <= 255 {
+                (
+                    COLORMAP_R[idx1_scalar],
+                    COLORMAP_G[idx1_scalar],
+                    COLORMAP_B[idx1_scalar],
+                )
+            } else {
+                (u8::MAX as f32, u8::MAX as f32, u8::MAX as f32)
+            };
+
+            let color2_r = COLORMAP_R[idx2_scalar];
+            let color2_g = COLORMAP_G[idx2_scalar];
+            let color2_b = COLORMAP_B[idx2_scalar];
+
+            // Retrieve the ratio for this pixel
+            let one_minus_ratio = 1.0 - ratio_scalar;
+
+            // Interpolate colors
+            let out_r = color1_r * ratio_scalar + color2_r * one_minus_ratio;
+            let out_g = color1_g * ratio_scalar + color2_g * one_minus_ratio;
+            let out_b = color1_b * ratio_scalar + color2_b * one_minus_ratio;
+
+            // Store interpolated colors
+            out_chunk[0] = out_r.round_ties_even() as u8;
+            out_chunk[1] = out_g.round_ties_even() as u8;
+            out_chunk[2] = out_b.round_ties_even() as u8;
+        }
+
+        out.into_iter()
     }
-
-    out.into_iter()
 }
 
 /// slower than scalar version
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse4.1")]
 pub unsafe fn map_grey_to_color_iter_sse41(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
-    use std::arch::x86_64::*;
+    unsafe {
+        use std::arch::x86_64::*;
 
-    use aligned::{A16, Aligned};
+        use aligned::{A16, Aligned};
 
-    let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
-    let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
+        let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
+        let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
 
-    let grey_sse41 = grey.chunks_exact(4);
-    let grey_fallback = grey_sse41.remainder();
-    grey_sse41
-        .flat_map(move |chunk| {
-            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
-            let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
-            map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
-        })
-        .chain(map_grey_to_color_iter_fallback(grey_fallback))
+        let grey_sse41 = grey.chunks_exact(4);
+        let grey_fallback = grey_sse41.remainder();
+        grey_sse41
+            .flat_map(move |chunk| {
+                let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+                let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+                map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
+            })
+            .chain(map_grey_to_color_iter_fallback(grey_fallback))
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -260,94 +264,98 @@ unsafe fn map_grey_to_color_avx2(
     grey_to_pos: __m256,
     colormap_len: __m256i,
 ) -> impl Iterator<Item = u8> {
-    use std::arch::x86_64::*;
+    unsafe {
+        use std::arch::x86_64::*;
 
-    let chunk_simd = _mm256_load_ps(chunk_f32.as_ptr());
-    let position = _mm256_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos);
-    let position_floor = _mm256_floor_ps(position);
-    let idx2 = _mm256_cvtps_epi32(position_floor);
-    let idx1 = _mm256_add_epi32(idx2, _mm256_set1_epi32(1));
-    let idx2 = _mm256_min_epi32(idx2, colormap_len);
-    let idx1 = _mm256_max_epi32(idx1, _mm256_setzero_si256());
-    let ratio = _mm256_sub_ps(position, position_floor);
+        let chunk_simd = _mm256_load_ps(chunk_f32.as_ptr());
+        let position = _mm256_fmsub_ps(chunk_simd, grey_to_pos, grey_to_pos);
+        let position_floor = _mm256_floor_ps(position);
+        let idx2 = _mm256_cvtps_epi32(position_floor);
+        let idx1 = _mm256_add_epi32(idx2, _mm256_set1_epi32(1));
+        let idx2 = _mm256_min_epi32(idx2, colormap_len);
+        let idx1 = _mm256_max_epi32(idx1, _mm256_setzero_si256());
+        let ratio = _mm256_sub_ps(position, position_floor);
 
-    // dbg!(position_floor);
-    // let mut tmp = [0i32; 8];
-    // _mm256_storeu_si256(tmp.as_mut_ptr() as _, idx2);
-    // println!("idx2: {:?}", tmp);
-    // _mm256_storeu_si256(tmp.as_mut_ptr() as _, idx1);
-    // println!("idx1: {:?}", tmp);
-    // dbg!(ratio);
+        // dbg!(position_floor);
+        // let mut tmp = [0i32; 8];
+        // _mm256_storeu_si256(tmp.as_mut_ptr() as _, idx2);
+        // println!("idx2: {:?}", tmp);
+        // _mm256_storeu_si256(tmp.as_mut_ptr() as _, idx1);
+        // println!("idx1: {:?}", tmp);
+        // dbg!(ratio);
 
-    let mask1 = _mm256_castsi256_ps(_mm256_cmpgt_epi32(colormap_len, idx1));
-    let white = _mm256_set1_ps(u8::MAX as f32);
-    let rgb1 = [
-        _mm256_mask_i32gather_ps::<4>(white, COLORMAP_R.as_ptr(), idx1, mask1),
-        _mm256_mask_i32gather_ps::<4>(white, COLORMAP_G.as_ptr(), idx1, mask1),
-        _mm256_mask_i32gather_ps::<4>(white, COLORMAP_B.as_ptr(), idx1, mask1),
-    ];
+        let mask1 = _mm256_castsi256_ps(_mm256_cmpgt_epi32(colormap_len, idx1));
+        let white = _mm256_set1_ps(u8::MAX as f32);
+        let rgb1 = [
+            _mm256_mask_i32gather_ps::<4>(white, COLORMAP_R.as_ptr(), idx1, mask1),
+            _mm256_mask_i32gather_ps::<4>(white, COLORMAP_G.as_ptr(), idx1, mask1),
+            _mm256_mask_i32gather_ps::<4>(white, COLORMAP_B.as_ptr(), idx1, mask1),
+        ];
 
-    let mask2 = _mm256_castsi256_ps(_mm256_cmpgt_epi32(idx2, _mm256_set1_epi32(-1)));
-    let black = _mm256_setzero_ps();
-    let rgb2 = [
-        _mm256_mask_i32gather_ps::<4>(black, COLORMAP_R.as_ptr(), idx2, mask2),
-        _mm256_mask_i32gather_ps::<4>(black, COLORMAP_G.as_ptr(), idx2, mask2),
-        _mm256_mask_i32gather_ps::<4>(black, COLORMAP_B.as_ptr(), idx2, mask2),
-    ];
+        let mask2 = _mm256_castsi256_ps(_mm256_cmpgt_epi32(idx2, _mm256_set1_epi32(-1)));
+        let black = _mm256_setzero_ps();
+        let rgb2 = [
+            _mm256_mask_i32gather_ps::<4>(black, COLORMAP_R.as_ptr(), idx2, mask2),
+            _mm256_mask_i32gather_ps::<4>(black, COLORMAP_G.as_ptr(), idx2, mask2),
+            _mm256_mask_i32gather_ps::<4>(black, COLORMAP_B.as_ptr(), idx2, mask2),
+        ];
 
-    let mask = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_NEQ_UQ>(
-        chunk_simd,
-        _mm256_setzero_ps(),
-    ));
-    let mask_white = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_EQ_UQ>(
-        chunk_simd,
-        _mm256_set1_ps(u16::MAX as f32),
-    ));
-    let white = _mm256_set1_epi32(u8::MAX as i32);
-    let mut out_r8g8b8 = Aligned::<A32, _>([0; 24]);
-    for (out_chunk, color1, color2) in multizip((out_r8g8b8.chunks_exact_mut(8), rgb1, rgb2)) {
-        let x = _mm256_fnmadd_ps(color2, ratio, color2);
-        let out_f32 = _mm256_fmadd_ps(ratio, color1, x);
-        // dbg!(out_f32);
-        let out = _mm256_cvtps_epi32(_mm256_round_ps::<0>(out_f32));
-        _mm256_maskstore_epi32(out_chunk.as_mut_ptr() as _, mask, out);
-        _mm256_maskstore_epi32(out_chunk.as_mut_ptr() as _, mask_white, white);
-    }
-    (0..8).cartesian_product(0..4).map(move |(i, j)| {
-        if j < 3 {
-            out_r8g8b8[j * 8 + i] as u8
-        } else {
-            u8::MAX
+        let mask = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_NEQ_UQ>(
+            chunk_simd,
+            _mm256_setzero_ps(),
+        ));
+        let mask_white = _mm256_castps_si256(_mm256_cmp_ps::<_CMP_EQ_UQ>(
+            chunk_simd,
+            _mm256_set1_ps(u16::MAX as f32),
+        ));
+        let white = _mm256_set1_epi32(u8::MAX as i32);
+        let mut out_r8g8b8 = Aligned::<A32, _>([0; 24]);
+        for (out_chunk, color1, color2) in multizip((out_r8g8b8.chunks_exact_mut(8), rgb1, rgb2)) {
+            let x = _mm256_fnmadd_ps(color2, ratio, color2);
+            let out_f32 = _mm256_fmadd_ps(ratio, color1, x);
+            // dbg!(out_f32);
+            let out = _mm256_cvtps_epi32(_mm256_round_ps::<0>(out_f32));
+            _mm256_maskstore_epi32(out_chunk.as_mut_ptr() as _, mask, out);
+            _mm256_maskstore_epi32(out_chunk.as_mut_ptr() as _, mask_white, white);
         }
-    })
+        (0..8).cartesian_product(0..4).map(move |(i, j)| {
+            if j < 3 {
+                out_r8g8b8[j * 8 + i] as u8
+            } else {
+                u8::MAX
+            }
+        })
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn map_grey_to_color_iter_avx2(grey: &[u16]) -> impl Iterator<Item = u8> + use<'_> {
-    use std::arch::x86_64::*;
+    unsafe {
+        use std::arch::x86_64::*;
 
-    let grey_to_pos_avx2 = _mm256_set1_ps(GREY_TO_POS);
-    let colormap_len_avx2 = _mm256_set1_epi32(COLORMAP_R.len() as i32);
-    let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
-    let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
+        let grey_to_pos_avx2 = _mm256_set1_ps(GREY_TO_POS);
+        let colormap_len_avx2 = _mm256_set1_epi32(COLORMAP_R.len() as i32);
+        let grey_to_pos_sse41 = _mm_set1_ps(GREY_TO_POS);
+        let colormap_len_sse41 = _mm_set1_epi32(COLORMAP_R.len() as i32);
 
-    let grey_avx2 = grey.chunks_exact(8);
-    let grey_remainder = grey_avx2.remainder();
-    let grey_sse41 = grey_remainder.chunks_exact(4);
-    let grey_fallback = grey_sse41.remainder();
-    grey_avx2
-        .flat_map(move |chunk| {
-            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
-            let chunk_f32 = Aligned::<A32, _>([(); 8].map(|_| chunk_iter.next().unwrap()));
-            map_grey_to_color_avx2(chunk_f32, grey_to_pos_avx2, colormap_len_avx2)
-        })
-        .chain(grey_sse41.flat_map(move |chunk| {
-            let mut chunk_iter = chunk.iter().map(|&x| x as f32);
-            let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
-            map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
-        }))
-        .chain(map_grey_to_color_iter_fallback(grey_fallback))
+        let grey_avx2 = grey.chunks_exact(8);
+        let grey_remainder = grey_avx2.remainder();
+        let grey_sse41 = grey_remainder.chunks_exact(4);
+        let grey_fallback = grey_sse41.remainder();
+        grey_avx2
+            .flat_map(move |chunk| {
+                let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+                let chunk_f32 = Aligned::<A32, _>([(); 8].map(|_| chunk_iter.next().unwrap()));
+                map_grey_to_color_avx2(chunk_f32, grey_to_pos_avx2, colormap_len_avx2)
+            })
+            .chain(grey_sse41.flat_map(move |chunk| {
+                let mut chunk_iter = chunk.iter().map(|&x| x as f32);
+                let chunk_f32 = Aligned::<A16, _>([(); 4].map(|_| chunk_iter.next().unwrap()));
+                map_grey_to_color_sse41(chunk_f32, grey_to_pos_sse41, colormap_len_sse41)
+            }))
+            .chain(map_grey_to_color_iter_fallback(grey_fallback))
+    }
 }
 
 #[cfg(target_arch = "aarch64")]
