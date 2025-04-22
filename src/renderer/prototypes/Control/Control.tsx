@@ -17,6 +17,7 @@ import {
   DB_RANGE_DETENTS,
   DB_RANGE_MIN_MAX,
   MIN_COMMON_NORMALIZE_dB,
+  MIN_WIN_MILLISEC,
   T_OVERLAP_VALUES,
 } from "../constants/tracks";
 import {BLEND_RANGE_COLOR} from "../constants/colors";
@@ -91,7 +92,12 @@ function Control(props: ControlProps) {
       return;
     }
     const winMillisec = Number.parseFloat(v);
-    if (winMillisec > 0) setSpecSetting({...specSetting, winMillisec});
+    if (winMillisec < 1) {
+      winMillisecElem.current?.setValue(MIN_WIN_MILLISEC.toFixed(1));
+      setSpecSetting({...specSetting, winMillisec: MIN_WIN_MILLISEC});
+      return;
+    }
+    setSpecSetting({...specSetting, winMillisec});
   });
 
   useEffect(() => {
