@@ -7,6 +7,8 @@ extern crate blas_src;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+use image::ColorType;
+use image::codecs::bmp::BmpEncoder;
 use log::LevelFilter;
 use napi::bindgen_prelude::*;
 use napi::tokio::{join, sync::RwLock as AsyncRwLock};
@@ -336,7 +338,34 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
 
 #[napi(ts_return_type = "Record<string, Buffer>")]
 fn get_images() -> IdChImages {
-    img_mgr::recv().map_or_else(Default::default, IdChImages)
+    IdChImages(
+        TM.blocking_read()
+            .spec_greys
+            .iter()
+            .map(|(id_ch, spec)| {
+                let vec: Vec<_> = spec
+                    .iter()
+                    .map(|x| {
+                        let c = (x.0 as f32 / u16::MAX as f32 * u8::MAX as f32).round() as u8;
+                        [c, c, c]
+                    })
+                    .flatten()
+                    .collect();
+                let mut buf = Vec::with_capacity(vec.len() + 54);
+                let mut bmp_encoder = BmpEncoder::new(&mut buf);
+                if let Ok(_) = bmp_encoder.encode(
+                    &vec,
+                    spec.shape()[1] as u32,
+                    spec.shape()[0] as u32,
+                    ColorType::Rgb8.into(),
+                ) {
+                    (id_ch.to_owned(), buf)
+                } else {
+                    (id_ch.to_owned(), Vec::new())
+                }
+            })
+            .collect(),
+    )
 }
 
 #[napi]

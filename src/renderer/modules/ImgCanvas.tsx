@@ -1,7 +1,16 @@
-import React, {forwardRef, useRef, useImperativeHandle, useState, useContext, useMemo} from "react";
+import React, {
+  forwardRef,
+  useRef,
+  useImperativeHandle,
+  useState,
+  useContext,
+  useMemo,
+  useEffect,
+} from "react";
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
+import {resize} from "pica-gpu";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 
@@ -10,6 +19,7 @@ type ImgCanvasProps = {
   height: number;
   maxTrackSec: number;
   canvasIsFit: boolean;
+  bmpBuffer: Buffer | null;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -19,8 +29,9 @@ const calcTooltipPos = (e: React.MouseEvent) => {
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, maxTrackSec, canvasIsFit} = props;
+  const {width, height, maxTrackSec, canvasIsFit, bmpBuffer} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const canvasWrapperElem = useRef<HTMLDivElement>(null);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const loadingElem = useRef<HTMLDivElement>(null);
   const startSecRef = useRef<number>(0);
@@ -28,32 +39,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const tooltipElem = useRef<HTMLSpanElement>(null);
   const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
-  const draw = useEvent((buf: Buffer | null) => {
-    if (buf === null) {
-      const ctx = canvasElem.current?.getContext("bitmaprenderer");
-      ctx?.transferFromImageBitmap(null);
-      return;
-    }
-    if (loadingElem.current) loadingElem.current.style.display = "none";
-    const bitmapWidth = width * devicePixelRatio;
-    const bitmapHeight = height * devicePixelRatio;
-    if (buf.byteLength !== 4 * bitmapWidth * bitmapHeight) return;
-
-    const ctx = canvasElem.current?.getContext("bitmaprenderer");
-    if (!ctx) return;
-
-    const imdata = new ImageData(new Uint8ClampedArray(buf), bitmapWidth, bitmapHeight);
-    createImageBitmap(imdata)
-      .then((imbmp) => {
-        // to make the size of canvas the same as that of imdata
-        if (!canvasIsFit && canvasElem.current) {
-          canvasElem.current.style.width = `${bitmapWidth / devicePixelRatio}px`;
-          // height is set in JSX
-        }
-        ctx.transferFromImageBitmap(imbmp);
-      })
-      .catch(() => {});
-  });
   const showLoading = useEvent(() => {
     if (loadingElem.current) loadingElem.current.style.display = "block";
   });
@@ -68,7 +53,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
 
   const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({
-    draw,
     showLoading,
     updateLensParams,
     getBoundingClientRect,
@@ -105,10 +89,36 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       }),
     [getTooltipLines, initTooltipInfo],
   );
+  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
+
+  useEffect(() => {
+    if (!bmpBuffer) return;
+    if (loadingElem.current) loadingElem.current.style.display = "none";
+
+    const bmpData = new Uint8Array(bmpBuffer);
+    const bmpBlob = new Blob([bmpData.buffer], {type: "image/bmp"});
+    createImageBitmap(bmpBlob, {imageOrientation: "flipY"})
+      .then((bmp) => {
+        setBitmap(bmp);
+      })
+      .catch(() => {});
+  }, [bmpBuffer]);
+
+  useEffect(() => {
+    if (!canvasElem.current || !bitmap) return;
+    if (loadingElem.current) loadingElem.current.style.display = "none";
+    resize(bitmap, canvasElem.current, {
+      // filter: "lanczos3",
+      filter: "mks2013",
+      targetWidth: width * devicePixelRatio,
+      targetHeight: height * devicePixelRatio,
+    });
+  }, [width, height, bitmap, devicePixelRatio]);
 
   return (
     <div
       className={styles.imgCanvasWrapper}
+      ref={canvasWrapperElem}
       /* this is needed for consistent layout
          because changing width of canvas elem can occur in different time (in draw function) */
       style={{width, height}}
@@ -129,16 +139,15 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       <canvas
         className={styles.ImgCanvas}
         ref={canvasElem}
-        /* code for setting width is in draw function.
-           different height between image and canvas can be allowed.
-           the same for width only if canvasIsFit */
-        style={canvasIsFit ? {width, height} : {width: canvasElem.current?.style.width, height}}
+        style={{width: "100%", height: "100%"}}
         onMouseEnter={async (e) => {
           if (e.buttons !== 0) return;
           setInitTooltipInfo({pos: calcTooltipPos(e), lines: await getTooltipLines(e)});
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}
+        width={width * devicePixelRatio}
+        height={height * devicePixelRatio}
       />
     </div>
   );
