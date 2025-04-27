@@ -243,23 +243,7 @@ function MainViewer(props: MainViewerProps) {
     getMarkers: BackendAPI.getdBAxisMarkers,
   });
 
-  const throttledSetImgState = useMemo(
-    () =>
-      throttle(1000 / 70, async (idChArr: IdChArr, canvasWidth: number, canvasHeight: number) => {
-        if (!idChArr.length) return;
-
-        await BackendAPI.setImageState(
-          idChArr,
-          startSecRef.current,
-          canvasWidth * devicePixelRatio,
-          canvasHeight * devicePixelRatio,
-          pxPerSecRef.current * devicePixelRatio,
-          {amp_range: ampRangeRef.current, dpr: devicePixelRatio},
-          blend,
-        );
-      }),
-    [blend, devicePixelRatio],
-  );
+  const bmpBuffers = useMemo(() => BackendAPI.getImages(), [trackIds]);
 
   const throttledSetSelectSec = useMemo(
     () =>
@@ -272,7 +256,6 @@ function MainViewer(props: MainViewerProps) {
 
   const setAmpRange = useEvent((newRange: [number, number]) => {
     ampRangeRef.current = newRange;
-    throttledSetImgState(getIdChArr(), width, imgHeight);
     throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
   });
 
@@ -283,10 +266,9 @@ function MainViewer(props: MainViewerProps) {
         throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
         if (await needUpdateImgState) {
           throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
-          throttledSetImgState(getIdChArr(), width, imgHeight);
         }
       }),
-    [throttledSetImgState, throttledSetFreqMarkers, getIdChArr, width, imgHeight, maxTrackHz],
+    [throttledSetFreqMarkers, getIdChArr, width, imgHeight, maxTrackHz],
   );
 
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
@@ -319,7 +301,6 @@ function MainViewer(props: MainViewerProps) {
       Object.values(imgCanvasesRef.current).forEach((value) =>
         value?.updateLensParams({startSec, pxPerSec}),
       );
-      throttledSetImgState(getIdChArr(), width, imgHeight);
       throttledSetTimeMarkersAndUnit();
     },
   );
@@ -651,17 +632,17 @@ function MainViewer(props: MainViewerProps) {
     timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
     dBCanvasElem.current?.draw(dBMarkersAndLengthRef.current);
 
-    const images = BackendAPI.getImages();
-    Object.entries(images).forEach(([idChStr, buf]) => {
-      if (trackIdChMap.get(hiddenImgIdRef.current)?.includes(idChStr) ?? false) return;
-      if (needRefreshTrackIdChArr.includes(idChStr)) return;
-      imgCanvasesRef.current[idChStr]?.draw(buf);
-    });
-    trackIdChMap.get(hiddenImgIdRef.current)?.forEach((idChStr) => {
-      imgCanvasesRef.current[idChStr]?.draw(null);
-    });
+    // const images = BackendAPI.getImages();
+    // Object.entries(images).forEach(([idChStr, buf]) => {
+    //   if (trackIdChMap.get(hiddenImgIdRef.current)?.includes(idChStr) ?? false) return;
+    //   if (needRefreshTrackIdChArr.includes(idChStr)) return;
+    //   imgCanvasesRef.current[idChStr]?.draw(buf);
+    // });
+    // trackIdChMap.get(hiddenImgIdRef.current)?.forEach((idChStr) => {
+    //   imgCanvasesRef.current[idChStr]?.draw(null);
+    // });
     needRefreshTrackIdChArr.forEach((idChStr) => {
-      imgCanvasesRef.current[idChStr]?.draw(null);
+      // imgCanvasesRef.current[idChStr]?.draw(null);
       imgCanvasesRef.current[idChStr]?.showLoading();
     });
     await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
@@ -874,19 +855,9 @@ function MainViewer(props: MainViewerProps) {
 
   useEffect(() => {
     if (needRefreshTrackIdChArr.length > 0) {
-      throttledSetImgState(needRefreshTrackIdChArr, width, imgHeight);
       finishRefreshTracks();
-    } else {
-      throttledSetImgState(getIdChArr(), width, imgHeight);
     }
-  }, [
-    throttledSetImgState,
-    getIdChArr,
-    width,
-    imgHeight,
-    needRefreshTrackIdChArr,
-    finishRefreshTracks,
-  ]);
+  }, [getIdChArr, width, imgHeight, needRefreshTrackIdChArr, finishRefreshTracks]);
 
   const mainViewerElemCallback = useCallback(
     (node: HTMLDivElement | null) => {
@@ -987,6 +958,7 @@ function MainViewer(props: MainViewerProps) {
                     height={imgHeight}
                     maxTrackSec={maxTrackSec}
                     canvasIsFit={canvasIsFit}
+                    bmpBuffer={bmpBuffers[idChStr]}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
