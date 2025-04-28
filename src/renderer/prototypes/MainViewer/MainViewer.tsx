@@ -1,19 +1,10 @@
-import React, {
-  useRef,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useContext,
-  useLayoutEffect,
-} from "react";
+import React, {useRef, useCallback, useEffect, useMemo, useState, useLayoutEffect} from "react";
 import {throttle} from "throttle-debounce";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
 import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
-import {DevicePixelRatioContext} from "renderer/contexts";
 import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
 import Locator from "renderer/modules/Locator";
@@ -113,7 +104,6 @@ function MainViewer(props: MainViewerProps) {
 
   const requestRef = useRef<number>(0);
 
-  const devicePixelRatio = useContext(DevicePixelRatioContext);
   const [width, setWidth] = useState(600);
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
@@ -243,7 +233,11 @@ function MainViewer(props: MainViewerProps) {
     getMarkers: BackendAPI.getdBAxisMarkers,
   });
 
-  const bmpBuffers = useMemo(() => BackendAPI.getImages(), [trackIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const bmpBuffers = useMemo(
+    () => BackendAPI.getImages(),
+    [trackIds, maxTrackHz, needRefreshTrackIdChArr],
+  ); // TODO: deps
 
   const throttledSetSelectSec = useMemo(
     () =>
@@ -268,7 +262,7 @@ function MainViewer(props: MainViewerProps) {
           throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
         }
       }),
-    [throttledSetFreqMarkers, getIdChArr, width, imgHeight, maxTrackHz],
+    [throttledSetFreqMarkers, imgHeight, maxTrackHz],
   );
 
   const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
@@ -958,7 +952,7 @@ function MainViewer(props: MainViewerProps) {
                     height={imgHeight}
                     maxTrackSec={maxTrackSec}
                     canvasIsFit={canvasIsFit}
-                    bmpBuffer={bmpBuffers[idChStr]}
+                    bmpBuffer={id !== hiddenImgIdRef.current ? bmpBuffers[idChStr] : null}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
