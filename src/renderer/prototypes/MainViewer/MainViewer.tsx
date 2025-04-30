@@ -234,7 +234,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const bmpBuffers = useMemo(
+  const imgInfos = useMemo(
     () => BackendAPI.getImages(),
     [trackIds, maxTrackHz, needRefreshTrackIdChArr],
   ); // TODO: deps
@@ -951,8 +951,7 @@ function MainViewer(props: MainViewerProps) {
                     width={width}
                     height={imgHeight}
                     maxTrackSec={maxTrackSec}
-                    canvasIsFit={canvasIsFit}
-                    bmpBuffer={id !== hiddenImgIdRef.current ? bmpBuffers[idChStr] : null}
+                    imgInfo={id !== hiddenImgIdRef.current ? imgInfos[idChStr] : null}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
