@@ -40,7 +40,7 @@ pub struct PlayerState {
 }
 
 #[derive(Default)]
-pub struct IdChImages(pub IdChValueVec<Vec<u8>>);
+pub struct IdChImages(pub IdChValueVec<(Vec<f32>, u32, u32)>);
 
 impl TypeName for IdChImages {
     fn type_name() -> &'static str {
@@ -58,8 +58,14 @@ impl ToNapiValue for IdChImages {
     unsafe fn to_napi_value(raw_env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
         let env = Env::from(raw_env);
         let mut obj = env.create_object()?;
-        for ((id, ch), v) in val.0.into_iter() {
-            obj.set(format_id_ch(id, ch), Buffer::from(v))?;
+        for ((id, ch), (buf, width, height)) in val.0.into_iter() {
+            let buf =
+                unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, buf.len() * 4) };
+            let mut img_info = env.create_object()?;
+            img_info.set("buf", Buffer::from(buf))?;
+            img_info.set("width", width)?;
+            img_info.set("height", height)?;
+            obj.set(format_id_ch(id, ch), img_info)?;
         }
 
         unsafe { Object::to_napi_value(raw_env, obj) }

@@ -90,7 +90,11 @@ export function getdBAxisMarkers(
 // IdChannel is form of id#_ch#
 export type IdChannel = string;
 export type SpecWavImages = {
-  [key: IdChannel]: Buffer;
+  [key: IdChannel]: {
+    buf: Buffer;
+    width: number;
+    height: number;
+  };
 };
 
 /* images */
