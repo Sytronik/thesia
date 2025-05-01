@@ -1,6 +1,6 @@
-import backend from "backend";
+import backend, {Spectrogram} from "backend";
 
-export {GuardClippingMode, FreqScale, SpecSetting} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
@@ -89,27 +89,13 @@ export function getdBAxisMarkers(
 
 // IdChannel is form of id#_ch#
 export type IdChannel = string;
-export type Spectrogram = {
-  arr: Float32Array;
-  width: number;
-  height: number;
-};
 export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
 
 /* images */
-export function getImages(): Spectrograms {
-  return Object.fromEntries(
-    Object.entries(backend.getImages()).map(([key, value]) => [
-      key,
-      {
-        arr: new Float32Array(value.buf.buffer),
-        width: value.width,
-        height: value.height,
-      },
-    ]),
-  );
+export function getSpectrograms(): Spectrograms {
+  return backend.getSpectrograms();
 }
 
 // written in snake case for compatibility with native api
