@@ -122,6 +122,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       antialias: false,
       depth: false,
       preserveDrawingBuffer: true,
+      desynchronized: true,
     });
 
     if (!gl) {
@@ -233,10 +234,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   }, []); // Empty dependency array: This setup runs once per canvas element instance.
 
   const draw = useCallback(
-    (timestamp: number) => {
-      if (timestamp === lastTimestampRef.current) return;
-      lastTimestampRef.current = timestamp;
-
+    () => {
       const resources = webglResourcesRef.current;
       // Ensure WebGL resources are ready
       if (
@@ -396,8 +394,23 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     [spectrogram, trackSec, width, pxPerSec, startSec, devicePixelRatio, height], // Keep dependencies that affect rendering dimensions/data
   );
 
+  // Use a ref to store the latest draw function
+  const drawRef = useRef(draw);
   useEffect(() => {
-    requestAnimationFrame(draw);
+    drawRef.current = draw;
+    // Request a redraw only when the draw function or its dependencies change
+    const animationFrameId = requestAnimationFrame((timestamp) => {
+      if (timestamp === lastTimestampRef.current) return;
+      lastTimestampRef.current = timestamp;
+      // Ensure drawRef.current exists and call it
+      if (drawRef.current) {
+        drawRef.current();
+      }
+    });
+
+    // Cleanup function to cancel the frame if the component unmounts
+    // or if dependencies change again before the frame executes
+    return () => cancelAnimationFrame(animationFrameId);
   }, [draw]);
 
   // Cleanup WebGL resources on unmount or when canvas element changes
