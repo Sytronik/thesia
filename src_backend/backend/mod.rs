@@ -1,4 +1,3 @@
-use fast_image_resize::pixels::U16;
 use identity_hash::IntSet;
 use itertools::Itertools;
 use ndarray::prelude::*;
@@ -20,11 +19,10 @@ pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::{TupleIntDMap, TupleIntSet};
-pub use utils::Pad;
 pub use visualize::{
-    DrawOptionForWav, DrawParams, TrackDrawer, calc_amp_axis_markers, calc_dB_axis_markers,
-    calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label,
-    convert_sec_to_label, convert_time_label_to_sec,
+    TrackDrawer, calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers,
+    calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label,
+    convert_time_label_to_sec,
 };
 
 pub type IdCh = (usize, usize);
@@ -43,7 +41,7 @@ pub struct TrackManager {
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
-    pub spec_greys: IdChMap<Array2<U16>>,
+    pub spec_greys: IdChMap<Array2<f32>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
     hz_range: (f32, f32),
@@ -283,10 +281,6 @@ impl TrackManager {
 
 #[cfg(test)]
 mod tests {
-    use image::RgbaImage;
-    use visualize::DrawParams;
-
-    use super::visualize::ImageKind;
     use super::*;
 
     #[test]
@@ -321,61 +315,6 @@ mod tests {
         dbg!(&tracklist[0]);
         dbg!(tracklist.filename(5));
         dbg!(tracklist.filename(6));
-
-        let height = 500;
-        let px_per_sec = 200.;
-        let opt_for_wav = Default::default();
-        let spec_imgs = tm.draw_entire_imgs(
-            &tracklist,
-            &tracklist.id_ch_tuples(),
-            height,
-            px_per_sec,
-            ImageKind::Spec,
-        );
-        let wav_imgs = tm.draw_entire_imgs(
-            &tracklist,
-            &tracklist.id_ch_tuples(),
-            height,
-            px_per_sec,
-            ImageKind::Wav(&opt_for_wav),
-        );
-        for ((id, ch), spec) in spec_imgs {
-            let sr_str = tags[id];
-            let width = spec.shape()[1] as u32;
-            let img = RgbaImage::from_vec(width, height, spec.into_raw_vec_and_offset().0).unwrap();
-            img.save(format!("samples/spec_{}_{}.png", sr_str, ch))
-                .unwrap();
-            let (wav_img, _) = wav_imgs
-                .iter()
-                .find_map(|(id_ch, v)| (*id_ch == (id, ch)).then_some(v))
-                .unwrap()
-                .to_owned()
-                .into_raw_vec_and_offset();
-
-            let img = RgbaImage::from_vec(width, height, wav_img).unwrap();
-            img.save(format!("samples/wav_{}_{}.png", sr_str, ch))
-                .unwrap();
-        }
-
-        let (id_ch, imvec) = tm
-            .draw_part_imgs(
-                &tracklist,
-                &[(0, 0)],
-                &DrawParams {
-                    start_sec: 20.,
-                    width: 1000,
-                    height,
-                    px_per_sec: 16000.,
-                    opt_for_wav,
-                    blend: 0.,
-                },
-                vec![false],
-            )
-            .pop()
-            .unwrap();
-        assert_eq!(id_ch, (0, 0));
-        let im = RgbaImage::from_vec(imvec.len() as u32 / height / 4, height, imvec).unwrap();
-        im.save("samples/wav_part.png").unwrap();
 
         let removed_id_ch_tuples = tracklist.remove_tracks(&[0]);
         tm.remove_tracks(&tracklist, &removed_id_ch_tuples);

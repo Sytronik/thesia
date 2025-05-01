@@ -48,7 +48,6 @@ export declare function addTracks(idList: Array<number>, pathList: Array<string>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
 export declare function removeTracks(trackIds: Array<number>): void
 export declare function applyTrackListChanges(): Promise<Array<string>>
-export declare function setImageState(idChStrs: Array<string>, startSec: number, width: number, height: number, pxPerSec: number, optForWav: any, blend: number): Promise<void>
 export declare function getdBRange(): Promise<number>
 export declare function setdBRange(dBRange: number): Promise<void>
 export declare function getHzRange(maxTrackHz: number): number[]

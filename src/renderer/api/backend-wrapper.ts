@@ -151,7 +151,6 @@ export const {
   reloadTracks,
   removeTracks,
   applyTrackListChanges,
-  setImageState,
   findIdByPath,
   getPath,
   getFileName,

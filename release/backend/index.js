@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, setImageState, getdBRange, setdBRange, getHzRange, setHzRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, freqPosToHzOnCurrentRange, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, getdBRange, setdBRange, getHzRange, setHzRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getImages, findIdByPath, getOverview, freqPosToHzOnCurrentRange, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -319,7 +319,6 @@ module.exports.addTracks = addTracks
 module.exports.reloadTracks = reloadTracks
 module.exports.removeTracks = removeTracks
 module.exports.applyTrackListChanges = applyTrackListChanges
-module.exports.setImageState = setImageState
 module.exports.getdBRange = getdBRange
 module.exports.setdBRange = setdBRange
 module.exports.getHzRange = getHzRange
