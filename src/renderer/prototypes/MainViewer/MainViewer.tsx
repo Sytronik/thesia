@@ -96,8 +96,8 @@ function MainViewer(props: MainViewerProps) {
   const mainViewerElem = useRef<HTMLDivElement | null>(null);
   const prevTrackCountRef = useRef<number>(0);
 
-  const startSecRef = useRef<number>(0);
-  const pxPerSecRef = useRef<number>(100);
+  const [startSec, setStartSec] = useState<number>(0);
+  const [pxPerSec, setPxPerSec] = useState<number>(100);
   const prevSelectSecRef = useRef<number>(0);
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
@@ -178,7 +178,7 @@ function MainViewer(props: MainViewerProps) {
     removeTracks(ids);
     await refreshTracks();
   });
-  const calcEndSec = useEvent(() => startSecRef.current + width / pxPerSecRef.current);
+  const calcEndSec = useEvent(() => startSec + width / pxPerSec);
 
   const {
     markersAndLengthRef: timeMarkersAndLengthRef,
@@ -189,18 +189,6 @@ function MainViewer(props: MainViewerProps) {
     boundaries: TIME_BOUNDARIES,
     getMarkers: BackendAPI.getTimeAxisMarkers,
   });
-
-  const throttledSetTimeMarkersAndUnit = useCallback(() => {
-    throttledSetTimeMarkers(width, pxPerSecRef.current, {
-      startSec: startSecRef.current,
-      endSec: calcEndSec(),
-      maxSec: maxTrackSec,
-    });
-    const [markers] = timeMarkersAndLengthRef.current;
-    if (markers.length === 0) return;
-    const timeUnit = markers[markers.length - 1][1];
-    setTimeUnitLabel(timeUnit);
-  }, [throttledSetTimeMarkers, width, timeMarkersAndLengthRef, calcEndSec, maxTrackSec]);
 
   const unsetTimeMarkersAndUnit = useEvent(() => {
     resetTimeMarkers();
@@ -265,12 +253,12 @@ function MainViewer(props: MainViewerProps) {
     [throttledSetFreqMarkers, imgHeight, maxTrackHz],
   );
 
-  const normalizeStartSec = useEvent((startSec, pxPerSec, maxEndSec) => {
-    return Math.min(Math.max(startSec, 0), maxEndSec - width / pxPerSec);
+  const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
+    return Math.min(Math.max(_startSec, 0), maxEndSec - width / _pxPerSec);
   });
 
-  const normalizePxPerSec = useEvent((pxPerSec, startSec) =>
-    Math.min(Math.max(pxPerSec, width / (maxTrackSec - startSec)), MAX_PX_PER_SEC),
+  const normalizePxPerSec = useEvent((_pxPerSec, _startSec) =>
+    Math.min(Math.max(_pxPerSec, width / (maxTrackSec - _startSec)), MAX_PX_PER_SEC),
   );
 
   const updateLensParams = useEvent(
@@ -278,46 +266,39 @@ function MainViewer(props: MainViewerProps) {
       if (player.isPlaying && turnOffFollowCursor) {
         needFollowCursor.current = false;
       }
-      let startSec = params.startSec ?? startSecRef.current;
-      let pxPerSec = params.pxPerSec ?? pxPerSecRef.current;
+      let newStartSec = params.startSec ?? startSec;
+      let newPxPerSec = params.pxPerSec ?? pxPerSec;
 
-      if (Math.abs(startSec - startSecRef.current) > 1e-3)
-        startSec = normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-      if (Math.abs(pxPerSec - pxPerSecRef.current) > 1e-6)
-        pxPerSec = normalizePxPerSec(pxPerSec, startSec);
+      if (Math.abs(newStartSec - startSec) > 1e-3)
+        newStartSec = normalizeStartSec(newStartSec, newPxPerSec, maxTrackSec);
+      if (Math.abs(newPxPerSec - pxPerSec) > 1e-6)
+        newPxPerSec = normalizePxPerSec(newPxPerSec, newStartSec);
 
-      startSecRef.current = startSec;
-      pxPerSecRef.current = pxPerSec;
+      setStartSec(newStartSec);
+      setPxPerSec(newPxPerSec);
       setCanvasIsFit(
-        startSec <= FIT_TOLERANCE_SEC && width >= (maxTrackSec - FIT_TOLERANCE_SEC) * pxPerSec,
+        newStartSec <= FIT_TOLERANCE_SEC &&
+          width >= (maxTrackSec - FIT_TOLERANCE_SEC) * newPxPerSec,
       );
-
-      Object.values(imgCanvasesRef.current).forEach((value) =>
-        value?.updateLensParams({startSec, pxPerSec}),
-      );
-      throttledSetTimeMarkersAndUnit();
     },
   );
 
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
-    const lensDurationSec = width / pxPerSecRef.current;
+    const lensDurationSec = width / pxPerSec;
     updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
     const endSec = calcEndSec();
-    const startSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
-    const pxPerSec = normalizePxPerSec(width / (endSec - startSec), startSec);
+    const newStartSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
+    const newPxPerSec = normalizePxPerSec(width / (endSec - newStartSec), newStartSec);
 
-    updateLensParams({startSec, pxPerSec});
+    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
   });
 
   const resizeLensRight = useEvent((sec: number) => {
-    const pxPerSec = normalizePxPerSec(
-      width / Math.max(sec - startSecRef.current, 0),
-      startSecRef.current,
-    );
-    updateLensParams({pxPerSec});
+    const newPxPerSec = normalizePxPerSec(width / Math.max(sec - startSec, 0), startSec);
+    updateLensParams({pxPerSec: newPxPerSec});
   });
 
   const zoomHeight = useEvent((delta: number) => {
@@ -396,14 +377,14 @@ function MainViewer(props: MainViewerProps) {
       // zoom
       if (horizontal) {
         // horizontal zoom
-        const pxPerSec = normalizePxPerSec(pxPerSecRef.current * (1 + delta / 1000), 0);
+        const newPxPerSec = normalizePxPerSec(pxPerSec * (1 + delta / 1000), 0);
         const cursorX = e.clientX - (anImgBoundngRect?.x ?? 0);
-        const startSec = normalizeStartSec(
-          startSecRef.current + cursorX / pxPerSecRef.current - cursorX / pxPerSec,
-          pxPerSec,
+        const newStartSec = normalizeStartSec(
+          startSec + cursorX / pxPerSec - cursorX / newPxPerSec,
+          newPxPerSec,
           maxTrackSec,
         );
-        updateLensParams({startSec, pxPerSec});
+        updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
       } else {
         // vertical zoom
         const splitView = splitViewElem.current;
@@ -424,7 +405,7 @@ function MainViewer(props: MainViewerProps) {
       }
     } else if (horizontal) {
       // horizontal scroll
-      updateLensParams({startSec: startSecRef.current + (0.5 * delta) / pxPerSecRef.current});
+      updateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
     }
   });
 
@@ -453,7 +434,7 @@ function MainViewer(props: MainViewerProps) {
           }
         }
       }
-      const sec = startSecRef.current + cursorX / pxPerSecRef.current;
+      const sec = startSec + cursorX / pxPerSec;
       if (isPlayhead) player.seek(sec);
       else throttledSetSelectSec(sec);
     },
@@ -469,9 +450,9 @@ function MainViewer(props: MainViewerProps) {
     (_, hotkey) => {
       if (trackIds.length === 0) return;
       const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
-      let shiftSec = shiftPx / pxPerSecRef.current;
+      let shiftSec = shiftPx / pxPerSec;
       if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
-      updateLensParams({startSec: startSecRef.current + shiftSec});
+      updateLensParams({startSec: startSec + shiftSec});
     },
     [trackIds, updateLensParams],
   );
@@ -512,17 +493,17 @@ function MainViewer(props: MainViewerProps) {
   }, [freqZoomIn, freqZoomOut]);
 
   const zoomLens = useEvent((isZoomOut: boolean) => {
-    let pxPerSecDelta = 2 ** (Math.floor(Math.log2(pxPerSecRef.current)) - 1.2);
+    let pxPerSecDelta = 2 ** (Math.floor(Math.log2(pxPerSec)) - 1.2);
     if (isZoomOut) pxPerSecDelta = -pxPerSecDelta;
 
-    const pxPerSec = normalizePxPerSec(pxPerSecRef.current + pxPerSecDelta, 0);
+    const newPxPerSec = normalizePxPerSec(pxPerSec + pxPerSecDelta, 0);
     const selectSec = player.selectSecRef.current ?? 0;
-    const startSec = normalizeStartSec(
-      selectSec - ((selectSec - startSecRef.current) * pxPerSecRef.current) / pxPerSec,
-      pxPerSec,
+    const newStartSec = normalizeStartSec(
+      selectSec - ((selectSec - startSec) * pxPerSec) / newPxPerSec,
+      newPxPerSec,
       maxTrackSec,
     );
-    updateLensParams({startSec, pxPerSec});
+    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
   });
   const timeZoomIn = useEvent(() => {
     if (trackIds.length > 0) zoomLens(false);
@@ -600,8 +581,7 @@ function MainViewer(props: MainViewerProps) {
       if (
         needFollowCursor.current &&
         player.positionSecRef.current !== null &&
-        (calcEndSec() < player.positionSecRef.current ||
-          startSecRef.current > player.positionSecRef.current)
+        (calcEndSec() < player.positionSecRef.current || startSec > player.positionSecRef.current)
       ) {
         updateLensParams({startSec: player.positionSecRef.current}, false);
       }
@@ -609,12 +589,12 @@ function MainViewer(props: MainViewerProps) {
       needFollowCursor.current = true;
       const endSec = calcEndSec();
       const diff = selectSec - prevSelectSecRef.current;
-      if (Math.abs(diff) > 1e-6 && (endSec < selectSec || startSecRef.current > selectSec)) {
-        let newStartSec = startSecRef.current + diff;
+      if (Math.abs(diff) > 1e-6 && (endSec < selectSec || startSec > selectSec)) {
+        let newStartSec = startSec + diff;
         const newEndSec = endSec + diff;
 
         if (newEndSec < selectSec || newStartSec > selectSec)
-          newStartSec = selectSec - width / pxPerSecRef.current / 2;
+          newStartSec = selectSec - width / pxPerSec / 2;
         updateLensParams({startSec: newStartSec}, false);
       }
     }
@@ -639,7 +619,7 @@ function MainViewer(props: MainViewerProps) {
       // imgCanvasesRef.current[idChStr]?.draw(null);
       imgCanvasesRef.current[idChStr]?.showLoading();
     });
-    await overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current);
+    await overviewElem.current?.draw(startSec, width / pxPerSec);
     requestRef.current = requestAnimationFrame(drawCanvas);
   });
 
@@ -657,7 +637,7 @@ function MainViewer(props: MainViewerProps) {
     (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2,
   ]);
   const calcSelectLocatorPos = useEvent(
-    () => ((player.selectSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current,
+    () => ((player.selectSecRef.current ?? 0) - startSec) * pxPerSec,
   );
   const onSelectLocatorMouseDown = useEvent(() => {
     document.addEventListener("mousemove", changeLocatorByMouse);
@@ -681,9 +661,7 @@ function MainViewer(props: MainViewerProps) {
     return [top, bottom];
   });
   const calcPlayheadPos = useEvent(() =>
-    player.isPlaying
-      ? ((player.positionSecRef.current ?? 0) - startSecRef.current) * pxPerSecRef.current
-      : -Infinity,
+    player.isPlaying ? ((player.positionSecRef.current ?? 0) - startSec) * pxPerSec : -Infinity,
   );
 
   const trackSummaryArr: TrackSummaryData[] = useMemo(
@@ -735,8 +713,27 @@ function MainViewer(props: MainViewerProps) {
       return;
     }
 
-    throttledSetTimeMarkersAndUnit();
-  }, [unsetTimeMarkersAndUnit, throttledSetTimeMarkersAndUnit, trackIds, needRefreshTrackIdChArr]);
+    throttledSetTimeMarkers(width, pxPerSec, {
+      startSec,
+      endSec: calcEndSec(),
+      maxSec: maxTrackSec,
+    });
+    const [markers] = timeMarkersAndLengthRef.current;
+    if (markers.length === 0) return;
+    const timeUnit = markers[markers.length - 1][1];
+    setTimeUnitLabel(timeUnit);
+  }, [
+    throttledSetTimeMarkers,
+    width,
+    pxPerSec,
+    startSec,
+    calcEndSec,
+    maxTrackSec,
+    timeMarkersAndLengthRef,
+    trackIds,
+    needRefreshTrackIdChArr,
+    unsetTimeMarkersAndUnit,
+  ]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -747,7 +744,7 @@ function MainViewer(props: MainViewerProps) {
     if (selectedTrackIds.length === 0) return;
     const selectedIdUnderscore = `${selectedTrackIds[selectedTrackIds.length - 1]}_`;
     if (needRefreshTrackIdChArr.some((idCh: string) => idCh.startsWith(selectedIdUnderscore)))
-      overviewElem.current?.draw(startSecRef.current, width / pxPerSecRef.current, true);
+      overviewElem.current?.draw(startSec, width / pxPerSec, true);
   }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // auto-scroll to the recently selected track
@@ -826,14 +823,12 @@ function MainViewer(props: MainViewerProps) {
   // set LensParams when track list or width change
   useLayoutEffect(() => {
     if (trackIds.length > 0) {
-      const startSec =
+      const newStartSec =
         prevTrackCountRef.current === 0 || canvasIsFit
           ? 0
-          : normalizeStartSec(startSecRef.current, pxPerSecRef.current, maxTrackSec);
-      const pxPerSec = canvasIsFit
-        ? width / maxTrackSec
-        : normalizePxPerSec(pxPerSecRef.current, startSec);
-      updateLensParams({startSec, pxPerSec});
+          : normalizeStartSec(startSec, pxPerSec, maxTrackSec);
+      const newPxPerSec = canvasIsFit ? width / maxTrackSec : normalizePxPerSec(pxPerSec, startSec);
+      updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
     }
 
     prevTrackCountRef.current = trackIds.length;
@@ -845,6 +840,8 @@ function MainViewer(props: MainViewerProps) {
     updateLensParams,
     normalizeStartSec,
     normalizePxPerSec,
+    startSec,
+    pxPerSec,
   ]);
 
   useEffect(() => {
@@ -922,8 +919,8 @@ function MainViewer(props: MainViewerProps) {
           ref={timeCanvasElem}
           width={width}
           shiftWhenResize={!canvasIsFit}
-          startSecRef={startSecRef}
-          pxPerSecRef={pxPerSecRef}
+          startSec={startSec}
+          pxPerSec={pxPerSec}
           moveLens={moveLens}
           resetTimeAxis={resetTimeAxis}
           enableInteraction={trackIds.length > 0}
@@ -948,10 +945,13 @@ function MainViewer(props: MainViewerProps) {
                 >
                   <ImgCanvas
                     ref={registerImgCanvas(idChStr)}
+                    spectrogram={id !== hiddenImgIdRef.current ? spectrograms[idChStr] : null}
                     width={width}
                     height={imgHeight}
+                    startSec={startSec}
+                    pxPerSec={pxPerSec}
+                    trackSec={BackendAPI.getLengthSec(id)}
                     maxTrackSec={maxTrackSec}
-                    spectrogram={id !== hiddenImgIdRef.current ? spectrograms[idChStr] : null}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
