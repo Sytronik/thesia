@@ -12,7 +12,7 @@ import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI from "../api";
+import BackendAPI, {Spectrogram} from "../api";
 import {
   createTexture,
   createCmapTexture,
@@ -29,7 +29,7 @@ type ImgCanvasProps = {
   width: number;
   height: number;
   maxTrackSec: number;
-  imgInfo: {buf: Buffer; width: number; height: number} | null;
+  spectrogram: Spectrogram | null;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -39,10 +39,9 @@ const calcTooltipPos = (e: React.MouseEvent) => {
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, maxTrackSec, imgInfo} = props;
+  const {width, height, maxTrackSec, spectrogram} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
-  const [img, setImg] = useState<{data: Float32Array; width: number; height: number} | null>(null);
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
   // Combine WebGL resources into a single ref
   const webglResourcesRef = useRef<WebGLResources | null>(null);
@@ -106,17 +105,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   );
 
   useEffect(() => {
-    if (!imgInfo) {
-      setImg(null);
-      return;
-    }
+    if (!spectrogram) return;
+
     if (loadingElem.current) loadingElem.current.style.display = "none";
-
-    const {buf, width: bitmapWidth, height: bitmapHeight} = imgInfo;
-    const data = new Float32Array(buf.buffer);
-
-    setImg({data, width: bitmapWidth, height: bitmapHeight});
-  }, [imgInfo]);
+  }, [spectrogram]);
 
   const canvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
     // Cleanup previous resources if the element changes
@@ -268,14 +260,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         resources;
 
       // Check if img and img.data are valid before proceeding
-      if (!img || !img.data || img.data.length === 0) {
+      if (!spectrogram || !spectrogram.arr || spectrogram.arr.length === 0) {
         gl.clearColor(0, 0, 0, 0); // Clear to transparent black
         gl.clear(gl.COLOR_BUFFER_BIT);
         return;
       }
 
-      const srcW = img.width;
-      const srcH = img.height;
+      const srcW = spectrogram.width;
+      const srcH = spectrogram.height;
       const dstW = Math.max(1, Math.floor(width * devicePixelRatio)); // Ensure positive dims
       const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
 
@@ -301,7 +293,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         // If you were using a VAO for these attributes, you'd bind it here.
 
         // Upload source R32F texture
-        texSrc = createTexture(gl, srcW, srcH, img.data, gl.R32F);
+        texSrc = createTexture(gl, srcW, srcH, spectrogram.arr, gl.R32F);
 
         // Create intermediate R32F texture for horizontal pass result
         texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
@@ -384,7 +376,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         if (fbo) gl.deleteFramebuffer(fbo);
       }
     },
-    [width, height, img, devicePixelRatio], // Keep dependencies that affect rendering dimensions/data
+    [width, height, spectrogram, devicePixelRatio], // Keep dependencies that affect rendering dimensions/data
   );
 
   useEffect(() => {

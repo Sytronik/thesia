@@ -234,7 +234,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const imgInfos = useMemo(
+  const spectrograms = useMemo(
     () => BackendAPI.getImages(),
     [trackIds, maxTrackHz, needRefreshTrackIdChArr],
   ); // TODO: deps
@@ -951,7 +951,7 @@ function MainViewer(props: MainViewerProps) {
                     width={width}
                     height={imgHeight}
                     maxTrackSec={maxTrackSec}
-                    imgInfo={id !== hiddenImgIdRef.current ? imgInfos[idChStr] : null}
+                    spectrogram={id !== hiddenImgIdRef.current ? spectrograms[idChStr] : null}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
