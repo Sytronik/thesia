@@ -1,4 +1,4 @@
-import React, {RefObject, forwardRef, useMemo} from "react";
+import React, {forwardRef, useMemo} from "react";
 import AxisCanvas from "renderer/modules/AxisCanvas";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
 import useEvent from "react-use-event-hook";
@@ -7,8 +7,8 @@ import {HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS} from "../c
 type TimeAxisProps = {
   width: number;
   shiftWhenResize: boolean;
-  startSecRef: RefObject<number>;
-  pxPerSecRef: RefObject<number>;
+  startSec: number;
+  pxPerSec: number;
   moveLens: (sec: number, dragAnchor: number) => void;
   resetTimeAxis: () => void;
   enableInteraction: boolean;
@@ -22,20 +22,12 @@ const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
 const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
-  const {
-    width,
-    shiftWhenResize,
-    startSecRef,
-    pxPerSecRef,
-    moveLens,
-    resetTimeAxis,
-    enableInteraction,
-  } = props;
+  const {width, shiftWhenResize, startSec, pxPerSec, moveLens, resetTimeAxis, enableInteraction} =
+    props;
   const calcDragAnchor = useEvent(
     (cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
-      const sec =
-        (startSecRef.current ?? 0) + (cursorRatio * rect.width) / (pxPerSecRef.current ?? 1);
+      const sec = startSec + (cursorRatio * rect.width) / pxPerSec;
       return {cursorRatio, sec} as TimeAxisDragAnchor;
     },
   );
@@ -49,8 +41,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     ) => {
       const cursorRatio = cursorPos / rect.width;
       const {cursorRatio: anchorRatio, sec: anchorSec} = dragAnchorValue;
-      const sec =
-        anchorSec - ((cursorRatio - anchorRatio) * rect.width) / (pxPerSecRef.current ?? 1);
+      const sec = anchorSec - ((cursorRatio - anchorRatio) * rect.width) / pxPerSec;
       moveLens(sec, anchorRatio);
     },
   );

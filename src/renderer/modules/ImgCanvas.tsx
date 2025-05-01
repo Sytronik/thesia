@@ -26,10 +26,13 @@ import {
 } from "../lib/webgl-helpers";
 
 type ImgCanvasProps = {
+  spectrogram: Spectrogram | null;
   width: number;
   height: number;
+  startSec: number;
+  pxPerSec: number;
+  trackSec: number;
   maxTrackSec: number;
-  spectrogram: Spectrogram | null;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -39,7 +42,7 @@ const calcTooltipPos = (e: React.MouseEvent) => {
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, maxTrackSec, spectrogram} = props;
+  const {width, height, startSec, pxPerSec, trackSec, maxTrackSec, spectrogram} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
@@ -48,18 +51,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const lastTimestampRef = useRef<number>(0);
 
   const loadingElem = useRef<HTMLDivElement>(null);
-  const startSecRef = useRef<number>(0);
-  const pxPerSecRef = useRef<number>(1);
   const tooltipElem = useRef<HTMLSpanElement>(null);
   const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
   const showLoading = useEvent(() => {
     if (loadingElem.current) loadingElem.current.style.display = "block";
-  });
-
-  const updateLensParams = useEvent((params: OptionalLensParams) => {
-    startSecRef.current = params.startSec ?? startSecRef.current;
-    pxPerSecRef.current = params.pxPerSec ?? pxPerSecRef.current;
   });
 
   const getBoundingClientRect = useEvent(() => {
@@ -68,7 +64,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({
     showLoading,
-    updateLensParams,
     getBoundingClientRect,
   });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
@@ -81,7 +76,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       height,
     );
     // TODO: need better formatting (from backend?)
-    const time = Math.min(Math.max(startSecRef.current + x / pxPerSecRef.current, 0), maxTrackSec);
+    const time = Math.min(Math.max(startSec + x / pxPerSec, 0), maxTrackSec);
     const timeStr = time.toFixed(6).slice(0, -3);
     const hz = await BackendAPI.freqPosToHzOnCurrentRange(y, height);
     const hzStr = hz.toFixed(0);
@@ -150,6 +145,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         uStep: gl.getUniformLocation(resizeProgram, "uStep"),
         uTex: gl.getUniformLocation(resizeProgram, "uTex"),
         uScale: gl.getUniformLocation(resizeProgram, "uScale"),
+        uTexOffset: gl.getUniformLocation(resizeProgram, "uTexOffset"),
+        uTexScale: gl.getUniformLocation(resizeProgram, "uTexScale"),
       };
       const resizePosBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
@@ -245,9 +242,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       if (
         !canvasElem.current ||
         !resources ||
-        !resources.resizeUniforms.uTex || // Check essential uniforms too
+        !resources.resizeUniforms.uTex ||
         !resources.resizeUniforms.uScale ||
-        !resources.resizeUniforms.uStep
+        !resources.resizeUniforms.uStep ||
+        !resources.resizeUniforms.uTexOffset ||
+        !resources.resizeUniforms.uTexScale
       ) {
         // Optionally clear canvas if resources aren't ready
         // if(resources?.gl) { resources.gl.clearColor(0, 0, 0, 0); resources.gl.clear(resources.gl.COLOR_BUFFER_BIT); }
@@ -260,15 +259,27 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         resources;
 
       // Check if img and img.data are valid before proceeding
-      if (!spectrogram || !spectrogram.arr || spectrogram.arr.length === 0) {
+      if (!spectrogram || startSec > trackSec) {
         gl.clearColor(0, 0, 0, 0); // Clear to transparent black
         gl.clear(gl.COLOR_BUFFER_BIT);
         return;
       }
 
-      const srcW = spectrogram.width;
+      // widths
+      const srcPxPerSec = spectrogram.width / trackSec;
+      const dstLengthSec = width / pxPerSec;
+      const srcLeft = startSec * srcPxPerSec;
+      let srcW = dstLengthSec * srcPxPerSec;
+      let dstW = width * devicePixelRatio;
+      if (startSec + dstLengthSec > trackSec) {
+        srcW = spectrogram.width - srcLeft;
+        dstW = (trackSec - startSec) * pxPerSec * devicePixelRatio;
+      }
+      srcW = Math.max(0.5, srcW);
+      dstW = Math.max(0.5, dstW);
+
+      // heights
       const srcH = spectrogram.height;
-      const dstW = Math.max(1, Math.floor(width * devicePixelRatio)); // Ensure positive dims
       const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
 
       if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
@@ -293,7 +304,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         // If you were using a VAO for these attributes, you'd bind it here.
 
         // Upload source R32F texture
-        texSrc = createTexture(gl, srcW, srcH, spectrogram.arr, gl.R32F);
+        texSrc = createTexture(gl, spectrogram.width, spectrogram.height, spectrogram.arr, gl.R32F);
 
         // Create intermediate R32F texture for horizontal pass result
         texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
@@ -310,7 +321,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         // --- Pass-1 (horizontal resize) ---
         const scaleX = dstW / srcW;
         gl.uniform1f(resizeUniforms.uScale, scaleX);
-        gl.uniform2f(resizeUniforms.uStep, 1 / srcW, 0); // Horizontal step
+        gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
+        gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width); // Set crop offset
+        gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width); // Set crop scale
         gl.bindTexture(gl.TEXTURE_2D, texSrc);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
@@ -324,6 +337,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         const scaleY = dstH / srcH;
         gl.uniform1f(resizeUniforms.uScale, scaleY);
         gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step
+        gl.uniform1f(resizeUniforms.uTexOffset, 0.0); // Reset offset for vertical pass
+        gl.uniform1f(resizeUniforms.uTexScale, 1.0); // Reset scale for vertical pass
         gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
@@ -351,6 +366,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         // Render to canvas
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
         // Attributes are already set up via cmapVao
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
 
@@ -376,7 +393,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         if (fbo) gl.deleteFramebuffer(fbo);
       }
     },
-    [width, height, spectrogram, devicePixelRatio], // Keep dependencies that affect rendering dimensions/data
+    [spectrogram, trackSec, width, pxPerSec, startSec, devicePixelRatio, height], // Keep dependencies that affect rendering dimensions/data
   );
 
   useEffect(() => {
