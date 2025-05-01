@@ -235,7 +235,7 @@ function MainViewer(props: MainViewerProps) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const spectrograms = useMemo(
-    () => BackendAPI.getImages(),
+    () => BackendAPI.getSpectrograms(),
     [trackIds, maxTrackHz, needRefreshTrackIdChArr],
   ); // TODO: deps
 

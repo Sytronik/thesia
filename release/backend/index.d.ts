@@ -43,6 +43,11 @@ export interface PlayerState {
   positionSec: number
   err: string
 }
+export interface Spectrogram {
+  arr: Float32Array
+  width: number
+  height: number
+}
 export declare function init(userSettings: UserSettingsOptionals): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
@@ -58,7 +63,7 @@ export declare function getCommonGuardClipping(): GuardClippingMode
 export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
-export declare function getImages(): Record<string, {buf: Buffer, width: number, height: number}>
+export declare function getSpectrograms(): Record<string, Spectrogram>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
 export declare function freqPosToHzOnCurrentRange(y: number, height: number): number

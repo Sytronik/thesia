@@ -39,10 +39,17 @@ pub struct PlayerState {
     pub err: String,
 }
 
-#[derive(Default)]
-pub struct IdChImages(pub IdChValueVec<(Vec<f32>, u32, u32)>);
+#[napi(object)]
+pub struct Spectrogram {
+    pub arr: Float32Array,
+    pub width: u32,
+    pub height: u32,
+}
 
-impl TypeName for IdChImages {
+#[derive(Default)]
+pub struct IdChSpectrograms(pub IdChValueVec<Spectrogram>);
+
+impl TypeName for IdChSpectrograms {
     fn type_name() -> &'static str {
         "HashMap"
     }
@@ -52,20 +59,14 @@ impl TypeName for IdChImages {
     }
 }
 
-impl ValidateNapiValue for IdChImages {}
+impl ValidateNapiValue for IdChSpectrograms {}
 
-impl ToNapiValue for IdChImages {
+impl ToNapiValue for IdChSpectrograms {
     unsafe fn to_napi_value(raw_env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
         let env = Env::from(raw_env);
         let mut obj = env.create_object()?;
-        for ((id, ch), (buf, width, height)) in val.0.into_iter() {
-            let buf =
-                unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, buf.len() * 4) };
-            let mut img_info = env.create_object()?;
-            img_info.set("buf", Buffer::from(buf))?;
-            img_info.set("width", width)?;
-            img_info.set("height", height)?;
-            obj.set(format_id_ch(id, ch), img_info)?;
+        for ((id, ch), spectrogram) in val.0.into_iter() {
+            obj.set(format_id_ch(id, ch), spectrogram)?;
         }
 
         unsafe { Object::to_napi_value(raw_env, obj) }
