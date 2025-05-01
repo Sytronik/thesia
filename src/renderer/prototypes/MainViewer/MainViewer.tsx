@@ -101,6 +101,7 @@ function MainViewer(props: MainViewerProps) {
   const prevSelectSecRef = useRef<number>(0);
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
+  const [hzRange, setHzRange] = useState<[number, number]>([0, Infinity]);
 
   const requestRef = useRef<number>(0);
 
@@ -224,7 +225,7 @@ function MainViewer(props: MainViewerProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const spectrograms = useMemo(
     () => BackendAPI.getSpectrograms(),
-    [trackIds, maxTrackHz, needRefreshTrackIdChArr],
+    [trackIds, needRefreshTrackIdChArr, maxTrackHz],
   ); // TODO: deps
 
   const throttledSetSelectSec = useMemo(
@@ -244,13 +245,10 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetHzRange = useMemo(
     () =>
       throttle(1000 / 70, async (minHz: number, maxHz: number) => {
-        const needUpdateImgState = BackendAPI.setHzRange(minHz, maxHz);
-        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
-        if (await needUpdateImgState) {
-          throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
-        }
+        setHzRange([minHz, maxHz]);
+        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz, hzRange});
       }),
-    [throttledSetFreqMarkers, imgHeight, maxTrackHz],
+    [throttledSetFreqMarkers, imgHeight, maxTrackHz, hzRange],
   );
 
   const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
@@ -692,8 +690,8 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz});
-  }, [throttledSetFreqMarkers, imgHeight, maxTrackHz, trackIds, needRefreshTrackIdChArr]);
+    throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz, hzRange});
+  }, [throttledSetFreqMarkers, imgHeight, maxTrackHz, hzRange, trackIds, needRefreshTrackIdChArr]);
 
   useEffect(() => {
     if (!trackIds.length) {
@@ -952,6 +950,8 @@ function MainViewer(props: MainViewerProps) {
                     pxPerSec={pxPerSec}
                     trackSec={BackendAPI.getLengthSec(id)}
                     maxTrackSec={maxTrackSec}
+                    hzRange={hzRange}
+                    maxTrackHz={maxTrackHz}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
@@ -976,6 +976,7 @@ function MainViewer(props: MainViewerProps) {
                     ref={registerFreqCanvas(idChStr)}
                     height={height}
                     maxTrackHz={maxTrackHz}
+                    hzRange={hzRange}
                     setHzRange={throttledSetHzRange}
                     resetHzRange={resetHzRange}
                     enableInteraction={blend > 0}

@@ -10,6 +10,8 @@ layout(location = 1) in  vec2 aTexCoord;
 uniform vec2 uStep;          // (1/srcW,0)  or  (0,1/srcH)
 uniform float uTexOffset;    // Horizontal offset (srcLeft / texWidth)
 uniform float uTexScale;     // Horizontal scale (srcW / texWidth)
+uniform float uTexOffsetY;   // Vertical offset (srcTop / texHeight)
+uniform float uTexScaleY;    // Vertical scale (srcH / texHeight)
 
 out vec2 vTex[9];            // centre ± 4 offsets
 
@@ -17,8 +19,11 @@ void main() {
     gl_Position = aPosition;
 
     // Map input aTexCoord [0,1] horizontally to [uTexOffset, uTexOffset + uTexScale]
-    // and vertically pass through [0, 1]
-    vec2 baseTexCoord = vec2(uTexOffset + aTexCoord.x * uTexScale, aTexCoord.y);
+    // and vertically to [uTexOffsetY, uTexOffsetY + uTexScaleY]
+    vec2 baseTexCoord = vec2(
+        uTexOffset + aTexCoord.x * uTexScale,
+        uTexOffsetY + aTexCoord.y * uTexScaleY
+    );
 
     /* centre sample */
     vTex[4] = baseTexCoord;
@@ -244,6 +249,8 @@ export type WebGLResources = {
     uScale: WebGLUniformLocation | null;
     uTexOffset: WebGLUniformLocation | null;
     uTexScale: WebGLUniformLocation | null;
+    uTexOffsetY: WebGLUniformLocation | null;
+    uTexScaleY: WebGLUniformLocation | null;
   };
   resizePosBuffer: WebGLBuffer | null; // Buffer for vertex/UV data used in resize passes
   cmapVao: WebGLVertexArrayObject | null; // VAO for the colormap pass fullscreen quad

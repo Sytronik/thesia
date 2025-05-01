@@ -55,8 +55,6 @@ export declare function removeTracks(trackIds: Array<number>): void
 export declare function applyTrackListChanges(): Promise<Array<string>>
 export declare function getdBRange(): Promise<number>
 export declare function setdBRange(dBRange: number): Promise<void>
-export declare function getHzRange(maxTrackHz: number): number[]
-export declare function setHzRange(minHz: number, maxHz: number): Promise<boolean>
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): GuardClippingMode
@@ -66,7 +64,6 @@ export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getSpectrograms(): Record<string, Spectrogram>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
-export declare function freqPosToHzOnCurrentRange(y: number, height: number): number
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
 export declare function secondsToLabel(sec: number): string
@@ -74,7 +71,7 @@ export declare function timeLabelToSeconds(label: string): number
 export declare function hzToLabel(hz: number): string
 export declare function freqLabelToHz(label: string): number
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
-export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number, maxTrackHz: number): any
+export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number, hzRange: [number, number], maxTrackHz: number): any
 export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): any
 export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number, minDB: number, maxDB: number): any
 export declare function getMaxdB(): Promise<number>

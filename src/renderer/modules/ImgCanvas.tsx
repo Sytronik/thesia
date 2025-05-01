@@ -11,6 +11,7 @@ import React, {
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
+import {freqHzToPos} from "backend";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI, {Spectrogram} from "../api";
 import {
@@ -33,6 +34,8 @@ type ImgCanvasProps = {
   pxPerSec: number;
   trackSec: number;
   maxTrackSec: number;
+  hzRange: [number, number];
+  maxTrackHz: number;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -42,7 +45,17 @@ const calcTooltipPos = (e: React.MouseEvent) => {
 };
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
-  const {width, height, startSec, pxPerSec, trackSec, maxTrackSec, spectrogram} = props;
+  const {
+    width,
+    height,
+    startSec,
+    pxPerSec,
+    trackSec,
+    maxTrackSec,
+    spectrogram,
+    hzRange,
+    maxTrackHz,
+  } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
@@ -78,7 +91,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // TODO: need better formatting (from backend?)
     const time = Math.min(Math.max(startSec + x / pxPerSec, 0), maxTrackSec);
     const timeStr = time.toFixed(6).slice(0, -3);
-    const hz = await BackendAPI.freqPosToHzOnCurrentRange(y, height);
+    const hz = BackendAPI.freqPosToHz(y, height, hzRange);
     const hzStr = hz.toFixed(0);
     return [`${timeStr} sec`, `${hzStr} Hz`];
   });
@@ -148,6 +161,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         uScale: gl.getUniformLocation(resizeProgram, "uScale"),
         uTexOffset: gl.getUniformLocation(resizeProgram, "uTexOffset"),
         uTexScale: gl.getUniformLocation(resizeProgram, "uTexScale"),
+        uTexOffsetY: gl.getUniformLocation(resizeProgram, "uTexOffsetY"),
+        uTexScaleY: gl.getUniformLocation(resizeProgram, "uTexScaleY"),
       };
       const resizePosBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
@@ -244,7 +259,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         !resources.resizeUniforms.uScale ||
         !resources.resizeUniforms.uStep ||
         !resources.resizeUniforms.uTexOffset ||
-        !resources.resizeUniforms.uTexScale
+        !resources.resizeUniforms.uTexScale ||
+        !resources.resizeUniforms.uTexOffsetY ||
+        !resources.resizeUniforms.uTexScaleY
       ) {
         // Optionally clear canvas if resources aren't ready
         // if(resources?.gl) { resources.gl.clearColor(0, 0, 0, 0); resources.gl.clear(resources.gl.COLOR_BUFFER_BIT); }
@@ -257,7 +274,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         resources;
 
       // Check if img and img.data are valid before proceeding
-      if (!spectrogram || startSec > trackSec) {
+      if (!spectrogram || startSec > trackSec || hzRange[0] >= hzRange[1]) {
         gl.clearColor(0, 0, 0, 0); // Clear to transparent black
         gl.clear(gl.COLOR_BUFFER_BIT);
         return;
@@ -277,13 +294,22 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       dstW = Math.max(0.5, dstW);
 
       // heights
-      const srcH = spectrogram.height;
+      const srcTop =
+        spectrogram.height - freqHzToPos(hzRange[0], spectrogram.height, [0, maxTrackHz]);
+      const srcBottom =
+        spectrogram.height -
+        freqHzToPos(Math.min(hzRange[1], maxTrackHz), spectrogram.height, [0, maxTrackHz]);
+      const srcH = srcBottom - srcTop;
       const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
 
       if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
         console.error("Invalid dimensions for textures:", {srcW, srcH, dstW, dstH});
         return; // Skip rendering
       }
+
+      // Vertical texture coordinates parameters
+      const vTexOffset = srcTop / spectrogram.height; // Offset in normalized coords (0 to 1)
+      const vTexScale = srcH / spectrogram.height; // Scale in normalized coords (0 to 1)
 
       let texSrc: WebGLTexture | null = null;
       let texMid: WebGLTexture | null = null;
@@ -316,12 +342,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         gl.uniform1i(resizeUniforms.uTex, 0);
         gl.activeTexture(gl.TEXTURE0);
 
-        // --- Pass-1 (horizontal resize) ---
+        // --- Pass-1 (horizontal resize + vertical crop setup) ---
         const scaleX = dstW / srcW;
         gl.uniform1f(resizeUniforms.uScale, scaleX);
         gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
-        gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width); // Set crop offset
-        gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width); // Set crop scale
+        // Horizontal crop uniforms
+        gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
+        gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
+        // Vertical crop uniforms (apply the crop defined by srcTop/srcH)
+        gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
+        gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
+
         gl.bindTexture(gl.TEXTURE_2D, texSrc);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
@@ -334,9 +365,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         // --- Pass-2 (vertical resize) ---
         const scaleY = dstH / srcH;
         gl.uniform1f(resizeUniforms.uScale, scaleY);
-        gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step
-        gl.uniform1f(resizeUniforms.uTexOffset, 0.0); // Reset offset for vertical pass
-        gl.uniform1f(resizeUniforms.uTexScale, 1.0); // Reset scale for vertical pass
+        gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step relative to cropped height (srcH)
+        // Reset horizontal crop/scale (input tex coords are 0..1 for intermediate tex)
+        gl.uniform1f(resizeUniforms.uTexOffset, 0.0);
+        gl.uniform1f(resizeUniforms.uTexScale, 1.0);
+        // Reset vertical crop/scale (input tex coords are 0..1 for intermediate tex)
+        gl.uniform1f(resizeUniforms.uTexOffsetY, 0.0);
+        gl.uniform1f(resizeUniforms.uTexScaleY, 1.0);
+
         gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
@@ -391,7 +427,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         if (fbo) gl.deleteFramebuffer(fbo);
       }
     },
-    [spectrogram, trackSec, width, pxPerSec, startSec, devicePixelRatio, height], // Keep dependencies that affect rendering dimensions/data
+    [
+      spectrogram,
+      startSec,
+      trackSec,
+      width,
+      pxPerSec,
+      devicePixelRatio,
+      hzRange,
+      maxTrackHz,
+      height,
+    ], // Keep dependencies that affect rendering dimensions/data
   );
 
   // Use a ref to store the latest draw function
