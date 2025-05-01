@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, getdBRange, setdBRange, getHzRange, setHzRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getSpectrograms, findIdByPath, getOverview, freqPosToHzOnCurrentRange, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, getdBRange, setdBRange, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getSpectrograms, findIdByPath, getOverview, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, getColorMap, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -321,8 +321,6 @@ module.exports.removeTracks = removeTracks
 module.exports.applyTrackListChanges = applyTrackListChanges
 module.exports.getdBRange = getdBRange
 module.exports.setdBRange = setdBRange
-module.exports.getHzRange = getHzRange
-module.exports.setHzRange = setHzRange
 module.exports.getSpecSetting = getSpecSetting
 module.exports.setSpecSetting = setSpecSetting
 module.exports.getCommonGuardClipping = getCommonGuardClipping
@@ -332,7 +330,6 @@ module.exports.setCommonNormalize = setCommonNormalize
 module.exports.getSpectrograms = getSpectrograms
 module.exports.findIdByPath = findIdByPath
 module.exports.getOverview = getOverview
-module.exports.freqPosToHzOnCurrentRange = freqPosToHzOnCurrentRange
 module.exports.freqPosToHz = freqPosToHz
 module.exports.freqHzToPos = freqHzToPos
 module.exports.secondsToLabel = secondsToLabel

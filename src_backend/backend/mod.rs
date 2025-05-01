@@ -44,7 +44,6 @@ pub struct TrackManager {
     pub spec_greys: IdChMap<Array2<f32>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
-    hz_range: (f32, f32),
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
@@ -59,7 +58,6 @@ impl TrackManager {
             spec_greys: IdChMap::with_capacity_and_hasher(2, Default::default()),
             setting: Default::default(),
             dB_range: 100.,
-            hz_range: (0., f32::INFINITY),
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             no_grey_ids: Vec::new(),
@@ -88,11 +86,7 @@ impl TrackManager {
         self.no_grey_ids.extend(reloaded_ids.iter().copied());
     }
 
-    pub fn remove_tracks(
-        &mut self,
-        tracklist: &TrackList,
-        removed_id_ch_tuples: &IdChArr,
-    ) -> Option<(f32, f32)> {
+    pub fn remove_tracks(&mut self, tracklist: &TrackList, removed_id_ch_tuples: &IdChArr) {
         for tup in removed_id_ch_tuples {
             self.specs.remove(tup);
             self.spec_greys.remove(tup);
@@ -108,13 +102,6 @@ impl TrackManager {
             &tracklist.construct_all_sr_win_nfft_set(&self.setting),
             self.setting.freq_scale,
         );
-        if tracklist.is_empty() {
-            let hz_range = (0., f32::INFINITY);
-            self.set_hz_range(tracklist, hz_range);
-            Some(hz_range)
-        } else {
-            None
-        }
     }
 
     pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (IntSet<usize>, u32) {
@@ -146,36 +133,6 @@ impl TrackManager {
     pub fn set_dB_range(&mut self, tracklist: &TrackList, dB_range: f32) {
         self.dB_range = dB_range;
         self.update_greys(tracklist, true);
-    }
-
-    #[inline]
-    fn get_hz_range(&self) -> (f32, f32) {
-        Self::calc_valid_hz_range(&self.hz_range, self.max_sr as f32 / 2.)
-    }
-
-    pub fn calc_valid_hz_range(hz_range: &(f32, f32), max_track_hz: f32) -> (f32, f32) {
-        let max_hz = if hz_range.1.is_finite() {
-            hz_range.1
-        } else {
-            max_track_hz
-        };
-        (hz_range.0, max_hz)
-    }
-
-    /// set self.hz_range.
-    /// If it's different from the existing value, update greys and return true.
-    /// else, return false.
-    pub fn set_hz_range(&mut self, tracklist: &TrackList, hz_range: (f32, f32)) -> bool {
-        let prev_hz_range = self.get_hz_range();
-        self.hz_range = hz_range;
-        let curr_hz_range = self.get_hz_range();
-        if (prev_hz_range.0 - curr_hz_range.0).abs() < 1e-2
-            && (prev_hz_range.1 - curr_hz_range.1).abs() < 1e-2
-        {
-            return false;
-        }
-        self.update_greys(tracklist, true);
-        true
     }
 
     fn update_specs<'a>(
@@ -256,7 +213,7 @@ impl TrackManager {
                 .map(|(&(id, ch), spec)| {
                     let sr = tracklist[id].sr();
                     let i_freq_range = self.setting.freq_scale.hz_range_to_idx(
-                        self.get_hz_range(),
+                        (0., self.max_sr as f32 / 2.),
                         sr,
                         spec.shape()[1],
                     );
