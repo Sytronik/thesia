@@ -224,7 +224,6 @@ void main() {
     fragColor = vec4(c.rgb, 1.0);               // solid alpha
 }`;
 
-/* ---------- 2.  WebGL helpers ---------- */
 function createShader(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
   const s = gl.createShader(type);
   if (!s) throw new Error("Failed to create shader");
@@ -290,20 +289,37 @@ function createCmapTexture(gl: WebGL2RenderingContext) {
   return cmapTex;
 }
 
+type WebGLResources = {
+  gl: WebGL2RenderingContext;
+  resizeProgram: WebGLProgram;
+  colormapProgram: WebGLProgram;
+  resizeUniforms: {
+    uStep: WebGLUniformLocation | null;
+    uTex: WebGLUniformLocation | null;
+    uScale: WebGLUniformLocation | null;
+  };
+  resizePosBuffer: WebGLBuffer | null; // Buffer for vertex/UV data used in resize passes
+  cmapVao: WebGLVertexArrayObject | null; // VAO for the colormap pass fullscreen quad
+  cmapVbo: WebGLBuffer | null; // VBO for the colormap pass fullscreen quad
+};
+
+function cleanupWebGLResources(resources: WebGLResources) {
+  const {gl, resizeProgram, colormapProgram, resizePosBuffer, cmapVao, cmapVbo} = resources;
+  gl.deleteProgram(resizeProgram);
+  gl.deleteProgram(colormapProgram);
+  gl.deleteBuffer(resizePosBuffer);
+  gl.deleteVertexArray(cmapVao);
+  gl.deleteBuffer(cmapVbo);
+}
+
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {width, height, maxTrackSec, imgInfo} = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
   const [img, setImg] = useState<{data: Float32Array; width: number; height: number} | null>(null);
   const canvasElem = useRef<HTMLCanvasElement | null>(null);
-  const glRef = useRef<WebGL2RenderingContext | null>(null);
-  const resizeProgramRef = useRef<WebGLProgram | null>(null);
-  const colormapProgramRef = useRef<WebGLProgram | null>(null);
-  const uniformsRef = useRef<{
-    uStep: WebGLUniformLocation | null;
-    uTex: WebGLUniformLocation | null;
-    uScale: WebGLUniformLocation | null;
-  }>({uStep: null, uTex: null, uScale: null});
+  // Combine WebGL resources into a single ref
+  const webglResourcesRef = useRef<WebGLResources | null>(null);
   const lastTimestampRef = useRef<number>(0);
 
   const loadingElem = useRef<HTMLDivElement>(null);
@@ -376,255 +392,292 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     setImg({data, width: bitmapWidth, height: bitmapHeight});
   }, [imgInfo]);
 
-  const canvasElemCallback = useCallback((elem: HTMLCanvasElement) => {
+  const canvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
+    // Cleanup previous resources if the element changes
+    if (webglResourcesRef.current?.gl && elem !== canvasElem.current) {
+      cleanupWebGLResources(webglResourcesRef.current);
+      webglResourcesRef.current = null;
+    }
+
     canvasElem.current = elem;
     if (!canvasElem.current) {
-      glRef.current = null;
-      resizeProgramRef.current = null;
-      colormapProgramRef.current = null;
-      uniformsRef.current = {uStep: null, uTex: null, uScale: null};
+      webglResourcesRef.current = null;
       return;
     }
+
     const gl = canvasElem.current.getContext("webgl2", {
       antialias: false,
       depth: false,
-      preserveDrawingBuffer: true, // Prevent flickering by preserving the buffer
+      preserveDrawingBuffer: true,
     });
+
     if (!gl) {
-      glRef.current = null;
-      resizeProgramRef.current = null;
-      colormapProgramRef.current = null;
-      uniformsRef.current = {uStep: null, uTex: null, uScale: null};
+      console.error("Failed to get WebGL2 context.");
+      webglResourcesRef.current = null;
       return;
     }
+
     // Check for float buffer support
     const ext = gl.getExtension("EXT_color_buffer_float");
     if (!ext) {
       console.warn(
         "WebGL extension 'EXT_color_buffer_float' not supported. Rendering to float textures might fail.",
       );
-      // Depending on requirements, you might want to fall back or throw an error here.
     }
 
-    glRef.current = gl;
-    const prog = createProgram(gl, VERT_SRC, FRAG_SRC);
-    gl.useProgram(prog);
+    try {
+      // --- Create Resize Program and related resources ---
+      const resizeProgram = createProgram(gl, VERT_SRC, FRAG_SRC);
+      const resizeUniforms = {
+        uStep: gl.getUniformLocation(resizeProgram, "uStep"),
+        uTex: gl.getUniformLocation(resizeProgram, "uTex"),
+        uScale: gl.getUniformLocation(resizeProgram, "uScale"),
+      };
+      const resizePosBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
+      // Data for a quad covering the viewport, including texture coordinates
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+          // Pos (-1 to 1)  // UV (0 to 1)
+          -1, -1, 0, 0, // bottom-left
+          1, -1, 1, 0, // bottom-right
+          -1, 1, 0, 1, // top-left
+          -1, 1, 0, 1, // top-left
+          1, -1, 1, 0, // bottom-right
+          1, 1, 1, 1, // top-right
+        ]), // prettier-ignore
+        gl.STATIC_DRAW,
+      );
+      const aPosResizeLoc = gl.getAttribLocation(resizeProgram, "aPosition");
+      const aUVResizeLoc = gl.getAttribLocation(resizeProgram, "aTexCoord");
 
-    /* 3.2  full-screen quad */
-    const posBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([
-        -1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, -1, 1, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1,
-      ]),
-      gl.STATIC_DRAW,
-    );
+      // --- Create Colormap Program and related resources ---
+      const colormapProgram = createProgram(gl, VERT_SRC_CMAP, FRAG_SRC_CMAP);
+      const cmapVao = gl.createVertexArray();
+      gl.bindVertexArray(cmapVao);
+      const cmapVbo = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, cmapVbo);
+      // Data for a fullscreen quad (using TRIANGLE_STRIP)
+      const cmapQuadVertices = new Float32Array([
+        // positions // texCoords
+        -1.0, 1.0, 0.0, 1.0, // top-left
+        -1.0, -1.0, 0.0, 0.0, // bottom-left
+        1.0, 1.0, 1.0, 1.0, // top-right
+        1.0, -1.0, 1.0, 0.0, // bottom-right
+      ]); // prettier-ignore
+      gl.bufferData(gl.ARRAY_BUFFER, cmapQuadVertices, gl.STATIC_DRAW);
+      const aPosCmapLoc = gl.getAttribLocation(colormapProgram, "aPos");
+      const aUVCmapLoc = gl.getAttribLocation(colormapProgram, "aUV");
+      gl.enableVertexAttribArray(aPosCmapLoc);
+      gl.vertexAttribPointer(aPosCmapLoc, 2, gl.FLOAT, false, 16, 0); // 2 floats position, 4*4=16 bytes stride, 0 offset
+      gl.enableVertexAttribArray(aUVCmapLoc);
+      gl.vertexAttribPointer(aUVCmapLoc, 2, gl.FLOAT, false, 16, 8); // 2 floats UV, 16 bytes stride, 8 bytes offset
+      gl.bindVertexArray(null); // Unbind VAO
+      gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind VBO
 
-    const aPos = gl.getAttribLocation(prog, "aPosition");
-    const aUV = gl.getAttribLocation(prog, "aTexCoord");
-    gl.enableVertexAttribArray(aPos);
-    gl.enableVertexAttribArray(aUV);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
-    gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+      // Store all successfully created resources
+      webglResourcesRef.current = {
+        gl,
+        resizeProgram,
+        colormapProgram,
+        resizeUniforms,
+        resizePosBuffer,
+        cmapVao,
+        cmapVbo,
+      };
 
-    // Store program and uniform locations
-    resizeProgramRef.current = prog;
-    colormapProgramRef.current = createProgram(gl, VERT_SRC_CMAP, FRAG_SRC_CMAP);
-    uniformsRef.current = {
-      uStep: gl.getUniformLocation(prog, "uStep"),
-      uTex: gl.getUniformLocation(prog, "uTex"),
-      uScale: gl.getUniformLocation(prog, "uScale"),
-    };
-  }, []);
+      // Setup vertex attributes for the resize program (can be done once)
+      gl.bindBuffer(gl.ARRAY_BUFFER, webglResourcesRef.current.resizePosBuffer);
+      gl.enableVertexAttribArray(aPosResizeLoc);
+      gl.enableVertexAttribArray(aUVResizeLoc);
+      // Stride is 16 bytes (4 floats: PosX, PosY, UVx, UVy), Pos is offset 0, UV is offset 8
+      gl.vertexAttribPointer(aPosResizeLoc, 2, gl.FLOAT, false, 16, 0);
+      gl.vertexAttribPointer(aUVResizeLoc, 2, gl.FLOAT, false, 16, 8);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind buffer
+    } catch (error) {
+      console.error("Error initializing WebGL resources:", error);
+      // Clean up partially created resources if necessary
+      if (gl) {
+        // Attempt to delete any resources that might have been created before the error
+        const currentRes = webglResourcesRef.current;
+        if (currentRes) {
+          gl.deleteProgram(currentRes.resizeProgram);
+          gl.deleteProgram(currentRes.colormapProgram);
+          gl.deleteBuffer(currentRes.resizePosBuffer);
+          gl.deleteVertexArray(currentRes.cmapVao);
+          gl.deleteBuffer(currentRes.cmapVbo);
+        } else {
+          // If webglResourcesRef wasn't set yet, try deleting based on local vars
+          // This requires careful handling as some vars might be undefined if error occurred early
+          // Example: if (resizeProgram) gl.deleteProgram(resizeProgram); etc.
+        }
+      }
+      webglResourcesRef.current = null;
+    }
+  }, []); // Empty dependency array: This setup runs once per canvas element instance.
 
   const draw = useCallback(
     (timestamp: number) => {
       if (timestamp === lastTimestampRef.current) return;
       lastTimestampRef.current = timestamp;
-      // Ensure uTex uniform location is available
+
+      const resources = webglResourcesRef.current;
+      // Ensure WebGL resources are ready
       if (
         !canvasElem.current ||
-        !glRef.current ||
-        !resizeProgramRef.current ||
-        !colormapProgramRef.current ||
-        !uniformsRef.current.uTex ||
-        !uniformsRef.current.uScale
-      )
+        !resources ||
+        !resources.resizeUniforms.uTex || // Check essential uniforms too
+        !resources.resizeUniforms.uScale ||
+        !resources.resizeUniforms.uStep
+      ) {
+        // Optionally clear canvas if resources aren't ready
+        // if(resources?.gl) { resources.gl.clearColor(0, 0, 0, 0); resources.gl.clear(resources.gl.COLOR_BUFFER_BIT); }
         return;
+      }
+
       if (loadingElem.current) loadingElem.current.style.display = "none";
+
+      const {gl, resizeProgram, colormapProgram, resizeUniforms, resizePosBuffer, cmapVao} =
+        resources;
 
       // Check if img and img.data are valid before proceeding
       if (!img || !img.data || img.data.length === 0) {
-        glRef.current.clearColor(0, 0, 0, 0); // Clear to transparent black
-        glRef.current.clear(glRef.current.COLOR_BUFFER_BIT);
+        gl.clearColor(0, 0, 0, 0); // Clear to transparent black
+        gl.clear(gl.COLOR_BUFFER_BIT);
         return;
       }
 
-      // Use stored program
-      glRef.current.useProgram(resizeProgramRef.current);
-
-      /* Two Pass Draw: texSrc (RGBA8) -> texMid (RGBA8) -> Canvas */
       const srcW = img.width;
       const srcH = img.height;
-      const dstW = width * devicePixelRatio;
-      const dstH = height * devicePixelRatio;
+      const dstW = Math.max(1, Math.floor(width * devicePixelRatio)); // Ensure positive dims
+      const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
 
-      if (dstW <= 0 || srcH <= 0) {
-        console.error("Invalid dimensions for intermediate texture texMid:", dstW, srcH);
-        // Potentially skip rendering or handle error
-        return;
+      if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
+        console.error("Invalid dimensions for textures:", {srcW, srcH, dstW, dstH});
+        return; // Skip rendering
       }
 
-      // Upload source R32F texture (since img.data is Float32Array)
-      const texSrc = createTexture(glRef.current, srcW, srcH, img.data, glRef.current.R32F);
+      let texSrc: WebGLTexture | null = null;
+      let texMid: WebGLTexture | null = null;
+      let texResized: WebGLTexture | null = null;
+      let fbMid: WebGLFramebuffer | null = null;
+      let fbo: WebGLFramebuffer | null = null;
+      let cmapTex: WebGLTexture | null = null;
 
-      // Create intermediate R32F texture for horizontal pass result
-      const texMid = createTexture(glRef.current, dstW, srcH, null, glRef.current.R32F);
-      const fbMid = glRef.current.createFramebuffer();
+      try {
+        // Use Resize Program
+        gl.useProgram(resizeProgram);
 
-      // Create final R32F texture for fully resized result
-      const texResized = createTexture(glRef.current, dstW, dstH, null, glRef.current.R32F);
-      const fbo = glRef.current.createFramebuffer();
+        // Bind the shared position/UV buffer for resize passes
+        gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
+        // Attribute pointers are already set in canvasElemCallback, assuming VAO is not used here or rebound correctly
+        // If you were using a VAO for these attributes, you'd bind it here.
 
-      // Set texture unit 0 for the sampler
-      glRef.current.uniform1i(uniformsRef.current.uTex, 0);
+        // Upload source R32F texture
+        texSrc = createTexture(gl, srcW, srcH, img.data, gl.R32F);
 
-      // Pass-1 (horizontal)
-      const scaleX = dstW > 0 ? dstW / srcW : 1.0;
-      glRef.current.uniform1f(uniformsRef.current.uScale, scaleX);
-      glRef.current.activeTexture(glRef.current.TEXTURE0);
-      glRef.current.bindTexture(glRef.current.TEXTURE_2D, texSrc);
-      glRef.current.bindFramebuffer(glRef.current.FRAMEBUFFER, fbMid);
-      glRef.current.framebufferTexture2D(
-        glRef.current.FRAMEBUFFER,
-        glRef.current.COLOR_ATTACHMENT0,
-        glRef.current.TEXTURE_2D,
-        texMid, // Render to texMid (R32F)
-        0,
-      );
-      glRef.current.viewport(0, 0, dstW, srcH); // Viewport for intermediate texture
-      glRef.current.uniform2f(uniformsRef.current.uStep, 1 / srcW, 0); // Horizontal step
-      glRef.current.drawArrays(glRef.current.TRIANGLES, 0, 6);
+        // Create intermediate R32F texture for horizontal pass result
+        texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
+        fbMid = gl.createFramebuffer();
 
-      // *** Check fbMid completeness ***
-      const statusMid = glRef.current.checkFramebufferStatus(glRef.current.FRAMEBUFFER);
-      if (statusMid !== glRef.current.FRAMEBUFFER_COMPLETE) {
-        console.error(`Framebuffer 'fbMid' incomplete: ${statusMid}`);
-        // Cleanup and return early or handle error appropriately
-        glRef.current.deleteTexture(texSrc);
-        glRef.current.deleteTexture(texMid);
-        glRef.current.deleteTexture(texResized);
-        glRef.current.deleteFramebuffer(fbMid);
-        glRef.current.deleteFramebuffer(fbo);
-        return;
+        // Create final R32F texture for fully resized result
+        texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
+        fbo = gl.createFramebuffer();
+
+        // Set texture unit 0 for the sampler
+        gl.uniform1i(resizeUniforms.uTex, 0);
+        gl.activeTexture(gl.TEXTURE0);
+
+        // --- Pass-1 (horizontal resize) ---
+        const scaleX = dstW / srcW;
+        gl.uniform1f(resizeUniforms.uScale, scaleX);
+        gl.uniform2f(resizeUniforms.uStep, 1 / srcW, 0); // Horizontal step
+        gl.bindTexture(gl.TEXTURE_2D, texSrc);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+          throw new Error("Framebuffer 'fbMid' incomplete");
+        }
+        gl.viewport(0, 0, dstW, srcH); // Viewport for intermediate texture
+        gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
+
+        // --- Pass-2 (vertical resize) ---
+        const scaleY = dstH / srcH;
+        gl.uniform1f(resizeUniforms.uScale, scaleY);
+        gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step
+        gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+          throw new Error("Framebuffer 'fbo' incomplete");
+        }
+        gl.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
+        gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
+
+        // --- Pass-3 Colormap Application ---
+        gl.useProgram(colormapProgram);
+        gl.bindVertexArray(cmapVao); // Bind the VAO for the fullscreen quad
+
+        cmapTex = createCmapTexture(gl);
+
+        // Setup textures for colormap pass
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texResized); // Use the final resized R32F texture
+        gl.uniform1i(gl.getUniformLocation(colormapProgram, "uLum"), 0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, cmapTex);
+        gl.uniform1i(gl.getUniformLocation(colormapProgram, "uColorMap"), 1);
+
+        // Render to canvas
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
+        // Attributes are already set up via cmapVao
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
+
+        // Check for WebGL errors after drawing
+        const error = gl.getError();
+        if (error !== gl.NO_ERROR) {
+          console.error("WebGL Error after draw:", error);
+        }
+      } catch (error) {
+        console.error("Error during WebGL draw:", error);
+      } finally {
+        // --- Cleanup textures and framebuffers created in this draw call ---
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindVertexArray(null); // Unbind VAO
+        gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind any buffers
+
+        if (texSrc) gl.deleteTexture(texSrc);
+        if (texMid) gl.deleteTexture(texMid);
+        if (texResized) gl.deleteTexture(texResized);
+        if (cmapTex) gl.deleteTexture(cmapTex);
+        if (fbMid) gl.deleteFramebuffer(fbMid);
+        if (fbo) gl.deleteFramebuffer(fbo);
       }
-
-      glRef.current.activeTexture(glRef.current.TEXTURE0);
-      // Pass-2 (vertical)
-      const scaleY = dstH > 0 ? dstH / srcH : 1.0;
-      glRef.current.uniform1f(uniformsRef.current.uScale, scaleY);
-      glRef.current.bindTexture(glRef.current.TEXTURE_2D, texMid); // Read from texMid (R32F)
-      glRef.current.bindFramebuffer(glRef.current.FRAMEBUFFER, fbo); // Render to fbo
-      glRef.current.framebufferTexture2D(
-        glRef.current.FRAMEBUFFER,
-        glRef.current.COLOR_ATTACHMENT0,
-        glRef.current.TEXTURE_2D,
-        texResized, // Render to texResized (R32F)
-        0,
-      );
-      glRef.current.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
-      glRef.current.uniform2f(uniformsRef.current.uStep, 0, 1 / srcH); // Vertical step
-      glRef.current.drawArrays(glRef.current.TRIANGLES, 0, 6); // Draw fullscreen quad
-
-      // *** Check fbo completeness ***
-      const statusFbo = glRef.current.checkFramebufferStatus(glRef.current.FRAMEBUFFER);
-      if (statusFbo !== glRef.current.FRAMEBUFFER_COMPLETE) {
-        console.error(`Framebuffer 'fbo' incomplete: ${statusFbo}`);
-        // Cleanup and return early or handle error appropriately
-        glRef.current.deleteTexture(texSrc);
-        glRef.current.deleteTexture(texMid);
-        glRef.current.deleteTexture(texResized);
-        glRef.current.deleteFramebuffer(fbMid);
-        glRef.current.deleteFramebuffer(fbo);
-        return;
-      }
-
-      glRef.current.activeTexture(glRef.current.TEXTURE0);
-      // Pass-3 Colormap Application
-      glRef.current.useProgram(colormapProgramRef.current);
-
-      // Setup VAO for fullscreen quad
-      const quadVertices = new Float32Array([
-        // positions // texCoords
-        -1.0, 1.0, 0.0, 1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 0.0,
-      ]);
-      const vao = glRef.current.createVertexArray();
-      glRef.current.bindVertexArray(vao);
-      const vbo = glRef.current.createBuffer();
-      glRef.current.bindBuffer(glRef.current.ARRAY_BUFFER, vbo);
-      glRef.current.bufferData(glRef.current.ARRAY_BUFFER, quadVertices, glRef.current.STATIC_DRAW);
-      const aPosCmapLoc = glRef.current.getAttribLocation(colormapProgramRef.current, "aPos");
-      const aUVCmapLoc = glRef.current.getAttribLocation(colormapProgramRef.current, "aUV");
-      glRef.current.enableVertexAttribArray(aPosCmapLoc);
-      glRef.current.vertexAttribPointer(aPosCmapLoc, 2, glRef.current.FLOAT, false, 16, 0);
-      glRef.current.enableVertexAttribArray(aUVCmapLoc);
-      glRef.current.vertexAttribPointer(aUVCmapLoc, 2, glRef.current.FLOAT, false, 16, 8);
-      glRef.current.bindVertexArray(null); // Unbind VAO after setup
-
-      const cmapTex = createCmapTexture(glRef.current);
-
-      // Setup textures for colormap pass
-      glRef.current.activeTexture(glRef.current.TEXTURE0);
-      glRef.current.bindTexture(glRef.current.TEXTURE_2D, texResized); // Use the final resized R32F texture
-      glRef.current.uniform1i(
-        glRef.current.getUniformLocation(colormapProgramRef.current, "uLum"),
-        0,
-      );
-
-      glRef.current.activeTexture(glRef.current.TEXTURE1);
-      glRef.current.bindTexture(glRef.current.TEXTURE_2D, cmapTex);
-      glRef.current.uniform1i(
-        glRef.current.getUniformLocation(colormapProgramRef.current, "uColorMap"),
-        1,
-      );
-
-      // Render to canvas
-      glRef.current.bindFramebuffer(glRef.current.FRAMEBUFFER, null);
-      glRef.current.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas size
-      glRef.current.bindVertexArray(vao);
-      glRef.current.drawArrays(glRef.current.TRIANGLE_STRIP, 0, 4); // Use TRIANGLE_STRIP for quad
-
-      // Check for WebGL errors after drawing
-      const error = glRef.current.getError();
-      if (error !== glRef.current.NO_ERROR) {
-        console.error("WebGL Error after draw:", error);
-      }
-
-      // Clean up textures and FBO
-      glRef.current.deleteTexture(texSrc);
-      glRef.current.deleteTexture(texMid);
-      glRef.current.deleteTexture(texResized); // Delete texResized as well
-      glRef.current.deleteTexture(cmapTex); // Delete cmapTex
-      glRef.current.deleteFramebuffer(fbMid);
-      glRef.current.deleteFramebuffer(fbo);
-      glRef.current.deleteVertexArray(vao); // Delete VAO
-      glRef.current.deleteBuffer(vbo); // Delete VBO
     },
-    [width, height, img, devicePixelRatio],
+    [width, height, img, devicePixelRatio], // Keep dependencies that affect rendering dimensions/data
   );
 
   useEffect(() => {
     requestAnimationFrame(draw);
   }, [draw]);
 
+  // Cleanup WebGL resources on unmount or when canvas element changes
+  useEffect(() => {
+    return () => {
+      const resources = webglResourcesRef.current;
+      if (resources?.gl) {
+        cleanupWebGLResources(resources);
+      }
+      webglResourcesRef.current = null; // Clear the ref
+    };
+  }, []);
+
   return (
-    <div
-      className={styles.imgCanvasWrapper}
-      /* this is needed for consistent layout
-         because changing width of canvas elem can occur in different time (in draw function) */
-      style={{width, height}}
-    >
+    <div className={styles.imgCanvasWrapper} style={{width, height}}>
       {initTooltipInfo !== null ? (
         <span
           key="img-canvas-tooltip"
@@ -648,8 +701,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}
-        width={width * devicePixelRatio}
-        height={height * devicePixelRatio}
+        width={Math.max(1, Math.floor(width * devicePixelRatio))}
+        height={Math.max(1, Math.floor(height * devicePixelRatio))}
       />
     </div>
   );
