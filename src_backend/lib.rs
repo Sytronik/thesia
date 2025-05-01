@@ -6,13 +6,10 @@ extern crate blas_src;
 
 use std::sync::LazyLock;
 
-use image::ColorType;
-use image::codecs::bmp::BmpEncoder;
 use log::LevelFilter;
 use napi::bindgen_prelude::*;
-use napi::tokio::{join, sync::RwLock as AsyncRwLock};
+use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
-use ndarray::{Axis, Slice};
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
 use simple_logger::SimpleLogger;
@@ -20,14 +17,11 @@ use simple_logger::SimpleLogger;
 #[warn(dead_code)]
 mod backend;
 #[warn(dead_code)]
-mod img_mgr;
-#[warn(dead_code)]
 mod interface;
 #[warn(dead_code)]
 mod player;
 
 use backend::*;
-use img_mgr::ImgMsg;
 use interface::*;
 use player::{PlayerCommand, PlayerNotification};
 
@@ -111,7 +105,6 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
     *HZ_RANGE.write() = (0., f32::INFINITY);
     *SPEC_SETTING.write() = user_settings.spec_setting.clone();
 
-    img_mgr::spawn_task();
     player::spawn_task();
     Ok(user_settings)
 }
@@ -157,7 +150,6 @@ fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let removed_id_ch_tuples = TRACK_LIST.blocking_write().remove_tracks(&track_ids);
-    spawn(remove_all_imgs());
     spawn_blocking(move || {
         let hz_range = TM
             .blocking_write()
@@ -183,50 +175,8 @@ async fn apply_track_list_changes() -> Vec<String> {
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
         .collect();
-    join!(
-        img_mgr::send(ImgMsg::Remove(id_ch_tuples)),
-        player::send(PlayerCommand::SetSr(sr))
-    );
+    player::send(PlayerCommand::SetSr(sr)).await;
     id_ch_strs
-}
-
-#[napi]
-async fn set_image_state(
-    id_ch_strs: Vec<String>,
-    start_sec: f64,
-    width: u32,
-    height: u32,
-    px_per_sec: f64,
-    opt_for_wav: serde_json::Value,
-    blend: f64,
-) -> Result<()> {
-    // let start = Instant::now();
-    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav)?;
-    assert!(!id_ch_strs.is_empty());
-    assert!(width >= 1);
-    assert!(px_per_sec.is_finite());
-    assert!(px_per_sec >= 0.);
-    assert!(height >= 1);
-    assert!(opt_for_wav.amp_range.0 <= opt_for_wav.amp_range.1);
-    assert!((0.0..=1.0).contains(&blend));
-
-    let id_ch_tuples = {
-        let tm = TM.read().await;
-        parse_id_ch_tuples(id_ch_strs)?
-            .into_iter()
-            .filter(|id_ch| tm.exists(id_ch))
-            .collect()
-    };
-    let params = DrawParams {
-        start_sec,
-        width,
-        height,
-        px_per_sec,
-        opt_for_wav,
-        blend,
-    };
-    img_mgr::send(ImgMsg::Draw((id_ch_tuples, params))).await;
-    Ok(())
 }
 
 #[napi(js_name = "getdBRange")]
@@ -245,7 +195,6 @@ async fn set_dB_range(dB_range: f64) {
     })
     .await
     .unwrap();
-    remove_all_imgs().await;
 }
 
 #[napi]
@@ -267,9 +216,6 @@ async fn set_hz_range(min_hz: f64, max_hz: f64) -> bool {
     })
     .await
     .unwrap();
-    if need_update {
-        remove_all_imgs().await;
-    }
     need_update
 }
 
@@ -290,7 +236,6 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     })
     .await
     .unwrap();
-    remove_all_imgs().await;
 }
 
 #[napi]
@@ -309,7 +254,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
     })
     .await
     .unwrap();
-    join!(remove_all_imgs(), refresh_track_player());
+    refresh_track_player().await;
 }
 
 #[napi]
@@ -332,7 +277,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     })
     .await
     .unwrap();
-    join!(remove_all_imgs(), refresh_track_player());
+    refresh_track_player().await;
     Ok(())
 }
 
@@ -346,10 +291,7 @@ fn get_images() -> IdChImages {
                 (
                     id_ch.to_owned(),
                     (
-                        spec.slice_axis(Axis(0), Slice::from(..).step_by(-1))
-                            .iter()
-                            .map(|x| x.0 as f32 / u16::MAX as f32)
-                            .collect(),
+                        spec.iter().cloned().collect(),
                         spec.shape()[1] as u32,
                         spec.shape()[0] as u32,
                     ),
@@ -677,11 +619,6 @@ pub fn assert_axis_params(max_num_ticks: u32, max_num_labels: u32) {
     assert!(max_num_ticks >= 2);
     assert!(max_num_labels >= 2);
     assert!(max_num_ticks >= max_num_labels);
-}
-
-#[inline]
-async fn remove_all_imgs() {
-    img_mgr::send(ImgMsg::Remove(TRACK_LIST.read().await.id_ch_tuples())).await;
 }
 
 #[inline]
