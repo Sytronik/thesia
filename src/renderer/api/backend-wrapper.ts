@@ -89,17 +89,27 @@ export function getdBAxisMarkers(
 
 // IdChannel is form of id#_ch#
 export type IdChannel = string;
-export type SpecWavImages = {
-  [key: IdChannel]: {
-    buf: Buffer;
-    width: number;
-    height: number;
-  };
+export type Spectrogram = {
+  arr: Float32Array;
+  width: number;
+  height: number;
+};
+export type Spectrograms = {
+  [key: IdChannel]: Spectrogram;
 };
 
 /* images */
-export function getImages(): SpecWavImages {
-  return backend.getImages();
+export function getImages(): Spectrograms {
+  return Object.fromEntries(
+    Object.entries(backend.getImages()).map(([key, value]) => [
+      key,
+      {
+        arr: new Float32Array(value.buf.buffer),
+        width: value.width,
+        height: value.height,
+      },
+    ]),
+  );
 }
 
 // written in snake case for compatibility with native api
