@@ -95,30 +95,110 @@ const FRAG_SRC = `#version 300 es
 precision highp float;
 
 uniform sampler2D uTex;
+uniform vec2 uStep;  // (1/srcW, 0) or (0, 1/srcH) for the current pass
+uniform float uScale; // dstSize / srcSize for the current pass
 
-in  vec2 vTex[9];
+in  vec2 vTex[9]; // vTex[4] is the center coord in source texture space
 out float fragColor;
 
-// Lanczos-3 weights (normalised)
-const float w[5] = float[5](0.38026, 0.27667, 0.08074, -0.02612, -0.02143);
+const float PI = 3.141592653589793;
+const float a = 3.0; // Lanczos kernel radius
+
+// sinc(x) = sin(pi*x) / (pi*x)
+float sinc(float x) {
+    if (x == 0.0) {
+        return 1.0;
+    }
+    // Note: HLSL's sinc function is sin(x)/x, but GLSL doesn't have one.
+    // We need sin(pi*x)/(pi*x).
+    float pix = PI * x;
+    return sin(pix) / pix;
+}
+
+// Lanczos kernel (a=3)
+float lanczos3(float x) {
+    if (x == 0.0) {
+        return 1.0;
+    }
+    if (x <= -a || x >= a) {
+        return 0.0;
+    }
+    return sinc(x) * sinc(x / a);
+}
 
 void main() {
-    /* centre tap */
-    // Sample the R channel (luminance) from the R32F source
-    float centerLum = texture(uTex, vTex[4]).r;
-    float c = centerLum * w[0];
+    vec2 centerCoord = vTex[4];
+    float srcCoord; // Coordinate in source pixel space for the relevant dimension
+    float step;     // Pixel step size for the relevant dimension
 
-    // symmetric wing taps
-    for (int i = 1; i <= 4; ++i) {
-        // Sample the R channel (luminance) from the R32F source
-        float lum_minus = texture(uTex, vTex[4 - i]).r;
-        float lum_plus  = texture(uTex, vTex[4 + i]).r;
-        c += (lum_minus + lum_plus) * w[i];
+    // Determine dimension based on uStep (non-zero component indicates direction)
+    bool isHorizontal = (uStep.y == 0.0);
+    if (isHorizontal) {
+        // Avoid division by zero if uStep.x is somehow zero
+        if (uStep.x == 0.0) { fragColor = texture(uTex, centerCoord).r; return; }
+        srcCoord = centerCoord.x / uStep.x;
+        step = uStep.x;
+    } else {
+        // Avoid division by zero if uStep.y is somehow zero
+        if (uStep.y == 0.0) { fragColor = texture(uTex, centerCoord).r; return; }
+        srcCoord = centerCoord.y / uStep.y;
+        step = uStep.y;
     }
 
-    // Output high-precision luminance to R channel, others zero, alpha 1.0
-    // We are rendering to an R32F texture here.
-    fragColor = c;
+    float scale = uScale;
+    // Handle potential division by zero or negative scale
+    if (scale <= 0.0) { fragColor = texture(uTex, centerCoord).r; return; }
+
+    float effective_radius = a / min(scale, 1.0);
+
+    float weightSum = 0.0;
+    float valueSum = 0.0;
+
+    // Calculate integer bounds for the loop
+    int start = int(floor(srcCoord - effective_radius));
+    int end = int(ceil(srcCoord + effective_radius));
+
+    // Clamp loop iterations for safety, although dynamic loops are fine in GLSL 300 es
+    // This depends on the maximum expected downscaling factor.
+    // int max_taps = 64; // Example limit
+    // start = max(start, int(srcCoord) - max_taps/2);
+    // end = min(end, int(srcCoord) + max_taps/2);
+
+    for (int j = start; j <= end; ++j) {
+        float pos = (float(j) + 0.5); // Center of source pixel j
+        float dist = srcCoord - pos;  // Distance from dst center to src center (in source pixels)
+
+        // Argument for the lanczos function depends on upscaling vs downscaling
+        float x_lanczos = dist * min(scale, 1.0);
+
+        float weight = lanczos3(x_lanczos);
+
+        if (weight != 0.0) {
+            vec2 sampleCoord;
+            if (isHorizontal) {
+                sampleCoord = vec2(pos * step, centerCoord.y);
+            } else {
+                sampleCoord = vec2(centerCoord.x, pos * step);
+            }
+
+            // Sample the R channel (luminance) from the R32F source
+            float value = texture(uTex, sampleCoord).r;
+
+            valueSum += value * weight;
+            weightSum += weight;
+        }
+    }
+
+    // Normalize the result
+    if (weightSum == 0.0 || abs(weightSum) < 1e-6) {
+         // Fallback: Sample center pixel directly if weights sum to (near) zero
+         fragColor = texture(uTex, centerCoord).r;
+    } else {
+         fragColor = valueSum / weightSum;
+    }
+
+    // Optional: Clamp output if needed, though R32F supports out-of-range values.
+    // fragColor = clamp(fragColor, 0.0, 1.0);
 }`;
 
 const VERT_SRC_CMAP = `#version 300 es
@@ -222,7 +302,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const uniformsRef = useRef<{
     uStep: WebGLUniformLocation | null;
     uTex: WebGLUniformLocation | null;
-  }>({uStep: null, uTex: null});
+    uScale: WebGLUniformLocation | null;
+  }>({uStep: null, uTex: null, uScale: null});
   const lastTimestampRef = useRef<number>(0);
 
   const loadingElem = useRef<HTMLDivElement>(null);
@@ -301,7 +382,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       glRef.current = null;
       resizeProgramRef.current = null;
       colormapProgramRef.current = null;
-      uniformsRef.current = {uStep: null, uTex: null};
+      uniformsRef.current = {uStep: null, uTex: null, uScale: null};
       return;
     }
     const gl = canvasElem.current.getContext("webgl2", {
@@ -313,7 +394,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       glRef.current = null;
       resizeProgramRef.current = null;
       colormapProgramRef.current = null;
-      uniformsRef.current = {uStep: null, uTex: null};
+      uniformsRef.current = {uStep: null, uTex: null, uScale: null};
       return;
     }
     // Check for float buffer support
@@ -353,6 +434,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     uniformsRef.current = {
       uStep: gl.getUniformLocation(prog, "uStep"),
       uTex: gl.getUniformLocation(prog, "uTex"),
+      uScale: gl.getUniformLocation(prog, "uScale"),
     };
   }, []);
 
@@ -366,7 +448,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         !glRef.current ||
         !resizeProgramRef.current ||
         !colormapProgramRef.current ||
-        !uniformsRef.current.uTex
+        !uniformsRef.current.uTex ||
+        !uniformsRef.current.uScale
       )
         return;
       if (loadingElem.current) loadingElem.current.style.display = "none";
@@ -408,6 +491,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       glRef.current.uniform1i(uniformsRef.current.uTex, 0);
 
       // Pass-1 (horizontal)
+      const scaleX = dstW > 0 ? dstW / srcW : 1.0;
+      glRef.current.uniform1f(uniformsRef.current.uScale, scaleX);
       glRef.current.activeTexture(glRef.current.TEXTURE0);
       glRef.current.bindTexture(glRef.current.TEXTURE_2D, texSrc);
       glRef.current.bindFramebuffer(glRef.current.FRAMEBUFFER, fbMid);
@@ -437,6 +522,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
       glRef.current.activeTexture(glRef.current.TEXTURE0);
       // Pass-2 (vertical)
+      const scaleY = dstH > 0 ? dstH / srcH : 1.0;
+      glRef.current.uniform1f(uniformsRef.current.uScale, scaleY);
       glRef.current.bindTexture(glRef.current.TEXTURE_2D, texMid); // Read from texMid (R32F)
       glRef.current.bindFramebuffer(glRef.current.FRAMEBUFFER, fbo); // Render to fbo
       glRef.current.framebufferTexture2D(
