@@ -293,22 +293,31 @@ fn get_wav_image(
     px_per_sec: f64,
     width: u32,
     height: u32,
-    opt_for_wav: serde_json::Value,
+    amp_range: (f64, f64),
+    dpr: f64,
 ) -> WavImage {
     let (id, ch) = parse_id_ch_str(&id_ch_str).unwrap();
-    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav).unwrap();
+    let px_per_sec = px_per_sec * dpr;
+    let width = (width as f64 * dpr).round() as u32;
+    let height = (height as f64 * dpr).round() as u32;
+    let opt_for_wav = DrawOptionForWav {
+        amp_range: (amp_range.0 as f32, amp_range.1 as f32),
+        dpr: dpr as f32,
+    };
+
     let tracklist = TRACK_LIST.blocking_read();
     let track = tracklist.get(id).unwrap();
     let (pad_left, drawing_width, pad_right) =
         track.decompose_width_of(start_sec, width, px_per_sec);
-    let mut arr = Array3::zeros((height as usize, drawing_width as usize, 4));
     let (wav, show_clipping) = track.channel_for_drawing(ch);
     let wav_part = ArrWithSliceInfo::new(
         wav,
         track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
     );
+
+    let mut canvas = Array3::zeros((height as usize, drawing_width as usize, 4));
     draw_wav_to(
-        arr.as_slice_mut().unwrap(),
+        canvas.as_slice_mut().unwrap(),
         wav_part,
         drawing_width,
         height,
@@ -316,15 +325,16 @@ fn get_wav_image(
         show_clipping,
         true,
     );
-    let arr = arr.pad(
+    let arr = canvas.pad(
         (pad_left as usize, pad_right as usize),
         Axis(1),
         PadMode::Constant(0),
     );
+
     WavImage {
-        arr: arr.as_slice_memory_order().unwrap().into(),
-        width: width as u32,
-        height: height as u32,
+        buf: arr.as_slice_memory_order().unwrap().into(),
+        width,
+        height,
     }
 }
 
@@ -338,22 +348,27 @@ async fn find_id_by_path(path: String) -> i32 {
 }
 
 #[napi]
-async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Buffer {
+async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> WavImage {
     assert!(width >= 1 && height >= 1);
+    let width = (width as f64 * dpr).round() as u32;
+    let height = (height as f64 * dpr).round() as u32;
 
-    spawn_blocking(move || {
-        TM.blocking_read()
-            .draw_overview(
-                &TRACK_LIST.blocking_read(),
-                track_id as usize,
-                width,
-                height,
-                dpr as f32,
-            )
-            .into()
+    let arr = spawn_blocking(move || {
+        TM.blocking_read().draw_overview(
+            &TRACK_LIST.blocking_read(),
+            track_id as usize,
+            width,
+            height,
+            dpr as f32,
+        )
     })
     .await
-    .unwrap()
+    .unwrap();
+    WavImage {
+        buf: arr.into(),
+        width,
+        height,
+    }
 }
 
 #[napi]

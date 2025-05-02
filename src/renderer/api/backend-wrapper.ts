@@ -94,12 +94,6 @@ export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
 
-// written in snake case for compatibility with native api
-export type DrawOptionForWav = {
-  amp_range: [number, number];
-  dpr: number;
-};
-
 /* images */
 export function getSpectrograms(): Spectrograms {
   return backend.getSpectrograms();
@@ -111,9 +105,10 @@ export function getWavImage(
   pxPerSec: number,
   width: number,
   height: number,
-  drawOptionForWav: DrawOptionForWav,
+  ampRange: [number, number],
+  dpr: number,
 ): WavImage {
-  return backend.getWavImage(idChannel, startSec, pxPerSec, width, height, drawOptionForWav);
+  return backend.getWavImage(idChannel, startSec, pxPerSec, width, height, ampRange, dpr);
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;

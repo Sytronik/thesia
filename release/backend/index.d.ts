@@ -49,7 +49,7 @@ export interface Spectrogram {
   height: number
 }
 export interface WavImage {
-  arr: Buffer
+  buf: Buffer
   width: number
   height: number
 }
@@ -68,9 +68,9 @@ export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getSpectrograms(): Record<string, Spectrogram>
-export declare function getWavImage(idChStr: string, startSec: number, pxPerSec: number, width: number, height: number, optForWav: any): WavImage
+export declare function getWavImage(idChStr: string, startSec: number, pxPerSec: number, width: number, height: number, ampRange: [number, number], dpr: number): WavImage
 export declare function findIdByPath(path: string): Promise<number>
-export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Buffer>
+export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<WavImage>
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
 export declare function secondsToLabel(sec: number): string
