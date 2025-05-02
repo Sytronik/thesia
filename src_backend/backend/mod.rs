@@ -19,10 +19,11 @@ pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::{TupleIntDMap, TupleIntSet};
+pub use utils::{Pad, PadMode};
 pub use visualize::{
-    TrackDrawer, calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers,
-    calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label,
-    convert_time_label_to_sec,
+    ArrWithSliceInfo, CalcWidth, DrawOptionForWav, TrackDrawer, calc_amp_axis_markers,
+    calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz,
+    convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec, draw_wav_to,
 };
 
 pub type IdCh = (usize, usize);

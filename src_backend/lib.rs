@@ -11,6 +11,7 @@ use log::LevelFilter;
 use napi::bindgen_prelude::*;
 use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
+use ndarray::{Array3, Axis};
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
 use simple_logger::SimpleLogger;
@@ -283,6 +284,48 @@ fn get_spectrograms() -> IdChSpectrograms {
             })
             .collect(),
     )
+}
+
+#[napi]
+fn get_wav_image(
+    id_ch_str: String,
+    start_sec: f64,
+    px_per_sec: f64,
+    width: u32,
+    height: u32,
+    opt_for_wav: serde_json::Value,
+) -> WavImage {
+    let (id, ch) = parse_id_ch_str(&id_ch_str).unwrap();
+    let opt_for_wav: DrawOptionForWav = serde_json::from_value(opt_for_wav).unwrap();
+    let tracklist = TRACK_LIST.blocking_read();
+    let track = tracklist.get(id).unwrap();
+    let (pad_left, drawing_width, pad_right) =
+        track.decompose_width_of(start_sec, width, px_per_sec);
+    let mut arr = Array3::zeros((height as usize, drawing_width as usize, 4));
+    let (wav, show_clipping) = track.channel_for_drawing(ch);
+    let wav_part = ArrWithSliceInfo::new(
+        wav,
+        track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
+    );
+    draw_wav_to(
+        arr.as_slice_mut().unwrap(),
+        wav_part,
+        drawing_width,
+        height,
+        &opt_for_wav,
+        show_clipping,
+        true,
+    );
+    let arr = arr.pad(
+        (pad_left as usize, pad_right as usize),
+        Axis(1),
+        PadMode::Constant(0),
+    );
+    WavImage {
+        arr: arr.as_slice_memory_order().unwrap().into(),
+        width: width as u32,
+        height: height as u32,
+    }
 }
 
 #[napi]

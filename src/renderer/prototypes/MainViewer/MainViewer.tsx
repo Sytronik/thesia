@@ -102,6 +102,7 @@ function MainViewer(props: MainViewerProps) {
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
   const [hzRange, setHzRange] = useState<[number, number]>([0, Infinity]);
+  const [ampRange, setAmpRange] = useState<[number, number]>([...DEFAULT_AMP_RANGE]);
 
   const requestRef = useRef<number>(0);
 
@@ -111,8 +112,6 @@ function MainViewer(props: MainViewerProps) {
   const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
-
-  const ampRangeRef = useRef<[number, number]>([...DEFAULT_AMP_RANGE]);
 
   const overviewElem = useRef<OverviewHandleElement>(null);
   const splitViewElem = useRef<SplitViewHandleElement>(null);
@@ -225,7 +224,7 @@ function MainViewer(props: MainViewerProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const spectrograms = useMemo(
     () => BackendAPI.getSpectrograms(),
-    [trackIds, needRefreshTrackIdChArr, maxTrackHz],
+    [trackIds, needRefreshTrackIdChArr],
   ); // TODO: deps
 
   const throttledSetSelectSec = useMemo(
@@ -236,11 +235,6 @@ function MainViewer(props: MainViewerProps) {
       }),
     [player],
   );
-
-  const setAmpRange = useEvent((newRange: [number, number]) => {
-    ampRangeRef.current = newRange;
-    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-  });
 
   const throttledSetHzRange = useMemo(
     () =>
@@ -684,8 +678,8 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (!trackIds.length) return;
 
-    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange: ampRangeRef.current});
-  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr]);
+    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange});
+  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr, ampRange]);
 
   useEffect(() => {
     if (!trackIds.length) return;
@@ -952,6 +946,9 @@ function MainViewer(props: MainViewerProps) {
                     maxTrackSec={maxTrackSec}
                     hzRange={hzRange}
                     maxTrackHz={maxTrackHz}
+                    idChStr={idChStr}
+                    ampRange={ampRange}
+                    blend={blend}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
@@ -966,7 +963,7 @@ function MainViewer(props: MainViewerProps) {
                     id={id}
                     ref={registerAmpCanvas(idChStr)}
                     height={height}
-                    ampRangeRef={ampRangeRef}
+                    ampRange={ampRange}
                     setAmpRange={setAmpRange}
                     resetAmpRange={resetAmpRange}
                     enableInteraction={blend < 1}

@@ -1,4 +1,4 @@
-import React, {RefObject, forwardRef, useEffect, useMemo, useState} from "react";
+import React, {forwardRef, useEffect, useMemo, useState} from "react";
 import AxisCanvas, {getAxisHeight} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
@@ -18,7 +18,7 @@ import {
 type AmpAxisProps = {
   id: number;
   height: number;
-  ampRangeRef: RefObject<[number, number]>;
+  ampRange: [number, number];
   setAmpRange: (newRange: [number, number]) => void;
   resetAmpRange: () => void;
   enableInteraction: boolean;
@@ -49,7 +49,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
-  const {id, height, ampRangeRef, setAmpRange, resetAmpRange, enableInteraction} = props;
+  const {id, height, ampRange, setAmpRange, resetAmpRange, enableInteraction} = props;
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
   const calcLimitedCursorRatio = (
@@ -58,7 +58,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     rect: DOMRect,
   ) => {
     const cursorRatio = cursorPos / getAxisHeight(rect);
-    const [_interval, zeroRatio] = calcIntervalZeroRatio(ampRangeRef.current ?? DEFAULT_AMP_RANGE);
+    const [_interval, zeroRatio] = calcIntervalZeroRatio(ampRange);
     if (cursorState === "positive") {
       return Math.min(cursorRatio, zeroRatio - MIN_DIST_FROM_0_FOR_DRAG);
     }
@@ -69,7 +69,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
     (cursorState: AmpAxisCursorState, cursorPos: number, rect: DOMRect) => {
       return {
         cursorRatio: calcLimitedCursorRatio(cursorState, cursorPos, rect),
-        ampRange: (ampRangeRef.current ?? DEFAULT_AMP_RANGE).slice(),
+        ampRange: ampRange.slice(),
       } as AmpAxisDragAnchor;
     },
   );
@@ -95,7 +95,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
       e.preventDefault();
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
-      const [interval, zeroRatio] = calcIntervalZeroRatio(ampRangeRef.current ?? DEFAULT_AMP_RANGE);
+      const [interval, zeroRatio] = calcIntervalZeroRatio(ampRange);
       const newInterval = interval * Math.max(1 - e.deltaY / 500, 0);
       setAmpRange(clampAmpRange([newInterval * (zeroRatio - 1), newInterval * zeroRatio]));
     }
@@ -165,7 +165,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
   const axisCanvas = (
     <>
       <FloatingUserInput
-        value={ampRangeRef.current?.[1].toFixed(1) ?? "0.0"}
+        value={ampRange[1].toFixed(1)}
         onEndEditing={onEndEditingFloatingInput}
         hidden={floatingInputHidden}
         className={styles.ampFloatingInput}
