@@ -5,6 +5,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
 }
 
 .loading {
@@ -32,6 +33,9 @@
 .ImgCanvas {
   flex: 1 1 auto;
   cursor: crosshair;
+  width: 100%;
+  height: 100%;
+  position: absolute;
 }
 
 .tooltip {

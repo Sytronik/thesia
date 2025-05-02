@@ -11,6 +11,7 @@ pub use axis::{
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
 };
 pub use colorize::get_colormap_rgb;
-pub use drawing::{TrackDrawer, blend_img_to, convert_spec_to_grey, make_opaque};
-pub use img_slice::{CalcWidth, IdxLen, LeftWidth, PartGreyInfo, calc_effective_slice};
-pub use params::{DrawOptionForWav, DrawParams, ImageKind};
+pub use drawing::{TrackDrawer, convert_spec_to_grey};
+pub use drawing_wav::draw_wav_to;
+pub use img_slice::{ArrWithSliceInfo, CalcWidth, IdxLen, PartGreyInfo};
+pub use params::DrawOptionForWav;

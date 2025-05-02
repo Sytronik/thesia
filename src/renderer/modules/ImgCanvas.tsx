@@ -36,6 +36,9 @@ type ImgCanvasProps = {
   maxTrackSec: number;
   hzRange: [number, number];
   maxTrackHz: number;
+  idChStr: string;
+  ampRange: [number, number];
+  blend: number;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -55,10 +58,27 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     spectrogram,
     hzRange,
     maxTrackHz,
+    idChStr,
+    ampRange,
+    blend,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const wavImage = useMemo(
+    () =>
+      BackendAPI.getWavImage(
+        idChStr,
+        startSec,
+        pxPerSec * devicePixelRatio,
+        width * devicePixelRatio,
+        height * devicePixelRatio,
+        {amp_range: ampRange, dpr: devicePixelRatio},
+      ),
+    [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec],
+  );
 
-  const canvasElem = useRef<HTMLCanvasElement | null>(null);
+  const wavCanvasElem = useRef<HTMLCanvasElement | null>(null);
+  const wavCtxRef = useRef<ImageBitmapRenderingContext | null>(null);
+  const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   // Combine WebGL resources into a single ref
   const webglResourcesRef = useRef<WebGLResources | null>(null);
   const lastTimestampRef = useRef<number>(0);
@@ -72,7 +92,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
 
   const getBoundingClientRect = useEvent(() => {
-    return canvasElem.current?.getBoundingClientRect() ?? new DOMRect();
+    return specCanvasElem.current?.getBoundingClientRect() ?? new DOMRect();
   });
 
   const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({
@@ -82,10 +102,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
   const getTooltipLines = useEvent(async (e: React.MouseEvent) => {
-    if (!canvasElem.current) return ["sec", "Hz"];
-    const x = e.clientX - canvasElem.current.getBoundingClientRect().left;
+    if (!wavCanvasElem.current) return ["sec", "Hz"];
+    const x = e.clientX - wavCanvasElem.current.getBoundingClientRect().left;
     const y = Math.min(
-      Math.max(e.clientY - canvasElem.current.getBoundingClientRect().top, 0),
+      Math.max(e.clientY - wavCanvasElem.current.getBoundingClientRect().top, 0),
       height,
     );
     // TODO: need better formatting (from backend?)
@@ -118,20 +138,37 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     if (loadingElem.current) loadingElem.current.style.display = "none";
   }, [spectrogram]);
 
-  const canvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
+  const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
+    wavCanvasElem.current = elem;
+
+    if (!wavCanvasElem.current) {
+      wavCtxRef.current = null;
+      return;
+    }
+
+    wavCtxRef.current = wavCanvasElem.current.getContext("bitmaprenderer", {alpha: true});
+
+    if (!wavCtxRef.current) {
+      console.error("Failed to get bitmaprenderer context.");
+      wavCtxRef.current = null;
+    }
+  }, []);
+
+  const specCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
     // Cleanup previous resources if the element changes
-    if (webglResourcesRef.current?.gl && elem !== canvasElem.current) {
+    if (webglResourcesRef.current?.gl && elem !== specCanvasElem.current) {
       cleanupWebGLResources(webglResourcesRef.current);
       webglResourcesRef.current = null;
     }
 
-    canvasElem.current = elem;
-    if (!canvasElem.current) {
+    specCanvasElem.current = elem;
+    if (!specCanvasElem.current) {
       webglResourcesRef.current = null;
       return;
     }
 
-    const gl = canvasElem.current.getContext("webgl2", {
+    const gl = specCanvasElem.current.getContext("webgl2", {
+      alpha: true,
       antialias: false,
       depth: false,
       preserveDrawingBuffer: true,
@@ -185,6 +222,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
       // --- Create Colormap Program and related resources ---
       const colormapProgram = createProgram(gl, VS_COLORMAP, FS_COLORMAP);
+      const colormapUniforms = {
+        uLum: gl.getUniformLocation(colormapProgram, "uLum"),
+        uColorMap: gl.getUniformLocation(colormapProgram, "uColorMap"),
+        uOverlayAlpha: gl.getUniformLocation(colormapProgram, "uOverlayAlpha"),
+      };
       const cmapVao = gl.createVertexArray();
       gl.bindVertexArray(cmapVao);
       const cmapVbo = gl.createBuffer();
@@ -213,6 +255,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         resizeProgram,
         colormapProgram,
         resizeUniforms,
+        colormapUniforms,
         resizePosBuffer,
         cmapVao,
         cmapVbo,
@@ -248,197 +291,249 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }
   }, []); // Empty dependency array: This setup runs once per canvas element instance.
 
-  const draw = useCallback(
-    () => {
-      const resources = webglResourcesRef.current;
-      // Ensure WebGL resources are ready
-      if (
-        !canvasElem.current ||
-        !resources ||
-        !resources.resizeUniforms.uTex ||
-        !resources.resizeUniforms.uScale ||
-        !resources.resizeUniforms.uStep ||
-        !resources.resizeUniforms.uTexOffset ||
-        !resources.resizeUniforms.uTexScale ||
-        !resources.resizeUniforms.uTexOffsetY ||
-        !resources.resizeUniforms.uTexScaleY
-      ) {
-        // Optionally clear canvas if resources aren't ready
-        // if(resources?.gl) { resources.gl.clearColor(0, 0, 0, 0); resources.gl.clear(resources.gl.COLOR_BUFFER_BIT); }
-        return;
+  const drawSpectrogram = useCallback(() => {
+    const resources = webglResourcesRef.current;
+    // Ensure WebGL resources are ready
+    if (
+      !specCanvasElem.current ||
+      !resources ||
+      !resources.colormapUniforms?.uLum ||
+      !resources.colormapUniforms?.uColorMap ||
+      !resources.colormapUniforms?.uOverlayAlpha
+    ) {
+      // Optionally clear canvas if resources aren't ready
+      // if(resources?.gl) { resources.gl.clearColor(0, 0, 0, 0); resources.gl.clear(resources.gl.COLOR_BUFFER_BIT); }
+      return;
+    }
+
+    if (loadingElem.current) loadingElem.current.style.display = "none";
+
+    const {
+      gl,
+      resizeProgram,
+      colormapProgram,
+      resizeUniforms,
+      colormapUniforms,
+      resizePosBuffer,
+      cmapVao,
+    } = resources;
+
+    // Check if img and img.data are valid before proceeding
+    if (!spectrogram || startSec > trackSec || hzRange[0] >= hzRange[1]) {
+      gl.clearColor(0, 0, 0, 0); // Clear to transparent black
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      return;
+    }
+
+    // widths
+    const srcPxPerSec = spectrogram.width / trackSec;
+    const dstLengthSec = width / pxPerSec;
+    const srcLeft = startSec * srcPxPerSec;
+    let srcW = dstLengthSec * srcPxPerSec;
+    let dstW = width * devicePixelRatio;
+    if (startSec + dstLengthSec > trackSec) {
+      srcW = spectrogram.width - srcLeft;
+      dstW = (trackSec - startSec) * pxPerSec * devicePixelRatio;
+    }
+    srcW = Math.max(0.5, srcW);
+    dstW = Math.max(0.5, dstW);
+
+    // heights
+    const srcTop =
+      spectrogram.height - freqHzToPos(hzRange[0], spectrogram.height, [0, maxTrackHz]);
+    const srcBottom =
+      spectrogram.height -
+      freqHzToPos(Math.min(hzRange[1], maxTrackHz), spectrogram.height, [0, maxTrackHz]);
+    const srcH = srcBottom - srcTop;
+    const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
+
+    if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
+      console.error("Invalid dimensions for textures:", {srcW, srcH, dstW, dstH});
+      return; // Skip rendering
+    }
+
+    if (blend <= 0) {
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); // Set viewport to full canvas
+      gl.clearColor(0, 0, 0, 0); // Clear full canvas to transparent
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      if (dstW > 0 && dstH > 0) {
+        gl.enable(gl.SCISSOR_TEST); // Enable scissor test
+        // Scissor box origin (0,0) is bottom-left corner
+        gl.scissor(0, 0, dstW, dstH);
+        gl.clearColor(0, 0, 0, 1); // Set clear color to opaque black
+        gl.clear(gl.COLOR_BUFFER_BIT); // Clear only the scissor box
+        gl.disable(gl.SCISSOR_TEST); // Disable scissor test
       }
+      return; // Skip the rest of the rendering pipeline
+    }
 
-      if (loadingElem.current) loadingElem.current.style.display = "none";
+    // Vertical texture coordinates parameters
+    const vTexOffset = srcTop / spectrogram.height; // Offset in normalized coords (0 to 1)
+    const vTexScale = srcH / spectrogram.height; // Scale in normalized coords (0 to 1)
 
-      const {gl, resizeProgram, colormapProgram, resizeUniforms, resizePosBuffer, cmapVao} =
-        resources;
+    let texSrc: WebGLTexture | null = null;
+    let texMid: WebGLTexture | null = null;
+    let texResized: WebGLTexture | null = null;
+    let fbMid: WebGLFramebuffer | null = null;
+    let fbo: WebGLFramebuffer | null = null;
+    let cmapTex: WebGLTexture | null = null;
 
-      // Check if img and img.data are valid before proceeding
-      if (!spectrogram || startSec > trackSec || hzRange[0] >= hzRange[1]) {
-        gl.clearColor(0, 0, 0, 0); // Clear to transparent black
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        return;
+    try {
+      // Use Resize Program
+      gl.useProgram(resizeProgram);
+
+      // Bind the shared position/UV buffer for resize passes
+      gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
+      // Attribute pointers are already set in canvasElemCallback, assuming VAO is not used here or rebound correctly
+      // If you were using a VAO for these attributes, you'd bind it here.
+
+      // Upload source R32F texture
+      texSrc = createTexture(gl, spectrogram.width, spectrogram.height, spectrogram.arr, gl.R32F);
+
+      // Create intermediate R32F texture for horizontal pass result
+      texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
+      fbMid = gl.createFramebuffer();
+
+      // Create final R32F texture for fully resized result
+      texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
+      fbo = gl.createFramebuffer();
+
+      // Set texture unit 0 for the sampler
+      gl.uniform1i(resizeUniforms.uTex, 0);
+      gl.activeTexture(gl.TEXTURE0);
+
+      // --- Pass-1 (horizontal resize + vertical crop setup) ---
+      const scaleX = dstW / srcW;
+      gl.uniform1f(resizeUniforms.uScale, scaleX);
+      gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
+      // Horizontal crop uniforms
+      gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
+      gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
+      // Vertical crop uniforms (apply the crop defined by srcTop/srcH)
+      gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
+      gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
+
+      gl.bindTexture(gl.TEXTURE_2D, texSrc);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        throw new Error("Framebuffer 'fbMid' incomplete");
       }
+      gl.viewport(0, 0, dstW, srcH); // Viewport for intermediate texture
+      gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
 
-      // widths
-      const srcPxPerSec = spectrogram.width / trackSec;
-      const dstLengthSec = width / pxPerSec;
-      const srcLeft = startSec * srcPxPerSec;
-      let srcW = dstLengthSec * srcPxPerSec;
-      let dstW = width * devicePixelRatio;
-      if (startSec + dstLengthSec > trackSec) {
-        srcW = spectrogram.width - srcLeft;
-        dstW = (trackSec - startSec) * pxPerSec * devicePixelRatio;
+      // --- Pass-2 (vertical resize) ---
+      const scaleY = dstH / srcH;
+      gl.uniform1f(resizeUniforms.uScale, scaleY);
+      gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step relative to cropped height (srcH)
+      // Reset horizontal crop/scale (input tex coords are 0..1 for intermediate tex)
+      gl.uniform1f(resizeUniforms.uTexOffset, 0.0);
+      gl.uniform1f(resizeUniforms.uTexScale, 1.0);
+      // Reset vertical crop/scale (input tex coords are 0..1 for intermediate tex)
+      gl.uniform1f(resizeUniforms.uTexOffsetY, 0.0);
+      gl.uniform1f(resizeUniforms.uTexScaleY, 1.0);
+
+      gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        throw new Error("Framebuffer 'fbo' incomplete");
       }
-      srcW = Math.max(0.5, srcW);
-      dstW = Math.max(0.5, dstW);
+      gl.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
+      gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
 
-      // heights
-      const srcTop =
-        spectrogram.height - freqHzToPos(hzRange[0], spectrogram.height, [0, maxTrackHz]);
-      const srcBottom =
-        spectrogram.height -
-        freqHzToPos(Math.min(hzRange[1], maxTrackHz), spectrogram.height, [0, maxTrackHz]);
-      const srcH = srcBottom - srcTop;
-      const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
+      // --- Pass-3 Colormap Application ---
+      gl.useProgram(colormapProgram);
+      gl.bindVertexArray(cmapVao); // Bind the VAO for the fullscreen quad
 
-      if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
-        console.error("Invalid dimensions for textures:", {srcW, srcH, dstW, dstH});
-        return; // Skip rendering
+      cmapTex = createCmapTexture(gl);
+
+      // Calculate overlay alpha based on blend value
+      const overlayAlpha = blend < 0.5 ? Math.max(0.0, 1.0 - 2.0 * blend) : 0.0;
+
+      // Setup textures for colormap pass
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texResized); // Use the final resized R32F texture
+      gl.uniform1i(colormapUniforms.uLum, 0);
+
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, cmapTex);
+      gl.uniform1i(colormapUniforms.uColorMap, 1);
+
+      // Set the overlay alpha uniform
+      gl.uniform1f(colormapUniforms.uOverlayAlpha, overlayAlpha);
+
+      // Render to canvas
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      // Attributes are already set up via cmapVao
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
+
+      // Check for WebGL errors after drawing
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) {
+        console.error("WebGL Error after draw:", error);
       }
+    } catch (error) {
+      console.error("Error during WebGL draw:", error);
+    } finally {
+      // --- Cleanup textures and framebuffers created in this draw call ---
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.bindVertexArray(null); // Unbind VAO
+      gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind any buffers
 
-      // Vertical texture coordinates parameters
-      const vTexOffset = srcTop / spectrogram.height; // Offset in normalized coords (0 to 1)
-      const vTexScale = srcH / spectrogram.height; // Scale in normalized coords (0 to 1)
+      if (texSrc) gl.deleteTexture(texSrc);
+      if (texMid) gl.deleteTexture(texMid);
+      if (texResized) gl.deleteTexture(texResized);
+      if (cmapTex) gl.deleteTexture(cmapTex);
+      if (fbMid) gl.deleteFramebuffer(fbMid);
+      if (fbo) gl.deleteFramebuffer(fbo);
+    }
+  }, [
+    spectrogram,
+    startSec,
+    trackSec,
+    width,
+    pxPerSec,
+    devicePixelRatio,
+    hzRange,
+    maxTrackHz,
+    height,
+    blend,
+  ]);
 
-      let texSrc: WebGLTexture | null = null;
-      let texMid: WebGLTexture | null = null;
-      let texResized: WebGLTexture | null = null;
-      let fbMid: WebGLFramebuffer | null = null;
-      let fbo: WebGLFramebuffer | null = null;
-      let cmapTex: WebGLTexture | null = null;
+  const drawWav = useCallback(() => {
+    if (!wavCanvasElem.current || !wavCtxRef.current) return;
+    const ctx = wavCtxRef.current;
+    const imdata = new Uint8ClampedArray(wavImage.arr);
+    if (blend < 0.5) {
+      wavCanvasElem.current.style.opacity = "1";
+    } else {
+      wavCanvasElem.current.style.opacity = `${Math.min(2 - 2 * blend, 1)}`;
+    }
+    const img = new ImageData(imdata, wavImage.width, wavImage.height);
+    createImageBitmap(img)
+      .then((bitmap) => {
+        ctx.transferFromImageBitmap(bitmap);
+      })
+      .catch((err) => {
+        console.error("Failed to transfer image bitmap:", err);
+      });
+  }, [blend, wavImage]);
 
-      try {
-        // Use Resize Program
-        gl.useProgram(resizeProgram);
-
-        // Bind the shared position/UV buffer for resize passes
-        gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
-        // Attribute pointers are already set in canvasElemCallback, assuming VAO is not used here or rebound correctly
-        // If you were using a VAO for these attributes, you'd bind it here.
-
-        // Upload source R32F texture
-        texSrc = createTexture(gl, spectrogram.width, spectrogram.height, spectrogram.arr, gl.R32F);
-
-        // Create intermediate R32F texture for horizontal pass result
-        texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
-        fbMid = gl.createFramebuffer();
-
-        // Create final R32F texture for fully resized result
-        texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
-        fbo = gl.createFramebuffer();
-
-        // Set texture unit 0 for the sampler
-        gl.uniform1i(resizeUniforms.uTex, 0);
-        gl.activeTexture(gl.TEXTURE0);
-
-        // --- Pass-1 (horizontal resize + vertical crop setup) ---
-        const scaleX = dstW / srcW;
-        gl.uniform1f(resizeUniforms.uScale, scaleX);
-        gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
-        // Horizontal crop uniforms
-        gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
-        gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
-        // Vertical crop uniforms (apply the crop defined by srcTop/srcH)
-        gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
-        gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
-
-        gl.bindTexture(gl.TEXTURE_2D, texSrc);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-          throw new Error("Framebuffer 'fbMid' incomplete");
-        }
-        gl.viewport(0, 0, dstW, srcH); // Viewport for intermediate texture
-        gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
-
-        // --- Pass-2 (vertical resize) ---
-        const scaleY = dstH / srcH;
-        gl.uniform1f(resizeUniforms.uScale, scaleY);
-        gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step relative to cropped height (srcH)
-        // Reset horizontal crop/scale (input tex coords are 0..1 for intermediate tex)
-        gl.uniform1f(resizeUniforms.uTexOffset, 0.0);
-        gl.uniform1f(resizeUniforms.uTexScale, 1.0);
-        // Reset vertical crop/scale (input tex coords are 0..1 for intermediate tex)
-        gl.uniform1f(resizeUniforms.uTexOffsetY, 0.0);
-        gl.uniform1f(resizeUniforms.uTexScaleY, 1.0);
-
-        gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-          throw new Error("Framebuffer 'fbo' incomplete");
-        }
-        gl.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
-        gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
-
-        // --- Pass-3 Colormap Application ---
-        gl.useProgram(colormapProgram);
-        gl.bindVertexArray(cmapVao); // Bind the VAO for the fullscreen quad
-
-        cmapTex = createCmapTexture(gl);
-
-        // Setup textures for colormap pass
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texResized); // Use the final resized R32F texture
-        gl.uniform1i(gl.getUniformLocation(colormapProgram, "uLum"), 0);
-
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, cmapTex);
-        gl.uniform1i(gl.getUniformLocation(colormapProgram, "uColorMap"), 1);
-
-        // Render to canvas
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        // Attributes are already set up via cmapVao
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
-
-        // Check for WebGL errors after drawing
-        const error = gl.getError();
-        if (error !== gl.NO_ERROR) {
-          console.error("WebGL Error after draw:", error);
-        }
-      } catch (error) {
-        console.error("Error during WebGL draw:", error);
-      } finally {
-        // --- Cleanup textures and framebuffers created in this draw call ---
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.bindVertexArray(null); // Unbind VAO
-        gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind any buffers
-
-        if (texSrc) gl.deleteTexture(texSrc);
-        if (texMid) gl.deleteTexture(texMid);
-        if (texResized) gl.deleteTexture(texResized);
-        if (cmapTex) gl.deleteTexture(cmapTex);
-        if (fbMid) gl.deleteFramebuffer(fbMid);
-        if (fbo) gl.deleteFramebuffer(fbo);
-      }
-    },
-    [
-      spectrogram,
-      startSec,
-      trackSec,
-      width,
-      pxPerSec,
-      devicePixelRatio,
-      hzRange,
-      maxTrackHz,
-      height,
-    ], // Keep dependencies that affect rendering dimensions/data
-  );
+  const draw = useCallback(() => {
+    drawSpectrogram();
+    if (blend < 1 && spectrogram) {
+      drawWav();
+    } else {
+      // clear WavCanvas
+      wavCtxRef.current?.transferFromImageBitmap(null);
+    }
+  }, [drawSpectrogram, drawWav, blend, spectrogram]);
 
   // Use a ref to store the latest draw function
   const drawRef = useRef(draw);
@@ -486,15 +581,24 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       ) : null}
       <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
       <canvas
+        key="wav"
         className={styles.ImgCanvas}
-        ref={canvasElemCallback}
-        style={{width: "100%", height: "100%"}}
+        ref={wavCanvasElemCallback}
+        style={{zIndex: 1}}
         onMouseEnter={async (e) => {
           if (e.buttons !== 0) return;
           setInitTooltipInfo({pos: calcTooltipPos(e), lines: await getTooltipLines(e)});
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}
+        width={Math.max(1, Math.floor(width * devicePixelRatio))}
+        height={Math.max(1, Math.floor(height * devicePixelRatio))}
+      />
+      <canvas
+        key="spec"
+        className={styles.ImgCanvas}
+        ref={specCanvasElemCallback}
+        style={{zIndex: 0}}
         width={Math.max(1, Math.floor(width * devicePixelRatio))}
         height={Math.max(1, Math.floor(height * devicePixelRatio))}
       />

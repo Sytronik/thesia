@@ -1,4 +1,4 @@
-import backend, {Spectrogram} from "backend";
+import backend, {Spectrogram, WavImage} from "backend";
 
 export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
@@ -94,16 +94,27 @@ export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
 
-/* images */
-export function getSpectrograms(): Spectrograms {
-  return backend.getSpectrograms();
-}
-
 // written in snake case for compatibility with native api
 export type DrawOptionForWav = {
   amp_range: [number, number];
   dpr: number;
 };
+
+/* images */
+export function getSpectrograms(): Spectrograms {
+  return backend.getSpectrograms();
+}
+
+export function getWavImage(
+  idChannel: IdChannel,
+  startSec: number,
+  pxPerSec: number,
+  width: number,
+  height: number,
+  drawOptionForWav: DrawOptionForWav,
+): WavImage {
+  return backend.getWavImage(idChannel, startSec, pxPerSec, width, height, drawOptionForWav);
+}
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
 export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];

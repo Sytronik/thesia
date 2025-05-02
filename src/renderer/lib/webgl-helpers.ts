@@ -161,13 +161,16 @@ precision highp float;
 
 uniform sampler2D uLum;      // R32F
 uniform sampler2D uColorMap; // 256×1 RGBA8
+uniform float uOverlayAlpha; // 0.0 (no overlay) to 1.0 (full black)
 in  vec2 vUV;
 out vec4 fragColor;
 
 void main() {
     float l  = texture(uLum, vUV).r;           // 0-to-1 luminance
-    vec4  c  = texture(uColorMap, vec2(l, .5)); // lookup
-    fragColor = vec4(c.rgb, 1.0);               // solid alpha
+    vec4  c  = texture(uColorMap, vec2(l, .5)); // lookup color
+    // Mix with black based on uOverlayAlpha
+    vec3 finalRgb = mix(c.rgb, vec3(0.0), uOverlayAlpha);
+    fragColor = vec4(finalRgb, 1.0);           // solid alpha
 }`;
 
 function createShader(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
@@ -251,6 +254,11 @@ export type WebGLResources = {
     uTexScale: WebGLUniformLocation | null;
     uTexOffsetY: WebGLUniformLocation | null;
     uTexScaleY: WebGLUniformLocation | null;
+  };
+  colormapUniforms: {
+    uLum: WebGLUniformLocation | null;
+    uColorMap: WebGLUniformLocation | null;
+    uOverlayAlpha: WebGLUniformLocation | null;
   };
   resizePosBuffer: WebGLBuffer | null; // Buffer for vertex/UV data used in resize passes
   cmapVao: WebGLVertexArrayObject | null; // VAO for the colormap pass fullscreen quad
