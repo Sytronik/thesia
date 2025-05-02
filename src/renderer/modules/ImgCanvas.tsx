@@ -11,7 +11,7 @@ import React, {
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import {freqHzToPos} from "backend";
+import {freqHzToPos, WavImage} from "backend";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI, {Spectrogram} from "../api";
 import {
@@ -63,19 +63,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     blend,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
-  const wavImage = useMemo(
-    () =>
-      BackendAPI.getWavImage(
-        idChStr,
-        startSec,
-        pxPerSec,
-        width,
-        height,
-        ampRange,
-        devicePixelRatio,
-      ),
-    [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec],
-  );
+  const wavImageRef = useRef<WavImage | null>(null);
 
   const wavCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const wavCtxRef = useRef<ImageBitmapRenderingContext | null>(null);
@@ -474,11 +462,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   ]);
 
   const drawWav = useCallback(() => {
-    if (!wavCanvasElem.current || !wavCtxRef.current) return;
+    if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
     const ctx = wavCtxRef.current;
-    const imdata = new Uint8ClampedArray(wavImage.buf);
+    const imdata = new Uint8ClampedArray(wavImageRef.current.buf);
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
-    const img = new ImageData(imdata, wavImage.width, wavImage.height);
+    const img = new ImageData(imdata, wavImageRef.current.width, wavImageRef.current.height);
     createImageBitmap(img)
       .then((bitmap) => {
         ctx.transferFromImageBitmap(bitmap);
@@ -486,7 +474,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       .catch((err) => {
         console.error("Failed to transfer image bitmap:", err);
       });
-  }, [blend, wavImage]);
+  }, [blend]);
 
   // Draw spectrogram
   // Use a ref to store the latest draw function
@@ -510,15 +498,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // Draw wav
   const drawWavRef = useRef(drawWav);
   const lastWavTimestampRef = useRef<number>(-1);
-  useEffect(() => {
-    if (blend >= 1 || !spectrogram) {
-      wavCtxRef.current?.transferFromImageBitmap(null);
-      return () => {};
-    }
+  const drawWavOnNextFrame = useEvent((force: boolean = false) => {
     drawWavRef.current = drawWav;
     // Request a redraw only when the draw function or its dependencies change
     const animationFrameId = requestAnimationFrame((timestamp) => {
-      if (timestamp === lastWavTimestampRef.current) return;
+      if (timestamp === lastWavTimestampRef.current && !force) return;
       lastWavTimestampRef.current = timestamp;
       // Ensure drawRef.current exists and call it
       if (drawWavRef.current) drawWavRef.current();
@@ -527,7 +511,27 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(animationFrameId);
-  }, [drawWav, blend, spectrogram]);
+  });
+
+  useEffect(() => {
+    BackendAPI.getWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio)
+      .then((wavImage) => {
+        wavImageRef.current = wavImage;
+        drawWavOnNextFrame(true);
+      })
+      .catch((err) => {
+        console.error("Failed to get wav image:", err);
+        wavImageRef.current = null;
+      });
+  }, [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec, drawWavOnNextFrame]);
+
+  useEffect(() => {
+    if (blend >= 1 || !spectrogram) {
+      wavCtxRef.current?.transferFromImageBitmap(null);
+      return;
+    }
+    drawWavOnNextFrame();
+  }, [drawWavOnNextFrame, blend, spectrogram]);
 
   // Cleanup WebGL resources on unmount or when canvas element changes
   useEffect(() => {
