@@ -81,7 +81,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   // Combine WebGL resources into a single ref
   const webglResourcesRef = useRef<WebGLResources | null>(null);
-  const lastTimestampRef = useRef<number>(0);
 
   const loadingElem = useRef<HTMLDivElement>(null);
   const tooltipElem = useRef<HTMLSpanElement>(null);
@@ -306,8 +305,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       return;
     }
 
-    if (loadingElem.current) loadingElem.current.style.display = "none";
-
     const {
       gl,
       resizeProgram,
@@ -525,34 +522,46 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       });
   }, [blend, wavImage]);
 
-  const draw = useCallback(() => {
-    drawSpectrogram();
-    if (blend < 1 && spectrogram) {
-      drawWav();
-    } else {
-      // clear WavCanvas
-      wavCtxRef.current?.transferFromImageBitmap(null);
-    }
-  }, [drawSpectrogram, drawWav, blend, spectrogram]);
-
+  // Draw spectrogram
   // Use a ref to store the latest draw function
-  const drawRef = useRef(draw);
+  const drawSpectrogramRef = useRef(drawSpectrogram);
+  const lastSpecTimestampRef = useRef<number>(-1);
   useEffect(() => {
-    drawRef.current = draw;
+    drawSpectrogramRef.current = drawSpectrogram;
     // Request a redraw only when the draw function or its dependencies change
     const animationFrameId = requestAnimationFrame((timestamp) => {
-      if (timestamp === lastTimestampRef.current) return;
-      lastTimestampRef.current = timestamp;
+      if (timestamp === lastSpecTimestampRef.current) return;
+      lastSpecTimestampRef.current = timestamp;
       // Ensure drawRef.current exists and call it
-      if (drawRef.current) {
-        drawRef.current();
-      }
+      if (drawSpectrogramRef.current) drawSpectrogramRef.current();
     });
 
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(animationFrameId);
-  }, [draw]);
+  }, [drawSpectrogram]);
+
+  // Draw wav
+  const drawWavRef = useRef(drawWav);
+  const lastWavTimestampRef = useRef<number>(-1);
+  useEffect(() => {
+    if (blend >= 1 || !spectrogram) {
+      wavCtxRef.current?.transferFromImageBitmap(null);
+      return () => {};
+    }
+    drawWavRef.current = drawWav;
+    // Request a redraw only when the draw function or its dependencies change
+    const animationFrameId = requestAnimationFrame((timestamp) => {
+      if (timestamp === lastWavTimestampRef.current) return;
+      lastWavTimestampRef.current = timestamp;
+      // Ensure drawRef.current exists and call it
+      if (drawWavRef.current) drawWavRef.current();
+    });
+
+    // Cleanup function to cancel the frame if the component unmounts
+    // or if dependencies change again before the frame executes
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [drawWav, blend, spectrogram]);
 
   // Cleanup WebGL resources on unmount or when canvas element changes
   useEffect(() => {
