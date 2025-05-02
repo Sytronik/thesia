@@ -1,4 +1,4 @@
-import {COLORMAP_RGBA} from "../prototypes/constants/colors";
+import {COLORMAP_RGBA8} from "../prototypes/constants/colors";
 
 export const VS_RESIZER = `#version 300 es
 precision highp float;
@@ -231,7 +231,7 @@ export function createCmapTexture(gl: WebGL2RenderingContext) {
   const cmapTex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, cmapTex);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); // avoid row-stride padding issues  [oai_citation:5‡WebGL2 Fundamentals](https://webgl2fundamentals.org/webgl/lessons/webgl-data-textures.html)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, COLORMAP_RGBA);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, COLORMAP_RGBA8);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);

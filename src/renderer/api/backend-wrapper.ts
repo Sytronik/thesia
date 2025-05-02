@@ -160,6 +160,7 @@ export const {
   getOverview,
   getdBRange,
   setdBRange,
+  setColormapLength,
   getSampleRate,
   getSpecSetting,
   setSpecSetting,

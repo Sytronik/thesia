@@ -10,14 +10,14 @@ use tiny_skia::{
     FillRule, IntRect, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint, PixmapRef, Transform,
 };
 
+use super::super::TrackManager;
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
 use super::super::track::TrackList;
 use super::super::utils::Pad;
-use super::super::{IdChArr, IdChValueVec, TrackManager};
 use super::colorize::*;
 use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to};
-use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights, PartGreyInfo};
-use super::params::{DrawOptionForWav, DrawParams, ImageKind};
+use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights};
+use super::params::DrawOptionForWav;
 
 const OVERVIEW_MAX_CH: usize = 4;
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
@@ -172,6 +172,7 @@ pub fn convert_spec_to_grey(
     spec: ArrayView2<f32>,
     i_freq_range: (usize, usize),
     dB_range: (f32, f32),
+    colormap_length: Option<u32>,
 ) -> Array2<f32> {
     // spec: T x F
     // return: grey image with F x T
@@ -182,7 +183,13 @@ pub fn convert_spec_to_grey(
     Array2::from_shape_fn((height, width), |(i, j)| {
         let i_freq = i_freq_start + i;
         if i_freq < spec.raw_dim()[1] {
-            (spec[[j, i_freq]] - dB_range.0) / dB_span
+            let zero_to_one = (spec[[j, i_freq]] - dB_range.0) / dB_span;
+            let eps_to_one = if let Some(colormap_length) = colormap_length {
+                (zero_to_one * (colormap_length - 1) as f32 + 1.0) / colormap_length as f32
+            } else {
+                zero_to_one
+            };
+            eps_to_one.clamp(0., 1.)
         } else {
             0.
         }
