@@ -100,58 +100,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
-  const getTooltipLines = useEvent(async (e: React.MouseEvent) => {
-    if (!wavCanvasElem.current) return ["sec", "Hz"];
-    const x = e.clientX - wavCanvasElem.current.getBoundingClientRect().left;
-    const y = Math.min(
-      Math.max(e.clientY - wavCanvasElem.current.getBoundingClientRect().top, 0),
-      height,
-    );
-    // TODO: need better formatting (from backend?)
-    const time = Math.min(Math.max(startSec + x / pxPerSec, 0), maxTrackSec);
-    const timeStr = time.toFixed(6).slice(0, -3);
-    const hz = BackendAPI.freqPosToHz(y, height, hzRange);
-    const hzStr = hz.toFixed(0);
-    return [`${timeStr} sec`, `${hzStr} Hz`];
-  });
-
-  const onMouseMove = useMemo(
-    () =>
-      throttle(1000 / 120, async (e: React.MouseEvent) => {
-        if (initTooltipInfo === null || tooltipElem.current === null) return;
-        const [left, top] = calcTooltipPos(e);
-        tooltipElem.current.style.left = `${left}px`;
-        tooltipElem.current.style.top = `${top}px`;
-        const lines = await getTooltipLines(e);
-        lines.forEach((v, i) => {
-          const node = tooltipElem.current?.children.item(i) ?? null;
-          if (node) node.innerHTML = v;
-        });
-      }),
-    [getTooltipLines, initTooltipInfo],
-  );
-
   useEffect(() => {
     if (!spectrogram) return;
 
     if (loadingElem.current) loadingElem.current.style.display = "none";
   }, [spectrogram]);
-
-  const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
-    wavCanvasElem.current = elem;
-
-    if (!wavCanvasElem.current) {
-      wavCtxRef.current = null;
-      return;
-    }
-
-    wavCtxRef.current = wavCanvasElem.current.getContext("bitmaprenderer", {alpha: true});
-
-    if (!wavCtxRef.current) {
-      console.error("Failed to get bitmaprenderer context.");
-      wavCtxRef.current = null;
-    }
-  }, []);
 
   const specCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
     // Cleanup previous resources if the element changes
@@ -289,6 +242,22 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       webglResourcesRef.current = null;
     }
   }, []); // Empty dependency array: This setup runs once per canvas element instance.
+
+  const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
+    wavCanvasElem.current = elem;
+
+    if (!wavCanvasElem.current) {
+      wavCtxRef.current = null;
+      return;
+    }
+
+    wavCtxRef.current = wavCanvasElem.current.getContext("bitmaprenderer", {alpha: true});
+
+    if (!wavCtxRef.current) {
+      console.error("Failed to get bitmaprenderer context.");
+      wavCtxRef.current = null;
+    }
+  }, []);
 
   const drawSpectrogram = useCallback(() => {
     const resources = webglResourcesRef.current;
@@ -507,11 +476,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     if (!wavCanvasElem.current || !wavCtxRef.current) return;
     const ctx = wavCtxRef.current;
     const imdata = new Uint8ClampedArray(wavImage.arr);
-    if (blend < 0.5) {
-      wavCanvasElem.current.style.opacity = "1";
-    } else {
-      wavCanvasElem.current.style.opacity = `${Math.min(2 - 2 * blend, 1)}`;
-    }
+    wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
     const img = new ImageData(imdata, wavImage.width, wavImage.height);
     createImageBitmap(img)
       .then((bitmap) => {
@@ -574,6 +539,37 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     };
   }, []);
 
+  const getTooltipLines = useEvent(async (e: React.MouseEvent) => {
+    if (!wavCanvasElem.current) return ["sec", "Hz"];
+    const x = e.clientX - wavCanvasElem.current.getBoundingClientRect().left;
+    const y = Math.min(
+      Math.max(e.clientY - wavCanvasElem.current.getBoundingClientRect().top, 0),
+      height,
+    );
+    // TODO: need better formatting (from backend?)
+    const time = Math.min(Math.max(startSec + x / pxPerSec, 0), maxTrackSec);
+    const timeStr = time.toFixed(6).slice(0, -3);
+    const hz = BackendAPI.freqPosToHz(y, height, hzRange);
+    const hzStr = hz.toFixed(0);
+    return [`${timeStr} sec`, `${hzStr} Hz`];
+  });
+
+  const onMouseMove = useMemo(
+    () =>
+      throttle(1000 / 120, async (e: React.MouseEvent) => {
+        if (initTooltipInfo === null || tooltipElem.current === null) return;
+        const [left, top] = calcTooltipPos(e);
+        tooltipElem.current.style.left = `${left}px`;
+        tooltipElem.current.style.top = `${top}px`;
+        const lines = await getTooltipLines(e);
+        lines.forEach((v, i) => {
+          const node = tooltipElem.current?.children.item(i) ?? null;
+          if (node) node.innerHTML = v;
+        });
+      }),
+    [getTooltipLines, initTooltipInfo],
+  );
+
   return (
     <div className={styles.imgCanvasWrapper} style={{width, height}}>
       {initTooltipInfo !== null ? (
@@ -590,6 +586,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       ) : null}
       <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
       <canvas
+        key="spec"
+        className={styles.ImgCanvas}
+        ref={specCanvasElemCallback}
+        style={{zIndex: 0}}
+        width={Math.max(1, Math.floor(width * devicePixelRatio))}
+        height={Math.max(1, Math.floor(height * devicePixelRatio))}
+      />
+      <canvas
         key="wav"
         className={styles.ImgCanvas}
         ref={wavCanvasElemCallback}
@@ -600,14 +604,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}
-        width={Math.max(1, Math.floor(width * devicePixelRatio))}
-        height={Math.max(1, Math.floor(height * devicePixelRatio))}
-      />
-      <canvas
-        key="spec"
-        className={styles.ImgCanvas}
-        ref={specCanvasElemCallback}
-        style={{zIndex: 0}}
         width={Math.max(1, Math.floor(width * devicePixelRatio))}
         height={Math.max(1, Math.floor(height * devicePixelRatio))}
       />
