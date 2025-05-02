@@ -68,10 +68,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       BackendAPI.getWavImage(
         idChStr,
         startSec,
-        pxPerSec * devicePixelRatio,
-        width * devicePixelRatio,
-        height * devicePixelRatio,
-        {amp_range: ampRange, dpr: devicePixelRatio},
+        pxPerSec,
+        width,
+        height,
+        ampRange,
+        devicePixelRatio,
       ),
     [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec],
   );
@@ -475,7 +476,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawWav = useCallback(() => {
     if (!wavCanvasElem.current || !wavCtxRef.current) return;
     const ctx = wavCtxRef.current;
-    const imdata = new Uint8ClampedArray(wavImage.arr);
+    const imdata = new Uint8ClampedArray(wavImage.buf);
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
     const img = new ImageData(imdata, wavImage.width, wavImage.height);
     createImageBitmap(img)

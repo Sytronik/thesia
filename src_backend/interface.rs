@@ -48,7 +48,7 @@ pub struct Spectrogram {
 
 #[napi(object)]
 pub struct WavImage {
-    pub arr: Buffer,
+    pub buf: Buffer,
     pub width: u32,
     pub height: u32,
 }

@@ -112,21 +112,22 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
 
     if (!backgroundCtx) return;
     const rect = backgroundElem.current.getBoundingClientRect();
-    const width = rect.width * devicePixelRatio;
-    const height = rect.height * devicePixelRatio;
-    const args: ArgsGetOverview = [selectedTrackId, width, height];
+    const args: ArgsGetOverview = [selectedTrackId, rect.width, rect.height];
     if (
       forced ||
       prevArgsRef.current === null ||
       prevArgsRef.current.some((v, i) => Math.abs(args[i] - v) > 1e-3)
     ) {
       let imbmp = null;
-      if (width >= 1) {
-        const buf = await BackendAPI.getOverview(selectedTrackId, width, height, devicePixelRatio);
-        if (buf.length === width * height * 4) {
-          const imdata = new ImageData(new Uint8ClampedArray(buf), width, height);
-          imbmp = await createImageBitmap(imdata);
-        }
+      if (rect.width >= 1) {
+        const img = await BackendAPI.getOverview(
+          selectedTrackId,
+          rect.width,
+          rect.height,
+          devicePixelRatio,
+        );
+        const imdata = new ImageData(new Uint8ClampedArray(img.buf), img.width, img.height);
+        imbmp = await createImageBitmap(imdata);
       }
       backgroundCtx.transferFromImageBitmap(imbmp);
       prevArgsRef.current = args;
