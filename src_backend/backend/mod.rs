@@ -44,6 +44,7 @@ pub struct TrackManager {
     pub spec_greys: IdChMap<Array2<f32>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
+    pub colormap_length: u32,
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
     no_grey_ids: Vec<usize>,
@@ -58,6 +59,7 @@ impl TrackManager {
             spec_greys: IdChMap::with_capacity_and_hasher(2, Default::default()),
             setting: Default::default(),
             dB_range: 100.,
+            colormap_length: 258,
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             no_grey_ids: Vec::new(),
@@ -132,6 +134,11 @@ impl TrackManager {
     #[allow(non_snake_case)]
     pub fn set_dB_range(&mut self, tracklist: &TrackList, dB_range: f32) {
         self.dB_range = dB_range;
+        self.update_greys(tracklist, true);
+    }
+
+    pub fn set_colormap_length(&mut self, tracklist: &TrackList, colormap_length: u32) {
+        self.colormap_length = colormap_length;
         self.update_greys(tracklist, true);
     }
 
@@ -221,6 +228,7 @@ impl TrackManager {
                         spec.view(),
                         i_freq_range,
                         (self.min_dB, self.max_dB),
+                        Some(self.colormap_length),
                     );
                     ((id, ch), grey)
                 })

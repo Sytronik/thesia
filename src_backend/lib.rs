@@ -193,6 +193,17 @@ async fn set_dB_range(dB_range: f64) {
 }
 
 #[napi]
+async fn set_colormap_length(colormap_length: u32) {
+    assert!(colormap_length > 0);
+    spawn_blocking(move || {
+        TM.blocking_write()
+            .set_colormap_length(&TRACK_LIST.blocking_read(), colormap_length)
+    })
+    .await
+    .unwrap();
+}
+
+#[napi]
 fn get_spec_setting() -> SpecSetting {
     SPEC_SETTING.read().clone()
 }

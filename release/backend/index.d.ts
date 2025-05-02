@@ -55,6 +55,7 @@ export declare function removeTracks(trackIds: Array<number>): void
 export declare function applyTrackListChanges(): Promise<Array<string>>
 export declare function getdBRange(): Promise<number>
 export declare function setdBRange(dBRange: number): Promise<void>
+export declare function setColormapLength(colormapLength: number): Promise<void>
 export declare function getSpecSetting(): SpecSetting
 export declare function setSpecSetting(specSetting: SpecSetting): Promise<void>
 export declare function getCommonGuardClipping(): GuardClippingMode

@@ -4,6 +4,7 @@ import {UserSettings} from "backend";
 import App from "./App";
 import BackendAPI from "./api";
 import {setUserSetting} from "./lib/ipc-sender";
+import {COLORMAP_RGBA8} from "./prototypes/constants/colors";
 
 const container = document.getElementById("root") as HTMLElement;
 const root = createRoot(container);
@@ -13,5 +14,6 @@ ipcRenderer.once("render-with-settings", (_, settings) => {
   Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
     setUserSetting(key as keyof UserSettings, value),
   );
+  BackendAPI.setColormapLength(COLORMAP_RGBA8.length);
   root.render(<App userSettings={userSettingsOrInitialValues} />);
 });
