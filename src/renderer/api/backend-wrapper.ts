@@ -1,4 +1,4 @@
-import backend, {Spectrogram, WavImage} from "backend";
+import backend, {Spectrogram} from "backend";
 
 export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
@@ -99,18 +99,6 @@ export function getSpectrograms(): Spectrograms {
   return backend.getSpectrograms();
 }
 
-export function getWavImage(
-  idChannel: IdChannel,
-  startSec: number,
-  pxPerSec: number,
-  width: number,
-  height: number,
-  ampRange: [number, number],
-  dpr: number,
-): WavImage {
-  return backend.getWavImage(idChannel, startSec, pxPerSec, width, height, ampRange, dpr);
-}
-
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
 export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
 export type NormalizeTarget =
@@ -163,6 +151,7 @@ export const {
   getMindB,
   getMaxTrackHz,
   getColorMap,
+  getWavImage,
   getOverview,
   getdBRange,
   setdBRange,

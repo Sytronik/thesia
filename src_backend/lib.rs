@@ -287,7 +287,7 @@ fn get_spectrograms() -> IdChSpectrograms {
 }
 
 #[napi]
-fn get_wav_image(
+async fn get_wav_image(
     id_ch_str: String,
     start_sec: f64,
     px_per_sec: f64,
@@ -305,31 +305,35 @@ fn get_wav_image(
         dpr: dpr as f32,
     };
 
-    let tracklist = TRACK_LIST.blocking_read();
-    let track = tracklist.get(id).unwrap();
-    let (pad_left, drawing_width, pad_right) =
-        track.decompose_width_of(start_sec, width, px_per_sec);
-    let (wav, show_clipping) = track.channel_for_drawing(ch);
-    let wav_part = ArrWithSliceInfo::new(
-        wav,
-        track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
-    );
+    let arr = spawn_blocking(move || {
+        let tracklist = TRACK_LIST.blocking_read();
+        let track = tracklist.get(id).unwrap();
+        let (pad_left, drawing_width, pad_right) =
+            track.decompose_width_of(start_sec, width, px_per_sec);
+        let (wav, show_clipping) = track.channel_for_drawing(ch);
+        let wav_part = ArrWithSliceInfo::new(
+            wav,
+            track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
+        );
 
-    let mut canvas = Array3::zeros((height as usize, drawing_width as usize, 4));
-    draw_wav_to(
-        canvas.as_slice_mut().unwrap(),
-        wav_part,
-        drawing_width,
-        height,
-        &opt_for_wav,
-        show_clipping,
-        true,
-    );
-    let arr = canvas.pad(
-        (pad_left as usize, pad_right as usize),
-        Axis(1),
-        PadMode::Constant(0),
-    );
+        let mut canvas = Array3::zeros((height as usize, drawing_width as usize, 4));
+        draw_wav_to(
+            canvas.as_slice_mut().unwrap(),
+            wav_part,
+            drawing_width,
+            height,
+            &opt_for_wav,
+            show_clipping,
+            true,
+        );
+        canvas.pad(
+            (pad_left as usize, pad_right as usize),
+            Axis(1),
+            PadMode::Constant(0),
+        )
+    })
+    .await
+    .unwrap();
 
     WavImage {
         buf: arr.as_slice_memory_order().unwrap().into(),
