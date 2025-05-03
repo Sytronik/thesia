@@ -4,7 +4,7 @@ type GuardClippingMode = import("../api").GuardClippingMode;
 type NormalizeTarget = import("../api").NormalizeTarget;
 type Markers = import("../api").Markers;
 type IdChannel = import("../api").IdChannel;
-type IdChArr = IdChannel[];
+type IdChArr = import("../api").IdChArr;
 type IdChMap = Map<number, IdChArr>;
 
 type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | React.KeyboardEvent;

@@ -20,7 +20,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import BackendAPI from "../../api";
+import BackendAPI, {Spectrograms} from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
@@ -222,10 +222,13 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const spectrograms = useMemo(
-    () => BackendAPI.getSpectrograms(),
-    [trackIds, needRefreshTrackIdChArr],
-  ); // TODO: deps
+  const [spectrograms, setSpectrograms] = useState<Spectrograms>({});
+  useEffect(() => {
+    setSpectrograms((currentSpectrograms) => {
+      const newSpectrograms = BackendAPI.getSpectrograms(needRefreshTrackIdChArr);
+      return {...currentSpectrograms, ...newSpectrograms};
+    });
+  }, [needRefreshTrackIdChArr]);
 
   const throttledSetSelectSec = useMemo(
     () =>

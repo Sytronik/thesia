@@ -90,13 +90,14 @@ export function getdBAxisMarkers(
 
 // IdChannel is form of id#_ch#
 export type IdChannel = string;
+export type IdChArr = IdChannel[];
 export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
 
 /* images */
-export function getSpectrograms(): Spectrograms {
-  return backend.getSpectrograms();
+export function getSpectrograms(idChStrs: IdChArr): Spectrograms {
+  return backend.getSpectrograms(idChStrs);
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
