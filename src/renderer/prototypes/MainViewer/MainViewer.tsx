@@ -949,6 +949,7 @@ function MainViewer(props: MainViewerProps) {
                     idChStr={idChStr}
                     ampRange={ampRange}
                     blend={blend}
+                    needRefreshWavImg={needRefreshTrackIdChArr.includes(idChStr)}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
