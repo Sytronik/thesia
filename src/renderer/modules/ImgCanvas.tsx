@@ -530,10 +530,20 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     drawWavOnNextFrame();
   }, [drawWavOnNextFrame, blend, spectrogram]);
 
-  useEffect(() => {
+  const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
     loadingElem.current.style.display = needRefreshWavImg ? "block" : "none";
   }, [needRefreshWavImg]);
+
+  const setLoadingDisplayRef = useRef(setLoadingDisplay);
+  useEffect(() => {
+    setLoadingDisplayRef.current = setLoadingDisplay;
+    // Request a setLoadingDisplay only when the draw function or its dependencies change
+    setTimeout(() => {
+      // Ensure setLoadingDisplayRef.current exists and call it
+      if (setLoadingDisplayRef.current) setLoadingDisplayRef.current();
+    }, 100);
+  }, [setLoadingDisplay]);
 
   // Cleanup WebGL resources on unmount or when canvas element changes
   useEffect(() => {
