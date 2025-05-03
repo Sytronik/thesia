@@ -63,7 +63,7 @@ fn _napi_init() {
 }
 
 #[napi]
-fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
+fn init(user_settings: UserSettingsOptionals, max_spectrogram_size: u32) -> Result<UserSettings> {
     // On Windows, reloading cause restarting of renderer process.
     // (See killAndReload in src/main/menu.ts)
     // So INIT may not be needed, but use it for defensive purpose.
@@ -79,7 +79,7 @@ fn init(user_settings: UserSettingsOptionals) -> Result<UserSettings> {
         let mut tm = TM.blocking_write();
         if !tracklist.is_empty() {
             *tracklist = TrackList::new();
-            *tm = TrackManager::new();
+            *tm = TrackManager::with_max_spectrogram_size(max_spectrogram_size);
         }
         if let Some(setting) = user_settings.spec_setting {
             tm.set_setting(&tracklist, setting.clone());
@@ -235,7 +235,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
         .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
-            .update_all_specs_greys(&TRACK_LIST.blocking_read());
+            .update_all_specs_mipmaps(&TRACK_LIST.blocking_read());
     })
     .await
     .unwrap();
@@ -258,7 +258,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     .unwrap();
     spawn_blocking(move || {
         TM.blocking_write()
-            .update_all_specs_greys(&TRACK_LIST.blocking_read());
+            .update_all_specs_mipmaps(&TRACK_LIST.blocking_read());
     })
     .await
     .unwrap();
@@ -266,6 +266,7 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
 struct SpectrogramSliceArgs {
     px_per_sec: f64,
     left: usize,
@@ -330,26 +331,49 @@ async fn get_spectrogram(
             return Ok(None);
         }
         let tm = TM.blocking_read();
-        let spec_grey = if let Some(spec_grey) = tm.spec_greys.get(&(id, ch)) {
-            spec_grey
+        let spec_mipmaps = if let Some(spec_mipmaps) = tm.spec_mipmaps.get(&(id, ch)) {
+            spec_mipmaps
         } else {
             return Ok(None);
         };
-        let args = SpectrogramSliceArgs::new(
-            spec_grey.shape()[1],
-            spec_grey.shape()[0],
-            track_sec,
-            sec_range,
-            margin_px,
-        );
 
-        let sliced_spec = spec_grey
+        let max_size = tm.max_spectrogram_size as usize;
+        let mut args = None;
+        let mut mipmap = None;
+        for spec_mipmap_along_widths in spec_mipmaps {
+            for _mipmap in spec_mipmap_along_widths {
+                let _args = SpectrogramSliceArgs::new(
+                    _mipmap.shape()[1],
+                    _mipmap.shape()[0],
+                    track_sec,
+                    sec_range,
+                    margin_px,
+                );
+                if _args.height > max_size {
+                    break;
+                }
+                if _args.width <= max_size {
+                    args = Some(_args);
+                    mipmap = Some(_mipmap);
+                    break;
+                }
+            }
+            if args.is_some() {
+                break;
+            }
+        }
+        let (args, mipmap) = (args.unwrap(), mipmap.unwrap());
+
+        let sliced_arr = mipmap
             .slice(s![.., args.left..args.left + args.width])
             .to_owned();
-        let (sliced_vec, _) = sliced_spec.into_raw_vec_and_offset();
+        let (sliced_vec, _) = sliced_arr.into_raw_vec_and_offset();
+        let sliced_vec = unsafe {
+            std::slice::from_raw_parts(sliced_vec.as_ptr() as *const f32, sliced_vec.len())
+        };
 
         Ok(Some(Spectrogram {
-            arr: Float32Array::new(sliced_vec),
+            arr: Float32Array::with_data_copied(sliced_vec),
             width: args.width as u32,
             height: args.height as u32,
             px_per_sec: args.px_per_sec,

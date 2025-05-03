@@ -1,3 +1,4 @@
+use fast_image_resize::pixels;
 use identity_hash::IntSet;
 use itertools::Itertools;
 use ndarray::prelude::*;
@@ -23,7 +24,7 @@ pub use utils::{Pad, PadMode};
 pub use visualize::{
     ArrWithSliceInfo, CalcWidth, DrawOptionForWav, TrackDrawer, calc_amp_axis_markers,
     calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz,
-    convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec, draw_wav_to,
+    convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec, draw_wav_to, resize,
 };
 
 pub type IdCh = (usize, usize);
@@ -42,13 +43,14 @@ pub struct TrackManager {
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
-    pub spec_greys: IdChMap<Array2<f32>>,
+    pub spec_mipmaps: IdChMap<Vec<Vec<Array2<pixels::F32>>>>, // TODO: typing
     pub setting: SpecSetting,
     pub dB_range: f32,
     pub colormap_length: u32,
+    pub max_spectrogram_size: u32,
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
-    no_grey_ids: Vec<usize>,
+    no_mipmap_ids: Vec<usize>,
 }
 
 impl TrackManager {
@@ -57,13 +59,21 @@ impl TrackManager {
             max_dB: -f32::INFINITY,
             min_dB: f32::INFINITY,
             max_sr: 0,
-            spec_greys: IdChMap::with_capacity_and_hasher(2, Default::default()),
+            spec_mipmaps: IdChMap::with_capacity_and_hasher(2, Default::default()),
             setting: Default::default(),
             dB_range: 100.,
             colormap_length: 258,
+            max_spectrogram_size: 8192,
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
-            no_grey_ids: Vec::new(),
+            no_mipmap_ids: Vec::new(),
+        }
+    }
+
+    pub fn with_max_spectrogram_size(max_spectrogram_size: u32) -> Self {
+        Self {
+            max_spectrogram_size,
+            ..TrackManager::new()
         }
     }
 
@@ -75,7 +85,7 @@ impl TrackManager {
             tracklist.id_ch_tuples_from(added_ids),
             &sr_win_nfft_set,
         );
-        self.no_grey_ids.extend(added_ids.iter().copied());
+        self.no_mipmap_ids.extend(added_ids.iter().copied());
     }
 
     pub fn reload_tracks(&mut self, tracklist: &TrackList, reloaded_ids: &[usize]) {
@@ -86,19 +96,19 @@ impl TrackManager {
             tracklist.id_ch_tuples_from(reloaded_ids),
             &sr_win_nfft_set,
         );
-        self.no_grey_ids.extend(reloaded_ids.iter().copied());
+        self.no_mipmap_ids.extend(reloaded_ids.iter().copied());
     }
 
     pub fn remove_tracks(&mut self, tracklist: &TrackList, removed_id_ch_tuples: &IdChArr) {
         for tup in removed_id_ch_tuples {
             self.specs.remove(tup);
-            self.spec_greys.remove(tup);
+            self.spec_mipmaps.remove(tup);
         }
         if self.specs.capacity() > 2 * self.specs.len() {
             self.specs.shrink_to(2);
         }
-        if self.spec_greys.capacity() > 2 * self.spec_greys.len() {
-            self.spec_greys.shrink_to(2);
+        if self.spec_mipmaps.capacity() > 2 * self.spec_mipmaps.len() {
+            self.spec_mipmaps.shrink_to(2);
         }
 
         self.spec_analyzer.retain(
@@ -108,7 +118,7 @@ impl TrackManager {
     }
 
     pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (IntSet<usize>, u32) {
-        let set = self.update_greys(tracklist, false);
+        let set = self.update_mipmaps(tracklist, false);
         (set, self.max_sr)
     }
 
@@ -124,23 +134,23 @@ impl TrackManager {
         self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
         self.update_specs(tracklist, tracklist.id_ch_tuples(), &sr_win_nfft_set);
-        self.update_greys(tracklist, true);
+        self.update_mipmaps(tracklist, true);
     }
 
-    pub fn update_all_specs_greys(&mut self, tracklist: &TrackList) {
+    pub fn update_all_specs_mipmaps(&mut self, tracklist: &TrackList) {
         self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
-        self.update_greys(tracklist, true);
+        self.update_mipmaps(tracklist, true);
     }
 
     #[allow(non_snake_case)]
     pub fn set_dB_range(&mut self, tracklist: &TrackList, dB_range: f32) {
         self.dB_range = dB_range;
-        self.update_greys(tracklist, true);
+        self.update_mipmaps(tracklist, true);
     }
 
     pub fn set_colormap_length(&mut self, tracklist: &TrackList, colormap_length: u32) {
         self.colormap_length = colormap_length;
-        self.update_greys(tracklist, true);
+        self.update_mipmaps(tracklist, true);
     }
 
     fn update_specs<'a>(
@@ -175,9 +185,9 @@ impl TrackManager {
         self.specs.extend(specs);
     }
 
-    /// update spec_greys, max_dB, min_dB, max_sr
-    /// clear no_grey_ids
-    fn update_greys(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
+    /// update spec_mipmaps, max_dB, min_dB, max_sr
+    /// clear no_mipmap_ids
+    fn update_mipmaps(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
         let (mut min, mut max) = self
             .specs
             .par_iter()
@@ -207,14 +217,14 @@ impl TrackManager {
             need_update_all = true;
         }
         let ids_need_update: IntSet<usize> = if need_update_all {
-            self.no_grey_ids.clear();
+            self.no_mipmap_ids.clear();
             tracklist.all_id_set()
         } else {
-            self.no_grey_ids.drain(..).collect()
+            self.no_mipmap_ids.drain(..).collect()
         };
 
         if !ids_need_update.is_empty() {
-            let new_spec_greys: Vec<_> = self
+            let new_spec_mipmaps: Vec<_> = self
                 .specs
                 .par_iter()
                 .filter(|((id, _), _)| ids_need_update.contains(id))
@@ -225,20 +235,57 @@ impl TrackManager {
                         sr,
                         spec.shape()[1],
                     );
-                    let grey = visualize::convert_spec_to_grey(
+                    let spec_img = visualize::convert_spec_to_img(
                         spec.view(),
                         i_freq_range,
                         (self.min_dB, self.max_dB),
                         Some(self.colormap_length),
                     );
-                    ((id, ch), grey)
+                    let (n_freqs, n_frames) = (spec_img.shape()[0], spec_img.shape()[1]);
+                    let mut mipmaps = vec![vec![spec_img]];
+                    let mut skip_first = true;
+                    let mut height = n_freqs as f64;
+                    loop {
+                        let mut width = n_frames as f64;
+                        if !skip_first {
+                            mipmaps.push(vec![]);
+                        }
+                        loop {
+                            if skip_first {
+                                skip_first = false;
+                            } else {
+                                let resized = resize(
+                                    mipmaps[0][0].view(),
+                                    width.round() as u32,
+                                    height.round() as u32,
+                                );
+                                let i = mipmaps.len() - 1;
+                                mipmaps[i].push(resized);
+                            }
+                            if (width.round() as u32) == self.max_spectrogram_size {
+                                break;
+                            }
+                            width /= 2.;
+                            if (width.round() as u32) < self.max_spectrogram_size {
+                                width = self.max_spectrogram_size as f64;
+                            }
+                        }
+                        if (height.round() as u32) == self.max_spectrogram_size {
+                            break;
+                        }
+                        height /= 2.;
+                        if (height.round() as u32) < self.max_spectrogram_size {
+                            height = self.max_spectrogram_size as f64;
+                        }
+                    }
+                    ((id, ch), mipmaps)
                 })
                 .collect();
 
             if need_update_all {
-                self.spec_greys = new_spec_greys.into_iter().collect();
+                self.spec_mipmaps = new_spec_mipmaps.into_iter().collect();
             } else {
-                self.spec_greys.extend(new_spec_greys)
+                self.spec_mipmaps.extend(new_spec_mipmaps)
             }
         }
         ids_need_update
@@ -269,7 +316,7 @@ mod tests {
         assert_eq!(&added_ids, &id_list[3..]);
         assert_eq!(tracklist.all_ids().len(), id_list.len());
 
-        assert_eq!(tm.spec_greys.len(), 0);
+        assert_eq!(tm.spec_mipmaps.len(), 0);
         let mut updated_ids: Vec<usize> = tm
             .apply_track_list_changes(&tracklist)
             .0

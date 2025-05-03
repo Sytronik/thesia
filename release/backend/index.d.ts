@@ -56,7 +56,7 @@ export interface WavImage {
   width: number
   height: number
 }
-export declare function init(userSettings: UserSettingsOptionals): UserSettings
+export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
 export declare function removeTracks(trackIds: Array<number>): void
