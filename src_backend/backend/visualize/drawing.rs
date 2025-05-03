@@ -3,20 +3,19 @@ use std::ops::Neg;
 // use std::time::Instant;
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
-use fast_image_resize::{FilterType, ImageView, ResizeAlg, ResizeOptions, Resizer, pixels};
+use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use tiny_skia::{
-    FillRule, IntRect, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint, PixmapRef, Transform,
+    FillRule, IntRect, Paint, PathBuilder, PixmapMut, PixmapPaint, PixmapRef, Transform,
 };
 
 use super::super::TrackManager;
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
 use super::super::track::TrackList;
 use super::super::utils::Pad;
-use super::colorize::*;
 use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to};
-use super::img_slice::{ArrWithSliceInfo, CalcWidth, LeftWidth, OverviewHeights};
+use super::img_slice::{CalcWidth, LeftWidth, OverviewHeights};
 use super::params::DrawOptionForWav;
 
 const OVERVIEW_MAX_CH: usize = 4;
@@ -168,14 +167,14 @@ impl TrackDrawer for TrackManager {
 }
 
 #[allow(non_snake_case)]
-pub fn convert_spec_to_grey(
+pub fn convert_spec_to_img(
     spec: ArrayView2<f32>,
     i_freq_range: (usize, usize),
     dB_range: (f32, f32),
     colormap_length: Option<u32>,
-) -> Array2<f32> {
+) -> Array2<pixels::F32> {
     // spec: T x F
-    // return: grey image with F x T
+    // return: image with F x T
     let (i_freq_start, i_freq_end) = i_freq_range;
     let dB_span = dB_range.1 - dB_range.0;
     let width = spec.shape()[0];
@@ -189,9 +188,9 @@ pub fn convert_spec_to_grey(
             } else {
                 zero_to_one
             };
-            eps_to_one.clamp(0., 1.)
+            pixels::F32::new(eps_to_one.clamp(0., 1.))
         } else {
-            0.
+            pixels::F32::new(0.)
         }
     })
 }
@@ -249,99 +248,27 @@ fn blend_wav_img_to(
     pixmap.draw_pixmap(0, 0, wav_pixmap, &paint, Transform::identity(), None);
 }
 
-fn resize_colorize_grey(
-    grey: ArrWithSliceInfo<pixels::U16, Ix2>,
-    width: u32,
-    height: u32,
-    fast_resize: bool,
-    parallel: bool,
-) -> Vec<u8> {
+pub fn resize(img: ArrayView2<pixels::F32>, width: u32, height: u32) -> Array2<pixels::F32> {
     thread_local! {
         static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
     }
 
-    // let start = Instant::now();
-    let (grey, trim_left, trim_width) = (grey.arr, grey.index, grey.length);
-    let resized_buf = RESIZER.with_borrow_mut(|resizer| {
-        let src_image = TypedImageRef::new(
-            grey.shape()[1] as u32,
-            grey.shape()[0] as u32,
-            grey.as_slice().unwrap(),
+    RESIZER.with_borrow_mut(|resizer| {
+        let src_img = TypedImageRef::new(
+            img.shape()[1] as u32,
+            img.shape()[0] as u32,
+            img.as_slice_memory_order().unwrap(),
         )
         .unwrap();
-        let resize_opt = ResizeOptions::new()
-            .crop(
-                trim_left as f64,
-                0.,
-                trim_width as f64,
-                src_image.height() as f64,
-            )
-            .resize_alg(ResizeAlg::Convolution(if fast_resize {
-                FilterType::Bilinear
-            } else {
-                FilterType::Lanczos3
-            }));
+        let resize_opt =
+            ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
 
-        let mut dst_buf = vec![0; width as usize * height as usize * 2];
-        let mut dst_image =
-            TypedImage::<pixels::U16>::from_buffer(width, height, &mut dst_buf).unwrap();
+        let mut dst_buf = vec![pixels::F32::new(0.); width as usize * height as usize];
+        let mut dst_img =
+            TypedImage::<pixels::F32>::from_pixels_slice(width, height, &mut dst_buf).unwrap();
         resizer
-            .resize_typed(&src_image, &mut dst_image, &resize_opt)
+            .resize_typed(&src_img, &mut dst_img, &resize_opt)
             .unwrap();
-        dst_buf
-    });
-    let resized = unsafe {
-        std::slice::from_raw_parts(resized_buf.as_ptr() as *const u16, resized_buf.len() / 2)
-    };
-
-    if parallel {
-        resized
-            .par_chunks(rayon::current_num_threads())
-            .flat_map_iter(map_grey_to_color_iter)
-            .collect()
-    } else {
-        map_grey_to_color_iter(resized).collect()
-    }
-    // println!("drawing spec: {:?}", start.elapsed());
-}
-
-/// blend can be < 0 for not drawing spec
-fn draw_blended_spec_wav(
-    spec_grey: ArrWithSliceInfo<pixels::U16, Ix2>,
-    wav: ArrWithSliceInfo<f32, Ix1>,
-    width: u32,
-    height: u32,
-    opt_for_wav: &DrawOptionForWav,
-    blend: f64,
-    fast_resize: bool,
-    show_clipping: bool,
-    parallel: bool,
-) -> Vec<u8> {
-    // spec
-    if spec_grey.length == 0 || wav.length == 0 {
-        return vec![0u8; height as usize * width as usize * 4];
-    }
-    let mut result = if blend > 0. {
-        resize_colorize_grey(spec_grey, width, height, fast_resize, parallel)
-    } else {
-        vec![0u8; height as usize * width as usize * 4]
-    };
-
-    let mut pixmap = PixmapMut::from_bytes(&mut result, width, height).unwrap();
-
-    if blend < 1. {
-        // wave
-        let mut wav_pixmap = Pixmap::new(width, height).unwrap();
-        draw_wav_to(
-            wav_pixmap.data_mut(),
-            wav,
-            width,
-            height,
-            opt_for_wav,
-            show_clipping,
-            blend != 0.,
-        );
-        blend_wav_img_to(&mut pixmap, wav_pixmap.as_ref(), blend, (0, width));
-    }
-    result
+        Array2::from_shape_vec((height as usize, width as usize), dst_buf).unwrap()
+    })
 }
