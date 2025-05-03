@@ -267,23 +267,23 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
 }
 
 #[napi(ts_return_type = "Record<string, Spectrogram>")]
-fn get_spectrograms() -> IdChSpectrograms {
-    IdChSpectrograms(
-        TM.blocking_read()
-            .spec_greys
-            .iter()
-            .map(|(id_ch, spec)| {
-                (
-                    id_ch.to_owned(),
-                    Spectrogram {
-                        arr: Float32Array::with_data_copied(spec.as_slice_memory_order().unwrap()),
-                        width: spec.shape()[1] as u32,
-                        height: spec.shape()[0] as u32,
-                    },
-                )
+fn get_spectrograms(id_ch_strs: Vec<String>) -> Result<IdChSpectrograms> {
+    let id_ch_tuples: Vec<_> = parse_id_ch_tuples(id_ch_strs)?;
+    let tm = TM.blocking_read();
+    let vec = id_ch_tuples
+        .into_iter()
+        .filter_map(|(id, ch)| {
+            tm.spec_greys.get(&(id, ch)).map(|spec_grey| {
+                let spectrogram = Spectrogram {
+                    arr: Float32Array::with_data_copied(spec_grey.as_slice_memory_order().unwrap()),
+                    width: spec_grey.shape()[1] as u32,
+                    height: spec_grey.shape()[0] as u32,
+                };
+                ((id, ch), spectrogram)
             })
-            .collect(),
-    )
+        })
+        .collect();
+    Ok(IdChSpectrograms(vec))
 }
 
 #[napi]

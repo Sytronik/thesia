@@ -67,7 +67,7 @@ export declare function getCommonGuardClipping(): GuardClippingMode
 export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
-export declare function getSpectrograms(): Record<string, Spectrogram>
+export declare function getSpectrograms(idChStrs: Array<string>): Record<string, Spectrogram>
 export declare function getWavImage(idChStr: string, startSec: number, pxPerSec: number, width: number, height: number, ampRange: [number, number], dpr: number): Promise<WavImage>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<WavImage>
