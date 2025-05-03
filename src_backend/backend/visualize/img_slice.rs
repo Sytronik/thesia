@@ -49,6 +49,10 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
             (self.index as isize..(end as isize)).into(),
         )
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.length == 0
+    }
 }
 
 impl<'a, A, D: Dimension> From<ArrayView<'a, A, D>> for ArrWithSliceInfo<'a, A, D> {
