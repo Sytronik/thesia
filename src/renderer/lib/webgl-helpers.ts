@@ -182,17 +182,21 @@ function createShader(gl: WebGL2RenderingContext, type: number, src: string): We
   return s;
 }
 
-export function createProgram(
-  gl: WebGL2RenderingContext,
-  vsSrc: string,
-  fsSrc: string,
-): WebGLProgram {
+function createProgram(gl: WebGL2RenderingContext, vsSrc: string, fsSrc: string): WebGLProgram {
   const p = gl.createProgram();
   gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vsSrc));
   gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, fsSrc));
   gl.linkProgram(p);
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p);
   return p;
+}
+
+export function createResizeProgram(gl: WebGL2RenderingContext) {
+  return createProgram(gl, VS_RESIZER, FS_RESIZER);
+}
+
+export function createColormapProgram(gl: WebGL2RenderingContext) {
+  return createProgram(gl, VS_COLORMAP, FS_COLORMAP);
 }
 
 export function createTexture(
@@ -260,9 +264,9 @@ export type WebGLResources = {
     uColorMap: WebGLUniformLocation | null;
     uOverlayAlpha: WebGLUniformLocation | null;
   };
-  resizePosBuffer: WebGLBuffer | null; // Buffer for vertex/UV data used in resize passes
-  cmapVao: WebGLVertexArrayObject | null; // VAO for the colormap pass fullscreen quad
-  cmapVbo: WebGLBuffer | null; // VBO for the colormap pass fullscreen quad
+  resizePosBuffer: WebGLBuffer; // Buffer for vertex/UV data used in resize passes
+  cmapVao: WebGLVertexArrayObject; // VAO for the colormap pass fullscreen quad
+  cmapVbo: WebGLBuffer; // VBO for the colormap pass fullscreen quad
 };
 
 export function cleanupWebGLResources(resources: WebGLResources) {
