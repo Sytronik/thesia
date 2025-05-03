@@ -598,19 +598,6 @@ function MainViewer(props: MainViewerProps) {
     timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
     dBCanvasElem.current?.draw(dBMarkersAndLengthRef.current);
 
-    // const images = BackendAPI.getImages();
-    // Object.entries(images).forEach(([idChStr, buf]) => {
-    //   if (trackIdChMap.get(hiddenImgIdRef.current)?.includes(idChStr) ?? false) return;
-    //   if (needRefreshTrackIdChArr.includes(idChStr)) return;
-    //   imgCanvasesRef.current[idChStr]?.draw(buf);
-    // });
-    // trackIdChMap.get(hiddenImgIdRef.current)?.forEach((idChStr) => {
-    //   imgCanvasesRef.current[idChStr]?.draw(null);
-    // });
-    needRefreshTrackIdChArr.forEach((idChStr) => {
-      // imgCanvasesRef.current[idChStr]?.draw(null);
-      imgCanvasesRef.current[idChStr]?.showLoading();
-    });
     await overviewElem.current?.draw(startSec, width / pxPerSec);
     requestRef.current = requestAnimationFrame(drawCanvas);
   });

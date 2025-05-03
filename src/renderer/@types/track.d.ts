@@ -18,7 +18,6 @@ type SplitViewHandleElement = {
 };
 
 type ImgCanvasHandleElement = {
-  showLoading: () => void;
   getBoundingClientRect: () => DOMRect;
 };
 

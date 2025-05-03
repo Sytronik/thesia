@@ -26,7 +26,7 @@
 
 .stickyHeader {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   background-color: $bg-main;
   height: $time-ruler-height + $track-margin;
   min-width: 1px;
@@ -54,7 +54,7 @@
 .trackRightHeader {
   // supporting sticky header + preventing pops out when RightPane is resized
   right: $colorbar-width + $component-gap * 1.5;
-  z-index: 2;
+  z-index: 3;
 }
 
 .trackRight {
