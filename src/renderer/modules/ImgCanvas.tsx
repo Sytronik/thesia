@@ -19,11 +19,8 @@ import {
   createCmapTexture,
   cleanupWebGLResources,
   WebGLResources,
-  createProgram,
-  VS_RESIZER,
-  FS_RESIZER,
-  VS_COLORMAP,
-  FS_COLORMAP,
+  createResizeProgram,
+  createColormapProgram,
 } from "../lib/webgl-helpers";
 
 type ImgCanvasProps = {
@@ -44,9 +41,7 @@ type ImgCanvasProps = {
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
 
-const calcTooltipPos = (e: React.MouseEvent) => {
-  return [e.clientX + 0, e.clientY + 15];
-};
+const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {
@@ -67,11 +62,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const wavImageRef = useRef<WavImage | null>(null);
 
+  const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
+  const webglResourcesRef = useRef<WebGLResources | null>(null);
   const wavCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const wavCtxRef = useRef<ImageBitmapRenderingContext | null>(null);
-  const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
-  // Combine WebGL resources into a single ref
-  const webglResourcesRef = useRef<WebGLResources | null>(null);
 
   const loadingElem = useRef<HTMLDivElement>(null);
   const tooltipElem = useRef<HTMLSpanElement>(null);
@@ -115,13 +109,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     const ext = gl.getExtension("EXT_color_buffer_float");
     if (!ext) {
       console.warn(
-        "WebGL extension 'EXT_color_buffer_float' not supported. Rendering to float textures might fail.",
+        "WebGL extension 'EXT_color_buffer_float' not supported. " +
+          "Rendering to float textures might fail.",
       );
     }
 
     try {
       // --- Create Resize Program and related resources ---
-      const resizeProgram = createProgram(gl, VS_RESIZER, FS_RESIZER);
+      const resizeProgram = createResizeProgram(gl);
       const resizeUniforms = {
         uStep: gl.getUniformLocation(resizeProgram, "uStep"),
         uTex: gl.getUniformLocation(resizeProgram, "uTex"),
@@ -151,7 +146,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       const aUVResizeLoc = gl.getAttribLocation(resizeProgram, "aTexCoord");
 
       // --- Create Colormap Program and related resources ---
-      const colormapProgram = createProgram(gl, VS_COLORMAP, FS_COLORMAP);
+      const colormapProgram = createColormapProgram(gl);
       const colormapUniforms = {
         uLum: gl.getUniformLocation(colormapProgram, "uLum"),
         uColorMap: gl.getUniformLocation(colormapProgram, "uColorMap"),
@@ -240,17 +235,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawSpectrogram = useCallback(() => {
     const resources = webglResourcesRef.current;
     // Ensure WebGL resources are ready
-    if (
-      !specCanvasElem.current ||
-      !resources ||
-      !resources.colormapUniforms?.uLum ||
-      !resources.colormapUniforms?.uColorMap ||
-      !resources.colormapUniforms?.uOverlayAlpha
-    ) {
-      // Optionally clear canvas if resources aren't ready
-      // if(resources?.gl) { resources.gl.clearColor(0, 0, 0, 0); resources.gl.clear(resources.gl.COLOR_BUFFER_BIT); }
-      return;
-    }
+    if (!specCanvasElem.current || !resources) return;
 
     const {
       gl,
@@ -418,9 +403,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
       // Check for WebGL errors after drawing
       const error = gl.getError();
-      if (error !== gl.NO_ERROR) {
-        console.error("WebGL Error after draw:", error);
-      }
+      if (error !== gl.NO_ERROR) console.error("WebGL Error after draw:", error);
     } catch (error) {
       console.error("Error during WebGL draw:", error);
     } finally {
@@ -457,12 +440,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
     const img = new ImageData(imdata, wavImageRef.current.width, wavImageRef.current.height);
     createImageBitmap(img)
-      .then((bitmap) => {
-        ctx.transferFromImageBitmap(bitmap);
-      })
-      .catch((err) => {
-        console.error("Failed to transfer image bitmap:", err);
-      });
+      .then((bitmap) => ctx.transferFromImageBitmap(bitmap))
+      .catch((err) => console.error("Failed to transfer image bitmap:", err));
   }, [blend]);
 
   // Draw spectrogram
@@ -549,9 +528,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   useEffect(() => {
     return () => {
       const resources = webglResourcesRef.current;
-      if (resources?.gl) {
-        cleanupWebGLResources(resources);
-      }
+      if (resources?.gl) cleanupWebGLResources(resources);
+
       webglResourcesRef.current = null; // Clear the ref
     };
   }, []);
