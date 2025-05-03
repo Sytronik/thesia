@@ -11,7 +11,7 @@ use log::LevelFilter;
 use napi::bindgen_prelude::*;
 use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
-use ndarray::{Array3, Axis};
+use ndarray::{Array3, Axis, s};
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
 use simple_logger::SimpleLogger;
@@ -266,24 +266,99 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-#[napi(ts_return_type = "Record<string, Spectrogram>")]
-fn get_spectrograms(id_ch_strs: Vec<String>) -> Result<IdChSpectrograms> {
-    let id_ch_tuples: Vec<_> = parse_id_ch_tuples(id_ch_strs)?;
-    let tm = TM.blocking_read();
-    let vec = id_ch_tuples
-        .into_iter()
-        .filter_map(|(id, ch)| {
-            tm.spec_greys.get(&(id, ch)).map(|spec_grey| {
-                let spectrogram = Spectrogram {
-                    arr: Float32Array::with_data_copied(spec_grey.as_slice_memory_order().unwrap()),
-                    width: spec_grey.shape()[1] as u32,
-                    height: spec_grey.shape()[0] as u32,
-                };
-                ((id, ch), spectrogram)
-            })
-        })
-        .collect();
-    Ok(IdChSpectrograms(vec))
+struct SpectrogramSliceArgs {
+    px_per_sec: f64,
+    left: usize,
+    width: usize,
+    height: usize,
+    left_margin: f64,
+    right_margin: f64,
+}
+
+impl SpectrogramSliceArgs {
+    fn new(
+        n_frames: usize,
+        n_freqs: usize,
+        track_sec: f64,
+        sec_range: (f64, f64),
+        margin_px: i32,
+    ) -> Self {
+        let px_per_sec = n_frames as f64 / track_sec;
+
+        let left_f64 = sec_range.0 * px_per_sec;
+        let width_f64 = ((sec_range.1 - sec_range.0) * px_per_sec).max(0.);
+
+        let left_with_margin = left_f64 as i32 - margin_px;
+        let width_with_margin =
+            ((left_f64 + width_f64).ceil() as i32 + margin_px - left_with_margin).max(0);
+
+        let left_clipped = left_with_margin.max(0) as usize;
+        let width_clipped = width_with_margin.min(n_frames as i32 - left_clipped as i32) as usize;
+
+        let left_margin = left_f64 - left_clipped as f64;
+        let right_margin = width_clipped as f64 - width_f64;
+        Self {
+            px_per_sec,
+            left: left_clipped,
+            width: width_clipped,
+            left_margin,
+            right_margin,
+            height: n_freqs,
+        }
+    }
+}
+
+#[napi]
+async fn get_spectrogram(
+    id_ch_str: String,
+    sec_range: (f64, f64),
+    margin_px: i32,
+) -> Result<Option<Spectrogram>> {
+    assert!(margin_px >= 0);
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
+    let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
+    spawn_blocking(move || {
+        let track_sec = {
+            let tracklist = TRACK_LIST.blocking_read();
+            if let Some(track) = tracklist.get(id) {
+                track.sec()
+            } else {
+                return Ok(None);
+            }
+        };
+        if sec_range.0 >= track_sec {
+            return Ok(None);
+        }
+        let tm = TM.blocking_read();
+        let spec_grey = if let Some(spec_grey) = tm.spec_greys.get(&(id, ch)) {
+            spec_grey
+        } else {
+            return Ok(None);
+        };
+        let args = SpectrogramSliceArgs::new(
+            spec_grey.shape()[1],
+            spec_grey.shape()[0],
+            track_sec,
+            sec_range,
+            margin_px,
+        );
+
+        let sliced_spec = spec_grey
+            .slice(s![.., args.left..args.left + args.width])
+            .to_owned();
+        let (sliced_vec, _) = sliced_spec.into_raw_vec_and_offset();
+
+        Ok(Some(Spectrogram {
+            arr: Float32Array::new(sliced_vec),
+            width: args.width as u32,
+            height: args.height as u32,
+            px_per_sec: args.px_per_sec,
+            left_margin: args.left_margin,
+            right_margin: args.right_margin,
+        }))
+    })
+    .await
+    .unwrap()
 }
 
 #[napi]

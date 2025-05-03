@@ -221,15 +221,6 @@ function MainViewer(props: MainViewerProps) {
     getMarkers: BackendAPI.getdBAxisMarkers,
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const [spectrograms, setSpectrograms] = useState<Spectrograms>({});
-  useEffect(() => {
-    setSpectrograms((currentSpectrograms) => {
-      const newSpectrograms = BackendAPI.getSpectrograms(needRefreshTrackIdChArr);
-      return {...currentSpectrograms, ...newSpectrograms};
-    });
-  }, [needRefreshTrackIdChArr]);
-
   const throttledSetSelectSec = useMemo(
     () =>
       throttle(1000 / 70, (sec) => {
@@ -927,7 +918,6 @@ function MainViewer(props: MainViewerProps) {
                 >
                   <ImgCanvas
                     ref={registerImgCanvas(idChStr)}
-                    spectrogram={id !== hiddenImgIdRef.current ? spectrograms[idChStr] : null}
                     width={width}
                     height={imgHeight}
                     startSec={startSec}
@@ -939,7 +929,8 @@ function MainViewer(props: MainViewerProps) {
                     idChStr={idChStr}
                     ampRange={ampRange}
                     blend={blend}
-                    needRefreshWavImg={needRefreshTrackIdChArr.includes(idChStr)}
+                    needRefresh={needRefreshTrackIdChArr.includes(idChStr)}
+                    hidden={id === hiddenImgIdRef.current}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
