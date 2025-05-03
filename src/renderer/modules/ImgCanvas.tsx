@@ -77,25 +77,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const tooltipElem = useRef<HTMLSpanElement>(null);
   const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
-  const showLoading = useEvent(() => {
-    if (loadingElem.current) loadingElem.current.style.display = "block";
-  });
-
   const getBoundingClientRect = useEvent(() => {
     return specCanvasElem.current?.getBoundingClientRect() ?? new DOMRect();
   });
 
-  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({
-    showLoading,
-    getBoundingClientRect,
-  });
+  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({getBoundingClientRect});
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
-
-  useEffect(() => {
-    if (!spectrogram) return;
-
-    if (loadingElem.current) loadingElem.current.style.display = "none";
-  }, [spectrogram]);
 
   const specCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
     // Cleanup previous resources if the element changes
@@ -542,6 +529,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }
     drawWavOnNextFrame();
   }, [drawWavOnNextFrame, blend, spectrogram]);
+
+  useEffect(() => {
+    if (!loadingElem.current) return;
+    loadingElem.current.style.display = needRefreshWavImg ? "block" : "none";
+  }, [needRefreshWavImg]);
 
   // Cleanup WebGL resources on unmount or when canvas element changes
   useEffect(() => {
