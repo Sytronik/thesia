@@ -381,11 +381,12 @@ async fn get_wav_image(
     };
 
     let arr = spawn_blocking(move || {
+        let empty_img = || Array3::zeros((height as usize, width as usize, 4));
         let tracklist = TRACK_LIST.blocking_read();
         let track = if let Some(track) = tracklist.get(id) {
             track
         } else {
-            return Array3::zeros((height as usize, width as usize, 4));
+            return empty_img();
         };
         let (pad_left, drawing_width, pad_right) =
             track.decompose_width_of(start_sec, width, px_per_sec);
@@ -394,6 +395,9 @@ async fn get_wav_image(
             wav,
             track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
         );
+        if drawing_width == 0 || wav_part.is_empty() {
+            return empty_img();
+        }
 
         let mut canvas = Array3::zeros((height as usize, drawing_width as usize, 4));
         draw_wav_to(
