@@ -39,6 +39,7 @@ type ImgCanvasProps = {
   idChStr: string;
   ampRange: [number, number];
   blend: number;
+  needRefreshWavImg: boolean;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -61,6 +62,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     idChStr,
     ampRange,
     blend,
+    needRefreshWavImg,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const wavImageRef = useRef<WavImage | null>(null);
@@ -513,7 +515,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return () => cancelAnimationFrame(animationFrameId);
   });
 
-  useEffect(() => {
+  const prevGetWavImageRef = useRef<() => void>(() => {});
+  const getWavImage = useCallback(() => {
     BackendAPI.getWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio)
       .then((wavImage) => {
         wavImageRef.current = wavImage;
@@ -524,6 +527,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         wavImageRef.current = null;
       });
   }, [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec, drawWavOnNextFrame]);
+
+  if (prevGetWavImageRef.current === getWavImage && needRefreshWavImg) {
+    getWavImage();
+  }
+  prevGetWavImageRef.current = getWavImage;
+
+  useEffect(() => getWavImage(), [getWavImage]);
 
   useEffect(() => {
     if (blend >= 1 || !spectrogram) {
