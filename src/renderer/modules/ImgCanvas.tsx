@@ -102,7 +102,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       antialias: false,
       depth: false,
       preserveDrawingBuffer: true,
-      desynchronized: true,
+      // desynchronized: true,  // cause flickering when resizing on Windows 10
     });
 
     if (!gl) {
