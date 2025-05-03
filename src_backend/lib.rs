@@ -295,8 +295,8 @@ async fn get_wav_image(
     height: u32,
     amp_range: (f64, f64),
     dpr: f64,
-) -> WavImage {
-    let (id, ch) = parse_id_ch_str(&id_ch_str).unwrap();
+) -> Result<WavImage> {
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let px_per_sec = px_per_sec * dpr;
     let width = (width as f64 * dpr).round() as u32;
     let height = (height as f64 * dpr).round() as u32;
@@ -307,7 +307,11 @@ async fn get_wav_image(
 
     let arr = spawn_blocking(move || {
         let tracklist = TRACK_LIST.blocking_read();
-        let track = tracklist.get(id).unwrap();
+        let track = if let Some(track) = tracklist.get(id) {
+            track
+        } else {
+            return Array3::zeros((height as usize, width as usize, 4));
+        };
         let (pad_left, drawing_width, pad_right) =
             track.decompose_width_of(start_sec, width, px_per_sec);
         let (wav, show_clipping) = track.channel_for_drawing(ch);
@@ -335,11 +339,8 @@ async fn get_wav_image(
     .await
     .unwrap();
 
-    WavImage {
-        buf: arr.as_slice_memory_order().unwrap().into(),
-        width,
-        height,
-    }
+    let buf = arr.as_slice_memory_order().unwrap().into();
+    Ok(WavImage { buf, width, height })
 }
 
 #[napi]
