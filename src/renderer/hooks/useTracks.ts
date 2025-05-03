@@ -4,7 +4,7 @@ import useEvent from "react-use-event-hook";
 import {setUserSetting} from "renderer/lib/ipc-sender";
 import update from "immutability-helper";
 import {UserSettings} from "backend";
-import BackendAPI, {SpecSetting, GuardClippingMode, NormalizeTarget} from "../api";
+import BackendAPI from "../api";
 
 type AddTracksResultType = {
   existingIds: number[];
