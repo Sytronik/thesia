@@ -20,7 +20,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import BackendAPI, {Spectrograms} from "../../api";
+import BackendAPI from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,

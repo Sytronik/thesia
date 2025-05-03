@@ -13,7 +13,7 @@ import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import {freqHzToPos, WavImage} from "backend";
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, {Spectrogram} from "../api";
+import BackendAPI from "../api";
 import {
   createTexture,
   createCmapTexture,

@@ -1,4 +1,3 @@
-type RefObject<T> = import("react").RefObject<T>;
 type SpecSetting = import("../api").SpecSetting;
 type GuardClippingMode = import("../api").GuardClippingMode;
 type NormalizeTarget = import("../api").NormalizeTarget;
@@ -6,6 +5,8 @@ type Markers = import("../api").Markers;
 type IdChannel = import("../api").IdChannel;
 type IdChArr = import("../api").IdChArr;
 type IdChMap = Map<number, IdChArr>;
+type Spectrogram = import("../api").Spectrogram;
+type Spectrograms = import("../api").Spectrograms;
 
 type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | React.KeyboardEvent;
 
