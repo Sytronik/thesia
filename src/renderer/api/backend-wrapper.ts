@@ -95,11 +95,6 @@ export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
 
-/* images */
-export function getSpectrograms(idChStrs: IdChArr): Spectrograms {
-  return backend.getSpectrograms(idChStrs);
-}
-
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
 export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
 export type NormalizeTarget =
@@ -153,6 +148,7 @@ export const {
   getMaxTrackHz,
   getColorMap,
   getWavImage,
+  getSpectrogram,
   getOverview,
   getdBRange,
   setdBRange,

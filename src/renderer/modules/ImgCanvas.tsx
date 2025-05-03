@@ -21,10 +21,10 @@ import {
   WebGLResources,
   createResizeProgram,
   createColormapProgram,
+  MARGIN_FOR_RESIZE,
 } from "../lib/webgl-helpers";
 
 type ImgCanvasProps = {
-  spectrogram: Spectrogram | null;
   width: number;
   height: number;
   startSec: number;
@@ -36,7 +36,8 @@ type ImgCanvasProps = {
   idChStr: string;
   ampRange: [number, number];
   blend: number;
-  needRefreshWavImg: boolean;
+  needRefresh: boolean;
+  hidden: boolean;
 };
 
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
@@ -51,15 +52,16 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     pxPerSec,
     trackSec,
     maxTrackSec,
-    spectrogram,
     hzRange,
     maxTrackHz,
     idChStr,
     ampRange,
     blend,
-    needRefreshWavImg,
+    needRefresh,
+    hidden,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const spectrogramRef = useRef<Spectrogram | null>(null);
   const wavImageRef = useRef<WavImage | null>(null);
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
@@ -233,9 +235,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   }, []);
 
   const drawSpectrogram = useCallback(() => {
-    const resources = webglResourcesRef.current;
     // Ensure WebGL resources are ready
-    if (!specCanvasElem.current || !resources) return;
+    if (!specCanvasElem.current || !webglResourcesRef.current) return;
 
     const {
       gl,
@@ -245,23 +246,26 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       colormapUniforms,
       resizePosBuffer,
       cmapVao,
-    } = resources;
+    } = webglResourcesRef.current;
+
+    const spectrogram = spectrogramRef.current;
 
     // Check if img and img.data are valid before proceeding
-    if (!spectrogram || startSec > trackSec || hzRange[0] >= hzRange[1]) {
+    if (!spectrogram || hidden || startSec > trackSec || hzRange[0] >= hzRange[1]) {
       gl.clearColor(0, 0, 0, 0); // Clear to transparent black
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
 
     // widths
-    const srcPxPerSec = spectrogram.width / trackSec;
     const dstLengthSec = width / pxPerSec;
-    const srcLeft = startSec * srcPxPerSec;
-    let srcW = dstLengthSec * srcPxPerSec;
+    const srcLeft = spectrogram.leftMargin;
+    let srcW = dstLengthSec * spectrogram.pxPerSec;
     let dstW = width * devicePixelRatio;
-    if (startSec + dstLengthSec > trackSec) {
+    if (srcLeft + srcW > spectrogram.width) {
       srcW = spectrogram.width - srcLeft;
+    }
+    if (startSec + dstLengthSec > trackSec) {
       dstW = (trackSec - startSec) * pxPerSec * devicePixelRatio;
     }
     srcW = Math.max(0.5, srcW);
@@ -421,19 +425,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       if (fbo) gl.deleteFramebuffer(fbo);
     }
   }, [
-    spectrogram,
+    hidden,
     startSec,
     trackSec,
+    hzRange,
     width,
     pxPerSec,
     devicePixelRatio,
-    hzRange,
     maxTrackHz,
     height,
     blend,
   ]);
 
-  const drawWav = useCallback(() => {
+  const drawWav = useEvent(() => {
     if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
     const ctx = wavCtxRef.current;
     const imdata = new Uint8ClampedArray(wavImageRef.current.buf);
@@ -442,7 +446,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     createImageBitmap(img)
       .then((bitmap) => ctx.transferFromImageBitmap(bitmap))
       .catch((err) => console.error("Failed to transfer image bitmap:", err));
-  }, [blend]);
+  });
 
   // Draw spectrogram
   // Use a ref to store the latest draw function
@@ -463,25 +467,34 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [drawSpectrogram]);
 
+  const getSpectrogram = useCallback(() => {
+    const endSec = startSec + width / pxPerSec;
+    BackendAPI.getSpectrogram(idChStr, [startSec, endSec], MARGIN_FOR_RESIZE)
+      .then((spectrogram) => {
+        spectrogramRef.current = spectrogram;
+        requestAnimationFrame(() => drawSpectrogramRef.current());
+      })
+      .catch((err) => console.error("Failed to get spectrogram:", err));
+  }, [idChStr, startSec, pxPerSec, width]);
+  const prevGetSpectrogramRef = useRef<() => void>(getSpectrogram);
+
+  if (prevGetSpectrogramRef.current === getSpectrogram && needRefresh) getSpectrogram();
+  prevGetSpectrogramRef.current = getSpectrogram;
+
+  useEffect(getSpectrogram, [getSpectrogram]);
+
   // Draw wav
-  const drawWavRef = useRef(drawWav);
   const lastWavTimestampRef = useRef<number>(-1);
   const drawWavOnNextFrame = useEvent((force: boolean = false) => {
-    drawWavRef.current = drawWav;
-    // Request a redraw only when the draw function or its dependencies change
     const animationFrameId = requestAnimationFrame((timestamp) => {
       if (timestamp === lastWavTimestampRef.current && !force) return;
       lastWavTimestampRef.current = timestamp;
-      // Ensure drawRef.current exists and call it
-      if (drawWavRef.current) drawWavRef.current();
+      drawWav();
     });
 
-    // Cleanup function to cancel the frame if the component unmounts
-    // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(animationFrameId);
   });
 
-  const prevGetWavImageRef = useRef<() => void>(() => {});
   const getWavImage = useCallback(() => {
     BackendAPI.getWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio)
       .then((wavImage) => {
@@ -493,26 +506,25 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         wavImageRef.current = null;
       });
   }, [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec, drawWavOnNextFrame]);
+  const prevGetWavImageRef = useRef<() => void>(getWavImage);
 
-  if (prevGetWavImageRef.current === getWavImage && needRefreshWavImg) {
-    getWavImage();
-  }
+  if (prevGetWavImageRef.current === getWavImage && needRefresh) getWavImage();
   prevGetWavImageRef.current = getWavImage;
 
-  useEffect(() => getWavImage(), [getWavImage]);
+  useEffect(getWavImage, [getWavImage]);
 
   useEffect(() => {
-    if (blend >= 1 || !spectrogram) {
+    if (blend >= 1 || hidden) {
       wavCtxRef.current?.transferFromImageBitmap(null);
       return;
     }
     drawWavOnNextFrame();
-  }, [drawWavOnNextFrame, blend, spectrogram]);
+  }, [drawWavOnNextFrame, blend, hidden]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
-    loadingElem.current.style.display = needRefreshWavImg ? "block" : "none";
-  }, [needRefreshWavImg]);
+    loadingElem.current.style.display = needRefresh ? "block" : "none";
+  }, [needRefresh]);
 
   const setLoadingDisplayRef = useRef(setLoadingDisplay);
   useEffect(() => {

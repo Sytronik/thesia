@@ -1,5 +1,7 @@
 import {COLORMAP_RGBA8} from "../prototypes/constants/colors";
 
+export const MARGIN_FOR_RESIZE = 5; // at least 3 for Lanczos-3 kernel
+
 export const VS_RESIZER = `#version 300 es
 precision highp float;
 

@@ -44,6 +44,22 @@ pub struct Spectrogram {
     pub arr: Float32Array,
     pub width: u32,
     pub height: u32,
+    pub px_per_sec: f64,
+    pub left_margin: f64,
+    pub right_margin: f64,
+}
+
+impl Default for Spectrogram {
+    fn default() -> Self {
+        Self {
+            arr: Float32Array::new(Vec::new()),
+            width: 0,
+            height: 0,
+            px_per_sec: 0.0,
+            left_margin: 0.0,
+            right_margin: 0.0,
+        }
+    }
 }
 
 #[napi(object)]
