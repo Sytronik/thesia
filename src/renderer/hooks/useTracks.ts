@@ -15,6 +15,7 @@ function useTracks(userSettings: UserSettings) {
   const [trackIds, setTrackIds] = useState<number[]>([]);
   const [hiddenTrackIds, setHiddenTrackIds] = useState<number[]>([]);
   const [erroredTrackIds, setErroredTrackIds] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [needRefreshTrackIdChArr, setNeedRefreshTrackIdChArr] = useState<IdChArr>([]);
 
   const [currentSpecSetting, setCurrentSpecSetting] = useState<SpecSetting>(
@@ -51,33 +52,10 @@ function useTracks(userSettings: UserSettings) {
     [trackIds],
   );
 
-  const reloadTracks = useEvent(async (ids: number[]) => {
-    try {
-      const reloadedIds = await BackendAPI.reloadTracks(ids);
-      const erroredIds = difference(ids, reloadedIds);
-
-      if (erroredIds && erroredIds.length) setErroredTrackIds(erroredIds);
-
-      if (reloadedIds.length > 0) setTrackIds((prevTrackIds) => prevTrackIds.slice());
-    } catch (err) {
-      console.error("Could not reload tracks", err);
-    }
-  });
-
-  const refreshTracks = useEvent(async () => {
-    try {
-      const needRefreshIdChArr = await BackendAPI.applyTrackListChanges();
-      if (needRefreshIdChArr) {
-        setNeedRefreshTrackIdChArr(needRefreshIdChArr);
-      }
-    } catch (err) {
-      console.error("Could not refresh tracks", err);
-    }
-  });
-
   const addTracks = useEvent(
     async (paths: string[], index: number | null = null): Promise<AddTracksResultType> => {
       try {
+        setIsLoading(true);
         const idsOfInputPaths = await Promise.all(paths.map(BackendAPI.findIdByPath));
         const newPaths = paths.filter((_, i) => idsOfInputPaths[i] === -1);
         const existingIds = idsOfInputPaths.filter((id) => id !== -1);
@@ -121,12 +99,39 @@ function useTracks(userSettings: UserSettings) {
     },
   );
 
+  const reloadTracks = useEvent(async (ids: number[]) => {
+    try {
+      setIsLoading(true);
+      const reloadedIds = await BackendAPI.reloadTracks(ids);
+      const erroredIds = difference(ids, reloadedIds);
+
+      if (erroredIds && erroredIds.length) setErroredTrackIds(erroredIds);
+
+      if (reloadedIds.length > 0) setTrackIds((prevTrackIds) => prevTrackIds.slice());
+    } catch (err) {
+      console.error("Could not reload tracks", err);
+    }
+  });
+
+  const refreshTracks = useEvent(async () => {
+    try {
+      const needRefreshIdChArr = await BackendAPI.applyTrackListChanges();
+      if (needRefreshIdChArr) {
+        setNeedRefreshTrackIdChArr(needRefreshIdChArr);
+      }
+      setIsLoading(false);
+    } catch (err) {
+      console.error("Could not refresh tracks", err);
+    }
+  });
+
   const ignoreError = useEvent((erroredId: number) => {
     setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, [erroredId]));
   });
 
   const removeTracks = useEvent((ids: number[]) => {
     try {
+      setIsLoading(true);
       BackendAPI.removeTracks(ids);
       setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
       setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
@@ -167,11 +172,13 @@ function useTracks(userSettings: UserSettings) {
   });
 
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
+    setIsLoading(true);
     await BackendAPI.setSpecSetting(v);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     const specSetting = BackendAPI.getSpecSetting();
     setCurrentSpecSetting(specSetting);
     setUserSetting("specSetting", specSetting);
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    setIsLoading(false);
   });
 
   const setBlendAndSetUserSetting = useEvent((v: number) => {
@@ -180,27 +187,33 @@ function useTracks(userSettings: UserSettings) {
   });
 
   const setdBRange = useEvent(async (v: number) => {
+    setIsLoading(true);
     await BackendAPI.setdBRange(v);
     const dBRange = await BackendAPI.getdBRange();
     setCurrentdBRange(dBRange);
     setUserSetting("dBRange", dBRange);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    setIsLoading(false);
   });
 
   const setCommonGuardClipping = useEvent(async (v: GuardClippingMode) => {
+    setIsLoading(true);
     await BackendAPI.setCommonGuardClipping(v);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     const commonGuardClipping = BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
     setUserSetting("commonGuardClipping", commonGuardClipping);
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    setIsLoading(false);
   });
 
   const setCommonNormalize = useEvent(async (v: NormalizeTarget) => {
+    setIsLoading(true);
     await BackendAPI.setCommonNormalize(v);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     const commonNormalize = BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
     setUserSetting("commonNormalize", commonNormalize);
+    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    setIsLoading(false);
   });
 
   const finishRefreshTracks = useEvent(() => {
@@ -212,6 +225,7 @@ function useTracks(userSettings: UserSettings) {
     hiddenTrackIds,
     erroredTrackIds,
     trackIdChMap,
+    isLoading,
     needRefreshTrackIdChArr,
     maxTrackSec,
     maxTrackHz,
