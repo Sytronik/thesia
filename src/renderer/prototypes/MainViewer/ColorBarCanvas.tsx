@@ -2,8 +2,8 @@ import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react"
 import {chunk} from "renderer/utils/arrayUtils";
 import {COLORBAR_CANVAS_WIDTH} from "renderer/prototypes/constants/tracks";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import BackendAPI from "../../api";
 import styles from "./ColorBarCanvas.module.scss";
+import {COLORMAP_RGBA8} from "../constants/colors";
 
 type ColorBarCanvasProps = {
   width: number;
@@ -18,10 +18,7 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
 
-  const colorBarGradientBuf = useMemo(
-    () => chunk([...new Uint8Array(BackendAPI.getColorMap())], 3).reverse(),
-    [],
-  );
+  const colorBarGradientBuf = useMemo(() => chunk([...COLORMAP_RGBA8], 4).reverse(), []);
 
   const draw = useCallback(() => {
     const ctx = ctxRef.current;
@@ -30,10 +27,10 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     const colorGradient = ctx.createLinearGradient(COLORBAR_CENTER, 0, COLORBAR_CENTER, height);
 
     colorBarGradientBuf.forEach((color, idx) => {
-      const [r, g, b] = color;
+      const [r, g, b, a] = color;
       colorGradient.addColorStop(
         (1 / (colorBarGradientBuf.length - 1)) * idx,
-        `rgba(${r}, ${g}, ${b}, 1)`,
+        `rgba(${r}, ${g}, ${b}, ${a})`,
       );
     });
 
