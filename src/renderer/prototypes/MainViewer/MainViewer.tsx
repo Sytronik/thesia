@@ -239,7 +239,7 @@ function MainViewer(props: MainViewerProps) {
 
   const throttledSetHzRange = useMemo(
     () =>
-      throttle(1000 / 70, async (minHz: number, maxHz: number) => {
+      throttle(1000 / 120, async (minHz: number, maxHz: number) => {
         setHzRange([minHz, maxHz]);
       }),
     [],
@@ -275,9 +275,14 @@ function MainViewer(props: MainViewerProps) {
     },
   );
 
+  const throttledUpdateLensParams = useMemo(
+    () => throttle(1000 / 120, updateLensParams),
+    [updateLensParams],
+  );
+
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
     const lensDurationSec = width / pxPerSec;
-    updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
+    throttledUpdateLensParams({startSec: sec - lensDurationSec * anchorRatio});
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
@@ -285,12 +290,12 @@ function MainViewer(props: MainViewerProps) {
     const newStartSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
     const newPxPerSec = normalizePxPerSec(width / (endSec - newStartSec), newStartSec);
 
-    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+    throttledUpdateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
   });
 
   const resizeLensRight = useEvent((sec: number) => {
     const newPxPerSec = normalizePxPerSec(width / Math.max(sec - startSec, 0), startSec);
-    updateLensParams({pxPerSec: newPxPerSec});
+    throttledUpdateLensParams({pxPerSec: newPxPerSec});
   });
 
   const zoomHeight = useEvent((delta: number) => {
@@ -298,6 +303,23 @@ function MainViewer(props: MainViewerProps) {
     setHeight(newHeight);
     return newHeight;
   });
+
+  const throttledZoomHeightAtCursor = useMemo(
+    () =>
+      throttle(1000 / 120, (delta, cursorY) => {
+        const newHeight = zoomHeight((delta * height) / 1000);
+        const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
+        // TODO: remove hard-coded 2
+        setScrollTop(
+          imgIndex * (newHeight + 2) +
+            VERTICAL_AXIS_PADDING +
+            cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
+            cursorOffset -
+            cursorY,
+        );
+      }),
+    [height, zoomHeight],
+  );
 
   const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
     let i = 0;
@@ -376,28 +398,18 @@ function MainViewer(props: MainViewerProps) {
           newPxPerSec,
           maxTrackSec,
         );
-        updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+        throttledUpdateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
       } else {
         // vertical zoom
         const splitView = splitViewElem.current;
         if (!splitView) return;
 
-        const newHeight = zoomHeight((delta * height) / 1000);
-
         const cursorY = e.clientY - (splitView.getBoundingClientRect()?.y ?? 0);
-        const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
-        // TODO: remove hard-coded 2
-        setScrollTop(
-          imgIndex * (newHeight + 2) +
-            VERTICAL_AXIS_PADDING +
-            cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
-            cursorOffset -
-            cursorY,
-        );
+        throttledZoomHeightAtCursor(delta, cursorY);
       }
     } else if (horizontal) {
       // horizontal scroll
-      updateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
+      throttledUpdateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
     }
   });
 
@@ -464,15 +476,15 @@ function MainViewer(props: MainViewerProps) {
         splitViewHeight / 2,
     );
   });
-  const zoomHeightAndScroll = (isZoomOut: boolean) => {
+  const zoomHeightAndScrollToSelectedTrack = (isZoomOut: boolean) => {
     if (trackIds.length === 0) return;
 
     let delta = 2 ** (Math.floor(Math.log2(height)) - 1.2);
     if (isZoomOut) delta = -delta;
     setScrollTopBySelectedTracks(zoomHeight(delta));
   };
-  const freqZoomIn = useEvent(() => zoomHeightAndScroll(false));
-  const freqZoomOut = useEvent(() => zoomHeightAndScroll(true));
+  const freqZoomIn = useEvent(() => zoomHeightAndScrollToSelectedTrack(false));
+  const freqZoomOut = useEvent(() => zoomHeightAndScrollToSelectedTrack(true));
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
   useEffect(() => {
@@ -575,7 +587,7 @@ function MainViewer(props: MainViewerProps) {
         player.positionSecRef.current !== null &&
         (calcEndSec() < player.positionSecRef.current || startSec > player.positionSecRef.current)
       ) {
-        updateLensParams({startSec: player.positionSecRef.current}, false);
+        throttledUpdateLensParams({startSec: player.positionSecRef.current}, false);
       }
     } else {
       needFollowCursor.current = true;
@@ -587,7 +599,7 @@ function MainViewer(props: MainViewerProps) {
 
         if (newEndSec < selectSec || newStartSec > selectSec)
           newStartSec = selectSec - width / pxPerSec / 2;
-        updateLensParams({startSec: newStartSec}, false);
+        throttledUpdateLensParams({startSec: newStartSec}, false);
       }
     }
     prevSelectSecRef.current = selectSec;
