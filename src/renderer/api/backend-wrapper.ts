@@ -1,6 +1,6 @@
 import backend, {Spectrogram} from "backend";
 
-export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavImage} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
