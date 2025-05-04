@@ -271,9 +271,12 @@ struct SpectrogramSliceArgs {
     px_per_sec: f64,
     left: usize,
     width: usize,
+    top: usize,
     height: usize,
     left_margin: f64,
     right_margin: f64,
+    top_margin: f64,
+    bottom_margin: f64,
 }
 
 impl SpectrogramSliceArgs {
@@ -282,30 +285,68 @@ impl SpectrogramSliceArgs {
         n_freqs: usize,
         track_sec: f64,
         sec_range: (f64, f64),
-        margin_px: i32,
+        spec_hz_range: (f32, f32),
+        hz_range: (f32, f32),
+        margin_px: usize,
     ) -> Self {
         let px_per_sec = n_frames as f64 / track_sec;
-
         let left_f64 = sec_range.0 * px_per_sec;
         let width_f64 = ((sec_range.1 - sec_range.0) * px_per_sec).max(0.);
 
-        let left_with_margin = left_f64 as i32 - margin_px;
-        let width_with_margin =
-            ((left_f64 + width_f64).ceil() as i32 + margin_px - left_with_margin).max(0);
+        let (left_w_margin_clipped, width_w_margin_clipped, left_margin, right_margin) =
+            Self::_calc_margin(left_f64, width_f64, n_frames, margin_px);
 
-        let left_clipped = left_with_margin.max(0) as usize;
-        let width_clipped = width_with_margin.min(n_frames as i32 - left_clipped as i32) as usize;
+        let (top_f64, height_f64) = {
+            let spec_setting = SPEC_SETTING.read();
+            let top_f64 = spec_setting
+                .freq_scale
+                .hz_to_relative_freq(hz_range.0, spec_hz_range) as f64
+                * n_freqs as f64;
+            let bottom_f64 = spec_setting
+                .freq_scale
+                .hz_to_relative_freq(hz_range.1, spec_hz_range) as f64
+                * n_freqs as f64;
+            (top_f64, bottom_f64 - top_f64)
+        };
 
-        let left_margin = left_f64 - left_clipped as f64;
-        let right_margin = width_clipped as f64 - width_f64;
+        let (top_w_margin_clipped, height_w_margin_clipped, top_margin, bottom_margin) =
+            Self::_calc_margin(top_f64, height_f64, n_freqs, margin_px);
+
         Self {
             px_per_sec,
-            left: left_clipped,
-            width: width_clipped,
+            left: left_w_margin_clipped,
+            width: width_w_margin_clipped,
+            top: top_w_margin_clipped,
+            height: height_w_margin_clipped,
             left_margin,
             right_margin,
-            height: n_freqs,
+            top_margin,
+            bottom_margin,
         }
+    }
+
+    fn _calc_margin(
+        start: f64,
+        length: f64,
+        max_length: usize,
+        margin: usize,
+    ) -> (usize, usize, f64, f64) {
+        let start_w_margin = start as isize - margin as isize;
+        let len_w_margin =
+            ((start + length).ceil() as isize + margin as isize - start_w_margin).max(0);
+
+        let start_w_margin_clipped = start_w_margin.max(0) as usize;
+        let len_w_margin_clipped =
+            len_w_margin.min(max_length as isize - start_w_margin_clipped as isize) as usize;
+
+        let pre_margin = start - start_w_margin_clipped as f64;
+        let post_margin = len_w_margin_clipped as f64 - length;
+        (
+            start_w_margin_clipped,
+            len_w_margin_clipped,
+            pre_margin,
+            post_margin,
+        )
     }
 }
 
@@ -313,11 +354,13 @@ impl SpectrogramSliceArgs {
 async fn get_spectrogram(
     id_ch_str: String,
     sec_range: (f64, f64),
+    hz_range: (f64, f64),
     margin_px: i32,
 ) -> Result<Option<Spectrogram>> {
     assert!(margin_px >= 0);
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
+
     spawn_blocking(move || {
         let track_sec = {
             let tracklist = TRACK_LIST.blocking_read();
@@ -337,6 +380,12 @@ async fn get_spectrogram(
             return Ok(None);
         };
 
+        let spec_hz_range = (0., tm.max_sr as f32 / 2.);
+        let hz_range = (
+            (hz_range.0 as f32).max(0.),
+            (hz_range.1 as f32).min(spec_hz_range.1),
+        );
+
         let max_size = tm.max_spectrogram_size as usize;
         let mut args = None;
         let mut mipmap = None;
@@ -347,7 +396,9 @@ async fn get_spectrogram(
                     _mipmap.shape()[0],
                     track_sec,
                     sec_range,
-                    margin_px,
+                    spec_hz_range,
+                    hz_range,
+                    margin_px as usize,
                 );
                 if _args.height > max_size {
                     break;
@@ -365,7 +416,10 @@ async fn get_spectrogram(
         let (args, mipmap) = (args.unwrap(), mipmap.unwrap());
 
         let sliced_arr = mipmap
-            .slice(s![.., args.left..args.left + args.width])
+            .slice(s![
+                args.top..args.top + args.height,
+                args.left..args.left + args.width
+            ])
             .to_owned();
         let (sliced_vec, _) = sliced_arr.into_raw_vec_and_offset();
         let sliced_vec = unsafe {
@@ -379,6 +433,8 @@ async fn get_spectrogram(
             px_per_sec: args.px_per_sec,
             left_margin: args.left_margin,
             right_margin: args.right_margin,
+            top_margin: args.top_margin,
+            bottom_margin: args.bottom_margin,
         }))
     })
     .await

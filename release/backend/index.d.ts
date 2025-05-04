@@ -50,6 +50,8 @@ export interface Spectrogram {
   pxPerSec: number
   leftMargin: number
   rightMargin: number
+  topMargin: number
+  bottomMargin: number
 }
 export interface WavImage {
   buf: Buffer
@@ -70,7 +72,7 @@ export declare function getCommonGuardClipping(): GuardClippingMode
 export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise<void>
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
-export declare function getSpectrogram(idChStr: string, secRange: [number, number], marginPx: number): Promise<Spectrogram | null>
+export declare function getSpectrogram(idChStr: string, secRange: [number, number], hzRange: [number, number], marginPx: number): Promise<Spectrogram | null>
 export declare function getWavImage(idChStr: string, startSec: number, pxPerSec: number, width: number, height: number, ampRange: [number, number], dpr: number): Promise<WavImage>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<WavImage>
