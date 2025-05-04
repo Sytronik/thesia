@@ -6,6 +6,7 @@ import {HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS} from "../c
 
 type TimeAxisProps = {
   width: number;
+  markersAndLength: [Markers, number];
   shiftWhenResize: boolean;
   startSec: number;
   pxPerSec: number;
@@ -22,8 +23,16 @@ const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
 const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
-  const {width, shiftWhenResize, startSec, pxPerSec, moveLens, resetTimeAxis, enableInteraction} =
-    props;
+  const {
+    width,
+    markersAndLength,
+    shiftWhenResize,
+    startSec,
+    pxPerSec,
+    moveLens,
+    resetTimeAxis,
+    enableInteraction,
+  } = props;
   const calcDragAnchor = useEvent(
     (cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
@@ -69,6 +78,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
       height={TIME_CANVAS_HEIGHT}
       axisPadding={HORIZONTAL_AXIS_PADDING}
       markerPos={TIME_MARKER_POS}
+      markersAndLength={markersAndLength}
       direction="H"
       className="timeRuler"
       shiftWhenResize={shiftWhenResize}

@@ -17,6 +17,7 @@ import BackendAPI from "../../api";
 type FreqAxisProps = {
   id: number;
   height: number;
+  markersAndLength: [Markers, number];
   maxTrackHz: number;
   hzRange: [number, number];
   setHzRange:
@@ -45,7 +46,16 @@ const DEFAULT_DRAG_ANCHOR: FreqAxisDragAnchor = {
 };
 
 const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
-  const {id, height, maxTrackHz, hzRange, setHzRange, resetHzRange, enableInteraction} = props;
+  const {
+    id,
+    height,
+    markersAndLength,
+    maxTrackHz,
+    hzRange,
+    setHzRange,
+    resetHzRange,
+    enableInteraction,
+  } = props;
   const [minHzInputHidden, setMinHzInputHidden] = useState(true);
   const [maxHzInputHidden, setMaxHzInputHidden] = useState(true);
   const cursorStateRef = useRef<FreqAxisCursorState>("shift-hz-range");
@@ -245,6 +255,7 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
         height={height}
         axisPadding={VERTICAL_AXIS_PADDING}
         markerPos={FREQ_MARKER_POS}
+        markersAndLength={markersAndLength}
         direction="V"
         className="freqAxis"
         endInclusive

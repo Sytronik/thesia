@@ -18,6 +18,7 @@ import {
 type AmpAxisProps = {
   id: number;
   height: number;
+  markersAndLength: [Markers, number];
   ampRange: [number, number];
   setAmpRange: (newRange: [number, number]) => void;
   resetAmpRange: () => void;
@@ -49,7 +50,8 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
-  const {id, height, ampRange, setAmpRange, resetAmpRange, enableInteraction} = props;
+  const {id, height, markersAndLength, ampRange, setAmpRange, resetAmpRange, enableInteraction} =
+    props;
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
   const calcLimitedCursorRatio = (
@@ -177,6 +179,7 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
         height={height}
         axisPadding={VERTICAL_AXIS_PADDING}
         markerPos={AMP_MARKER_POS}
+        markersAndLength={markersAndLength}
         direction="V"
         className="ampAxis"
         endInclusive

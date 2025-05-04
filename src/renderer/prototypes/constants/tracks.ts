@@ -41,7 +41,7 @@ export const TIME_MARKER_POS = {
   LABEL_LEFT_MARGIN: 4,
 };
 
-export const TIME_TICK_SIZE = {
+export const TIME_TICK_SIZE: TickScaleTable = {
   // px per sec : [minor unit, number of subticks]
   0.00091: [3600, 5],
   0.00241: [3600, 2],
@@ -86,7 +86,7 @@ export const AMP_MARKER_POS = {
   LABEL_POS: 4,
   LABEL_LEFT_MARGIN: 3,
 };
-export const AMP_TICK_NUM = {
+export const AMP_TICK_NUM: TickScaleTable = {
   // height: [max_number_of_ticks, max_number_of_labels]
   // TEMP
   80: [5, 5],
@@ -130,7 +130,7 @@ export const FREQ_MARKER_POS = {
   LABEL_POS: 4, // same as MAJOR_TICK_POS
   LABEL_LEFT_MARGIN: 3,
 };
-export const FREQ_TICK_NUM = {
+export const FREQ_TICK_NUM: TickScaleTable = {
   // height: [max_number_of_ticks, max_number_of_labels]
   // TEMP
   80: [4, 2],
@@ -168,7 +168,7 @@ export const DB_MARKER_POS = {
   LABEL_POS: 4,
   LABEL_LEFT_MARGIN: 3,
 };
-export const DB_TICK_NUM = {
+export const DB_TICK_NUM: TickScaleTable = {
   80: [4, 4],
   120: [6, 6],
   250: [13, 13],
