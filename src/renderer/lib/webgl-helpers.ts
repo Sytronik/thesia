@@ -455,7 +455,8 @@ export function renderSpectrogram(
     // If you were using a VAO for these attributes, you'd bind it here.
 
     // Upload source R32F texture
-    texSrc = createTexture(gl, spectrogram.width, spectrogram.height, spectrogram.arr, gl.R32F);
+    const data = new Float32Array(spectrogram.buf.buffer);
+    texSrc = createTexture(gl, spectrogram.width, spectrogram.height, data, gl.R32F);
 
     // Create intermediate R32F texture for horizontal pass result
     texMid = createTexture(gl, dstW, srcH, null, gl.R32F);

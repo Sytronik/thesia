@@ -44,7 +44,7 @@ export interface PlayerState {
   err: string
 }
 export interface Spectrogram {
-  arr: Float32Array
+  buf: Buffer
   width: number
   height: number
   pxPerSec: number

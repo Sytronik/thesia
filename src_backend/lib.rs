@@ -422,12 +422,13 @@ async fn get_spectrogram(
             ])
             .to_owned();
         let (sliced_vec, _) = sliced_arr.into_raw_vec_and_offset();
-        let sliced_vec = unsafe {
+        let sliced_f32_slice = unsafe {
             std::slice::from_raw_parts(sliced_vec.as_ptr() as *const f32, sliced_vec.len())
         };
+        let buf: &[u8] = bytemuck::cast_slice(&sliced_f32_slice);
 
         Ok(Some(Spectrogram {
-            arr: Float32Array::with_data_copied(sliced_vec),
+            buf: buf.into(),
             width: args.width as u32,
             height: args.height as u32,
             px_per_sec: args.px_per_sec,
