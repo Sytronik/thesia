@@ -50,6 +50,7 @@ type MainViewerProps = {
   selectedTrackIds: number[];
   selectionIsAdded: boolean;
   trackIdChMap: IdChMap;
+  isLoading: boolean;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
   maxTrackHz: number;
@@ -75,6 +76,7 @@ function MainViewer(props: MainViewerProps) {
     selectedTrackIds,
     selectionIsAdded,
     trackIdChMap,
+    isLoading,
     needRefreshTrackIdChArr,
     maxTrackSec,
     maxTrackHz,
@@ -170,14 +172,6 @@ function MainViewer(props: MainViewerProps) {
 
   const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
 
-  const reloadAndRefreshTracks = useEvent(async (ids: number[]) => {
-    await reloadTracks(ids);
-    await refreshTracks();
-  });
-  const removeAndRefreshTracks = useEvent(async (ids: number[]) => {
-    removeTracks(ids);
-    await refreshTracks();
-  });
   const calcEndSec = useEvent(() => startSec + width / pxPerSec);
 
   const {
@@ -818,10 +812,8 @@ function MainViewer(props: MainViewerProps) {
   ]);
 
   useEffect(() => {
-    if (needRefreshTrackIdChArr.length > 0) {
-      finishRefreshTracks();
-    }
-  }, [getIdChArr, width, imgHeight, needRefreshTrackIdChArr, finishRefreshTracks]);
+    if (needRefreshTrackIdChArr.length > 0) finishRefreshTracks();
+  }, [needRefreshTrackIdChArr, finishRefreshTracks]);
 
   const mainViewerElemCallback = useCallback(
     (node: HTMLDivElement | null) => {
@@ -918,6 +910,7 @@ function MainViewer(props: MainViewerProps) {
                 >
                   <ImgCanvas
                     ref={registerImgCanvas(idChStr)}
+                    idChStr={idChStr}
                     width={width}
                     height={imgHeight}
                     startSec={startSec}
@@ -926,9 +919,9 @@ function MainViewer(props: MainViewerProps) {
                     maxTrackSec={maxTrackSec}
                     hzRange={hzRange}
                     maxTrackHz={maxTrackHz}
-                    idChStr={idChStr}
                     ampRange={ampRange}
                     blend={blend}
+                    isLoading={isLoading}
                     needRefresh={needRefreshTrackIdChArr.includes(idChStr)}
                     hidden={id === hiddenImgIdRef.current}
                   />
@@ -936,9 +929,15 @@ function MainViewer(props: MainViewerProps) {
                     <ErrorBox
                       trackId={id}
                       width={width}
-                      handleReload={(trackId) => reloadAndRefreshTracks([trackId])}
+                      handleReload={async (trackId) => {
+                        await reloadTracks([trackId]);
+                        await refreshTracks();
+                      }}
                       handleIgnore={ignoreError}
-                      handleClose={(trackId) => removeAndRefreshTracks([trackId])}
+                      handleClose={async (trackId) => {
+                        removeTracks([trackId]);
+                        await refreshTracks();
+                      }}
                     />
                   ) : null}
                   <AmpAxis

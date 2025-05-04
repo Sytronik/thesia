@@ -25,6 +25,7 @@ import {
 } from "../lib/webgl-helpers";
 
 type ImgCanvasProps = {
+  idChStr: string;
   width: number;
   height: number;
   startSec: number;
@@ -33,9 +34,9 @@ type ImgCanvasProps = {
   maxTrackSec: number;
   hzRange: [number, number];
   maxTrackHz: number;
-  idChStr: string;
   ampRange: [number, number];
   blend: number;
+  isLoading: boolean;
   needRefresh: boolean;
   hidden: boolean;
 };
@@ -46,6 +47,7 @@ const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {
+    idChStr,
     width,
     height,
     startSec,
@@ -54,9 +56,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     maxTrackSec,
     hzRange,
     maxTrackHz,
-    idChStr,
     ampRange,
     blend,
+    isLoading,
     needRefresh,
     hidden,
   } = props;
@@ -523,8 +525,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
-    loadingElem.current.style.display = needRefresh ? "block" : "none";
-  }, [needRefresh]);
+    loadingElem.current.style.display = isLoading ? "block" : "none";
+  }, [isLoading]);
 
   const setLoadingDisplayRef = useRef(setLoadingDisplay);
   useEffect(() => {
@@ -533,7 +535,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     setTimeout(() => {
       // Ensure setLoadingDisplayRef.current exists and call it
       if (setLoadingDisplayRef.current) setLoadingDisplayRef.current();
-    }, 100);
+    }, 500);
   }, [setLoadingDisplay]);
 
   // Cleanup WebGL resources on unmount or when canvas element changes

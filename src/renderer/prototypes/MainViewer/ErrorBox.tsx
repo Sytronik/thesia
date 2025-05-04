@@ -4,9 +4,9 @@ import styles from "./ErrorBox.module.scss";
 type ErrorBoxProps = {
   trackId: number;
   width: number;
-  handleReload: (id: number) => void;
-  handleIgnore: (id: number) => void;
-  handleClose: (id: number) => void;
+  handleReload: (id: number) => void | Promise<void>;
+  handleIgnore: (id: number) => void | Promise<void>;
+  handleClose: (id: number) => void | Promise<void>;
 };
 
 function ErrorBox(props: ErrorBoxProps) {
