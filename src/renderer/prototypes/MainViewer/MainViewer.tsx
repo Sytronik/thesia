@@ -3,7 +3,7 @@ import {throttle} from "throttle-debounce";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
-import useThrottledSetMarkers from "renderer/hooks/useThrottledSetMarkers";
+import useAxisMarkers from "renderer/hooks/useThrottledSetMarkers";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
@@ -102,7 +102,6 @@ function MainViewer(props: MainViewerProps) {
   const [pxPerSec, setPxPerSec] = useState<number>(100);
   const prevSelectSecRef = useRef<number>(0);
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
-  const [timeUnitLabel, setTimeUnitLabel] = useState<string>("");
   const [hzRange, setHzRange] = useState<[number, number]>([0, Infinity]);
   const [ampRange, setAmpRange] = useState<[number, number]>([...DEFAULT_AMP_RANGE]);
 
@@ -122,8 +121,6 @@ function MainViewer(props: MainViewerProps) {
   const selectLocatorElem = useRef<LocatorHandleElement>(null);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
-  const [ampCanvasesRef, registerAmpCanvas] = useRefs<AxisCanvasHandleElement>();
-  const [freqCanvasesRef, registerFreqCanvas] = useRefs<AxisCanvasHandleElement>();
   const [trackInfosRef, registerTrackInfos] = useRefs<TrackInfoElement>();
 
   const needFollowCursor = useRef<boolean>(true);
@@ -172,48 +169,64 @@ function MainViewer(props: MainViewerProps) {
 
   const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
 
-  const calcEndSec = useEvent(() => startSec + width / pxPerSec);
+  const calcEndSec = () => startSec + width / pxPerSec;
 
-  const {
-    markersAndLengthRef: timeMarkersAndLengthRef,
-    throttledSetMarkers: throttledSetTimeMarkers,
-    resetMarkers: resetTimeMarkers,
-  } = useThrottledSetMarkers({
+  const timeMarkersAndLength = useAxisMarkers({
     scaleTable: TIME_TICK_SIZE,
     boundaries: TIME_BOUNDARIES,
     getMarkers: BackendAPI.getTimeAxisMarkers,
+    canvasLength: trackIds.length > 0 ? width : 0,
+    scaleDeterminant: pxPerSec,
+    drawOptions: {startSec, endSec: calcEndSec(), maxSec: maxTrackSec},
+  });
+  const timeUnitLabel = useMemo(() => {
+    if (!trackIds.length) return "";
+
+    const [markers] = timeMarkersAndLength;
+    if (markers.length === 0) return "";
+    return markers[markers.length - 1][1];
+  }, [timeMarkersAndLength, trackIds]);
+
+  const ampMarkersDrawOptions = useMemo(() => ({ampRange}), [ampRange]);
+  const ampMarkersAndLength = useAxisMarkers({
+    scaleTable: AMP_TICK_NUM,
+    boundaries: AMP_BOUNDARIES,
+    getMarkers: BackendAPI.getAmpAxisMarkers,
+    canvasLength: imgHeight,
+    scaleDeterminant: imgHeight,
+    drawOptions: ampMarkersDrawOptions,
   });
 
-  const unsetTimeMarkersAndUnit = useEvent(() => {
-    resetTimeMarkers();
-    setTimeUnitLabel("");
-  });
-
-  const {markersAndLengthRef: ampMarkersAndLengthRef, throttledSetMarkers: throttledSetAmpMarkers} =
-    useThrottledSetMarkers({
-      scaleTable: AMP_TICK_NUM,
-      boundaries: AMP_BOUNDARIES,
-      getMarkers: BackendAPI.getAmpAxisMarkers,
-    });
-
-  const {
-    markersAndLengthRef: freqMarkersAndLengthRef,
-    throttledSetMarkers: throttledSetFreqMarkers,
-  } = useThrottledSetMarkers({
+  const freqMarkersDrawOptions = useMemo(() => ({maxTrackHz, hzRange}), [maxTrackHz, hzRange]);
+  const freqMarkersAndLength = useAxisMarkers({
     scaleTable: FREQ_TICK_NUM,
     boundaries: FREQ_BOUNDARIES,
     getMarkers: BackendAPI.getFreqAxisMarkers,
+    canvasLength: imgHeight,
+    scaleDeterminant: imgHeight,
+    drawOptions: freqMarkersDrawOptions,
   });
 
-  const {
-    markersAndLengthRef: dBMarkersAndLengthRef,
-    throttledSetMarkers: throttledSetdBMarkers,
-    resetMarkers: resetdBMarkers,
-  } = useThrottledSetMarkers({
+  const [minMaxdB, setMinMaxdB] = useState<{mindB: number; maxdB: number}>({
+    mindB: -100,
+    maxdB: 0,
+  });
+
+  const dBMarkersAndLength = useAxisMarkers({
     scaleTable: DB_TICK_NUM,
     boundaries: DB_BOUNDARIES,
     getMarkers: BackendAPI.getdBAxisMarkers,
+    canvasLength: trackIds.length > 0 ? colorBarHeight : 0,
+    scaleDeterminant: colorBarHeight,
+    drawOptions: minMaxdB,
   });
+
+  useEffect(() => {
+    if (trackIds.length === 0) return;
+    Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()])
+      .then(([mindB, maxdB]) => setMinMaxdB({mindB, maxdB}))
+      .catch(() => {});
+  }, [trackIds, needRefreshTrackIdChArr]);
 
   const throttledSetSelectSec = useMemo(
     () =>
@@ -228,9 +241,8 @@ function MainViewer(props: MainViewerProps) {
     () =>
       throttle(1000 / 70, async (minHz: number, maxHz: number) => {
         setHzRange([minHz, maxHz]);
-        throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz, hzRange});
       }),
-    [throttledSetFreqMarkers, imgHeight, maxTrackHz, hzRange],
+    [],
   );
 
   const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
@@ -579,12 +591,6 @@ function MainViewer(props: MainViewerProps) {
       }
     }
     prevSelectSecRef.current = selectSec;
-    getIdChArr().forEach((idChStr) => {
-      ampCanvasesRef.current[idChStr]?.draw(ampMarkersAndLengthRef.current);
-      freqCanvasesRef.current[idChStr]?.draw(freqMarkersAndLengthRef.current);
-    });
-    timeCanvasElem.current?.draw(timeMarkersAndLengthRef.current);
-    dBCanvasElem.current?.draw(dBMarkersAndLengthRef.current);
 
     await overviewElem.current?.draw(startSec, width / pxPerSec);
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -648,59 +654,6 @@ function MainViewer(props: MainViewerProps) {
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
-
-  // canvas img and markers setting logic
-  useEffect(() => {
-    if (!trackIds.length) return;
-
-    throttledSetAmpMarkers(imgHeight, imgHeight, {ampRange});
-  }, [throttledSetAmpMarkers, imgHeight, trackIds, needRefreshTrackIdChArr, ampRange]);
-
-  useEffect(() => {
-    if (!trackIds.length) return;
-
-    throttledSetFreqMarkers(imgHeight, imgHeight, {maxTrackHz, hzRange});
-  }, [throttledSetFreqMarkers, imgHeight, maxTrackHz, hzRange, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
-    if (!trackIds.length) {
-      resetdBMarkers();
-      return;
-    }
-    Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()])
-      .then(([mindB, maxdB]) =>
-        throttledSetdBMarkers(colorBarHeight, colorBarHeight, {mindB, maxdB}),
-      )
-      .catch(() => {});
-  }, [resetdBMarkers, throttledSetdBMarkers, colorBarHeight, trackIds, needRefreshTrackIdChArr]);
-
-  useEffect(() => {
-    if (!trackIds.length) {
-      unsetTimeMarkersAndUnit();
-      return;
-    }
-
-    throttledSetTimeMarkers(width, pxPerSec, {
-      startSec,
-      endSec: calcEndSec(),
-      maxSec: maxTrackSec,
-    });
-    const [markers] = timeMarkersAndLengthRef.current;
-    if (markers.length === 0) return;
-    const timeUnit = markers[markers.length - 1][1];
-    setTimeUnitLabel(timeUnit);
-  }, [
-    throttledSetTimeMarkers,
-    width,
-    pxPerSec,
-    startSec,
-    calcEndSec,
-    maxTrackSec,
-    timeMarkersAndLengthRef,
-    trackIds,
-    needRefreshTrackIdChArr,
-    unsetTimeMarkersAndUnit,
-  ]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(drawCanvas);
@@ -883,6 +836,7 @@ function MainViewer(props: MainViewerProps) {
           key="time_axis"
           ref={timeCanvasElem}
           width={width}
+          markersAndLength={timeMarkersAndLength}
           shiftWhenResize={!canvasIsFit}
           startSec={startSec}
           pxPerSec={pxPerSec}
@@ -941,8 +895,8 @@ function MainViewer(props: MainViewerProps) {
                   ) : null}
                   <AmpAxis
                     id={id}
-                    ref={registerAmpCanvas(idChStr)}
                     height={height}
+                    markersAndLength={ampMarkersAndLength}
                     ampRange={ampRange}
                     setAmpRange={setAmpRange}
                     resetAmpRange={resetAmpRange}
@@ -950,8 +904,8 @@ function MainViewer(props: MainViewerProps) {
                   />
                   <FreqAxis
                     id={id}
-                    ref={registerFreqCanvas(idChStr)}
                     height={height}
+                    markersAndLength={freqMarkersAndLength}
                     maxTrackHz={maxTrackHz}
                     hzRange={hzRange}
                     setHzRange={throttledSetHzRange}
@@ -1024,6 +978,7 @@ function MainViewer(props: MainViewerProps) {
           height={colorMapHeight}
           colorBarHeight={colorBarHeight}
           setHeight={setColorMapHeight}
+          markersAndLength={dBMarkersAndLength}
           dBAxisCanvasElem={dBCanvasElem}
         />
       </div>

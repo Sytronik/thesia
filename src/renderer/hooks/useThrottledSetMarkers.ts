@@ -1,6 +1,4 @@
-import {useRef, useMemo} from "react";
-import useEvent from "react-use-event-hook";
-import {throttle} from "throttle-debounce";
+import {useMemo} from "react";
 import {MarkerDrawOption} from "../api";
 
 type ThrottledSetMarkersParams = {
@@ -11,11 +9,16 @@ type ThrottledSetMarkersParams = {
     maxLabelCount: number,
     drawOption?: MarkerDrawOption,
   ) => Markers;
+  canvasLength: number;
+  scaleDeterminant: number;
+  drawOptions?: MarkerDrawOption;
 };
 
-const THRESHOLD = 1000 / 70;
-
-const getTickScale = (table: TickScaleTable, boundaries: number[], value: number) => {
+const getTickScale = (
+  table: TickScaleTable,
+  boundaries: number[],
+  value: number,
+): [number, number] | null => {
   const target = boundaries.find((boundary) => value >= boundary);
   if (target === undefined) {
     console.error("invalid tick scale determinant");
@@ -25,37 +28,22 @@ const getTickScale = (table: TickScaleTable, boundaries: number[], value: number
   return table[target];
 };
 
-function useThrottledSetMarkers(params: ThrottledSetMarkersParams) {
-  const markersAndLengthRef = useRef<[Markers, number]>([[], 1]);
-  const {scaleTable, boundaries, getMarkers} = params;
-
-  const throttledSetMarkers = useMemo(
-    () =>
-      throttle(
-        THRESHOLD,
-        (canvasLength: number, scaleDeterminant: number, drawOptions?: MarkerDrawOption) => {
-          const tickScale = getTickScale(scaleTable, boundaries, scaleDeterminant);
-          if (!tickScale) return;
-
-          // time axis returns [size of minor unit, number of minor tick]
-          // instead of tick and lable count
-          const [maxTickCount, maxLabelCount] = tickScale;
-          const markers = getMarkers(maxTickCount, maxLabelCount, drawOptions);
-          markersAndLengthRef.current = [markers, canvasLength];
-        },
-      ),
-    [boundaries, getMarkers, scaleTable],
+export default function useAxisMarkers(params: ThrottledSetMarkersParams) {
+  const {scaleTable, boundaries, getMarkers, canvasLength, scaleDeterminant, drawOptions} = params;
+  const tickScale: [number, number] | null = useMemo(
+    () => getTickScale(scaleTable, boundaries, scaleDeterminant),
+    [scaleTable, boundaries, scaleDeterminant],
   );
 
-  const resetMarkers = useEvent(() => {
-    markersAndLengthRef.current = [[], 1];
-  });
+  const markersAndLength: [Markers, number] = useMemo(() => {
+    if (!tickScale || canvasLength === 0) return [[], 1];
 
-  return {
-    markersAndLengthRef,
-    throttledSetMarkers,
-    resetMarkers,
-  };
+    // time axis returns [size of minor unit, number of minor tick]
+    // instead of tick and lable count
+    const [maxTickCount, maxLabelCount] = tickScale;
+    const markers = getMarkers(maxTickCount, maxLabelCount, drawOptions);
+    return [markers, canvasLength];
+  }, [tickScale, getMarkers, drawOptions, canvasLength]);
+
+  return markersAndLength;
 }
-
-export default useThrottledSetMarkers;

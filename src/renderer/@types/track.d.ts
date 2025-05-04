@@ -43,11 +43,10 @@ type TrackSummaryData = {
 
 // Axis Tick
 type TickScaleTable = {
-  [key: number]: number[];
+  [key: number]: [number, number];
 };
 
 type AxisCanvasHandleElement = {
-  draw: (markersAndLength: [Markers, number], forced?: boolean) => void;
   getBoundingClientRect: () => DOMRect | null;
 };
 

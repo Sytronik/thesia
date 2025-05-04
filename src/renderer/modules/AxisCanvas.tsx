@@ -34,6 +34,7 @@ type AxisCanvasProps = {
   height: number;
   axisPadding: number;
   markerPos: MarkerPosition;
+  markersAndLength: [Markers, number];
   direction: "H" | "V"; // stands for horizontal and vertical
   className: AxisKind;
   endInclusive?: boolean;
@@ -47,12 +48,20 @@ type AxisCanvasProps = {
 
 const AxisCanvas = forwardRef(
   ({endInclusive = false, shiftWhenResize = false, ...props}: AxisCanvasProps, ref) => {
-    const {id, width, height, axisPadding, markerPos, direction, className, onWheel, onClick} =
-      props;
+    const {
+      id,
+      width,
+      height,
+      axisPadding,
+      markerPos,
+      markersAndLength,
+      direction,
+      className,
+      onWheel,
+      onClick,
+    } = props;
     const devicePixelRatio = useContext(DevicePixelRatioContext);
     const canvasElem = useRef<HTMLCanvasElement | null>(null);
-    const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-    const prevMarkersAndLengthRef = useRef<[Markers, number]>([[], 1]);
     const bgColor = useRef<string>("");
 
     const canvasElemCallback = useCallback(
@@ -76,12 +85,19 @@ const AxisCanvas = forwardRef(
       return Math.round(endCorrected * devicePixelRatio) / devicePixelRatio + LINE_WIDTH / 2;
     });
 
-    const draw = useEvent((markersAndLength: [Markers, number], forced = false) => {
-      if (prevMarkersAndLengthRef.current === markersAndLength && !forced) return;
-
-      const ctx = ctxRef.current;
+    const draw = useCallback(() => {
+      if (!canvasElem.current) return;
+      canvasElem.current.width = width * devicePixelRatio;
+      canvasElem.current.height = height * devicePixelRatio;
+      const ctx = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
       if (!ctx) return;
 
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      ctx.fillStyle = LABEL_COLOR;
+      ctx.strokeStyle = TICK_COLOR;
+      ctx.lineWidth = LINE_WIDTH;
+      ctx.font = LABEL_FONT;
+      ctx.textBaseline = "hanging";
       ctx.save();
       ctx.fillStyle = bgColor.current;
       ctx.fillRect(0, 0, width, height);
@@ -141,30 +157,36 @@ const AxisCanvas = forwardRef(
           });
         }
       }
-      prevMarkersAndLengthRef.current = markersAndLength;
-    });
+    }, [
+      devicePixelRatio,
+      width,
+      height,
+      markersAndLength,
+      markerPos,
+      direction,
+      axisPadding,
+      shiftWhenResize,
+      correctMarkerPos,
+    ]);
 
+    const drawRef = useRef(draw);
+    const lastTimestampRef = useRef<number>(-1);
     useEffect(() => {
-      if (!canvasElem.current) return;
+      drawRef.current = draw;
+      // Request a redraw only when the draw function or its dependencies change
+      const animationFrameId = requestAnimationFrame((timestamp) => {
+        if (timestamp === lastTimestampRef.current) return;
+        lastTimestampRef.current = timestamp;
+        // Ensure drawRef.current exists and call it
+        if (drawRef.current) drawRef.current();
+      });
 
-      canvasElem.current.width = width * devicePixelRatio;
-      canvasElem.current.height = height * devicePixelRatio;
-
-      const ctx = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
-      ctxRef.current = ctx;
-      if (!ctx) return;
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      ctx.fillStyle = LABEL_COLOR;
-      ctx.strokeStyle = TICK_COLOR;
-      ctx.lineWidth = LINE_WIDTH;
-      ctx.font = LABEL_FONT;
-      ctx.textBaseline = "hanging";
-
-      draw(prevMarkersAndLengthRef.current, true);
-    }, [width, height, devicePixelRatio, draw]);
+      // Cleanup function to cancel the frame if the component unmounts
+      // or if dependencies change again before the frame executes
+      return () => cancelAnimationFrame(animationFrameId);
+    }, [draw]);
 
     const imperativeInstanceRef = useRef<AxisCanvasHandleElement>({
-      draw,
       getBoundingClientRect: () => canvasElem.current?.getBoundingClientRect() ?? null,
     });
     useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
