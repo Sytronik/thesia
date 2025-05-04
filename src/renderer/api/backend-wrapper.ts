@@ -146,7 +146,6 @@ export const {
   getMaxdB,
   getMindB,
   getMaxTrackHz,
-  getColorMap,
   getWavImage,
   getSpectrogram,
   getOverview,

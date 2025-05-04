@@ -1,38 +1,5 @@
-use approx::{AbsDiffEq, RelativeEq, relative_ne};
+use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, PartialEq)]
-pub struct DrawParams {
-    pub start_sec: f64,
-    pub width: u32,
-    pub height: u32,
-    pub px_per_sec: f64,
-    pub opt_for_wav: DrawOptionForWav,
-    pub blend: f64,
-}
-
-impl DrawParams {
-    pub fn is_params_for_different_img_cache(&self, other: &Self) -> bool {
-        self.height != other.height || relative_ne!(self.px_per_sec, other.px_per_sec)
-    }
-
-    pub fn is_params_for_different_wav_cache(&self, other: &Self) -> bool {
-        relative_ne!(self.opt_for_wav, other.opt_for_wav)
-    }
-}
-
-impl Default for DrawParams {
-    fn default() -> Self {
-        DrawParams {
-            start_sec: 0.,
-            width: 1,
-            height: 1,
-            px_per_sec: 0.,
-            opt_for_wav: Default::default(),
-            blend: 1.,
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct DrawOptionForWav {
@@ -114,9 +81,4 @@ impl RelativeEq for DrawOptionForWav {
                 .relative_ne(&other.amp_range.1, epsilon, max_relative)
             || self.dpr.relative_ne(&other.dpr, epsilon, max_relative)
     }
-}
-
-pub enum ImageKind<'a> {
-    Spec,
-    Wav(&'a DrawOptionForWav),
 }
