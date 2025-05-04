@@ -11,17 +11,14 @@ import React, {
 import useEvent from "react-use-event-hook";
 import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
-import {freqHzToPos, WavImage} from "backend";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 import {
-  createTexture,
-  createCmapTexture,
   cleanupWebGLResources,
   WebGLResources,
-  createResizeProgram,
-  createColormapProgram,
   MARGIN_FOR_RESIZE,
+  renderSpectrogram,
+  prepareWebGLResources,
 } from "../lib/webgl-helpers";
 
 type ImgCanvasProps = {
@@ -95,129 +92,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       return;
     }
 
-    const gl = specCanvasElem.current.getContext("webgl2", {
-      alpha: true,
-      antialias: false,
-      depth: false,
-      preserveDrawingBuffer: true,
-      // desynchronized: true,  // cause flickering when resizing on Windows 10
-    });
-
-    if (!gl) {
-      console.error("Failed to get WebGL2 context.");
-      webglResourcesRef.current = null;
-      return;
-    }
-
-    // Check for float buffer support
-    const ext = gl.getExtension("EXT_color_buffer_float");
-    if (!ext) {
-      console.warn(
-        "WebGL extension 'EXT_color_buffer_float' not supported. " +
-          "Rendering to float textures might fail.",
-      );
-    }
-
-    try {
-      // --- Create Resize Program and related resources ---
-      const resizeProgram = createResizeProgram(gl);
-      const resizeUniforms = {
-        uStep: gl.getUniformLocation(resizeProgram, "uStep"),
-        uTex: gl.getUniformLocation(resizeProgram, "uTex"),
-        uScale: gl.getUniformLocation(resizeProgram, "uScale"),
-        uTexOffset: gl.getUniformLocation(resizeProgram, "uTexOffset"),
-        uTexScale: gl.getUniformLocation(resizeProgram, "uTexScale"),
-        uTexOffsetY: gl.getUniformLocation(resizeProgram, "uTexOffsetY"),
-        uTexScaleY: gl.getUniformLocation(resizeProgram, "uTexScaleY"),
-      };
-      const resizePosBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
-      // Data for a quad covering the viewport, including texture coordinates
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array([
-          // Pos (-1 to 1)  // UV (0 to 1)
-          -1, -1, 0, 0, // bottom-left
-          1, -1, 1, 0, // bottom-right
-          -1, 1, 0, 1, // top-left
-          -1, 1, 0, 1, // top-left
-          1, -1, 1, 0, // bottom-right
-          1, 1, 1, 1, // top-right
-        ]), // prettier-ignore
-        gl.STATIC_DRAW,
-      );
-      const aPosResizeLoc = gl.getAttribLocation(resizeProgram, "aPosition");
-      const aUVResizeLoc = gl.getAttribLocation(resizeProgram, "aTexCoord");
-
-      // --- Create Colormap Program and related resources ---
-      const colormapProgram = createColormapProgram(gl);
-      const colormapUniforms = {
-        uLum: gl.getUniformLocation(colormapProgram, "uLum"),
-        uColorMap: gl.getUniformLocation(colormapProgram, "uColorMap"),
-        uOverlayAlpha: gl.getUniformLocation(colormapProgram, "uOverlayAlpha"),
-      };
-      const cmapVao = gl.createVertexArray();
-      gl.bindVertexArray(cmapVao);
-      const cmapVbo = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, cmapVbo);
-      // Data for a fullscreen quad (using TRIANGLE_STRIP)
-      const cmapQuadVertices = new Float32Array([
-        // positions // texCoords
-        -1.0, 1.0, 0.0, 1.0, // top-left
-        -1.0, -1.0, 0.0, 0.0, // bottom-left
-        1.0, 1.0, 1.0, 1.0, // top-right
-        1.0, -1.0, 1.0, 0.0, // bottom-right
-      ]); // prettier-ignore
-      gl.bufferData(gl.ARRAY_BUFFER, cmapQuadVertices, gl.STATIC_DRAW);
-      const aPosCmapLoc = gl.getAttribLocation(colormapProgram, "aPos");
-      const aUVCmapLoc = gl.getAttribLocation(colormapProgram, "aUV");
-      gl.enableVertexAttribArray(aPosCmapLoc);
-      gl.vertexAttribPointer(aPosCmapLoc, 2, gl.FLOAT, false, 16, 0); // 2 floats position, 4*4=16 bytes stride, 0 offset
-      gl.enableVertexAttribArray(aUVCmapLoc);
-      gl.vertexAttribPointer(aUVCmapLoc, 2, gl.FLOAT, false, 16, 8); // 2 floats UV, 16 bytes stride, 8 bytes offset
-      gl.bindVertexArray(null); // Unbind VAO
-      gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind VBO
-
-      // Store all successfully created resources
-      webglResourcesRef.current = {
-        gl,
-        resizeProgram,
-        colormapProgram,
-        resizeUniforms,
-        colormapUniforms,
-        resizePosBuffer,
-        cmapVao,
-        cmapVbo,
-      };
-
-      // Setup vertex attributes for the resize program (can be done once)
-      gl.bindBuffer(gl.ARRAY_BUFFER, webglResourcesRef.current.resizePosBuffer);
-      gl.enableVertexAttribArray(aPosResizeLoc);
-      gl.enableVertexAttribArray(aUVResizeLoc);
-      // Stride is 16 bytes (4 floats: PosX, PosY, UVx, UVy), Pos is offset 0, UV is offset 8
-      gl.vertexAttribPointer(aPosResizeLoc, 2, gl.FLOAT, false, 16, 0);
-      gl.vertexAttribPointer(aUVResizeLoc, 2, gl.FLOAT, false, 16, 8);
-      gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind buffer
-    } catch (error) {
-      console.error("Error initializing WebGL resources:", error);
-      // Clean up partially created resources if necessary
-      if (gl) {
-        // Attempt to delete any resources that might have been created before the error
-        const currentRes = webglResourcesRef.current;
-        if (currentRes) {
-          gl.deleteProgram(currentRes.resizeProgram);
-          gl.deleteProgram(currentRes.colormapProgram);
-          gl.deleteBuffer(currentRes.resizePosBuffer);
-          gl.deleteVertexArray(currentRes.cmapVao);
-          gl.deleteBuffer(currentRes.cmapVbo);
-        } else {
-          // If webglResourcesRef wasn't set yet, try deleting based on local vars
-          // This requires careful handling as some vars might be undefined if error occurred early
-          // Example: if (resizeProgram) gl.deleteProgram(resizeProgram); etc.
-        }
-      }
-      webglResourcesRef.current = null;
-    }
+    webglResourcesRef.current = prepareWebGLResources(specCanvasElem.current);
   }, []); // Empty dependency array: This setup runs once per canvas element instance.
 
   const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
@@ -240,20 +115,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Ensure WebGL resources are ready
     if (!specCanvasElem.current || !webglResourcesRef.current) return;
 
-    const {
-      gl,
-      resizeProgram,
-      colormapProgram,
-      resizeUniforms,
-      colormapUniforms,
-      resizePosBuffer,
-      cmapVao,
-    } = webglResourcesRef.current;
-
     const spectrogram = spectrogramRef.current;
 
     // Check if img and img.data are valid before proceeding
-    if (!spectrogram || hidden || startSec > trackSec || hzRange[0] >= hzRange[1]) {
+    if (!spectrogram || hidden || startSec >= trackSec || hzRange[0] >= hzRange[1]) {
+      const {gl} = webglResourcesRef.current;
       gl.clearColor(0, 0, 0, 0); // Clear to transparent black
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
@@ -275,10 +141,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
     // heights
     const srcTop =
-      spectrogram.height - freqHzToPos(hzRange[0], spectrogram.height, [0, maxTrackHz]);
+      spectrogram.height - BackendAPI.freqHzToPos(hzRange[0], spectrogram.height, [0, maxTrackHz]);
     const srcBottom =
       spectrogram.height -
-      freqHzToPos(Math.min(hzRange[1], maxTrackHz), spectrogram.height, [0, maxTrackHz]);
+      BackendAPI.freqHzToPos(Math.min(hzRange[1], maxTrackHz), spectrogram.height, [0, maxTrackHz]);
     const srcH = srcBottom - srcTop;
     const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
 
@@ -286,146 +152,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       console.error("Invalid dimensions for textures:", {srcW, srcH, dstW, dstH});
       return; // Skip rendering
     }
-
-    if (blend <= 0) {
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); // Set viewport to full canvas
-      gl.clearColor(0, 0, 0, 0); // Clear full canvas to transparent
-      gl.clear(gl.COLOR_BUFFER_BIT);
-
-      if (dstW > 0 && dstH > 0) {
-        gl.enable(gl.SCISSOR_TEST); // Enable scissor test
-        // Scissor box origin (0,0) is bottom-left corner
-        gl.scissor(0, 0, dstW, dstH);
-        gl.clearColor(0, 0, 0, 1); // Set clear color to opaque black
-        gl.clear(gl.COLOR_BUFFER_BIT); // Clear only the scissor box
-        gl.disable(gl.SCISSOR_TEST); // Disable scissor test
-      }
-      return; // Skip the rest of the rendering pipeline
-    }
-
-    // Vertical texture coordinates parameters
-    const vTexOffset = srcTop / spectrogram.height; // Offset in normalized coords (0 to 1)
-    const vTexScale = srcH / spectrogram.height; // Scale in normalized coords (0 to 1)
-
-    let texSrc: WebGLTexture | null = null;
-    let texMid: WebGLTexture | null = null;
-    let texResized: WebGLTexture | null = null;
-    let fbMid: WebGLFramebuffer | null = null;
-    let fbo: WebGLFramebuffer | null = null;
-    let cmapTex: WebGLTexture | null = null;
-
-    try {
-      // Use Resize Program
-      gl.useProgram(resizeProgram);
-
-      // Bind the shared position/UV buffer for resize passes
-      gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
-      // Attribute pointers are already set in canvasElemCallback, assuming VAO is not used here or rebound correctly
-      // If you were using a VAO for these attributes, you'd bind it here.
-
-      // Upload source R32F texture
-      texSrc = createTexture(gl, spectrogram.width, spectrogram.height, spectrogram.arr, gl.R32F);
-
-      // Create intermediate R32F texture for horizontal pass result
-      texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
-      fbMid = gl.createFramebuffer();
-
-      // Create final R32F texture for fully resized result
-      texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
-      fbo = gl.createFramebuffer();
-
-      // Set texture unit 0 for the sampler
-      gl.uniform1i(resizeUniforms.uTex, 0);
-      gl.activeTexture(gl.TEXTURE0);
-
-      // --- Pass-1 (horizontal resize + vertical crop setup) ---
-      const scaleX = dstW / srcW;
-      gl.uniform1f(resizeUniforms.uScale, scaleX);
-      gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
-      // Horizontal crop uniforms
-      gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
-      gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
-      // Vertical crop uniforms (apply the crop defined by srcTop/srcH)
-      gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
-      gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
-
-      gl.bindTexture(gl.TEXTURE_2D, texSrc);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-        throw new Error("Framebuffer 'fbMid' incomplete");
-      }
-      gl.viewport(0, 0, dstW, srcH); // Viewport for intermediate texture
-      gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
-
-      // --- Pass-2 (vertical resize) ---
-      const scaleY = dstH / srcH;
-      gl.uniform1f(resizeUniforms.uScale, scaleY);
-      gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step relative to cropped height (srcH)
-      // Reset horizontal crop/scale (input tex coords are 0..1 for intermediate tex)
-      gl.uniform1f(resizeUniforms.uTexOffset, 0.0);
-      gl.uniform1f(resizeUniforms.uTexScale, 1.0);
-      // Reset vertical crop/scale (input tex coords are 0..1 for intermediate tex)
-      gl.uniform1f(resizeUniforms.uTexOffsetY, 0.0);
-      gl.uniform1f(resizeUniforms.uTexScaleY, 1.0);
-
-      gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-        throw new Error("Framebuffer 'fbo' incomplete");
-      }
-      gl.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
-      gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
-
-      // --- Pass-3 Colormap Application ---
-      gl.useProgram(colormapProgram);
-      gl.bindVertexArray(cmapVao); // Bind the VAO for the fullscreen quad
-
-      cmapTex = createCmapTexture(gl);
-
-      // Calculate overlay alpha based on blend value
-      const overlayAlpha = blend < 0.5 ? Math.max(0.0, 1.0 - 2.0 * blend) : 0.0;
-
-      // Setup textures for colormap pass
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, texResized); // Use the final resized R32F texture
-      gl.uniform1i(colormapUniforms.uLum, 0);
-
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, cmapTex);
-      gl.uniform1i(colormapUniforms.uColorMap, 1);
-
-      // Set the overlay alpha uniform
-      gl.uniform1f(colormapUniforms.uOverlayAlpha, overlayAlpha);
-
-      // Render to canvas
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      // Attributes are already set up via cmapVao
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
-
-      // Check for WebGL errors after drawing
-      const error = gl.getError();
-      if (error !== gl.NO_ERROR) console.error("WebGL Error after draw:", error);
-    } catch (error) {
-      console.error("Error during WebGL draw:", error);
-    } finally {
-      // --- Cleanup textures and framebuffers created in this draw call ---
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.bindTexture(gl.TEXTURE_2D, null);
-      gl.bindVertexArray(null); // Unbind VAO
-      gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind any buffers
-
-      if (texSrc) gl.deleteTexture(texSrc);
-      if (texMid) gl.deleteTexture(texMid);
-      if (texResized) gl.deleteTexture(texResized);
-      if (cmapTex) gl.deleteTexture(cmapTex);
-      if (fbMid) gl.deleteFramebuffer(fbMid);
-      if (fbo) gl.deleteFramebuffer(fbo);
-    }
+    renderSpectrogram(
+      webglResourcesRef.current,
+      spectrogram,
+      srcLeft,
+      srcTop,
+      srcW,
+      srcH,
+      dstW,
+      dstH,
+      blend,
+    );
   }, [
     hidden,
     startSec,
