@@ -126,8 +126,10 @@ const Overview = forwardRef((props: OverviewProps, ref) => {
           rect.height,
           devicePixelRatio,
         );
-        const imdata = new ImageData(new Uint8ClampedArray(img.buf), img.width, img.height);
-        imbmp = await createImageBitmap(imdata);
+        if (img.buf.length > 0) {
+          const imdata = new ImageData(new Uint8ClampedArray(img.buf), img.width, img.height);
+          imbmp = await createImageBitmap(imdata);
+        }
       }
       backgroundCtx.transferFromImageBitmap(imbmp);
       prevArgsRef.current = args;
