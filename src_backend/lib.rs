@@ -425,7 +425,7 @@ async fn get_spectrogram(
         let sliced_f32_slice = unsafe {
             std::slice::from_raw_parts(sliced_vec.as_ptr() as *const f32, sliced_vec.len())
         };
-        let buf: &[u8] = bytemuck::cast_slice(&sliced_f32_slice);
+        let buf: &[u8] = bytemuck::cast_slice(sliced_f32_slice);
 
         Ok(Some(Spectrogram {
             buf: buf.into(),
@@ -763,11 +763,6 @@ fn get_file_name(track_id: u32) -> String {
         .blocking_read()
         .filename(track_id as usize)
         .to_owned()
-}
-
-#[napi]
-fn get_color_map() -> Buffer {
-    visualize::get_colormap_rgb().into()
 }
 
 #[napi(js_name = "setVolumedB")]

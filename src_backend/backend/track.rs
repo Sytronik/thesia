@@ -17,7 +17,7 @@ use super::dynamics::{
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
-use super::visualize::{CalcWidth, IdxLen, PartGreyInfo};
+use super::visualize::{CalcWidth, IdxLen};
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -157,23 +157,6 @@ impl AudioTrack {
 }
 
 impl CalcWidth for AudioTrack {
-    #[inline]
-    fn calc_width(&self, px_per_sec: f64) -> u32 {
-        self.audio.calc_width(px_per_sec)
-    }
-
-    #[inline]
-    fn calc_part_grey_info(
-        &self,
-        grey_width: u64,
-        start_sec: f64,
-        target_width: u32,
-        px_per_sec: f64,
-    ) -> PartGreyInfo {
-        self.audio
-            .calc_part_grey_info(grey_width, start_sec, target_width, px_per_sec)
-    }
-
     #[inline]
     fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen {
         self.audio.calc_part_wav_info(start_sec, width, px_per_sec)
@@ -484,24 +467,6 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     use super::*;
-
-    #[test]
-    fn calc_width_works() {
-        let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
-        assert_eq!(track.calc_width(1.), 44);
-        assert_eq!(
-            track.calc_part_grey_info(44, 1., 22, 2.),
-            PartGreyInfo {
-                i_w_and_width: (0, 12),
-                start_sec_with_margin: 0.,
-                width_with_margin: 24,
-            }
-        );
-        assert_eq!(
-            track.calc_part_wav_info(1., 43, 1.),
-            (track.sr() as isize, (track.sr() * 43) as usize)
-        );
-    }
 
     #[test]
     fn calc_loudness_works() {

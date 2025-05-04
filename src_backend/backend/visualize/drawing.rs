@@ -6,16 +6,13 @@ use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
 use ndarray::prelude::*;
 use rayon::prelude::*;
-use tiny_skia::{
-    FillRule, IntRect, Paint, PathBuilder, PixmapMut, PixmapPaint, PixmapRef, Transform,
-};
 
 use super::super::TrackManager;
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
 use super::super::track::TrackList;
 use super::super::utils::Pad;
 use super::drawing_wav::{draw_limiter_gain_to, draw_wav_to};
-use super::img_slice::{CalcWidth, LeftWidth, OverviewHeights};
+use super::img_slice::{CalcWidth, OverviewHeights};
 use super::params::DrawOptionForWav;
 
 const OVERVIEW_MAX_CH: usize = 4;
@@ -193,59 +190,6 @@ pub fn convert_spec_to_img(
             pixels::F32::new(0.)
         }
     })
-}
-
-pub fn make_opaque(mut image: ArrayViewMut3<u8>, left: u32, width: u32) {
-    image
-        .slice_mut(s![.., left as isize..(left + width) as isize, 3])
-        .fill(u8::MAX);
-}
-
-pub fn blend_img_to(
-    spec_background: &mut [u8],
-    wav_img: &[u8],
-    width: u32,
-    height: u32,
-    blend: f64,
-    eff_l_w: impl Into<Option<LeftWidth>>,
-) {
-    debug_assert!(0. < blend && blend < 1.);
-    let mut pixmap = PixmapMut::from_bytes(spec_background, width, height).unwrap();
-
-    let wav_pixmap = PixmapRef::from_bytes(wav_img, width, height).unwrap();
-    blend_wav_img_to(&mut pixmap, wav_pixmap, blend, eff_l_w);
-}
-
-fn blend_wav_img_to(
-    pixmap: &mut PixmapMut,
-    wav_pixmap: PixmapRef,
-    blend: f64,
-    eff_l_w: impl Into<Option<LeftWidth>>,
-) {
-    // black
-    if let Some((left, width)) = eff_l_w.into() {
-        if (0.0..0.5).contains(&blend) && width > 0 {
-            let rect = IntRect::from_xywh(left as i32, 0, width, pixmap.height())
-                .unwrap()
-                .to_rect();
-            let path = PathBuilder::from_rect(rect);
-            let mut paint = Paint::default();
-            let alpha = (u8::MAX as f64 * (blend.mul_add(-2., 1.))).round() as u8;
-            paint.set_color_rgba8(0, 0, 0, alpha);
-            pixmap.fill_path(
-                &path,
-                &paint,
-                FillRule::Winding,
-                Transform::identity(),
-                None,
-            );
-        }
-    }
-    let paint = PixmapPaint {
-        opacity: blend.mul_add(-2., 2.).min(1.) as f32,
-        ..Default::default()
-    };
-    pixmap.draw_pixmap(0, 0, wav_pixmap, &paint, Transform::identity(), None);
 }
 
 pub fn resize(img: ArrayView2<pixels::F32>, width: u32, height: u32) -> Array2<pixels::F32> {

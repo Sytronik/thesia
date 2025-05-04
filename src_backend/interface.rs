@@ -6,7 +6,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use crate::{GuardClippingMode, IdChValueVec, IdChVec, SpecSetting};
+use crate::{GuardClippingMode, IdChValueVec, SpecSetting};
 
 #[napi(object)]
 pub struct UserSettingsOptionals {
@@ -123,26 +123,9 @@ pub fn parse_id_ch_str(id_ch_str: &str) -> Result<(usize, usize)> {
     let mut iter = id_ch_str.split('_').map(|x| x.parse::<usize>());
     match (iter.next(), iter.next()) {
         (Some(Ok(id)), Some(Ok(ch))) => Ok((id, ch)),
-        _ => {
-            return Err(Error::new(
-                Status::Unknown,
-                "The array element should be \"{unsigned_int}_{unsigned_int}\".",
-            ));
-        }
+        _ => Err(Error::new(
+            Status::Unknown,
+            "The array element should be \"{unsigned_int}_{unsigned_int}\".",
+        )),
     }
-}
-
-pub fn parse_id_ch_tuples(id_ch_strs: Vec<String>) -> Result<IdChVec> {
-    let mut result = IdChVec::with_capacity(id_ch_strs.len());
-    for s in id_ch_strs {
-        match parse_id_ch_str(&s) {
-            Ok(id_ch) => {
-                result.push(id_ch);
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
-    }
-    Ok(result)
 }

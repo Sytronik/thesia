@@ -19,7 +19,7 @@ pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingStats};
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
-use tuple_hasher::{TupleIntDMap, TupleIntSet};
+use tuple_hasher::TupleIntSet;
 pub use utils::{Pad, PadMode};
 pub use visualize::{
     ArrWithSliceInfo, CalcWidth, DrawOptionForWav, TrackDrawer, calc_amp_axis_markers,
@@ -31,9 +31,7 @@ pub type IdCh = (usize, usize);
 pub type IdChVec = Vec<IdCh>;
 pub type IdChArr = [IdCh];
 pub type IdChValueVec<T> = Vec<(IdCh, T)>;
-pub type IdChValueArr<T> = [(IdCh, T)];
 pub type IdChMap<T> = TupleIntMap<IdCh, T>;
-pub type IdChDMap<T> = TupleIntDMap<IdCh, T>;
 
 use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 
@@ -120,11 +118,6 @@ impl TrackManager {
     pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (IntSet<usize>, u32) {
         let set = self.update_mipmaps(tracklist, false);
         (set, self.max_sr)
-    }
-
-    #[inline]
-    pub fn exists(&self, id_ch: &IdCh) -> bool {
-        self.specs.contains_key(id_ch)
     }
 
     pub fn set_setting(&mut self, tracklist: &TrackList, setting: SpecSetting) {

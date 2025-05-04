@@ -100,7 +100,6 @@ export declare function getMaxPeakdB(trackId: number): number
 export declare function getGuardClipStats(trackId: number): Record<string, string>
 export declare function getPath(trackId: number): string
 export declare function getFileName(trackId: number): string
-export declare function getColorMap(): Buffer
 export declare function setVolumedB(volumeDB: number): Promise<void>
 export declare function setTrackPlayer(trackId: number, sec?: number | undefined | null): Promise<void>
 export declare function seekPlayer(sec: number): Promise<void>
