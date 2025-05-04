@@ -30,7 +30,6 @@ type ImgCanvasProps = {
   trackSec: number;
   maxTrackSec: number;
   hzRange: [number, number];
-  maxTrackHz: number;
   ampRange: [number, number];
   blend: number;
   isLoading: boolean;
@@ -52,7 +51,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     trackSec,
     maxTrackSec,
     hzRange,
-    maxTrackHz,
     ampRange,
     blend,
     isLoading,
@@ -130,23 +128,18 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     const srcLeft = spectrogram.leftMargin;
     let srcW = dstLengthSec * spectrogram.pxPerSec;
     let dstW = width * devicePixelRatio;
-    if (srcLeft + srcW > spectrogram.width) {
-      srcW = spectrogram.width - srcLeft;
-    }
-    if (startSec + dstLengthSec > trackSec) {
+    if (srcLeft + srcW > spectrogram.width) srcW = spectrogram.width - srcLeft;
+
+    if (startSec + dstLengthSec > trackSec)
       dstW = (trackSec - startSec) * pxPerSec * devicePixelRatio;
-    }
+
     srcW = Math.max(0.5, srcW);
     dstW = Math.max(0.5, dstW);
 
     // heights
-    const srcTop =
-      spectrogram.height - BackendAPI.freqHzToPos(hzRange[0], spectrogram.height, [0, maxTrackHz]);
-    const srcBottom =
-      spectrogram.height -
-      BackendAPI.freqHzToPos(Math.min(hzRange[1], maxTrackHz), spectrogram.height, [0, maxTrackHz]);
-    const srcH = srcBottom - srcTop;
-    const dstH = Math.max(1, Math.floor(height * devicePixelRatio));
+    const srcTop = spectrogram.topMargin;
+    const srcH = Math.max(0.5, spectrogram.height - srcTop - spectrogram.bottomMargin);
+    const dstH = Math.max(0.5, Math.floor(height * devicePixelRatio));
 
     if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
       console.error("Invalid dimensions for textures:", {srcW, srcH, dstW, dstH});
@@ -163,18 +156,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       dstH,
       blend,
     );
-  }, [
-    hidden,
-    startSec,
-    trackSec,
-    hzRange,
-    width,
-    pxPerSec,
-    devicePixelRatio,
-    maxTrackHz,
-    height,
-    blend,
-  ]);
+  }, [hidden, startSec, trackSec, hzRange, width, pxPerSec, devicePixelRatio, height, blend]);
 
   const drawWav = useEvent(() => {
     if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
@@ -208,13 +190,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   const getSpectrogram = useCallback(() => {
     const endSec = startSec + width / pxPerSec;
-    BackendAPI.getSpectrogram(idChStr, [startSec, endSec], MARGIN_FOR_RESIZE)
+    BackendAPI.getSpectrogram(idChStr, [startSec, endSec], hzRange, MARGIN_FOR_RESIZE)
       .then((spectrogram) => {
         spectrogramRef.current = spectrogram;
         requestAnimationFrame(() => drawSpectrogramRef.current());
       })
       .catch((err) => console.error("Failed to get spectrogram:", err));
-  }, [idChStr, startSec, pxPerSec, width]);
+  }, [startSec, width, pxPerSec, hzRange, idChStr]);
   const prevGetSpectrogramRef = useRef<() => void>(getSpectrogram);
 
   if (prevGetSpectrogramRef.current === getSpectrogram && needRefresh) getSpectrogram();

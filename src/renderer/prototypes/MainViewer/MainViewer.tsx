@@ -918,7 +918,6 @@ function MainViewer(props: MainViewerProps) {
                     trackSec={BackendAPI.getLengthSec(id)}
                     maxTrackSec={maxTrackSec}
                     hzRange={hzRange}
-                    maxTrackHz={maxTrackHz}
                     ampRange={ampRange}
                     blend={blend}
                     isLoading={isLoading}

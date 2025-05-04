@@ -47,6 +47,8 @@ pub struct Spectrogram {
     pub px_per_sec: f64,
     pub left_margin: f64,
     pub right_margin: f64,
+    pub top_margin: f64,
+    pub bottom_margin: f64,
 }
 
 impl Default for Spectrogram {
@@ -58,6 +60,8 @@ impl Default for Spectrogram {
             px_per_sec: 0.0,
             left_margin: 0.0,
             right_margin: 0.0,
+            top_margin: 0.0,
+            bottom_margin: 0.0,
         }
     }
 }
