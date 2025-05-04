@@ -751,29 +751,22 @@ function MainViewer(props: MainViewerProps) {
     }
   }, [selectedTrackIds, selectionIsAdded, reducerForTrackInfoElemRange]);
 
-  // set LensParams when track list or width change
-  useLayoutEffect(() => {
-    if (trackIds.length > 0) {
-      const newStartSec =
-        prevTrackCountRef.current === 0 || canvasIsFit
-          ? 0
-          : normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-      const newPxPerSec = canvasIsFit ? width / maxTrackSec : normalizePxPerSec(pxPerSec, startSec);
-      updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
-    }
+  // set LensParams when track list, width, or canvasIsFit change
+  const setLensParamsForFitCanvas = useEvent((newWidth: number, newCanvasIsFit: boolean) => {
+    const newStartSec =
+      prevTrackCountRef.current === 0 || newCanvasIsFit
+        ? 0
+        : normalizeStartSec(startSec, pxPerSec, maxTrackSec);
+    const newPxPerSec = newCanvasIsFit
+      ? newWidth / maxTrackSec
+      : normalizePxPerSec(pxPerSec, startSec);
+    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec}, false);
+  });
+  useEffect(() => {
+    if (trackIds.length > 0) setLensParamsForFitCanvas(width, canvasIsFit);
 
     prevTrackCountRef.current = trackIds.length;
-  }, [
-    trackIds,
-    width,
-    maxTrackSec,
-    canvasIsFit,
-    updateLensParams,
-    normalizeStartSec,
-    normalizePxPerSec,
-    startSec,
-    pxPerSec,
-  ]);
+  }, [trackIds, width, setLensParamsForFitCanvas, canvasIsFit]);
 
   useEffect(() => {
     if (needRefreshTrackIdChArr.length > 0) finishRefreshTracks();
