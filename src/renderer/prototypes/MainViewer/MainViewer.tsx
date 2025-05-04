@@ -604,7 +604,6 @@ function MainViewer(props: MainViewerProps) {
     }
     prevSelectSecRef.current = selectSec;
 
-    await overviewElem.current?.draw(startSec, width / pxPerSec);
     requestRef.current = requestAnimationFrame(drawCanvas);
   });
 
@@ -944,13 +943,14 @@ function MainViewer(props: MainViewerProps) {
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
       {trackIds.length ? (
         <Overview
-          ref={overviewElem}
           selectedTrackId={
             trackIds.length > 0 && selectedTrackIds.length > 0
               ? selectedTrackIds[selectedTrackIds.length - 1]
               : null
           }
           maxTrackSec={maxTrackSec}
+          startSec={startSec}
+          lensDurationSec={width / pxPerSec}
           moveLens={moveLens}
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
