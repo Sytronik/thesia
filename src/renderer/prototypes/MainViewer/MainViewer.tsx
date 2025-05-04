@@ -3,7 +3,7 @@ import {throttle} from "throttle-debounce";
 import useRefs from "renderer/hooks/useRefs";
 import ImgCanvas from "renderer/modules/ImgCanvas";
 import SplitView from "renderer/modules/SplitView";
-import useAxisMarkers from "renderer/hooks/useThrottledSetMarkers";
+import useAxisMarkers from "renderer/hooks/useAxisMarkers";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import {Player} from "renderer/hooks/usePlayer";
