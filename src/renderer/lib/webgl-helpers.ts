@@ -567,4 +567,5 @@ export function cleanupWebGLResources(resources: WebGLResources) {
   gl.deleteBuffer(resizePosBuffer);
   gl.deleteVertexArray(cmapVao);
   gl.deleteBuffer(cmapVbo);
+  gl.getExtension("WEBGL_lose_context")?.loseContext();
 }
