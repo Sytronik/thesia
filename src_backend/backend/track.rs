@@ -16,8 +16,8 @@ use super::dynamics::{
 };
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
-use super::utils::unique_filenames;
-use super::visualize::{CalcWidth, IdxLen};
+use super::utils::{Pad, PadMode, unique_filenames};
+use super::visualize::{ArrWithSliceInfo, CalcWidth, DrawOptionForWav, IdxLen, draw_wav_to};
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -342,6 +342,50 @@ impl TrackList {
         }
         self.update_filenames();
         removed_id_ch_tuples
+    }
+
+    pub fn draw_wav(
+        &self,
+        id: usize,
+        ch: usize,
+        start_sec: f64,
+        px_per_sec: f64,
+        width: u32,
+        height: u32,
+        opt_for_wav: &DrawOptionForWav,
+    ) -> Array3<u8> {
+        let empty_img = || Array3::zeros((height as usize, width as usize, 4));
+        let track = if let Some(track) = self.get(id) {
+            track
+        } else {
+            return empty_img();
+        };
+        let (pad_left, drawing_width, pad_right) =
+            track.decompose_width_of(start_sec, width, px_per_sec);
+        let (wav, show_clipping) = track.channel_for_drawing(ch);
+        let wav_part = ArrWithSliceInfo::new(
+            wav,
+            track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
+        );
+        if drawing_width == 0 || wav_part.is_empty() {
+            return empty_img();
+        }
+
+        let mut canvas = Array3::zeros((height as usize, drawing_width as usize, 4));
+        draw_wav_to(
+            canvas.as_slice_mut().unwrap(),
+            wav_part,
+            drawing_width,
+            height,
+            opt_for_wav,
+            show_clipping,
+            true,
+        );
+        canvas.pad(
+            (pad_left as usize, pad_right as usize),
+            Axis(1),
+            PadMode::Constant(0),
+        )
     }
 
     pub fn set_common_normalize(&mut self, target: NormalizeTarget) {

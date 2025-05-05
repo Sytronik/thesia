@@ -11,7 +11,6 @@ use log::LevelFilter;
 use napi::bindgen_prelude::*;
 use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
-use ndarray::{Array3, Axis, s};
 use parking_lot::RwLock as SyncRwLock;
 use serde_json::json;
 use simple_logger::SimpleLogger;
@@ -266,98 +265,13 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
-struct SpectrogramSliceArgs {
-    px_per_sec: f64,
-    left: usize,
-    width: usize,
-    top: usize,
-    height: usize,
-    left_margin: f64,
-    right_margin: f64,
-    top_margin: f64,
-    bottom_margin: f64,
-}
-
-impl SpectrogramSliceArgs {
-    fn new(
-        n_frames: usize,
-        n_freqs: usize,
-        track_sec: f64,
-        sec_range: (f64, f64),
-        spec_hz_range: (f32, f32),
-        hz_range: (f32, f32),
-        margin_px: usize,
-    ) -> Self {
-        let px_per_sec = n_frames as f64 / track_sec;
-        let left_f64 = sec_range.0 * px_per_sec;
-        let width_f64 = ((sec_range.1 - sec_range.0) * px_per_sec).max(0.);
-
-        let (left_w_margin_clipped, width_w_margin_clipped, left_margin, right_margin) =
-            Self::_calc_margin(left_f64, width_f64, n_frames, margin_px);
-
-        let (top_f64, height_f64) = {
-            let spec_setting = SPEC_SETTING.read();
-            let top_f64 = spec_setting
-                .freq_scale
-                .hz_to_relative_freq(hz_range.0, spec_hz_range) as f64
-                * n_freqs as f64;
-            let bottom_f64 = spec_setting
-                .freq_scale
-                .hz_to_relative_freq(hz_range.1, spec_hz_range) as f64
-                * n_freqs as f64;
-            (top_f64, bottom_f64 - top_f64)
-        };
-
-        let (top_w_margin_clipped, height_w_margin_clipped, top_margin, bottom_margin) =
-            Self::_calc_margin(top_f64, height_f64, n_freqs, margin_px);
-
-        Self {
-            px_per_sec,
-            left: left_w_margin_clipped,
-            width: width_w_margin_clipped,
-            top: top_w_margin_clipped,
-            height: height_w_margin_clipped,
-            left_margin,
-            right_margin,
-            top_margin,
-            bottom_margin,
-        }
-    }
-
-    fn _calc_margin(
-        start: f64,
-        length: f64,
-        max_length: usize,
-        margin: usize,
-    ) -> (usize, usize, f64, f64) {
-        let start_w_margin = start as isize - margin as isize;
-        let len_w_margin =
-            ((start + length).ceil() as isize + margin as isize - start_w_margin).max(0);
-
-        let start_w_margin_clipped = start_w_margin.max(0) as usize;
-        let len_w_margin_clipped =
-            len_w_margin.min(max_length as isize - start_w_margin_clipped as isize) as usize;
-
-        let pre_margin = start - start_w_margin_clipped as f64;
-        let post_margin = len_w_margin_clipped as f64 - length;
-        (
-            start_w_margin_clipped,
-            len_w_margin_clipped,
-            pre_margin,
-            post_margin,
-        )
-    }
-}
-
 #[napi]
 async fn get_spectrogram(
     id_ch_str: String,
     sec_range: (f64, f64),
     hz_range: (f64, f64),
-    margin_px: i32,
+    margin_px: u32,
 ) -> Result<Option<Spectrogram>> {
-    assert!(margin_px >= 0);
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
 
@@ -373,71 +287,17 @@ async fn get_spectrogram(
         if sec_range.0 >= track_sec {
             return Ok(None);
         }
-        let tm = TM.blocking_read();
-        let spec_mipmaps = if let Some(spec_mipmaps) = tm.spec_mipmaps.get(&(id, ch)) {
-            spec_mipmaps
-        } else {
+        let Some((args, sliced_mipmap)) = TM.blocking_read().get_sliced_spec_mipmap(
+            (id, ch),
+            track_sec,
+            sec_range,
+            (hz_range.0 as f32, hz_range.1 as f32),
+            margin_px as usize,
+        ) else {
             return Ok(None);
         };
 
-        let spec_hz_range = (0., tm.max_sr as f32 / 2.);
-        let hz_range = (
-            (hz_range.0 as f32).max(0.),
-            (hz_range.1 as f32).min(spec_hz_range.1),
-        );
-
-        let max_size = tm.max_spectrogram_size as usize;
-        let mut args = None;
-        let mut mipmap = None;
-        for spec_mipmap_along_widths in spec_mipmaps {
-            for _mipmap in spec_mipmap_along_widths {
-                let _args = SpectrogramSliceArgs::new(
-                    _mipmap.shape()[1],
-                    _mipmap.shape()[0],
-                    track_sec,
-                    sec_range,
-                    spec_hz_range,
-                    hz_range,
-                    margin_px as usize,
-                );
-                if _args.height > max_size {
-                    break;
-                }
-                if _args.width <= max_size {
-                    args = Some(_args);
-                    mipmap = Some(_mipmap);
-                    break;
-                }
-            }
-            if args.is_some() {
-                break;
-            }
-        }
-        let (args, mipmap) = (args.unwrap(), mipmap.unwrap());
-
-        let sliced_arr = mipmap
-            .slice(s![
-                args.top..args.top + args.height,
-                args.left..args.left + args.width
-            ])
-            .to_owned();
-        let (sliced_vec, _) = sliced_arr.into_raw_vec_and_offset();
-        let sliced_f32_slice = unsafe {
-            std::slice::from_raw_parts(sliced_vec.as_ptr() as *const f32, sliced_vec.len())
-        };
-        let buf: &[u8] = bytemuck::cast_slice(sliced_f32_slice);
-
-        Ok(Some(Spectrogram {
-            buf: buf.into(),
-            width: args.width as u32,
-            height: args.height as u32,
-            start_sec: sec_range.0,
-            px_per_sec: args.px_per_sec,
-            left_margin: args.left_margin,
-            right_margin: args.right_margin,
-            top_margin: args.top_margin,
-            bottom_margin: args.bottom_margin,
-        }))
+        Ok(Some(Spectrogram::new(args, sliced_mipmap, sec_range.0)))
     })
     .await
     .unwrap()
@@ -463,39 +323,8 @@ async fn get_wav_image(
     };
 
     let arr = spawn_blocking(move || {
-        let empty_img = || Array3::zeros((height as usize, width as usize, 4));
         let tracklist = TRACK_LIST.blocking_read();
-        let track = if let Some(track) = tracklist.get(id) {
-            track
-        } else {
-            return empty_img();
-        };
-        let (pad_left, drawing_width, pad_right) =
-            track.decompose_width_of(start_sec, width, px_per_sec);
-        let (wav, show_clipping) = track.channel_for_drawing(ch);
-        let wav_part = ArrWithSliceInfo::new(
-            wav,
-            track.calc_part_wav_info(start_sec, drawing_width, px_per_sec),
-        );
-        if drawing_width == 0 || wav_part.is_empty() {
-            return empty_img();
-        }
-
-        let mut canvas = Array3::zeros((height as usize, drawing_width as usize, 4));
-        draw_wav_to(
-            canvas.as_slice_mut().unwrap(),
-            wav_part,
-            drawing_width,
-            height,
-            &opt_for_wav,
-            show_clipping,
-            true,
-        );
-        canvas.pad(
-            (pad_left as usize, pad_right as usize),
-            Axis(1),
-            PadMode::Constant(0),
-        )
+        tracklist.draw_wav(id, ch, start_sec, px_per_sec, width, height, &opt_for_wav)
     })
     .await
     .unwrap();
@@ -520,7 +349,7 @@ async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> WavIm
     let height = (height as f64 * dpr).round() as u32;
 
     let arr = spawn_blocking(move || {
-        TM.blocking_read().draw_overview(
+        draw_overview(
             &TRACK_LIST.blocking_read(),
             track_id as usize,
             width,
