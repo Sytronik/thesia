@@ -9,7 +9,7 @@ import React, {
   useCallback,
 } from "react";
 import useEvent from "react-use-event-hook";
-import {throttle} from "throttle-debounce";
+import {debounce, throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
@@ -109,6 +109,28 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }
   }, []);
 
+  const debouncedRenderSpecHighQuality = useMemo(
+    () =>
+      debounce(100, (spectrogram, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
+        requestAnimationFrame(() => {
+          if (!webglResourcesRef.current) return;
+          renderSpectrogram(
+            webglResourcesRef.current,
+            spectrogram,
+            srcLeft,
+            srcTop,
+            srcW,
+            srcH,
+            dstW,
+            dstH,
+            _blend,
+            false,
+          );
+        });
+      }),
+    [],
+  );
+
   const drawSpectrogram = useCallback(() => {
     // Ensure WebGL resources are ready
     if (!specCanvasElem.current || !webglResourcesRef.current) return;
@@ -158,8 +180,21 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       dstW,
       dstH,
       blend,
+      true, // bilinear: low qality
     );
-  }, [hidden, startSec, trackSec, hzRange, width, pxPerSec, devicePixelRatio, height, blend]);
+    debouncedRenderSpecHighQuality(spectrogram, srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
+  }, [
+    hidden,
+    startSec,
+    trackSec,
+    hzRange,
+    width,
+    pxPerSec,
+    devicePixelRatio,
+    height,
+    blend,
+    debouncedRenderSpecHighQuality,
+  ]);
 
   const drawWav = useEvent(async () => {
     if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;

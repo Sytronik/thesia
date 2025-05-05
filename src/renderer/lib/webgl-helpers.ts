@@ -149,6 +149,81 @@ void main() {
     // fragColor = clamp(fragColor, 0.0, 1.0);
 }`;
 
+export const VS_BILINEAR_RESIZER = `#version 300 es
+precision highp float;
+
+/* locations 0 & 1 match the calls to gl.vertexAttribPointer(...) */
+layout(location = 0) in  vec4 aPosition;
+layout(location = 1) in  vec2 aTexCoord;
+
+uniform float uTexOffset;    // Horizontal offset (srcLeft / texWidth)
+uniform float uTexScale;     // Horizontal scale (srcW / texWidth)
+uniform float uTexOffsetY;   // Vertical offset (srcTop / texHeight)
+uniform float uTexScaleY;    // Vertical scale (srcH / texHeight)
+
+out vec2 vTexCenter;         // Output only the center texture coordinate
+
+void main() {
+    gl_Position = aPosition;
+
+    // Map input aTexCoord [0,1] horizontally to [uTexOffset, uTexOffset + uTexScale]
+    // and vertically to [uTexOffsetY, uTexOffsetY + uTexScaleY]
+    vTexCenter = vec2(
+        uTexOffset + aTexCoord.x * uTexScale,
+        uTexOffsetY + aTexCoord.y * uTexScaleY
+    );
+}`;
+
+export const FS_BILINEAR_RESIZER = `#version 300 es
+precision highp float;
+
+uniform sampler2D uTex;
+uniform vec2 uStep;  // (1/srcW, 0) or (0, 1/srcH) for the current pass
+
+in  vec2 vTexCenter;
+out float fragColor;
+
+void main() {
+    vec2 centerCoord = vTexCenter;
+    float srcCoord; // Coordinate in source pixel space for the relevant dimension
+    float step;     // Pixel step size for the relevant dimension
+
+    // Determine dimension based on uStep (non-zero component indicates direction)
+    bool isHorizontal = (uStep.y == 0.0);
+    vec2 coord0, coord1;
+    float frac;
+
+    if (isHorizontal) {
+        // Avoid division by zero if uStep.x is somehow zero
+        if (uStep.x == 0.0) { fragColor = texture(uTex, centerCoord).r; return; }
+        srcCoord = centerCoord.x / uStep.x;
+        step = uStep.x;
+        float floor_coord = floor(srcCoord - 0.5); // Integer coordinate of the pixel to the 'left'/'up'
+        frac = srcCoord - (floor_coord + 0.5);     // Fractional distance from the center of the left pixel
+        coord0 = vec2((floor_coord + 0.5) * step, centerCoord.y); // Center of left pixel
+        coord1 = vec2((floor_coord + 1.5) * step, centerCoord.y); // Center of right pixel
+    } else {
+        // Avoid division by zero if uStep.y is somehow zero
+        if (uStep.y == 0.0) { fragColor = texture(uTex, centerCoord).r; return; }
+        srcCoord = centerCoord.y / uStep.y;
+        step = uStep.y;
+        float floor_coord = floor(srcCoord - 0.5); // Integer coordinate of the pixel 'up'
+        frac = srcCoord - (floor_coord + 0.5);     // Fractional distance from the center of the upper pixel
+        coord0 = vec2(centerCoord.x, (floor_coord + 0.5) * step); // Center of upper pixel
+        coord1 = vec2(centerCoord.x, (floor_coord + 1.5) * step); // Center of lower pixel
+    }
+
+    // Sample the two nearest pixels in the current dimension
+    float v0 = texture(uTex, coord0).r;
+    float v1 = texture(uTex, coord1).r;
+
+    // Linear interpolation
+    fragColor = mix(v0, v1, frac);
+
+    // Optional: Clamp output if needed, though R32F supports out-of-range values.
+    // fragColor = clamp(fragColor, 0.0, 1.0);
+}`;
+
 export const VS_COLORMAP = `#version 300 es
 layout(location=0) in vec2 aPos;   // fullscreen quad
 layout(location=1) in vec2 aUV;
@@ -186,15 +261,24 @@ function createShader(gl: WebGL2RenderingContext, type: number, src: string): We
 
 function createProgram(gl: WebGL2RenderingContext, vsSrc: string, fsSrc: string): WebGLProgram {
   const p = gl.createProgram();
+  if (!p) throw new Error("Failed to create program");
   gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vsSrc));
   gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, fsSrc));
   gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const log = gl.getProgramInfoLog(p);
+    gl.deleteProgram(p);
+    throw new Error(`Program linking failed: ${log}`);
+  }
   return p;
 }
 
 export function createResizeProgram(gl: WebGL2RenderingContext) {
   return createProgram(gl, VS_RESIZER, FS_RESIZER);
+}
+
+export function createBilinearResizeProgram(gl: WebGL2RenderingContext) {
+  return createProgram(gl, VS_BILINEAR_RESIZER, FS_BILINEAR_RESIZER);
 }
 
 export function createColormapProgram(gl: WebGL2RenderingContext) {
@@ -251,11 +335,20 @@ export function createCmapTexture(gl: WebGL2RenderingContext) {
 export type WebGLResources = {
   gl: WebGL2RenderingContext;
   resizeProgram: WebGLProgram;
+  bilinearResizeProgram: WebGLProgram;
   colormapProgram: WebGLProgram;
   resizeUniforms: {
     uStep: WebGLUniformLocation | null;
     uTex: WebGLUniformLocation | null;
     uScale: WebGLUniformLocation | null;
+    uTexOffset: WebGLUniformLocation | null;
+    uTexScale: WebGLUniformLocation | null;
+    uTexOffsetY: WebGLUniformLocation | null;
+    uTexScaleY: WebGLUniformLocation | null;
+  };
+  bilinearResizeUniforms: {
+    uStep: WebGLUniformLocation | null;
+    uTex: WebGLUniformLocation | null;
     uTexOffset: WebGLUniformLocation | null;
     uTexScale: WebGLUniformLocation | null;
     uTexOffsetY: WebGLUniformLocation | null;
@@ -294,60 +387,77 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
     );
   }
 
-  let resources: WebGLResources | null = null;
+  const resources: Partial<WebGLResources> = {gl}; // Use partial to build up
   try {
-    // --- Create Resize Program and related resources ---
-    const resizeProgram = createResizeProgram(gl);
-    const resizeUniforms = {
-      uStep: gl.getUniformLocation(resizeProgram, "uStep"),
-      uTex: gl.getUniformLocation(resizeProgram, "uTex"),
-      uScale: gl.getUniformLocation(resizeProgram, "uScale"),
-      uTexOffset: gl.getUniformLocation(resizeProgram, "uTexOffset"),
-      uTexScale: gl.getUniformLocation(resizeProgram, "uTexScale"),
-      uTexOffsetY: gl.getUniformLocation(resizeProgram, "uTexOffsetY"),
-      uTexScaleY: gl.getUniformLocation(resizeProgram, "uTexScaleY"),
+    // --- Create Lanczos Resize Program and related resources ---
+    resources.resizeProgram = createResizeProgram(gl);
+    resources.resizeUniforms = {
+      uStep: gl.getUniformLocation(resources.resizeProgram, "uStep"),
+      uTex: gl.getUniformLocation(resources.resizeProgram, "uTex"),
+      uScale: gl.getUniformLocation(resources.resizeProgram, "uScale"),
+      uTexOffset: gl.getUniformLocation(resources.resizeProgram, "uTexOffset"),
+      uTexScale: gl.getUniformLocation(resources.resizeProgram, "uTexScale"),
+      uTexOffsetY: gl.getUniformLocation(resources.resizeProgram, "uTexOffsetY"),
+      uTexScaleY: gl.getUniformLocation(resources.resizeProgram, "uTexScaleY"),
     };
-    const resizePosBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
-    // Data for a quad covering the viewport, including texture coordinates
+    const aPosResizeLoc = gl.getAttribLocation(resources.resizeProgram, "aPosition");
+    const aUVResizeLoc = gl.getAttribLocation(resources.resizeProgram, "aTexCoord");
+
+    // --- Create Bilinear Resize Program ---
+    resources.bilinearResizeProgram = createBilinearResizeProgram(gl);
+    resources.bilinearResizeUniforms = {
+      uStep: gl.getUniformLocation(resources.bilinearResizeProgram, "uStep"),
+      uTex: gl.getUniformLocation(resources.bilinearResizeProgram, "uTex"),
+      uTexOffset: gl.getUniformLocation(resources.bilinearResizeProgram, "uTexOffset"),
+      uTexScale: gl.getUniformLocation(resources.bilinearResizeProgram, "uTexScale"),
+      uTexOffsetY: gl.getUniformLocation(resources.bilinearResizeProgram, "uTexOffsetY"),
+      uTexScaleY: gl.getUniformLocation(resources.bilinearResizeProgram, "uTexScaleY"),
+    };
+    // Get attribute locations specific to the bilinear program
+    const aPosBilinearLoc = gl.getAttribLocation(resources.bilinearResizeProgram, "aPosition");
+    const aUVBilinearLoc = gl.getAttribLocation(resources.bilinearResizeProgram, "aTexCoord");
+
+    // --- Create Shared Resize Buffer (used by both Lanczos and Bilinear) ---
+    resources.resizePosBuffer = gl.createBuffer();
+    if (!resources.resizePosBuffer) throw new Error("Failed to create resize buffer");
+    gl.bindBuffer(gl.ARRAY_BUFFER, resources.resizePosBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array([
             // Pos (-1 to 1)  // UV (0 to 1)
             -1, -1, 0, 0, // bottom-left
-            1, -1, 1, 0, // bottom-right
-            -1, 1, 0, 1, // top-left
-            -1, 1, 0, 1, // top-left
-            1, -1, 1, 0, // bottom-right
-            1, 1, 1, 1, // top-right
+             1, -1, 1, 0, // bottom-right
+            -1,  1, 0, 1, // top-left
+            -1,  1, 0, 1, // top-left
+             1, -1, 1, 0, // bottom-right
+             1,  1, 1, 1, // top-right
           ]), // prettier-ignore
       gl.STATIC_DRAW,
     );
-    const aPosResizeLoc = gl.getAttribLocation(resizeProgram, "aPosition");
-    const aUVResizeLoc = gl.getAttribLocation(resizeProgram, "aTexCoord");
 
     // --- Create Colormap Program and related resources ---
-    const colormapProgram = createColormapProgram(gl);
-    const colormapUniforms = {
-      uLum: gl.getUniformLocation(colormapProgram, "uLum"),
-      uColorMap: gl.getUniformLocation(colormapProgram, "uColorMap"),
-      uOverlayAlpha: gl.getUniformLocation(colormapProgram, "uOverlayAlpha"),
+    resources.colormapProgram = createColormapProgram(gl);
+    resources.colormapUniforms = {
+      uLum: gl.getUniformLocation(resources.colormapProgram, "uLum"),
+      uColorMap: gl.getUniformLocation(resources.colormapProgram, "uColorMap"),
+      uOverlayAlpha: gl.getUniformLocation(resources.colormapProgram, "uOverlayAlpha"),
     };
-    const cmapVao = gl.createVertexArray();
-    gl.bindVertexArray(cmapVao);
-    const cmapVbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, cmapVbo);
-    // Data for a fullscreen quad (using TRIANGLE_STRIP)
+    resources.cmapVao = gl.createVertexArray();
+    if (!resources.cmapVao) throw new Error("Failed to create colormap VAO");
+    gl.bindVertexArray(resources.cmapVao);
+    resources.cmapVbo = gl.createBuffer();
+    if (!resources.cmapVbo) throw new Error("Failed to create colormap VBO");
+    gl.bindBuffer(gl.ARRAY_BUFFER, resources.cmapVbo);
     const cmapQuadVertices = new Float32Array([
           // positions // texCoords
-          -1.0, 1.0, 0.0, 1.0, // top-left
+          -1.0,  1.0, 0.0, 1.0, // top-left
           -1.0, -1.0, 0.0, 0.0, // bottom-left
-          1.0, 1.0, 1.0, 1.0, // top-right
-          1.0, -1.0, 1.0, 0.0, // bottom-right
+           1.0,  1.0, 1.0, 1.0, // top-right
+           1.0, -1.0, 1.0, 0.0, // bottom-right
         ]); // prettier-ignore
     gl.bufferData(gl.ARRAY_BUFFER, cmapQuadVertices, gl.STATIC_DRAW);
-    const aPosCmapLoc = gl.getAttribLocation(colormapProgram, "aPos");
-    const aUVCmapLoc = gl.getAttribLocation(colormapProgram, "aUV");
+    const aPosCmapLoc = gl.getAttribLocation(resources.colormapProgram, "aPos");
+    const aUVCmapLoc = gl.getAttribLocation(resources.colormapProgram, "aUV");
     gl.enableVertexAttribArray(aPosCmapLoc);
     gl.vertexAttribPointer(aPosCmapLoc, 2, gl.FLOAT, false, 16, 0); // 2 floats position, 4*4=16 bytes stride, 0 offset
     gl.enableVertexAttribArray(aUVCmapLoc);
@@ -355,49 +465,54 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
     gl.bindVertexArray(null); // Unbind VAO
     gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind VBO
 
-    // Store all successfully created resources
-    resources = {
-      gl,
-      resizeProgram,
-      colormapProgram,
-      resizeUniforms,
-      colormapUniforms,
-      resizePosBuffer,
-      cmapVao,
-      cmapVbo,
-    };
-
-    // Setup vertex attributes for the resize program (can be done once)
+    // --- Setup Vertex Attributes for Resize Programs ---
     gl.bindBuffer(gl.ARRAY_BUFFER, resources.resizePosBuffer);
+    // Lanczos (uses VS_RESIZER)
     gl.enableVertexAttribArray(aPosResizeLoc);
     gl.enableVertexAttribArray(aUVResizeLoc);
-    // Stride is 16 bytes (4 floats: PosX, PosY, UVx, UVy), Pos is offset 0, UV is offset 8
-    gl.vertexAttribPointer(aPosResizeLoc, 2, gl.FLOAT, false, 16, 0);
-    gl.vertexAttribPointer(aUVResizeLoc, 2, gl.FLOAT, false, 16, 8);
+    gl.vertexAttribPointer(aPosResizeLoc, 2, gl.FLOAT, false, 16, 0); // Stride 16, Offset 0
+    gl.vertexAttribPointer(aUVResizeLoc, 2, gl.FLOAT, false, 16, 8); // Stride 16, Offset 8
+    // Bilinear (uses VS_BILINEAR_RESIZER)
+    gl.enableVertexAttribArray(aPosBilinearLoc);
+    gl.enableVertexAttribArray(aUVBilinearLoc);
+    gl.vertexAttribPointer(aPosBilinearLoc, 2, gl.FLOAT, false, 16, 0); // Stride 16, Offset 0
+    gl.vertexAttribPointer(aUVBilinearLoc, 2, gl.FLOAT, false, 16, 8); // Stride 16, Offset 8
+
     gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind buffer
-    return resources;
+
+    // Check if all required resources were created
+    if (
+      !resources.resizeProgram ||
+      !resources.bilinearResizeProgram ||
+      !resources.colormapProgram ||
+      !resources.resizeUniforms ||
+      !resources.bilinearResizeUniforms ||
+      !resources.colormapUniforms ||
+      !resources.resizePosBuffer ||
+      !resources.cmapVao ||
+      !resources.cmapVbo
+    ) {
+      throw new Error("Failed to initialize all WebGL resources.");
+    }
+
+    return resources as WebGLResources; // Cast to full type after successful creation
   } catch (error) {
     console.error("Error initializing WebGL resources:", error);
-    // Clean up partially created resources if necessary
+    // Clean up partially created resources
     if (gl) {
-      // Attempt to delete any resources that might have been created before the error
-      if (resources) {
-        gl.deleteProgram(resources.resizeProgram);
-        gl.deleteProgram(resources.colormapProgram);
-        gl.deleteBuffer(resources.resizePosBuffer);
-        gl.deleteVertexArray(resources.cmapVao);
-        gl.deleteBuffer(resources.cmapVbo);
-      } else {
-        // If webglResourcesRef wasn't set yet, try deleting based on local vars
-        // This requires careful handling as some vars might be undefined if error occurred early
-        // Example: if (resizeProgram) gl.deleteProgram(resizeProgram); etc.
-      }
+      if (resources.resizeProgram) gl.deleteProgram(resources.resizeProgram);
+      if (resources.bilinearResizeProgram) gl.deleteProgram(resources.bilinearResizeProgram);
+      if (resources.colormapProgram) gl.deleteProgram(resources.colormapProgram);
+      if (resources.resizePosBuffer) gl.deleteBuffer(resources.resizePosBuffer);
+      if (resources.cmapVao) gl.deleteVertexArray(resources.cmapVao);
+      if (resources.cmapVbo) gl.deleteBuffer(resources.cmapVbo);
     }
     return null;
   }
 }
 
-export function renderSpectrogram(
+// Internal helper function to encapsulate common rendering logic
+function renderSpectrogramInternal(
   webglResources: WebGLResources,
   spectrogram: Spectrogram,
   srcLeft: number,
@@ -407,36 +522,31 @@ export function renderSpectrogram(
   dstW: number,
   dstH: number,
   blend: number,
+  resizeProgram: WebGLProgram,
+  resizeUniforms: WebGLResources["resizeUniforms"] | WebGLResources["bilinearResizeUniforms"], // Union type for uniforms
+  isBilinear: boolean, // Flag to differentiate logic if needed (e.g., uScale uniform)
 ) {
-  const {
-    gl,
-    resizeProgram,
-    colormapProgram,
-    resizeUniforms,
-    colormapUniforms,
-    resizePosBuffer,
-    cmapVao,
-  } = webglResources;
+  const {gl, colormapProgram, colormapUniforms, resizePosBuffer, cmapVao} = webglResources;
 
+  // --- Initial checks and clearing (same as before) ---
   if (blend <= 0) {
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); // Set viewport to full canvas
-    gl.clearColor(0, 0, 0, 0); // Clear full canvas to transparent
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     if (dstW > 0 && dstH > 0) {
-      gl.enable(gl.SCISSOR_TEST); // Enable scissor test
-      // Scissor box origin (0,0) is bottom-left corner
+      gl.enable(gl.SCISSOR_TEST);
       gl.scissor(0, 0, dstW, dstH);
-      gl.clearColor(0, 0, 0, 1); // Set clear color to opaque black
-      gl.clear(gl.COLOR_BUFFER_BIT); // Clear only the scissor box
-      gl.disable(gl.SCISSOR_TEST); // Disable scissor test
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.disable(gl.SCISSOR_TEST);
     }
-    return; // Skip the rest of the rendering pipeline
+    return;
   }
 
-  // Vertical texture coordinates parameters
-  const vTexOffset = srcTop / spectrogram.height; // Offset in normalized coords (0 to 1)
-  const vTexScale = srcH / spectrogram.height; // Scale in normalized coords (0 to 1)
+  // Vertical texture coordinates parameters (same as before)
+  const vTexOffset = srcTop / spectrogram.height;
+  const vTexScale = srcH / spectrogram.height;
 
   let texSrc: WebGLTexture | null = null;
   let texMid: WebGLTexture | null = null;
@@ -446,23 +556,18 @@ export function renderSpectrogram(
   let cmapTex: WebGLTexture | null = null;
 
   try {
-    // Use Resize Program
+    // Use the provided Resize Program
     gl.useProgram(resizeProgram);
 
     // Bind the shared position/UV buffer for resize passes
     gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
-    // Attribute pointers are already set in canvasElemCallback, assuming VAO is not used here or rebound correctly
-    // If you were using a VAO for these attributes, you'd bind it here.
+    // Attributes are assumed to be set up correctly in prepareWebGLResources
 
-    // Upload source R32F texture
+    // --- Texture and Framebuffer Setup (same as before) ---
     const data = new Float32Array(spectrogram.buf.buffer);
     texSrc = createTexture(gl, spectrogram.width, spectrogram.height, data, gl.R32F);
-
-    // Create intermediate R32F texture for horizontal pass result
     texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
     fbMid = gl.createFramebuffer();
-
-    // Create final R32F texture for fully resized result
     texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
     fbo = gl.createFramebuffer();
 
@@ -472,14 +577,16 @@ export function renderSpectrogram(
 
     // --- Pass-1 (horizontal resize + vertical crop setup) ---
     const scaleX = dstW / srcW;
-    gl.uniform1f(resizeUniforms.uScale, scaleX);
+    // Set common uniforms
     gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
-    // Horizontal crop uniforms
     gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
     gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
-    // Vertical crop uniforms (apply the crop defined by srcTop/srcH)
     gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
     gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
+    // Set specific uniforms (Lanczos needs uScale)
+    if (!isBilinear && "uScale" in resizeUniforms) {
+      gl.uniform1f(resizeUniforms.uScale, scaleX);
+    }
 
     gl.bindTexture(gl.TEXTURE_2D, texSrc);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
@@ -492,14 +599,16 @@ export function renderSpectrogram(
 
     // --- Pass-2 (vertical resize) ---
     const scaleY = dstH / srcH;
-    gl.uniform1f(resizeUniforms.uScale, scaleY);
+    // Set common uniforms
     gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step relative to cropped height (srcH)
-    // Reset horizontal crop/scale (input tex coords are 0..1 for intermediate tex)
     gl.uniform1f(resizeUniforms.uTexOffset, 0.0);
     gl.uniform1f(resizeUniforms.uTexScale, 1.0);
-    // Reset vertical crop/scale (input tex coords are 0..1 for intermediate tex)
     gl.uniform1f(resizeUniforms.uTexOffsetY, 0.0);
     gl.uniform1f(resizeUniforms.uTexScaleY, 1.0);
+    // Set specific uniforms (Lanczos needs uScale)
+    if (!isBilinear && "uScale" in resizeUniforms) {
+      gl.uniform1f(resizeUniforms.uScale, scaleY);
+    }
 
     gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
@@ -510,7 +619,7 @@ export function renderSpectrogram(
     gl.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
     gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
 
-    // --- Pass-3 Colormap Application ---
+    // --- Pass-3 Colormap Application (same as before) ---
     gl.useProgram(colormapProgram);
     gl.bindVertexArray(cmapVao); // Bind the VAO for the fullscreen quad
 
@@ -536,16 +645,16 @@ export function renderSpectrogram(
     gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    // Attributes are already set up via cmapVao
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
 
     // Check for WebGL errors after drawing
     const error = gl.getError();
-    if (error !== gl.NO_ERROR) console.error("WebGL Error after draw:", error);
+    const errorType = isBilinear ? "bilinear" : "lanczos";
+    if (error !== gl.NO_ERROR) console.error(`WebGL Error after ${errorType} draw:`, error);
   } catch (error) {
-    console.error("Error during WebGL draw:", error);
+    console.error(`Error during WebGL ${isBilinear ? "bilinear" : "lanczos"} draw:`, error);
   } finally {
-    // --- Cleanup textures and framebuffers created in this draw call ---
+    // --- Cleanup (same as before) ---
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindVertexArray(null); // Unbind VAO
@@ -560,12 +669,53 @@ export function renderSpectrogram(
   }
 }
 
+export function renderSpectrogram(
+  webglResources: WebGLResources,
+  spectrogram: Spectrogram,
+  srcLeft: number,
+  srcTop: number,
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number,
+  blend: number,
+  isBilinear: boolean,
+) {
+  renderSpectrogramInternal(
+    webglResources,
+    spectrogram,
+    srcLeft,
+    srcTop,
+    srcW,
+    srcH,
+    dstW,
+    dstH,
+    blend,
+    isBilinear ? webglResources.bilinearResizeProgram : webglResources.resizeProgram,
+    isBilinear ? webglResources.bilinearResizeUniforms : webglResources.resizeUniforms,
+    isBilinear, // Not bilinear
+  );
+}
+
 export function cleanupWebGLResources(resources: WebGLResources) {
-  const {gl, resizeProgram, colormapProgram, resizePosBuffer, cmapVao, cmapVbo} = resources;
+  const {
+    gl,
+    resizeProgram,
+    bilinearResizeProgram,
+    colormapProgram,
+    resizePosBuffer,
+    cmapVao,
+    cmapVbo,
+  } = resources;
   gl.deleteProgram(resizeProgram);
+  gl.deleteProgram(bilinearResizeProgram); // Delete the new program
   gl.deleteProgram(colormapProgram);
   gl.deleteBuffer(resizePosBuffer);
   gl.deleteVertexArray(cmapVao);
   gl.deleteBuffer(cmapVbo);
-  gl.getExtension("WEBGL_lose_context")?.loseContext();
+  // Attempt to lose context gracefully
+  const loseCtxExt = gl.getExtension("WEBGL_lose_context");
+  if (loseCtxExt) {
+    loseCtxExt.loseContext();
+  }
 }
