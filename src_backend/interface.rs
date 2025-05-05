@@ -45,6 +45,7 @@ pub struct Spectrogram {
     pub buf: Buffer,
     pub width: u32,
     pub height: u32,
+    pub start_sec: f64,
     pub px_per_sec: f64,
     pub left_margin: f64,
     pub right_margin: f64,

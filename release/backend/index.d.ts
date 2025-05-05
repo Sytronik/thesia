@@ -47,6 +47,7 @@ export interface Spectrogram {
   buf: Buffer
   width: number
   height: number
+  startSec: number
   pxPerSec: number
   leftMargin: number
   rightMargin: number
