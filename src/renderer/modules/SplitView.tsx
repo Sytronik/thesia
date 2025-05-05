@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle} from "react";
+import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle, useMemo} from "react";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants/tracks";
 import {NativeTypes} from "react-dnd-html5-backend";
@@ -18,6 +18,7 @@ type SplitViewProps = {
   onFileHover?: (item: any, monitor: DropTargetMonitor) => void;
   onFileHoverLeave?: () => void;
   onFileDrop?: (item: any) => void;
+  onVerticalViewportChange?: () => void;
 };
 
 const SplitView = forwardRef(
@@ -27,6 +28,7 @@ const SplitView = forwardRef(
       onFileHover = () => {},
       onFileHoverLeave = () => {},
       onFileDrop = () => {},
+      onVerticalViewportChange = () => {},
       ...props
     }: SplitViewProps,
     ref,
@@ -89,26 +91,35 @@ const SplitView = forwardRef(
       document.addEventListener("touchend", onMouseUp, {once: true});
     };
 
-    const [rightResizeObserver, _setRightResizeObserver] = useState(
-      new ResizeObserver((entries: ResizeObserverEntry[]) => {
-        const {target} = entries[0];
-        if (target.clientWidth > AXIS_SPACE) {
-          setCanvasWidth(target.clientWidth - AXIS_SPACE);
-          setRightVisibility(true);
-        } else {
-          setCanvasWidth(AXIS_SPACE - TINY_MARGIN);
-          setRightVisibility(false);
-        }
-      }),
+    const rightResizeObserver = useMemo(
+      () =>
+        new ResizeObserver((entries: ResizeObserverEntry[]) => {
+          const {target} = entries[0];
+          if (target.clientWidth > AXIS_SPACE) {
+            setCanvasWidth(target.clientWidth - AXIS_SPACE);
+            setRightVisibility(true);
+          } else {
+            setCanvasWidth(AXIS_SPACE - TINY_MARGIN);
+            setRightVisibility(false);
+          }
+        }),
+      [setCanvasWidth],
     );
 
-    const [resizeObserver, _setResizeObserver] = useState(
-      new ResizeObserver((entries: ResizeObserverEntry[]) => {
-        const {target} = entries[0];
-        if ((rightPaneElem.current?.clientWidth ?? 0) === 0) {
-          setNormalizedLeftWidth(target.clientWidth - MARGIN);
-        }
-      }),
+    const heightRef = useRef(0);
+    const resizeObserver = useMemo(
+      () =>
+        new ResizeObserver((entries: ResizeObserverEntry[]) => {
+          const {target} = entries[0];
+          if ((rightPaneElem.current?.clientWidth ?? 0) === 0) {
+            setNormalizedLeftWidth(target.clientWidth - MARGIN);
+          }
+          if (heightRef.current !== target.clientHeight) {
+            heightRef.current = target.clientHeight;
+            onVerticalViewportChange();
+          }
+        }),
+      [onVerticalViewportChange, setNormalizedLeftWidth],
     );
 
     const [{isOver}, drop] = useDrop({
@@ -140,7 +151,9 @@ const SplitView = forwardRef(
         if (options.top !== undefined) {
           options.top += TIME_CANVAS_HEIGHT;
         }
-        splitPaneElem.current?.scrollTo(options);
+        if (options.top !== splitPaneElem.current?.scrollTop) {
+          splitPaneElem.current?.scrollTo(options);
+        }
       },
       scrollTop: () => splitPaneElem.current?.scrollTop ?? 0,
     });
@@ -167,7 +180,11 @@ const SplitView = forwardRef(
     }, [resizeObserver]);
 
     return (
-      <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
+      <div
+        className={`${styles.SplitView} ${className}`}
+        ref={splitPaneElem}
+        onScroll={onVerticalViewportChange}
+      >
         <div className={styles.Scrolled}>
           <div className={styles.LeftPane} style={{width: leftWidth}}>
             {createLeft(leftWidth)}

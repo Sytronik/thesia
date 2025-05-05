@@ -130,7 +130,6 @@ function MainViewer(props: MainViewerProps) {
     cursorRatioOnImg: 0.0,
     cursorOffset: 0,
   });
-  const hiddenImgIdRef = useRef<number>(-1);
 
   const [fileDropIndex, setFileDropIndex] = useState<number>(-1);
 
@@ -167,7 +166,7 @@ function MainViewer(props: MainViewerProps) {
     setFileDropIndex(-1);
   });
 
-  const getIdChArr = useCallback(() => Array.from(trackIdChMap.values()).flat(), [trackIdChMap]); // TODO: return only viewport
+  const getIdChArr = useEvent(() => Array.from(trackIdChMap.values()).flat());
 
   const calcEndSec = () => startSec + width / pxPerSec;
 
@@ -408,6 +407,45 @@ function MainViewer(props: MainViewerProps) {
       // horizontal scroll
       throttledUpdateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
     }
+  });
+
+  const [hiddenIdChArr, setHiddenIdChArr] = useState<Set<string>>(new Set());
+  const onVerticalViewportChange = useEvent(() => {
+    const newHiddenIdChArr = new Set<string>();
+    getIdChArr().forEach((idChStr) => {
+      if (imgCanvasesRef.current[idChStr] === undefined) {
+        newHiddenIdChArr.add(idChStr);
+        return;
+      }
+      const imgCanvas = imgCanvasesRef.current[idChStr];
+      const rect = imgCanvas.getBoundingClientRect();
+      const splitViewRect = splitViewElem.current?.getBoundingClientRect() ?? new DOMRect();
+      // check if the canvas is entirely outside of viewport
+      if (rect.y > splitViewRect.y + splitViewRect.height || rect.y + rect.height < splitViewRect.y)
+        newHiddenIdChArr.add(idChStr);
+    });
+    if (
+      hiddenIdChArr.size === newHiddenIdChArr.size &&
+      [...hiddenIdChArr].every((x) => newHiddenIdChArr.has(x))
+    )
+      return;
+    setHiddenIdChArr(newHiddenIdChArr);
+  });
+  const throttledOnVerticalViewportChange = useMemo(
+    () => throttle(1000 / 120, onVerticalViewportChange),
+    [onVerticalViewportChange],
+  );
+  useEffect(() => {
+    throttledOnVerticalViewportChange();
+  }, [throttledOnVerticalViewportChange, height]);
+
+  const draggingTrackIdRef = useRef<number>(-1);
+  const hideDraggingImage = useEvent((id) => {
+    draggingTrackIdRef.current = id;
+  });
+  const unHideDraggingImage = useEvent(() => {
+    draggingTrackIdRef.current = -1;
+    onVerticalViewportChange();
   });
 
   // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
@@ -783,12 +821,7 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const selectTrackByTrackInfo = useEvent((e, id) => selectTrack(e, id, trackIds));
-  const hideImage = useEvent((id) => {
-    hiddenImgIdRef.current = id;
-  });
-  const showHiddenImage = useEvent(() => {
-    hiddenImgIdRef.current = -1;
-  });
+
   const createLeftPane = (leftWidth: number) => (
     <>
       <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
@@ -819,10 +852,10 @@ function MainViewer(props: MainViewerProps) {
             isSelected={isSelected}
             selectTrack={selectTrackByTrackInfo}
             hideTracks={hideTracks}
-            hideImage={hideImage}
+            hideImage={hideDraggingImage}
             onDnd={changeTrackOrder}
             showHiddenTracks={showHiddenTracks}
-            showHiddenImage={showHiddenImage}
+            showHiddenImage={unHideDraggingImage}
           />
         );
       })}
@@ -877,7 +910,7 @@ function MainViewer(props: MainViewerProps) {
                     blend={blend}
                     isLoading={isLoading}
                     needRefresh={needRefreshTrackIdChArr.includes(idChStr)}
-                    hidden={id === hiddenImgIdRef.current}
+                    hidden={hiddenIdChArr.has(idChStr) || id === draggingTrackIdRef.current}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
@@ -961,6 +994,7 @@ function MainViewer(props: MainViewerProps) {
           onFileHover={onFileHover}
           onFileHoverLeave={onFileHoverLeave}
           onFileDrop={onFileDrop}
+          onVerticalViewportChange={throttledOnVerticalViewportChange}
         />
         <Locator // on time axis
           locatorStyle="playhead"

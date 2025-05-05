@@ -71,7 +71,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const [initTooltipInfo, setInitTooltipInfo] = useState<ImgTooltipInfo | null>(null);
 
   const getBoundingClientRect = useEvent(() => {
-    return specCanvasElem.current?.getBoundingClientRect() ?? new DOMRect();
+    return wavCanvasElem.current?.getBoundingClientRect() ?? new DOMRect();
   });
 
   const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({getBoundingClientRect});
@@ -185,6 +185,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   }, [drawSpectrogram]);
 
   const getSpectrogram = useCallback(async () => {
+    if (hidden) return;
     const endSec = startSec + width / pxPerSec;
     const spectrogram = await BackendAPI.getSpectrogram(
       idChStr,
@@ -194,7 +195,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     );
     spectrogramRef.current = spectrogram;
     requestAnimationFrame(() => drawSpectrogramRef.current?.());
-  }, [startSec, width, pxPerSec, hzRange, idChStr]);
+  }, [hidden, hzRange, idChStr, pxPerSec, startSec, width]);
 
   const prevGetSpectrogramRef = useRef<() => void>(getSpectrogram);
   if (prevGetSpectrogramRef.current === getSpectrogram && needRefresh) getSpectrogram();
@@ -212,6 +213,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   });
 
   const getWavImage = useCallback(async () => {
+    if (hidden) return;
     const wavImage = await BackendAPI.getWavImage(
       idChStr,
       startSec,
@@ -223,7 +225,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     );
     wavImageRef.current = wavImage;
     drawWavOnNextFrame();
-  }, [ampRange, devicePixelRatio, height, idChStr, startSec, width, pxPerSec, drawWavOnNextFrame]);
+  }, [
+    hidden,
+    idChStr,
+    startSec,
+    pxPerSec,
+    width,
+    height,
+    ampRange,
+    devicePixelRatio,
+    drawWavOnNextFrame,
+  ]);
 
   const prevGetWavImageRef = useRef<() => void>(getWavImage);
   if (prevGetWavImageRef.current === getWavImage && needRefresh) getWavImage();
@@ -312,14 +324,16 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         </span>
       ) : null}
       <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
-      <canvas
-        key="spec"
-        className={styles.ImgCanvas}
-        ref={specCanvasElemCallback}
-        style={{zIndex: 0}}
-        width={Math.max(1, Math.floor(width * devicePixelRatio))}
-        height={Math.max(1, Math.floor(height * devicePixelRatio))}
-      />
+      {!hidden && (
+        <canvas
+          key="spec"
+          className={styles.ImgCanvas}
+          ref={specCanvasElemCallback}
+          style={{zIndex: 0}}
+          width={Math.max(1, Math.floor(width * devicePixelRatio))}
+          height={Math.max(1, Math.floor(height * devicePixelRatio))}
+        />
+      )}
       <canvas
         key="wav"
         className={styles.ImgCanvas}
