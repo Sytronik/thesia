@@ -431,6 +431,7 @@ async fn get_spectrogram(
             buf: buf.into(),
             width: args.width as u32,
             height: args.height as u32,
+            start_sec: sec_range.0,
             px_per_sec: args.px_per_sec,
             left_margin: args.left_margin,
             right_margin: args.right_margin,
