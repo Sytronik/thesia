@@ -20,11 +20,11 @@ pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
-pub use utils::{Pad, PadMode};
+use visualize::Mipmaps;
 pub use visualize::{
-    ArrWithSliceInfo, CalcWidth, DrawOptionForWav, TrackDrawer, calc_amp_axis_markers,
-    calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz,
-    convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec, draw_wav_to, resize,
+    DrawOptionForWav, SpectrogramSliceArgs, calc_amp_axis_markers, calc_dB_axis_markers,
+    calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label,
+    convert_sec_to_label, convert_time_label_to_sec, draw_overview,
 };
 
 pub type IdCh = (usize, usize);
@@ -41,7 +41,7 @@ pub struct TrackManager {
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
-    pub spec_mipmaps: IdChMap<Vec<Vec<Array2<pixels::F32>>>>, // TODO: typing
+    pub spec_mipmaps: IdChMap<Mipmaps>,
     pub setting: SpecSetting,
     pub dB_range: f32,
     pub colormap_length: u32,
@@ -146,6 +146,29 @@ impl TrackManager {
         self.update_mipmaps(tracklist, true);
     }
 
+    pub fn get_sliced_spec_mipmap(
+        &self,
+        (id, ch): IdCh,
+        track_sec: f64,
+        sec_range: (f64, f64),
+        hz_range: (f32, f32),
+        margin_px: usize,
+    ) -> Option<(SpectrogramSliceArgs, Array2<pixels::F32>)> {
+        let spec_hz_range = (0., self.max_sr as f32 / 2.);
+        let hz_range = ((hz_range.0).max(0.), (hz_range.1).min(spec_hz_range.1));
+
+        self.spec_mipmaps.get(&(id, ch)).map(|spec_mipmap| {
+            let (args, sliced_arr) = spec_mipmap.get_sliced_mipmap(
+                track_sec,
+                (sec_range.0, sec_range.1),
+                spec_hz_range,
+                hz_range,
+                margin_px,
+                &self.setting,
+            );
+            (args, sliced_arr.to_owned())
+        })
+    }
     fn update_specs<'a>(
         &mut self,
         tracklist: &TrackList,
@@ -234,44 +257,7 @@ impl TrackManager {
                         (self.min_dB, self.max_dB),
                         Some(self.colormap_length),
                     );
-                    let (n_freqs, n_frames) = (spec_img.shape()[0], spec_img.shape()[1]);
-                    let mut mipmaps = vec![vec![spec_img]];
-                    let mut skip_first = true;
-                    let mut height = n_freqs as f64;
-                    loop {
-                        let mut width = n_frames as f64;
-                        if !skip_first {
-                            mipmaps.push(vec![]);
-                        }
-                        loop {
-                            if skip_first {
-                                skip_first = false;
-                            } else {
-                                let resized = resize(
-                                    mipmaps[0][0].view(),
-                                    width.round() as u32,
-                                    height.round() as u32,
-                                );
-                                let i = mipmaps.len() - 1;
-                                mipmaps[i].push(resized);
-                            }
-                            if (width.round() as u32) == self.max_spectrogram_size {
-                                break;
-                            }
-                            width /= 2.;
-                            if (width.round() as u32) < self.max_spectrogram_size {
-                                width = self.max_spectrogram_size as f64;
-                            }
-                        }
-                        if (height.round() as u32) == self.max_spectrogram_size {
-                            break;
-                        }
-                        height /= 2.;
-                        if (height.round() as u32) < self.max_spectrogram_size {
-                            height = self.max_spectrogram_size as f64;
-                        }
-                    }
-                    ((id, ch), mipmaps)
+                    ((id, ch), Mipmaps::new(spec_img, self.max_spectrogram_size))
                 })
                 .collect();
 

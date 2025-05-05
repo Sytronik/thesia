@@ -3,10 +3,12 @@
 // allow for whole file because [napi(object)] attribite on struct blocks allow(non_snake_case)
 #![allow(non_snake_case)]
 
+use fast_image_resize::pixels;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
+use ndarray::Array2;
 
-use crate::{GuardClippingMode, IdChValueVec, SpecSetting};
+use crate::{GuardClippingMode, IdChValueVec, SpecSetting, SpectrogramSliceArgs};
 
 #[napi(object)]
 pub struct UserSettingsOptionals {
@@ -51,6 +53,28 @@ pub struct Spectrogram {
     pub right_margin: f64,
     pub top_margin: f64,
     pub bottom_margin: f64,
+}
+
+impl Spectrogram {
+    pub fn new(args: SpectrogramSliceArgs, mipmap: Array2<pixels::F32>, start_sec: f64) -> Self {
+        let (pixels_vec, _) = mipmap.into_raw_vec_and_offset();
+        let f32_slice = unsafe {
+            std::slice::from_raw_parts(pixels_vec.as_ptr() as *const f32, pixels_vec.len())
+        };
+        let buf: &[u8] = bytemuck::cast_slice(f32_slice);
+
+        Self {
+            buf: buf.into(),
+            width: args.width as u32,
+            height: args.height as u32,
+            start_sec,
+            px_per_sec: args.px_per_sec,
+            left_margin: args.left_margin,
+            right_margin: args.right_margin,
+            top_margin: args.top_margin,
+            bottom_margin: args.bottom_margin,
+        }
+    }
 }
 
 #[napi(object)]
