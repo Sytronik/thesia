@@ -359,9 +359,9 @@ export type WebGLResources = {
     uColorMap: WebGLUniformLocation | null;
     uOverlayAlpha: WebGLUniformLocation | null;
   };
-  resizePosBuffer: WebGLBuffer; // Buffer for vertex/UV data used in resize passes
-  cmapVao: WebGLVertexArrayObject; // VAO for the colormap pass fullscreen quad
-  cmapVbo: WebGLBuffer; // VBO for the colormap pass fullscreen quad
+  resizePosBuffer: WebGLBuffer | null; // Buffer for vertex/UV data used in resize passes
+  cmapVao: WebGLVertexArrayObject | null; // VAO for the colormap pass fullscreen quad
+  cmapVbo: WebGLBuffer | null; // VBO for the colormap pass fullscreen quad
 };
 
 export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources | null {
