@@ -200,7 +200,11 @@ function MainViewer(props: MainViewerProps) {
     drawOptions: ampMarkersDrawOptions,
   });
 
-  const freqMarkersDrawOptions = useMemo(() => ({maxTrackHz, hzRange}), [maxTrackHz, hzRange]);
+  const {freqScale} = BackendAPI.getSpecSetting();
+  const freqMarkersDrawOptions = useMemo(
+    () => ({maxTrackHz, hzRange, freqScale}),
+    [maxTrackHz, hzRange, freqScale],
+  );
   const freqMarkersAndLength = useAxisMarkers({
     scaleTable: FREQ_TICK_NUM,
     boundaries: FREQ_BOUNDARIES,
