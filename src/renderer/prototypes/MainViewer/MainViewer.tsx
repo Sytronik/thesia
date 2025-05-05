@@ -614,7 +614,7 @@ function MainViewer(props: MainViewerProps) {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
   }, [scrollTop]);
 
-  const drawCanvas = useEvent(async () => {
+  const updateByPlayerStatus = useEvent(async () => {
     const selectSec = player.selectSecRef.current ?? 0;
     if (player.isPlaying) {
       if (
@@ -639,8 +639,13 @@ function MainViewer(props: MainViewerProps) {
     }
     prevSelectSecRef.current = selectSec;
 
-    requestRef.current = requestAnimationFrame(drawCanvas);
+    requestRef.current = requestAnimationFrame(updateByPlayerStatus);
   });
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(updateByPlayerStatus);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [updateByPlayerStatus]);
 
   // locator
   const getLocatorBoundingLeftWidth: () => [number, number] | null = useEvent(() => {
@@ -700,11 +705,6 @@ function MainViewer(props: MainViewerProps) {
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
-
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(drawCanvas);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [drawCanvas]);
 
   useEffect(() => {
     if (selectedTrackIds.length === 0) return;
