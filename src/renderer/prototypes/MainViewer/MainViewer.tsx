@@ -228,14 +228,11 @@ function MainViewer(props: MainViewerProps) {
       .catch(() => {});
   }, [trackIds, needRefreshTrackIdChArr]);
 
-  const throttledSetSelectSec = useMemo(
-    () =>
-      throttle(1000 / 70, (sec) => {
-        player.setSelectSec(sec);
-        selectLocatorElem.current?.draw();
-      }),
-    [player],
-  );
+  const setSelectSec = useEvent((sec) => {
+    player.setSelectSec(sec);
+    selectLocatorElem.current?.draw();
+  });
+  const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, setSelectSec), [setSelectSec]);
 
   const throttledSetHzRange = useMemo(
     () =>
@@ -304,21 +301,21 @@ function MainViewer(props: MainViewerProps) {
     return newHeight;
   });
 
+  const zoomHeightAtCursor = useEvent((delta, cursorY) => {
+    const newHeight = zoomHeight((delta * height) / 1000);
+    const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
+    // TODO: remove hard-coded 2
+    setScrollTop(
+      imgIndex * (newHeight + 2) +
+        VERTICAL_AXIS_PADDING +
+        cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
+        cursorOffset -
+        cursorY,
+    );
+  });
   const throttledZoomHeightAtCursor = useMemo(
-    () =>
-      throttle(1000 / 120, (delta, cursorY) => {
-        const newHeight = zoomHeight((delta * height) / 1000);
-        const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
-        // TODO: remove hard-coded 2
-        setScrollTop(
-          imgIndex * (newHeight + 2) +
-            VERTICAL_AXIS_PADDING +
-            cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
-            cursorOffset -
-            cursorY,
-        );
-      }),
-    [height, zoomHeight],
+    () => throttle(1000 / 120, zoomHeightAtCursor),
+    [zoomHeightAtCursor],
   );
 
   const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
