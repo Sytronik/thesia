@@ -108,6 +108,8 @@ function MainViewer(props: MainViewerProps) {
   const requestRef = useRef<number>(0);
 
   const [width, setWidth] = useState(600);
+  const endSec = startSec + width / pxPerSec;
+
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
   const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
@@ -168,15 +170,17 @@ function MainViewer(props: MainViewerProps) {
 
   const getIdChArr = useEvent(() => Array.from(trackIdChMap.values()).flat());
 
-  const calcEndSec = () => startSec + width / pxPerSec;
-
+  const timeMarkersDrawOptions = useMemo(
+    () => ({startSec, endSec, maxSec: maxTrackSec}),
+    [endSec, maxTrackSec, startSec],
+  );
   const timeMarkersAndLength = useAxisMarkers({
     scaleTable: TIME_TICK_SIZE,
     boundaries: TIME_BOUNDARIES,
     getMarkers: BackendAPI.getTimeAxisMarkers,
     canvasLength: trackIds.length > 0 ? width : 0,
     scaleDeterminant: pxPerSec,
-    drawOptions: {startSec, endSec: calcEndSec(), maxSec: maxTrackSec},
+    drawOptions: timeMarkersDrawOptions,
   });
   const timeUnitLabel = useMemo(() => {
     if (!trackIds.length) return "";
@@ -282,7 +286,6 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
-    const endSec = calcEndSec();
     const newStartSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
     const newPxPerSec = normalizePxPerSec(width / (endSec - newStartSec), newStartSec);
 
@@ -620,13 +623,12 @@ function MainViewer(props: MainViewerProps) {
       if (
         needFollowCursor.current &&
         player.positionSecRef.current !== null &&
-        (calcEndSec() < player.positionSecRef.current || startSec > player.positionSecRef.current)
+        (endSec < player.positionSecRef.current || startSec > player.positionSecRef.current)
       ) {
         throttledUpdateLensParams({startSec: player.positionSecRef.current}, false);
       }
     } else {
       needFollowCursor.current = true;
-      const endSec = calcEndSec();
       const diff = selectSec - prevSelectSecRef.current;
       if (Math.abs(diff) > 1e-6 && (endSec < selectSec || startSec > selectSec)) {
         let newStartSec = startSec + diff;
