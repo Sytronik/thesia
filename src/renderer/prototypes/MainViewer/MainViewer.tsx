@@ -103,7 +103,13 @@ function MainViewer(props: MainViewerProps) {
   const prevSelectSecRef = useRef<number>(0);
   const [canvasIsFit, setCanvasIsFit] = useState<boolean>(true);
   const [hzRange, setHzRange] = useState<[number, number]>([0, Infinity]);
+  const setHzRangeIfNotSame = useEvent((newHzRange: [number, number]) => {
+    if (hzRange[0] !== newHzRange[0] || hzRange[1] !== newHzRange[1]) setHzRange(newHzRange);
+  });
   const [ampRange, setAmpRange] = useState<[number, number]>([...DEFAULT_AMP_RANGE]);
+  const setAmpRangeIfNotSame = useEvent((newAmpRange: [number, number]) => {
+    if (ampRange[0] !== newAmpRange[0] || ampRange[1] !== newAmpRange[1]) setAmpRange(newAmpRange);
+  });
 
   const requestRef = useRef<number>(0);
 
@@ -240,14 +246,6 @@ function MainViewer(props: MainViewerProps) {
     selectLocatorElem.current?.draw();
   });
   const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, setSelectSec), [setSelectSec]);
-
-  const throttledSetHzRange = useMemo(
-    () =>
-      throttle(1000 / 120, async (minHz: number, maxHz: number) => {
-        setHzRange([minHz, maxHz]);
-      }),
-    [],
-  );
 
   const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
     return Math.min(Math.max(_startSec, 0), maxEndSec - width / _pxPerSec);
@@ -591,7 +589,7 @@ function MainViewer(props: MainViewerProps) {
     [trackIds, selectedTrackIds, selectTrack],
   );
 
-  const resetHzRange = useEvent(() => setTimeout(() => throttledSetHzRange(0, Infinity)));
+  const resetHzRange = useEvent(() => setTimeout(() => setHzRange([0, Infinity])));
   const resetAmpRange = useEvent(() => setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE])));
   const resetTimeAxis = useEvent(() => setCanvasIsFit(true));
   const resetAxisRange = useEvent((_, axisKind: AxisKind) => {
@@ -938,7 +936,7 @@ function MainViewer(props: MainViewerProps) {
                     height={height}
                     markersAndLength={ampMarkersAndLength}
                     ampRange={ampRange}
-                    setAmpRange={setAmpRange}
+                    setAmpRange={setAmpRangeIfNotSame}
                     resetAmpRange={resetAmpRange}
                     enableInteraction={blend < 1}
                   />
@@ -948,7 +946,7 @@ function MainViewer(props: MainViewerProps) {
                     markersAndLength={freqMarkersAndLength}
                     maxTrackHz={maxTrackHz}
                     hzRange={hzRange}
-                    setHzRange={throttledSetHzRange}
+                    setHzRange={setHzRangeIfNotSame}
                     resetHzRange={resetHzRange}
                     enableInteraction={blend > 0}
                   />
