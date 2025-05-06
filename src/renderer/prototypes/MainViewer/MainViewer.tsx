@@ -966,21 +966,25 @@ function MainViewer(props: MainViewerProps) {
     </>
   );
 
+  const overviewTrackId =
+    trackIds.length > 0 && selectedTrackIds.length > 0
+      ? selectedTrackIds[selectedTrackIds.length - 1]
+      : null;
   return (
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
       {trackIds.length ? (
         <Overview
-          selectedTrackId={
-            trackIds.length > 0 && selectedTrackIds.length > 0
-              ? selectedTrackIds[selectedTrackIds.length - 1]
-              : null
-          }
+          trackId={overviewTrackId}
           maxTrackSec={maxTrackSec}
           startSec={startSec}
           lensDurationSec={width / pxPerSec}
           moveLens={moveLens}
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
+          needRefresh={
+            overviewTrackId !== null &&
+            needRefreshTrackIdChArr.some((idCh) => idCh.startsWith(`${overviewTrackId}_`))
+          }
         />
       ) : null}
       <div
