@@ -138,7 +138,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     const spectrogram = spectrogramRef.current;
 
     // Check if img and img.data are valid before proceeding
-    if (!spectrogram || hidden || startSec >= trackSec || hzRange[0] >= hzRange[1]) {
+    if (!spectrogram || hidden || startSec >= trackSec) {
       const {gl} = webglResourcesRef.current;
       gl.clearColor(0, 0, 0, 0); // Clear to transparent black
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -187,7 +187,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     hidden,
     startSec,
     trackSec,
-    hzRange,
     width,
     pxPerSec,
     devicePixelRatio,
@@ -212,11 +211,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   useEffect(() => {
     drawSpectrogramRef.current = drawSpectrogram;
     // Request a redraw only when the draw function or its dependencies change
-    const animationFrameId = requestAnimationFrame(() => drawSpectrogramRef.current?.());
+    const requestId = requestAnimationFrame(() => drawSpectrogramRef.current?.());
 
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
-    return () => cancelAnimationFrame(animationFrameId);
+    return () => cancelAnimationFrame(requestId);
   }, [drawSpectrogram]);
 
   const getSpectrogram = useCallback(async () => {
@@ -237,14 +236,15 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   prevGetSpectrogramRef.current = getSpectrogram;
 
   useEffect(() => {
+    if (blend <= 0) return;
     getSpectrogram();
-  }, [getSpectrogram]);
+  }, [blend, getSpectrogram]);
 
   // Draw wav
   const drawWavOnNextFrame = useEvent(() => {
-    const animationFrameId = requestAnimationFrame(() => drawWav());
+    const requestId = requestAnimationFrame(() => drawWav());
 
-    return () => cancelAnimationFrame(animationFrameId);
+    return () => cancelAnimationFrame(requestId);
   });
 
   const getWavImage = useCallback(async () => {
@@ -277,8 +277,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   prevGetWavImageRef.current = getWavImage;
 
   useEffect(() => {
+    if (blend >= 1) return;
     getWavImage();
-  }, [getWavImage]);
+  }, [blend, getWavImage]);
 
   useEffect(() => {
     if (blend >= 1 || hidden) {
