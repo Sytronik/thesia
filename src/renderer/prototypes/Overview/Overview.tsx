@@ -12,31 +12,33 @@ const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH,
 const THICKNESS = 3;
 
 type OverviewProps = {
-  selectedTrackId: number | null;
+  trackId: number | null;
   maxTrackSec: number;
   startSec: number;
   lensDurationSec: number;
   moveLens: (sec: number, anchorRatio: number) => void;
   resizeLensLeft: (sec: number) => void;
   resizeLensRight: (sec: number) => void;
+  needRefresh: boolean;
 };
 
 type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 
 function Overview(props: OverviewProps) {
   const {
-    selectedTrackId,
+    trackId,
     maxTrackSec,
     startSec,
     lensDurationSec,
     moveLens,
     resizeLensLeft,
     resizeLensRight,
+    needRefresh,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSec = useMemo(
-    () => (selectedTrackId !== null ? BackendAPI.getLengthSec(selectedTrackId) : 0),
-    [selectedTrackId],
+    () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : 0),
+    [trackId],
   );
 
   const backgroundElem = useRef<HTMLCanvasElement>(null);
@@ -96,7 +98,7 @@ function Overview(props: OverviewProps) {
 
     const backgroundCtx = backgroundElem.current.getContext("bitmaprenderer");
 
-    if (selectedTrackId === null) {
+    if (trackId === null) {
       backgroundCtx?.transferFromImageBitmap(null);
       lensCtxRef.current?.clearRect(
         0,
@@ -113,22 +115,18 @@ function Overview(props: OverviewProps) {
       backgroundCtx.transferFromImageBitmap(null);
       return;
     }
-    const img = await BackendAPI.getOverview(
-      selectedTrackId,
-      rect.width,
-      rect.height,
-      devicePixelRatio,
-    );
+    const img = await BackendAPI.getOverview(trackId, rect.width, rect.height, devicePixelRatio);
     if (img.buf.length > 0) {
       const imdata = new ImageData(new Uint8ClampedArray(img.buf.buffer), img.width, img.height);
       const imbmp = await createImageBitmap(imdata);
       backgroundCtx.transferFromImageBitmap(imbmp);
     }
-  }, [devicePixelRatio, selectedTrackId]);
+  }, [devicePixelRatio, trackId]);
 
   useEffect(() => {
+    if (!needRefresh) return;
     draw();
-  }, [draw]);
+  }, [draw, needRefresh]);
 
   const resizeObserverCallback = useEvent(() => {
     if (!lensElem.current) return;
@@ -241,7 +239,7 @@ function Overview(props: OverviewProps) {
         <canvas
           className={styles.OverviewLens}
           ref={lensElem}
-          style={{display: selectedTrackId !== null ? "block" : "none"}}
+          style={{display: trackId !== null ? "block" : "none"}}
         />
       </Draggable>
     </div>
