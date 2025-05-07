@@ -5,10 +5,13 @@
 extern crate blas_src;
 
 use std::collections::HashMap;
+use std::num::Wrapping;
 use std::sync::LazyLock;
 
+use dashmap::DashMap;
 use log::LevelFilter;
 use napi::bindgen_prelude::*;
+use napi::tokio;
 use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
 use parking_lot::RwLock as SyncRwLock;
@@ -40,6 +43,9 @@ static TRACK_LIST: LazyLock<AsyncRwLock<TrackList>> =
 static TM: LazyLock<AsyncRwLock<TrackManager>> =
     LazyLock::new(|| AsyncRwLock::new(TrackManager::new()));
 
+static DRAW_WAV_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> =
+    LazyLock::new(|| DashMap::new());
+
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(SpecSetting::new());
 
@@ -52,6 +58,7 @@ fn _init_once() {
         .with_level(LevelFilter::Info)
         .init()
         .unwrap();
+    // console_subscriber::init();
 }
 
 // On Windows, this cause hanging.
@@ -312,7 +319,7 @@ async fn get_wav_image(
     height: u32,
     amp_range: (f64, f64),
     dpr: f64,
-) -> Result<WavImage> {
+) -> Result<Option<WavImage>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let px_per_sec = px_per_sec * dpr;
     let width = (width as f64 * dpr).round() as u32;
@@ -322,15 +329,30 @@ async fn get_wav_image(
         dpr: dpr as f32,
     };
 
-    let arr = spawn_blocking(move || {
+    let task_id = {
+        let mut entry = DRAW_WAV_TASK_ID_MAP
+            .entry(id_ch_str.clone())
+            .or_insert(Wrapping(0));
+        *entry.value_mut() += 1;
+        *entry.value()
+    };
+
+    let task = spawn_blocking(move || {
         let tracklist = TRACK_LIST.blocking_read();
         tracklist.draw_wav(id, ch, start_sec, px_per_sec, width, height, &opt_for_wav)
-    })
-    .await
-    .unwrap();
+    });
 
-    let buf = arr.as_slice_memory_order().unwrap().into();
-    Ok(WavImage { buf, width, height })
+    loop {
+        if task.is_finished() {
+            let arr = task.await.unwrap();
+            let buf = arr.as_slice_memory_order().unwrap().into();
+            return Ok(Some(WavImage { buf, width, height }));
+        }
+        if *DRAW_WAV_TASK_ID_MAP.get(&id_ch_str).unwrap() != task_id {
+            return Ok(None); // if new task is started, return None
+        }
+        tokio::time::sleep(tokio::time::Duration::from_micros(100)).await;
+    }
 }
 
 #[napi]
