@@ -195,17 +195,20 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     debouncedRenderSpecHighQuality,
   ]);
 
-  const drawWav = useEvent(async () => {
+  // the actual render (transferFromImageBitmap) is called once at a frame
+  const transferRequestRef = useRef<number>(0);
+  const drawWavImage = useEvent(async () => {
     if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
     const ctx = wavCtxRef.current;
     const imdata = new Uint8ClampedArray(wavImageRef.current.buf);
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
     const img = new ImageData(imdata, wavImageRef.current.width, wavImageRef.current.height);
     const bitmap = await createImageBitmap(img);
-    ctx.transferFromImageBitmap(bitmap);
+    if (transferRequestRef.current !== 0) cancelAnimationFrame(transferRequestRef.current);
+    transferRequestRef.current = requestAnimationFrame(() => ctx.transferFromImageBitmap(bitmap));
   });
 
-  // Draw spectrogram
+  // Draw spectrogram when props change
   // Use a ref to store the latest draw function
   const drawSpectrogramRef = useRef(drawSpectrogram);
   useEffect(() => {
@@ -218,77 +221,103 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return () => cancelAnimationFrame(requestId);
   }, [drawSpectrogram]);
 
-  const getSpectrogram = useCallback(async () => {
+  // getSpectrogram is throttled and it calls drawSpectrogram once at a frame
+  const drawNewSpectrogramRequestRef = useRef<number>(0);
+  const throttledGetSpectrogram = useMemo(
+    () =>
+      throttle(1000 / 120, async (_startSec, _width, _pxPerSec, _idChStr, _hzRange) => {
+        const endSec = _startSec + _width / _pxPerSec;
+        const spectrogram = await BackendAPI.getSpectrogram(
+          _idChStr,
+          [_startSec, endSec],
+          _hzRange,
+          MARGIN_FOR_RESIZE,
+        );
+        spectrogramRef.current = spectrogram;
+        if (drawNewSpectrogramRequestRef.current !== 0)
+          cancelAnimationFrame(drawNewSpectrogramRequestRef.current);
+        drawNewSpectrogramRequestRef.current = requestAnimationFrame(() =>
+          drawSpectrogramRef.current?.(),
+        );
+      }),
+    [],
+  );
+  const getSpectrogramIfNotHidden = useCallback(() => {
     if (hidden) return;
-    const endSec = startSec + width / pxPerSec;
-    const spectrogram = await BackendAPI.getSpectrogram(
-      idChStr,
-      [startSec, endSec],
-      hzRange,
-      MARGIN_FOR_RESIZE,
-    );
-    spectrogramRef.current = spectrogram;
-    requestAnimationFrame(() => drawSpectrogramRef.current?.());
-  }, [hidden, hzRange, idChStr, pxPerSec, startSec, width]);
+    throttledGetSpectrogram(startSec, width, pxPerSec, idChStr, hzRange);
+  }, [hidden, hzRange, idChStr, pxPerSec, startSec, width, throttledGetSpectrogram]);
 
-  const prevGetSpectrogramRef = useRef<() => void>(getSpectrogram);
-  if (prevGetSpectrogramRef.current === getSpectrogram && needRefresh) getSpectrogram();
-  prevGetSpectrogramRef.current = getSpectrogram;
+  // getSpectrogram is called when needRefresh is true ...
+  const prevGetSpectrogramRef = useRef<() => void>(getSpectrogramIfNotHidden);
+  if (prevGetSpectrogramRef.current === getSpectrogramIfNotHidden && needRefresh)
+    getSpectrogramIfNotHidden();
+  prevGetSpectrogramRef.current = getSpectrogramIfNotHidden;
 
+  // or when deps change
   useEffect(() => {
     if (blend <= 0) return;
-    getSpectrogram();
-  }, [blend, getSpectrogram]);
+    getSpectrogramIfNotHidden();
+  }, [blend, getSpectrogramIfNotHidden]);
 
-  // Draw wav
-  const drawWavOnNextFrame = useEvent(() => {
-    const requestId = requestAnimationFrame(() => drawWav());
-
-    return () => cancelAnimationFrame(requestId);
-  });
-
-  const getWavImage = useCallback(async () => {
+  // getWavImage is throttled and it calls drawWavImage always,
+  // but inside drawWavImage, it renders the image once at a frame
+  const throttledGetWavImage = useMemo(
+    () =>
+      throttle(
+        1000 / 120,
+        async (_idChStr, _startSec, _pxPerSec, _width, _height, _ampRange, _devicePixelRatio) => {
+          const wavImage = await BackendAPI.getWavImage(
+            _idChStr,
+            _startSec,
+            _pxPerSec,
+            _width,
+            _height,
+            _ampRange,
+            _devicePixelRatio,
+          );
+          if (wavImage === null) return;
+          wavImageRef.current = wavImage;
+          drawWavImage();
+        },
+      ),
+    [drawWavImage],
+  );
+  const getWavImageIfNotHidden = useCallback(() => {
     if (hidden) return;
-    const wavImage = await BackendAPI.getWavImage(
-      idChStr,
-      startSec,
-      pxPerSec,
-      width,
-      height,
-      ampRange,
-      devicePixelRatio,
-    );
-    if (wavImage === null) return;
-    wavImageRef.current = wavImage;
-    drawWavOnNextFrame();
+    throttledGetWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio);
   }, [
     hidden,
     idChStr,
     startSec,
+    throttledGetWavImage,
     pxPerSec,
     width,
     height,
     ampRange,
     devicePixelRatio,
-    drawWavOnNextFrame,
   ]);
 
-  const prevGetWavImageRef = useRef<() => void>(getWavImage);
-  if (prevGetWavImageRef.current === getWavImage && needRefresh) getWavImage();
-  prevGetWavImageRef.current = getWavImage;
+  // getWavImage is called when needRefresh is true ...
+  const prevGetWavImageRef = useRef<() => void>(getWavImageIfNotHidden);
+  if (prevGetWavImageRef.current === getWavImageIfNotHidden && needRefresh) {
+    getWavImageIfNotHidden();
+  }
+  prevGetWavImageRef.current = getWavImageIfNotHidden;
 
+  // or when deps change
   useEffect(() => {
     if (blend >= 1) return;
-    getWavImage();
-  }, [blend, getWavImage]);
+    getWavImageIfNotHidden();
+  }, [blend, getWavImageIfNotHidden]);
 
   useEffect(() => {
     if (blend >= 1 || hidden) {
       wavCtxRef.current?.transferFromImageBitmap(null);
-      return () => {};
+      return;
     }
-    return drawWavOnNextFrame();
-  }, [drawWavOnNextFrame, blend, hidden]);
+
+    drawWavImage();
+  }, [blend, drawWavImage, hidden]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;

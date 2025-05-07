@@ -277,26 +277,21 @@ function MainViewer(props: MainViewerProps) {
     },
   );
 
-  const throttledUpdateLensParams = useMemo(
-    () => throttle(1000 / 120, updateLensParams),
-    [updateLensParams],
-  );
-
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
     const lensDurationSec = width / pxPerSec;
-    throttledUpdateLensParams({startSec: sec - lensDurationSec * anchorRatio});
+    updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
     const newStartSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
     const newPxPerSec = normalizePxPerSec(width / (endSec - newStartSec), newStartSec);
 
-    throttledUpdateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
   });
 
   const resizeLensRight = useEvent((sec: number) => {
     const newPxPerSec = normalizePxPerSec(width / Math.max(sec - startSec, 0), startSec);
-    throttledUpdateLensParams({pxPerSec: newPxPerSec});
+    updateLensParams({pxPerSec: newPxPerSec});
   });
 
   const zoomHeight = useEvent((delta: number) => {
@@ -317,10 +312,6 @@ function MainViewer(props: MainViewerProps) {
         cursorY,
     );
   });
-  const throttledZoomHeightAtCursor = useMemo(
-    () => throttle(1000 / 120, zoomHeightAtCursor),
-    [zoomHeightAtCursor],
-  );
 
   const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
     let i = 0;
@@ -399,18 +390,18 @@ function MainViewer(props: MainViewerProps) {
           newPxPerSec,
           maxTrackSec,
         );
-        throttledUpdateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+        updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
       } else {
         // vertical zoom
         const splitView = splitViewElem.current;
         if (!splitView) return;
 
         const cursorY = e.clientY - (splitView.getBoundingClientRect()?.y ?? 0);
-        throttledZoomHeightAtCursor(delta, cursorY);
+        zoomHeightAtCursor(delta, cursorY);
       }
     } else if (horizontal) {
       // horizontal scroll
-      throttledUpdateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
+      updateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
     }
   });
 
@@ -436,13 +427,9 @@ function MainViewer(props: MainViewerProps) {
       return;
     setHiddenIdChArr(newHiddenIdChArr);
   });
-  const throttledOnVerticalViewportChange = useMemo(
-    () => throttle(1000 / 120, onVerticalViewportChange),
-    [onVerticalViewportChange],
-  );
   useEffect(() => {
-    throttledOnVerticalViewportChange();
-  }, [throttledOnVerticalViewportChange, height]);
+    onVerticalViewportChange();
+  }, [onVerticalViewportChange, height]);
 
   const draggingTrackIdRef = useRef<number>(-1);
   const hideDraggingImage = useEvent((id) => {
@@ -627,7 +614,7 @@ function MainViewer(props: MainViewerProps) {
         player.positionSecRef.current !== null &&
         (endSec < player.positionSecRef.current || startSec > player.positionSecRef.current)
       ) {
-        throttledUpdateLensParams({startSec: player.positionSecRef.current}, false);
+        updateLensParams({startSec: player.positionSecRef.current}, false);
       }
     } else {
       needFollowCursor.current = true;
@@ -638,7 +625,7 @@ function MainViewer(props: MainViewerProps) {
 
         if (newEndSec < selectSec || newStartSec > selectSec)
           newStartSec = selectSec - width / pxPerSec / 2;
-        throttledUpdateLensParams({startSec: newStartSec}, false);
+        updateLensParams({startSec: newStartSec}, false);
       }
     }
     prevSelectSecRef.current = selectSec;
@@ -1002,7 +989,7 @@ function MainViewer(props: MainViewerProps) {
           onFileHover={onFileHover}
           onFileHoverLeave={onFileHoverLeave}
           onFileDrop={onFileDrop}
-          onVerticalViewportChange={throttledOnVerticalViewportChange}
+          onVerticalViewportChange={onVerticalViewportChange}
         />
         <Locator // on time axis
           locatorStyle="playhead"
