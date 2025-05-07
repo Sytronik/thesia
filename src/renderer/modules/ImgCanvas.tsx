@@ -195,19 +195,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     debouncedRenderSpecHighQuality,
   ]);
 
-  // the actual render (transferFromImageBitmap) is called once at a frame
-  const transferRequestRef = useRef<number>(0);
-  const drawWavImage = useEvent(async () => {
-    if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
-    const ctx = wavCtxRef.current;
-    const imdata = new Uint8ClampedArray(wavImageRef.current.buf);
-    wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
-    const img = new ImageData(imdata, wavImageRef.current.width, wavImageRef.current.height);
-    const bitmap = await createImageBitmap(img);
-    if (transferRequestRef.current !== 0) cancelAnimationFrame(transferRequestRef.current);
-    transferRequestRef.current = requestAnimationFrame(() => ctx.transferFromImageBitmap(bitmap));
-  });
-
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
   const drawSpectrogramRef = useRef(drawSpectrogram);
@@ -258,6 +245,20 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     if (blend <= 0) return;
     getSpectrogramIfNotHidden();
   }, [blend, getSpectrogramIfNotHidden]);
+
+  // drawWavImage is not updated when deps change
+  // the actual render (transferFromImageBitmap) is called once at a frame
+  const transferRequestRef = useRef<number>(0);
+  const drawWavImage = useEvent(async () => {
+    if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
+    const ctx = wavCtxRef.current;
+    const imdata = new Uint8ClampedArray(wavImageRef.current.buf);
+    wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
+    const img = new ImageData(imdata, wavImageRef.current.width, wavImageRef.current.height);
+    const bitmap = await createImageBitmap(img);
+    if (transferRequestRef.current !== 0) cancelAnimationFrame(transferRequestRef.current);
+    transferRequestRef.current = requestAnimationFrame(() => ctx.transferFromImageBitmap(bitmap));
+  });
 
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame
@@ -310,6 +311,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     getWavImageIfNotHidden();
   }, [blend, getWavImageIfNotHidden]);
 
+  // update wavImage when blend or hidden changes
   useEffect(() => {
     if (blend >= 1 || hidden) {
       wavCtxRef.current?.transferFromImageBitmap(null);
