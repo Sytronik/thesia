@@ -258,6 +258,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       ampRange,
       devicePixelRatio,
     );
+    if (wavImage === null) return;
     wavImageRef.current = wavImage;
     drawWavOnNextFrame();
   }, [
