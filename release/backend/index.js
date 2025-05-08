@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, getdBRange, setdBRange, setColormapLength, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getSpectrogram, getWavImage, findIdByPath, getOverview, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
+const { GuardClippingMode, FreqScale, init, addTracks, reloadTracks, removeTracks, applyTrackListChanges, getdBRange, setdBRange, setColormapLength, getSpecSetting, setSpecSetting, getCommonGuardClipping, setCommonGuardClipping, getCommonNormalize, setCommonNormalize, getSpectrogram, getWavDrawingInfo, findIdByPath, getOverview, freqPosToHz, freqHzToPos, secondsToLabel, timeLabelToSeconds, hzToLabel, freqLabelToHz, getTimeAxisMarkers, getFreqAxisMarkers, getAmpAxisMarkers, getdBAxisMarkers, getMaxdB, getMindB, getMaxTrackHz, getLongestTrackLengthSec, getChannelCounts, getLengthSec, getSampleRate, getFormatInfo, getGlobalLUFS, getRMSdB, getMaxPeakdB, getGuardClipStats, getPath, getFileName, setVolumedB, setTrackPlayer, seekPlayer, pausePlayer, resumePlayer, getPlayerState } = nativeBinding
 
 module.exports.GuardClippingMode = GuardClippingMode
 module.exports.FreqScale = FreqScale
@@ -329,7 +329,7 @@ module.exports.setCommonGuardClipping = setCommonGuardClipping
 module.exports.getCommonNormalize = getCommonNormalize
 module.exports.setCommonNormalize = setCommonNormalize
 module.exports.getSpectrogram = getSpectrogram
-module.exports.getWavImage = getWavImage
+module.exports.getWavDrawingInfo = getWavDrawingInfo
 module.exports.findIdByPath = findIdByPath
 module.exports.getOverview = getOverview
 module.exports.freqPosToHz = freqPosToHz

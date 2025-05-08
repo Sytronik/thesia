@@ -11,6 +11,18 @@ import React, {
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
+
+import {
+  WAV_BORDER_COLOR,
+  WAV_CLIPPING_COLOR,
+  WAV_COLOR,
+} from "renderer/prototypes/constants/colors";
+import {
+  WAV_BORDER_WIDTH,
+  WAV_IMAGE_SCALE,
+  WAV_LINE_WIDTH_FACTOR,
+  WAV_MARGIN_RATIO,
+} from "renderer/prototypes/constants/tracks";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 import {
@@ -41,6 +53,119 @@ type ImgTooltipInfo = {pos: number[]; lines: string[]};
 
 const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
 
+const clipFn = (clipValues: [number, number] | null) => {
+  if (!clipValues) return (v: number) => v;
+  const [min, max] = clipValues;
+  return (v: number) => Math.min(Math.max(v, min), max);
+};
+
+const setLinePath = (
+  ctx: CanvasRenderingContext2D,
+  points: Float32Array,
+  startPx: number,
+  pxPerPoints: number,
+  scale: number,
+  clipValues: [number, number] | null = null,
+) => {
+  const clip = clipFn(clipValues);
+  ctx.moveTo(startPx, clip(points[0]) * scale);
+  ctx.beginPath();
+  points.forEach((v, i) => {
+    if (i === 0) return;
+    ctx.lineTo(startPx + i * pxPerPoints, clip(v) * scale);
+  });
+};
+
+const drawWavLine = (
+  ctx: CanvasRenderingContext2D,
+  wavLine: Float32Array,
+  startPx: number,
+  pxPerPoints: number,
+  scale: number,
+  devicePixelRatio: number,
+  color: string,
+  clipValues: [number, number] | null = null,
+) => {
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // border
+  ctx.strokeStyle = WAV_BORDER_COLOR;
+  ctx.lineWidth = WAV_LINE_WIDTH_FACTOR * scale + 2 * WAV_BORDER_WIDTH * devicePixelRatio;
+  setLinePath(ctx, wavLine, startPx, pxPerPoints, scale / devicePixelRatio, clipValues);
+  ctx.stroke();
+
+  // line
+  ctx.strokeStyle = color;
+  ctx.lineWidth = WAV_LINE_WIDTH_FACTOR * scale;
+  setLinePath(ctx, wavLine, startPx, pxPerPoints, scale / devicePixelRatio, clipValues);
+  ctx.stroke();
+};
+
+const setEnvelopePath = (
+  ctx: CanvasRenderingContext2D,
+  topEnvelope: Float32Array,
+  bottomEnvelope: Float32Array,
+  startPx: number,
+  pxPerPoints: number,
+  scale: number,
+  clipValues: [number, number] | null = null,
+) => {
+  const clip = clipFn(clipValues);
+  ctx.moveTo(startPx, clip(topEnvelope[0]));
+  ctx.beginPath();
+  for (let i = 1; i < topEnvelope.length; i += 1) {
+    ctx.lineTo(startPx + i * pxPerPoints, clip(topEnvelope[i]) * scale);
+  }
+  for (let i = bottomEnvelope.length - 1; i >= 0; i -= 1) {
+    ctx.lineTo(startPx + i * pxPerPoints, clip(bottomEnvelope[i]) * scale);
+  }
+  ctx.closePath();
+};
+
+const drawWavEnvelope = (
+  ctx: CanvasRenderingContext2D,
+  topEnvelope: Float32Array,
+  bottomEnvelope: Float32Array,
+  startPx: number,
+  pxPerPoints: number,
+  scale: number,
+  devicePixelRatio: number,
+  color: string,
+  clipValues: [number, number] | null = null,
+  needBorder: boolean = true,
+) => {
+  // fill
+  ctx.fillStyle = color;
+  setEnvelopePath(
+    ctx,
+    topEnvelope,
+    bottomEnvelope,
+    startPx,
+    pxPerPoints,
+    scale / devicePixelRatio,
+    clipValues,
+  );
+  ctx.fill();
+
+  if (needBorder) {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = WAV_BORDER_COLOR;
+    ctx.lineWidth = WAV_BORDER_WIDTH * devicePixelRatio;
+    setEnvelopePath(
+      ctx,
+      topEnvelope,
+      bottomEnvelope,
+      startPx,
+      pxPerPoints,
+      scale / devicePixelRatio,
+      clipValues,
+    );
+    ctx.stroke();
+  }
+};
+
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {
     idChStr,
@@ -58,13 +183,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     hidden,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const wavCanvasScale = devicePixelRatio * WAV_IMAGE_SCALE;
   const spectrogramRef = useRef<Spectrogram | null>(null);
-  const wavImageRef = useRef<WavImage | null>(null);
+  const wavDrawingInfoRef = useRef<WavDrawingInfo | null>(null);
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
   const wavCanvasElem = useRef<HTMLCanvasElement | null>(null);
-  const wavCtxRef = useRef<ImageBitmapRenderingContext | null>(null);
+  const wavCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
   const loadingElem = useRef<HTMLDivElement>(null);
   const tooltipElem = useRef<HTMLSpanElement>(null);
@@ -101,10 +227,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       return;
     }
 
-    wavCtxRef.current = wavCanvasElem.current.getContext("bitmaprenderer", {alpha: true});
+    wavCtxRef.current = wavCanvasElem.current.getContext("2d", {alpha: true, desynchronized: true});
 
     if (!wavCtxRef.current) {
-      console.error("Failed to get bitmaprenderer context.");
+      console.error("Failed to get 2d context.");
       wavCtxRef.current = null;
     }
   }, []);
@@ -242,55 +368,159 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   // or when deps change
   useEffect(() => {
-    if (blend <= 0) return;
     getSpectrogramIfNotHidden();
-  }, [blend, getSpectrogramIfNotHidden]);
+  }, [getSpectrogramIfNotHidden]);
 
   // drawWavImage is not updated when deps change
   // the actual render (transferFromImageBitmap) is called once at a frame
-  const transferRequestRef = useRef<number>(0);
-  const drawWavImage = useEvent(async () => {
-    if (!wavCanvasElem.current || !wavCtxRef.current || !wavImageRef.current) return;
+  const drawWavImage = useCallback(() => {
+    if (!wavCanvasElem.current || !wavCtxRef.current) return;
+
+    wavCanvasElem.current.width = width * devicePixelRatio;
+    wavCanvasElem.current.height = height * devicePixelRatio;
+
+    // set opacity by blend
+    wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.max(2 - 2 * blend, 0)}`;
+
     const ctx = wavCtxRef.current;
-    const imdata = new Uint8ClampedArray(wavImageRef.current.buf);
-    wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.min(2 - 2 * blend, 1)}`;
-    const img = new ImageData(imdata, wavImageRef.current.width, wavImageRef.current.height);
-    const bitmap = await createImageBitmap(img);
-    if (transferRequestRef.current !== 0) cancelAnimationFrame(transferRequestRef.current);
-    transferRequestRef.current = requestAnimationFrame(() => ctx.transferFromImageBitmap(bitmap));
-  });
+
+    ctx.scale(devicePixelRatio / wavCanvasScale, devicePixelRatio / wavCanvasScale);
+
+    if (!wavDrawingInfoRef.current) return;
+    const wavDrawingInfo = wavDrawingInfoRef.current;
+
+    // startSec > trackSec case
+    if (wavDrawingInfo.line !== null && wavDrawingInfo.line.length === 0) {
+      ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      return;
+    }
+
+    // fillRect case
+    if (!wavDrawingInfo.line && !wavDrawingInfo.topEnvelope && !wavDrawingInfo.bottomEnvelope) {
+      ctx.fillStyle = WAV_COLOR;
+      ctx.fillRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      return;
+    }
+
+    const pxPerPoints = (pxPerSec * wavCanvasScale) / wavDrawingInfo.pointsPerSec;
+    const startPx =
+      -wavDrawingInfo.preMargin * pxPerPoints -
+      (startSec - wavDrawingInfo.startSec) * pxPerSec * wavCanvasScale;
+    // line case
+    if (wavDrawingInfo.line) {
+      ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+
+      if (wavDrawingInfo.clipValues) {
+        drawWavLine(
+          ctx,
+          wavDrawingInfo.line,
+          startPx,
+          pxPerPoints,
+          wavCanvasScale,
+          devicePixelRatio,
+          WAV_CLIPPING_COLOR,
+        );
+      }
+
+      drawWavLine(
+        ctx,
+        wavDrawingInfo.line,
+        startPx,
+        pxPerPoints,
+        wavCanvasScale,
+        devicePixelRatio,
+        WAV_COLOR,
+        wavDrawingInfo.clipValues,
+      );
+    } else if (wavDrawingInfo.topEnvelope && wavDrawingInfo.bottomEnvelope) {
+      // envelope case
+      ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+
+      if (wavDrawingInfo.clipValues) {
+        drawWavEnvelope(
+          ctx,
+          wavDrawingInfo.topEnvelope,
+          wavDrawingInfo.bottomEnvelope,
+          startPx,
+          pxPerPoints,
+          wavCanvasScale,
+          devicePixelRatio,
+          WAV_CLIPPING_COLOR,
+        );
+      }
+
+      drawWavEnvelope(
+        ctx,
+        wavDrawingInfo.topEnvelope,
+        wavDrawingInfo.bottomEnvelope,
+        startPx,
+        pxPerPoints,
+        wavCanvasScale,
+        devicePixelRatio,
+        WAV_COLOR,
+        wavDrawingInfo.clipValues,
+        wavDrawingInfo.clipValues === null,
+      );
+    }
+  }, [blend, devicePixelRatio, height, pxPerSec, startSec, wavCanvasScale, width]);
+
+  // Draw spectrogram when props change
+  // Use a ref to store the latest draw function
+  const drawWavImageRef = useRef(drawWavImage);
+  useEffect(() => {
+    if (blend >= 1 || hidden) {
+      if (wavCanvasElem.current) {
+        wavCanvasElem.current.width = width * devicePixelRatio;
+        wavCanvasElem.current.height = height * devicePixelRatio;
+        wavCanvasElem.current.style.opacity = "0";
+      }
+      wavCtxRef.current?.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      return () => {};
+    }
+    drawWavImageRef.current = drawWavImage;
+    // Request a redraw only when the draw function or its dependencies change
+    const requestId = requestAnimationFrame(() => drawWavImageRef.current?.());
+
+    // Cleanup function to cancel the frame if the component unmounts
+    // or if dependencies change again before the frame executes
+    return () => cancelAnimationFrame(requestId);
+  }, [blend, devicePixelRatio, drawWavImage, height, hidden, wavCanvasScale, width]);
 
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame
+  const drawWavImageRequestRef = useRef<number>(0);
   const throttledGetWavImage = useMemo(
     () =>
       throttle(
         1000 / 120,
         async (_idChStr, _startSec, _pxPerSec, _width, _height, _ampRange, _devicePixelRatio) => {
-          const wavImage = await BackendAPI.getWavImage(
+          const endSec = _startSec + _width / _pxPerSec;
+          const wavSlice = await BackendAPI.getWavDrawingInfo(
             _idChStr,
-            _startSec,
-            _pxPerSec,
+            [_startSec, endSec],
             _width,
             _height,
             _ampRange,
             _devicePixelRatio,
+            WAV_MARGIN_RATIO,
           );
-          if (wavImage === null) return;
-          wavImageRef.current = wavImage;
-          drawWavImage();
+          if (wavSlice === null) return;
+          wavDrawingInfoRef.current = wavSlice;
+          if (drawWavImageRequestRef.current !== 0)
+            cancelAnimationFrame(drawWavImageRequestRef.current);
+          drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());
         },
       ),
-    [drawWavImage],
+    [],
   );
   const getWavImageIfNotHidden = useCallback(() => {
     if (hidden) return;
     throttledGetWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio);
   }, [
     hidden,
+    throttledGetWavImage,
     idChStr,
     startSec,
-    throttledGetWavImage,
     pxPerSec,
     width,
     height,
@@ -307,19 +537,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   // or when deps change
   useEffect(() => {
-    if (blend >= 1) return;
     getWavImageIfNotHidden();
-  }, [blend, getWavImageIfNotHidden]);
-
-  // update wavImage when blend or hidden changes
-  useEffect(() => {
-    if (blend >= 1 || hidden) {
-      wavCtxRef.current?.transferFromImageBitmap(null);
-      return;
-    }
-
-    drawWavImage();
-  }, [blend, drawWavImage, hidden]);
+  }, [getWavImageIfNotHidden]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
@@ -413,8 +632,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}
-        width={Math.max(1, Math.floor(width * devicePixelRatio))}
-        height={Math.max(1, Math.floor(height * devicePixelRatio))}
       />
     </div>
   );

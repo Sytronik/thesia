@@ -73,6 +73,92 @@ impl<'a> PixmapMutWrapper<'a> {
     }
 }
 
+pub enum WavDrawingInfoInternal {
+    FillRect,
+    Line(Vec<f32>, Option<(f32, f32)>),
+    TopBottomEnvelope(Vec<f32>, Vec<f32>, Option<(f32, f32)>),
+}
+
+impl WavDrawingInfoInternal {
+    pub fn new(
+        wav: ArrWithSliceInfo<f32, Ix1>,
+        width: f32,
+        height: f32,
+        opt_for_wav: &DrawOptionForWav,
+        show_clipping: bool,
+    ) -> WavDrawingInfoInternal {
+        // let start = Instant::now();
+        let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
+        let DprDependentConstants {
+            thr_long_height,
+            topbottom_context_size,
+            wav_stroke_width,
+        } = DprDependentConstants::calc(dpr);
+        let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
+        let px_per_samples = width / wav.length as f32;
+        let resample_ratio = quantize_px_per_samples(px_per_samples);
+        let outline_len = (wav.length as f32 * resample_ratio).round() as usize;
+        let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
+            .then_some((amp_to_px(1.), amp_to_px(-1.)));
+
+        if amp_range.1 - amp_range.0 < 1e-16 {
+            // over-zoomed
+            WavDrawingInfoInternal::FillRect
+        } else if resample_ratio > 0.5 {
+            // upsampling
+            let mut resampler;
+            let wav = if resample_ratio != 1. {
+                let wav_tail = wav.as_sliced_with_tail(RESAMPLE_TAIL);
+                let upsampled_len_tail = (wav_tail.len() as f32 * resample_ratio).round();
+                resampler = create_resampler(wav_tail.len(), upsampled_len_tail as usize);
+                resampler.resample(wav_tail)
+            } else {
+                wav.as_sliced()
+            };
+            WavDrawingInfoInternal::Line(
+                wav.slice(s![..outline_len])
+                    .iter()
+                    .map(|&x| amp_to_px(x))
+                    .collect(),
+                clip_values,
+            )
+        } else {
+            let wav = wav.as_sliced();
+            let half_context_size = topbottom_context_size / 2.;
+            let mean_px = amp_to_px(wav.mean().unwrap_or(0.));
+            let mut top_envlop = Vec::with_capacity(outline_len);
+            let mut btm_envlop = Vec::with_capacity(outline_len);
+            let mut n_mean_crossing = 0;
+            for i_envlop in 0..outline_len {
+                let i_envlop = i_envlop as f32;
+                let i_start = ((i_envlop - half_context_size) / resample_ratio)
+                    .round()
+                    .max(0.) as usize;
+                let i_end = (((i_envlop + half_context_size) / resample_ratio).round() as usize)
+                    .min(wav.len());
+                let wav_slice = wav.slice(s![i_start..i_end]);
+                let top = amp_to_px(*wav_slice.max_skipnan()) - wav_stroke_width / 2.;
+                let bottom = amp_to_px(*wav_slice.min_skipnan()) + wav_stroke_width / 2.;
+                if top < mean_px + f32::EPSILON && bottom > mean_px - thr_long_height
+                    || top < mean_px + thr_long_height && bottom > mean_px - f32::EPSILON
+                {
+                    n_mean_crossing += 1;
+                }
+                top_envlop.push(top);
+                btm_envlop.push(bottom);
+            }
+            if n_mean_crossing > outline_len * THR_TOPBOTTOM_PERCENT / 100 {
+                WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
+            } else {
+                WavDrawingInfoInternal::Line(
+                    wav.iter().map(|&x| amp_to_px(x)).collect(),
+                    clip_values,
+                )
+            }
+        }
+    }
+}
+
 pub fn draw_wav_to(
     output: &mut [u8],
     wav: ArrWithSliceInfo<f32, Ix1>,
@@ -95,7 +181,7 @@ pub fn draw_wav_to(
         0.
     };
     let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
-    let px_per_samples = width as f64 / wav.length as f64;
+    let px_per_samples = width as f32 / wav.length as f32;
     let resample_ratio = quantize_px_per_samples(px_per_samples);
     let outline_len = (wav.length as f32 * resample_ratio).round() as usize;
     let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
@@ -517,13 +603,13 @@ fn get_amp_to_px_fn(amp_range: (f32, f32), height: f32) -> impl Fn(f32) -> f32 {
     move |x: f32| (amp_range.1 - x) * scale_factor
 }
 
-fn quantize_px_per_samples(px_per_samples: f64) -> f32 {
+fn quantize_px_per_samples(px_per_samples: f32) -> f32 {
     if px_per_samples > 0.75 {
-        px_per_samples.round() as f32
+        px_per_samples.round()
     } else if 0.5 < px_per_samples && px_per_samples <= 0.75 {
         0.75
     } else {
-        1. / (1. / px_per_samples).round() as f32
+        1. / (1. / px_per_samples).round()
     }
 }
 

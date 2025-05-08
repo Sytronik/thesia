@@ -160,7 +160,7 @@ impl SpectrogramSliceArgs {
         let width_f64 = ((sec_range.1 - sec_range.0) * px_per_sec).max(0.);
 
         let (left_w_margin_clipped, width_w_margin_clipped, left_margin, right_margin) =
-            Self::_calc_margin(left_f64, width_f64, n_frames, margin_px);
+            Self::calc_margin(left_f64, width_f64, n_frames, margin_px);
 
         let (top_f64, height_f64) = {
             let top_f64 = spec_setting
@@ -175,7 +175,7 @@ impl SpectrogramSliceArgs {
         };
 
         let (top_w_margin_clipped, height_w_margin_clipped, top_margin, bottom_margin) =
-            Self::_calc_margin(top_f64, height_f64, n_freqs, margin_px);
+            Self::calc_margin(top_f64, height_f64, n_freqs, margin_px);
 
         Self {
             px_per_sec,
@@ -190,7 +190,8 @@ impl SpectrogramSliceArgs {
         }
     }
 
-    fn _calc_margin(
+    // TODO: refactor
+    pub fn calc_margin(
         start: f64,
         length: f64,
         max_length: usize,
