@@ -64,15 +64,15 @@ const setLinePath = (
   points: Float32Array,
   startPx: number,
   pxPerPoints: number,
-  scale: number,
+  scaleY: number,
   clipValues: [number, number] | null = null,
 ) => {
   const clip = clipFn(clipValues);
-  ctx.moveTo(startPx, clip(points[0]) * scale);
+  ctx.moveTo(startPx, clip(points[0]) * scaleY);
   ctx.beginPath();
   points.forEach((v, i) => {
     if (i === 0) return;
-    ctx.lineTo(startPx + i * pxPerPoints, clip(v) * scale);
+    ctx.lineTo(startPx + i * pxPerPoints, clip(v) * scaleY);
   });
 };
 
@@ -81,6 +81,7 @@ const drawWavLine = (
   wavLine: Float32Array,
   startPx: number,
   pxPerPoints: number,
+  height: number,
   scale: number,
   devicePixelRatio: number,
   color: string,
@@ -92,13 +93,13 @@ const drawWavLine = (
   // border
   ctx.strokeStyle = WAV_BORDER_COLOR;
   ctx.lineWidth = WAV_LINE_WIDTH_FACTOR * scale + 2 * WAV_BORDER_WIDTH * devicePixelRatio;
-  setLinePath(ctx, wavLine, startPx, pxPerPoints, scale / devicePixelRatio, clipValues);
+  setLinePath(ctx, wavLine, startPx, pxPerPoints, height * scale, clipValues);
   ctx.stroke();
 
   // line
   ctx.strokeStyle = color;
   ctx.lineWidth = WAV_LINE_WIDTH_FACTOR * scale;
-  setLinePath(ctx, wavLine, startPx, pxPerPoints, scale / devicePixelRatio, clipValues);
+  setLinePath(ctx, wavLine, startPx, pxPerPoints, height * scale, clipValues);
   ctx.stroke();
 };
 
@@ -108,17 +109,17 @@ const setEnvelopePath = (
   bottomEnvelope: Float32Array,
   startPx: number,
   pxPerPoints: number,
-  scale: number,
+  scaleY: number,
   clipValues: [number, number] | null = null,
 ) => {
   const clip = clipFn(clipValues);
   ctx.moveTo(startPx, clip(topEnvelope[0]));
   ctx.beginPath();
   for (let i = 1; i < topEnvelope.length; i += 1) {
-    ctx.lineTo(startPx + i * pxPerPoints, clip(topEnvelope[i]) * scale);
+    ctx.lineTo(startPx + i * pxPerPoints, clip(topEnvelope[i]) * scaleY);
   }
   for (let i = bottomEnvelope.length - 1; i >= 0; i -= 1) {
-    ctx.lineTo(startPx + i * pxPerPoints, clip(bottomEnvelope[i]) * scale);
+    ctx.lineTo(startPx + i * pxPerPoints, clip(bottomEnvelope[i]) * scaleY);
   }
   ctx.closePath();
 };
@@ -129,6 +130,7 @@ const drawWavEnvelope = (
   bottomEnvelope: Float32Array,
   startPx: number,
   pxPerPoints: number,
+  height: number,
   scale: number,
   devicePixelRatio: number,
   color: string,
@@ -143,7 +145,7 @@ const drawWavEnvelope = (
     bottomEnvelope,
     startPx,
     pxPerPoints,
-    scale / devicePixelRatio,
+    height * scale,
     clipValues,
   );
   ctx.fill();
@@ -159,7 +161,7 @@ const drawWavEnvelope = (
       bottomEnvelope,
       startPx,
       pxPerPoints,
-      scale / devicePixelRatio,
+      height * scale,
       clipValues,
     );
     ctx.stroke();
@@ -416,6 +418,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
           wavDrawingInfo.line,
           startPx,
           pxPerPoints,
+          height,
           wavCanvasScale,
           devicePixelRatio,
           WAV_CLIPPING_COLOR,
@@ -427,6 +430,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         wavDrawingInfo.line,
         startPx,
         pxPerPoints,
+        height,
         wavCanvasScale,
         devicePixelRatio,
         WAV_COLOR,
@@ -443,6 +447,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
           wavDrawingInfo.bottomEnvelope,
           startPx,
           pxPerPoints,
+          height,
           wavCanvasScale,
           devicePixelRatio,
           WAV_CLIPPING_COLOR,
@@ -455,6 +460,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         wavDrawingInfo.bottomEnvelope,
         startPx,
         pxPerPoints,
+        height,
         wavCanvasScale,
         devicePixelRatio,
         WAV_COLOR,

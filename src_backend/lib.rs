@@ -315,7 +315,7 @@ async fn get_wav_drawing_info(
     id_ch_str: String,
     sec_range: (f64, f64),
     width: u32,
-    height: u32, // TODO: remove dependency
+    height: u32,
     amp_range: (f64, f64),
     dpr: f64, // TODO: remove dependency?
     margin_ratio: f64,

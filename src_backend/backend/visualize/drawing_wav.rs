@@ -92,14 +92,15 @@ impl WavDrawingInfoInternal {
         let DprDependentConstants {
             thr_long_height,
             topbottom_context_size,
-            wav_stroke_width,
+            wav_stroke_width: _,
         } = DprDependentConstants::calc(dpr);
-        let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
+        let thr_long_height = thr_long_height / height;
+        let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
         let px_per_samples = width / wav.length as f32;
         let resample_ratio = quantize_px_per_samples(px_per_samples);
         let outline_len = (wav.length as f32 * resample_ratio).round() as usize;
         let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
-            .then_some((amp_to_px(1.), amp_to_px(-1.)));
+            .then_some((amp_to_rel_y(1.), amp_to_rel_y(-1.)));
 
         if amp_range.1 - amp_range.0 < 1e-16 {
             // over-zoomed
@@ -118,14 +119,14 @@ impl WavDrawingInfoInternal {
             WavDrawingInfoInternal::Line(
                 wav.slice(s![..outline_len])
                     .iter()
-                    .map(|&x| amp_to_px(x))
+                    .map(|&x| amp_to_rel_y(x))
                     .collect(),
                 clip_values,
             )
         } else {
             let wav = wav.as_sliced();
             let half_context_size = topbottom_context_size / 2.;
-            let mean_px = amp_to_px(wav.mean().unwrap_or(0.));
+            let mean_rel_y = amp_to_rel_y(wav.mean().unwrap_or(0.));
             let mut top_envlop = Vec::with_capacity(outline_len);
             let mut btm_envlop = Vec::with_capacity(outline_len);
             let mut n_mean_crossing = 0;
@@ -137,10 +138,10 @@ impl WavDrawingInfoInternal {
                 let i_end = (((i_envlop + half_context_size) / resample_ratio).round() as usize)
                     .min(wav.len());
                 let wav_slice = wav.slice(s![i_start..i_end]);
-                let top = amp_to_px(*wav_slice.max_skipnan()) - wav_stroke_width / 2.;
-                let bottom = amp_to_px(*wav_slice.min_skipnan()) + wav_stroke_width / 2.;
-                if top < mean_px + f32::EPSILON && bottom > mean_px - thr_long_height
-                    || top < mean_px + thr_long_height && bottom > mean_px - f32::EPSILON
+                let top = amp_to_rel_y(*wav_slice.max_skipnan());
+                let bottom = amp_to_rel_y(*wav_slice.min_skipnan());
+                if top < mean_rel_y + f32::EPSILON && bottom > mean_rel_y - thr_long_height
+                    || top < mean_rel_y + thr_long_height && bottom > mean_rel_y - f32::EPSILON
                 {
                     n_mean_crossing += 1;
                 }
@@ -151,7 +152,7 @@ impl WavDrawingInfoInternal {
                 WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
             } else {
                 WavDrawingInfoInternal::Line(
-                    wav.iter().map(|&x| amp_to_px(x)).collect(),
+                    wav.iter().map(|&x| amp_to_rel_y(x)).collect(),
                     clip_values,
                 )
             }
@@ -180,7 +181,7 @@ pub fn draw_wav_to(
     } else {
         0.
     };
-    let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
+    let amp_to_px = |x: f32| get_amp_to_rel_y_fn(amp_range)(x) * height as f32;
     let px_per_samples = width as f32 / wav.length as f32;
     let resample_ratio = quantize_px_per_samples(px_per_samples);
     let outline_len = (wav.length as f32 * resample_ratio).round() as usize;
@@ -274,7 +275,7 @@ pub fn draw_limiter_gain_to(
 ) {
     let &DrawOptionForWav { amp_range, dpr } = opt_for_wav;
     let half_context_size = DprDependentConstants::calc(dpr).topbottom_context_size / 2.;
-    let amp_to_px = get_amp_to_px_fn(amp_range, height as f32);
+    let amp_to_px = |x: f32| get_amp_to_rel_y_fn(amp_range)(x) * height as f32;
     let samples_per_px = gain.len() as f32 / width as f32;
 
     let mut envlop_iter = (0..width).map(|i_px| {
@@ -598,9 +599,8 @@ fn fill_topbottom_envelope_to(
 }
 
 #[inline]
-fn get_amp_to_px_fn(amp_range: (f32, f32), height: f32) -> impl Fn(f32) -> f32 {
-    let scale_factor = height / (amp_range.1 - amp_range.0);
-    move |x: f32| (amp_range.1 - x) * scale_factor
+fn get_amp_to_rel_y_fn(amp_range: (f32, f32)) -> impl Fn(f32) -> f32 {
+    move |x: f32| (amp_range.1 - x) / (amp_range.1 - amp_range.0)
 }
 
 fn quantize_px_per_samples(px_per_samples: f32) -> f32 {
