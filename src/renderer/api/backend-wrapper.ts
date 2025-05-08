@@ -1,6 +1,6 @@
 import backend, {Spectrogram} from "backend";
 
-export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavImage} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
@@ -94,6 +94,49 @@ export type IdChArr = IdChannel[];
 export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
+type _WavDrawingInfo = {
+  line: Float32Array | null;
+  topEnvelope: Float32Array | null;
+  bottomEnvelope: Float32Array | null;
+  startSec: number;
+  pointsPerSec: number;
+  preMargin: number;
+  postMargin: number;
+  clipValues: [number, number] | null;
+};
+export type WavDrawingInfo = _WavDrawingInfo;
+
+export async function getWavDrawingInfo(
+  idChStr: string,
+  secRange: [number, number],
+  width: number,
+  height: number,
+  ampRange: [number, number],
+  dpr: number,
+  marginRatio: number,
+): Promise<_WavDrawingInfo | null> {
+  const info = await backend.getWavDrawingInfo(
+    idChStr,
+    secRange,
+    width,
+    height,
+    ampRange,
+    dpr,
+    marginRatio,
+  );
+  if (!info) return null;
+
+  let line = null;
+  let topEnvelope = null;
+  let bottomEnvelope = null;
+  let clipValues: [number, number] | null = null;
+  if (info.line) line = new Float32Array(info.line.buffer);
+  if (info.topEnvelope) topEnvelope = new Float32Array(info.topEnvelope.buffer);
+  if (info.bottomEnvelope) bottomEnvelope = new Float32Array(info.bottomEnvelope.buffer);
+  if (info.clipValues) clipValues = [info.clipValues[0], info.clipValues[1]];
+
+  return {...info, line, topEnvelope, bottomEnvelope, clipValues};
+}
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
 export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
@@ -146,7 +189,6 @@ export const {
   getMaxdB,
   getMindB,
   getMaxTrackHz,
-  getWavImage,
   getSpectrogram,
   getOverview,
   getdBRange,

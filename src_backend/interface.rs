@@ -78,10 +78,22 @@ impl Spectrogram {
 }
 
 #[napi(object)]
-pub struct WavImage {
+pub struct Overview {
     pub buf: Buffer,
     pub width: u32,
     pub height: u32,
+}
+
+#[napi(object)]
+pub struct WavDrawingInfo {
+    pub line: Option<Buffer>,
+    pub top_envelope: Option<Buffer>,
+    pub bottom_envelope: Option<Buffer>,
+    pub start_sec: f64,
+    pub points_per_sec: f64,
+    pub pre_margin: f64,
+    pub post_margin: f64,
+    pub clip_values: Option<Vec<f64>>,
 }
 
 #[derive(Default)]
@@ -105,33 +117,6 @@ impl ToNapiValue for IdChSpectrograms {
         let mut obj = env.create_object()?;
         for ((id, ch), spectrogram) in val.0.into_iter() {
             obj.set(format_id_ch(id, ch), spectrogram)?;
-        }
-
-        unsafe { Object::to_napi_value(raw_env, obj) }
-    }
-}
-
-#[derive(Default)]
-pub struct IdChWavImages(pub IdChValueVec<WavImage>);
-
-impl TypeName for IdChWavImages {
-    fn type_name() -> &'static str {
-        "HashMap"
-    }
-
-    fn value_type() -> ValueType {
-        ValueType::Object
-    }
-}
-
-impl ValidateNapiValue for IdChWavImages {}
-
-impl ToNapiValue for IdChWavImages {
-    unsafe fn to_napi_value(raw_env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let env = Env::from(raw_env);
-        let mut obj = env.create_object()?;
-        for ((id, ch), waveform) in val.0.into_iter() {
-            obj.set(format_id_ch(id, ch), waveform)?;
         }
 
         unsafe { Object::to_napi_value(raw_env, obj) }

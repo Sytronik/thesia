@@ -54,10 +54,20 @@ export interface Spectrogram {
   topMargin: number
   bottomMargin: number
 }
-export interface WavImage {
+export interface Overview {
   buf: Buffer
   width: number
   height: number
+}
+export interface WavDrawingInfo {
+  line?: Buffer
+  topEnvelope?: Buffer
+  bottomEnvelope?: Buffer
+  startSec: number
+  pointsPerSec: number
+  preMargin: number
+  postMargin: number
+  clipValues?: Array<number>
 }
 export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
@@ -74,9 +84,9 @@ export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getSpectrogram(idChStr: string, secRange: [number, number], hzRange: [number, number], marginPx: number): Promise<Spectrogram | null>
-export declare function getWavImage(idChStr: string, startSec: number, pxPerSec: number, width: number, height: number, ampRange: [number, number], dpr: number): Promise<WavImage | null>
+export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], dpr: number, marginRatio: number): Promise<WavDrawingInfo | null>
 export declare function findIdByPath(path: string): Promise<number>
-export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<WavImage>
+export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Overview>
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
 export declare function secondsToLabel(sec: number): string

@@ -163,3 +163,7 @@ COLORMAP_RGBF.forEach(([r, g, b], i) => {
 });
 
 export const COLORMAP_RGBA8 = colormapRGBA8;
+
+export const WAV_COLOR = "rgb(19, 137, 235)";
+export const WAV_BORDER_COLOR = "rgb(0, 0, 0)";
+export const WAV_CLIPPING_COLOR = "rgb(196, 34, 50)";
