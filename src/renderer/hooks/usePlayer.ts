@@ -20,6 +20,7 @@ export type Player = {
 function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   const [currentPlayingTrack, setCurrentPlayingTrack] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const deviceErrorRef = useRef<string | null>(null);
 
   const positionSecRef = useRef<number>(0);
   const selectSecRef = useRef<number>(0);
@@ -34,7 +35,13 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     const {isPlaying: newIsPlaying, positionSec, err} = BackendAPI.getPlayerState();
     // const end = performance.now();
     // console.log(`Execution time: ${end - start} ms`);
-    if (err) console.error(err);
+    if (err) {
+      if (deviceErrorRef.current === null) console.error(err);
+      deviceErrorRef.current = err;
+    } else {
+      if (deviceErrorRef.current !== null) console.log("Error resolved");
+      deviceErrorRef.current = null;
+    }
     if (isPlaying !== newIsPlaying) setIsPlaying(newIsPlaying);
     positionSecRef.current = positionSec;
     requestRef.current = requestAnimationFrame(updatePlayerStates);
