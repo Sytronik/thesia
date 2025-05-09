@@ -937,7 +937,7 @@ function MainViewer(props: MainViewerProps) {
         getTopBottom={getTrackPlayheadTopBottom}
         getBoundingLeftWidth={getLocatorBoundingLeftWidth}
         calcLocatorPos={calcPlayheadPos}
-        zIndex={0}
+        zIndex={1}
       />
     </>
   );
