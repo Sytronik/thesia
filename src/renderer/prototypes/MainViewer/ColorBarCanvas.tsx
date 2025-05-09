@@ -54,4 +54,4 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
   return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />;
 }
 
-export default ColorBarCanvas;
+export default React.memo(ColorBarCanvas);

@@ -206,4 +206,4 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
 
 AmpAxis.displayName = "AmpAxis";
 
-export default AmpAxis;
+export default React.memo(AmpAxis);

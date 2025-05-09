@@ -123,4 +123,4 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
 
 Locator.displayName = "Locator";
 
-export default Locator;
+export default React.memo(Locator);

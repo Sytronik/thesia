@@ -1,3 +1,4 @@
+import React from "react";
 import type {XYCoord} from "react-dnd";
 import {useDragLayer} from "react-dnd";
 import DndItemTypes from "../constants/DndItemTypes";
@@ -10,7 +11,7 @@ function getItemStyles(initialOffset: XYCoord | null, currentOffset: XYCoord | n
   return {transform, WebkitTransform: transform};
 }
 
-export default function TrackInfoDragLayer() {
+function TrackInfoDragLayer() {
   const {itemType, isDragging, item, initialOffset, currentOffset} = useDragLayer((monitor) => ({
     item: monitor.getItem(),
     itemType: monitor.getItemType(),
@@ -60,3 +61,5 @@ export default function TrackInfoDragLayer() {
     </div>
   );
 }
+
+export default React.memo(TrackInfoDragLayer);

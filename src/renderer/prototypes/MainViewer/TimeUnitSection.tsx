@@ -11,4 +11,4 @@ function TimeUnitSection(props: {timeUnitLabel: string}) {
   );
 }
 
-export default TimeUnitSection;
+export default React.memo(TimeUnitSection);

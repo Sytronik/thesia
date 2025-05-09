@@ -202,4 +202,4 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
 });
 TrackInfo.displayName = "TrackInfo";
 
-export default TrackInfo;
+export default React.memo(TrackInfo);

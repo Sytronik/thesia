@@ -102,4 +102,4 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
 
 TimeAxis.displayName = "TimeAxis";
 
-export default TimeAxis;
+export default React.memo(TimeAxis);
