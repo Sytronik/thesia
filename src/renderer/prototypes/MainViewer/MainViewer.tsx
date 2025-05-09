@@ -111,8 +111,6 @@ function MainViewer(props: MainViewerProps) {
     if (ampRange[0] !== newAmpRange[0] || ampRange[1] !== newAmpRange[1]) setAmpRange(newAmpRange);
   });
 
-  const requestRef = useRef<number>(0);
-
   const [width, setWidth] = useState(600);
   const endSec = startSec + width / pxPerSec;
 
@@ -122,10 +120,8 @@ function MainViewer(props: MainViewerProps) {
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
 
-  const overviewElem = useRef<OverviewHandleElement>(null);
   const splitViewElem = useRef<SplitViewHandleElement>(null);
-  const timeCanvasElem = useRef<AxisCanvasHandleElement>(null);
-  const dBCanvasElem = useRef<AxisCanvasHandleElement>(null);
+  const timeAxisCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const selectLocatorElem = useRef<LocatorHandleElement>(null);
 
   const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
@@ -427,9 +423,7 @@ function MainViewer(props: MainViewerProps) {
       return;
     setHiddenIdChArr(newHiddenIdChArr);
   });
-  useEffect(() => {
-    onVerticalViewportChange();
-  }, [onVerticalViewportChange, height]);
+  useEffect(onVerticalViewportChange, [onVerticalViewportChange, height]);
 
   const draggingTrackIdRef = useRef<number>(-1);
   const hideDraggingImage = useEvent((id) => {
@@ -447,7 +441,7 @@ function MainViewer(props: MainViewerProps) {
       isPlayhead: boolean = false,
       allowOutside: boolean = true,
     ) => {
-      const rect = timeCanvasElem.current?.getBoundingClientRect() ?? null;
+      const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
       if (e.clientY < rect.bottom && e.altKey) return; // alt+click on TimeAxis fires the other event
       e.preventDefault();
@@ -606,6 +600,8 @@ function MainViewer(props: MainViewerProps) {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
   }, [scrollTop]);
 
+  const requestRef = useRef<number>(0);
+
   const updateByPlayerStatus = useEvent(async () => {
     const selectSec = player.selectSecRef.current ?? 0;
     if (player.isPlaying) {
@@ -640,8 +636,8 @@ function MainViewer(props: MainViewerProps) {
 
   // locator
   const getLocatorBoundingLeftWidth: () => [number, number] | null = useEvent(() => {
-    if (timeCanvasElem.current === null) return null;
-    const rect = timeCanvasElem.current.getBoundingClientRect();
+    if (timeAxisCanvasElem.current === null) return null;
+    const rect = timeAxisCanvasElem.current.getBoundingClientRect();
     if (rect === null) return null;
     return [rect.left, rect.width];
   });
@@ -696,13 +692,6 @@ function MainViewer(props: MainViewerProps) {
       }),
     [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
   );
-
-  useEffect(() => {
-    if (selectedTrackIds.length === 0) return;
-    const selectedIdUnderscore = `${selectedTrackIds[selectedTrackIds.length - 1]}_`;
-    if (needRefreshTrackIdChArr.some((idCh: string) => idCh.startsWith(selectedIdUnderscore)))
-      overviewElem.current?.draw(startSec, width / pxPerSec, true);
-  }, [needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // auto-scroll to the recently selected track
   const reducerForTrackInfoElemRange = useEvent(
@@ -859,7 +848,7 @@ function MainViewer(props: MainViewerProps) {
       <div className={`${styles.trackRightHeader}  ${styles.stickyHeader}`}>
         <TimeAxis
           key="time_axis"
-          ref={timeCanvasElem}
+          ref={timeAxisCanvasElem}
           width={width}
           markersAndLength={timeMarkersAndLength}
           shiftWhenResize={!canvasIsFit}
@@ -1010,7 +999,6 @@ function MainViewer(props: MainViewerProps) {
           colorBarHeight={colorBarHeight}
           setHeight={setColorMapHeight}
           markersAndLength={dBMarkersAndLength}
-          dBAxisCanvasElem={dBCanvasElem}
         />
       </div>
     </div>

@@ -13,22 +13,6 @@ type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | Reac
 
 type OptionalLensParams = {startSec?: number; pxPerSec?: number};
 
-type SplitViewHandleElement = {
-  getBoundingClientRect: () => DOMRect | null;
-  scrollTo: (option: ScrollToOptions) => void;
-  scrollTop: () => number;
-};
-
-type ImgCanvasHandleElement = {
-  getBoundingClientRect: () => DOMRect;
-};
-
-type LocatorHandleElement = {
-  enableInteraction: () => void;
-  disableInteraction: () => void;
-  draw: () => void;
-};
-
 // Track Summary
 type TrackSummaryData = {
   fileName: string;
@@ -46,15 +30,29 @@ type TickScaleTable = {
   [key: number]: [number, number];
 };
 
+type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
+
+type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
+
+type SplitViewHandleElement = {
+  getBoundingClientRect: () => DOMRect | null;
+  scrollTo: (option: ScrollToOptions) => void;
+  scrollTop: () => number;
+};
+
+type ImgCanvasHandleElement = {
+  getBoundingClientRect: () => DOMRect;
+};
+
 type AxisCanvasHandleElement = {
   getBoundingClientRect: () => DOMRect | null;
 };
 
-type OverviewHandleElement = {
-  draw: (startSec: number, lensDurationSec: number, forced?: boolean) => Promise<void>;
+type LocatorHandleElement = {
+  enableInteraction: () => void;
+  disableInteraction: () => void;
+  draw: () => void;
 };
-
-type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
 
 type FloatRangeInputElement = {
   setValue: (value: number) => void;
@@ -69,5 +67,3 @@ type TrackInfoElement = {
   getBoundingClientRect: () => DOMRect | null;
   scrollIntoView: (alignToTop: boolean) => void;
 };
-
-type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
