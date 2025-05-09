@@ -46,7 +46,6 @@
       "additional": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
-        "universal-apple-darwin",
         "x86_64-unknown-linux-gnu",
         "x86_64-pc-windows-msvc"
       ]
@@ -174,7 +173,7 @@
     "detect-port": "^1.5.1",
     "electron": "^26.2.1",
     "electron-builder": "^24.6.4",
-    "electron-devtools-assembler": "^1.2.0",
+    "electron-extension-installer": "^1.2.0",
     "electronmon": "^2.0.2",
     "eslint": "^8.49.0",
     "eslint-config-airbnb-base": "^15.0.0",

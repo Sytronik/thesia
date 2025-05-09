@@ -13,6 +13,7 @@ import {app, BrowserWindow, shell} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
 import settings from "electron-settings";
+import {installExtension, REACT_DEVELOPER_TOOLS} from "electron-extension-installer";
 import MenuBuilder from "./menu";
 import {resolveHtmlPath} from "./util";
 import addIPCListeners, {addAppRenderedListener} from "./ipc";
@@ -43,16 +44,15 @@ if (isDebug) {
 }
 
 const installExtensions = async () => {
-  const installer = require("electron-devtools-assembler");
-  const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
-  const extensions = ["REACT_DEVELOPER_TOOLS"];
-
-  return installer
-    .default(
-      extensions.map((name) => installer[name]),
-      forceDownload,
-    )
-    .catch(console.log);
+  try {
+    await installExtension(REACT_DEVELOPER_TOOLS, {
+      loadExtensionOptions: {
+        allowFileAccess: true,
+      },
+    });
+  } catch (err) {
+    console.log(err);
+  }
 };
 
 const createWindow = async (pathsToOpen: string[]) => {
