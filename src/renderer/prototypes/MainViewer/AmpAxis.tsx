@@ -1,4 +1,4 @@
-import React, {forwardRef, useEffect, useMemo, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import AxisCanvas, {getAxisHeight} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
@@ -49,7 +49,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
   ] as [number, number];
 };
 
-const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
+function AmpAxis(props: AmpAxisProps) {
   const {id, height, markersAndLength, ampRange, setAmpRange, resetAmpRange, enableInteraction} =
     props;
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
@@ -174,7 +174,6 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
       />
       <AxisCanvas
         id={id}
-        ref={ref}
         width={AMP_CANVAS_WIDTH}
         height={height}
         axisPadding={VERTICAL_AXIS_PADDING}
@@ -205,8 +204,6 @@ const AmpAxis = forwardRef((props: AmpAxisProps, ref) => {
       )}
     </div>
   );
-});
-
-AmpAxis.displayName = "AmpAxis";
+}
 
 export default React.memo(AmpAxis);

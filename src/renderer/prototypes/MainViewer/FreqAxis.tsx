@@ -1,4 +1,4 @@
-import React, {forwardRef, useEffect, useMemo, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import AxisCanvas, {getAxisHeight, getAxisPos} from "renderer/modules/AxisCanvas";
 import styles from "renderer/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "renderer/modules/Draggable";
@@ -42,7 +42,7 @@ const DEFAULT_DRAG_ANCHOR: FreqAxisDragAnchor = {
   hzRange: [0, Infinity],
 };
 
-const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
+function FreqAxis(props: FreqAxisProps) {
   const {
     id,
     height,
@@ -247,7 +247,6 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
       />
       <AxisCanvas
         id={id}
-        ref={ref}
         width={FREQ_CANVAS_WIDTH}
         height={height}
         axisPadding={VERTICAL_AXIS_PADDING}
@@ -280,8 +279,6 @@ const FreqAxis = forwardRef((props: FreqAxisProps, ref) => {
       )}
     </div>
   );
-});
-
-FreqAxis.displayName = "FreqAxis";
+}
 
 export default React.memo(FreqAxis);

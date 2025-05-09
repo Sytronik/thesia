@@ -15,11 +15,10 @@ type ColorMapProps = {
   setHeight: (height: number) => void;
   colorBarHeight: number;
   markersAndLength: [Markers, number];
-  dBAxisCanvasElem: React.RefObject<AxisCanvasHandleElement>;
 };
 
 function ColorMap(props: ColorMapProps) {
-  const {height, setHeight, colorBarHeight, markersAndLength, dBAxisCanvasElem} = props;
+  const {height, setHeight, colorBarHeight, markersAndLength} = props;
 
   const colorMapElem = useRef<HTMLDivElement>(null);
 
@@ -48,7 +47,6 @@ function ColorMap(props: ColorMapProps) {
         <ColorBarCanvas width={COLORBAR_CANVAS_WIDTH} height={colorBarHeight} />
         <AxisCanvas
           id={0}
-          ref={dBAxisCanvasElem}
           width={DB_CANVAS_WIDTH}
           height={height}
           axisPadding={VERTICAL_AXIS_PADDING}
