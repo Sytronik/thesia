@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from "react";
+import React, {useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "renderer/api";
 import {Player} from "renderer/hooks/usePlayer";
@@ -53,6 +53,10 @@ function PlayerControl(props: PlayerControlProps) {
     else player.setSelectSec(sec);
   });
 
+  const floatingInputStyle: React.CSSProperties | undefined = useMemo(
+    () => (isTrackEmpty ? {pointerEvents: "none"} : undefined),
+    [isTrackEmpty],
+  );
   return (
     <div className={`flex-container-row ${styles.PlayerControl}`}>
       <FloatingUserInput
@@ -62,7 +66,7 @@ function PlayerControl(props: PlayerControlProps) {
         onEndEditing={onEndEditing}
         hidden={false}
         focusOnShow={false}
-        style={{pointerEvents: isTrackEmpty ? "none" : undefined}}
+        style={floatingInputStyle}
       />
       <div className={styles.playerButton}>
         <button type="button" onClick={player.rewindToFront}>
@@ -96,12 +100,9 @@ function PlayerControl(props: PlayerControlProps) {
         max={0}
         step={0.1}
         precision={1}
-        detents={[]}
         initialValue={0.0}
         doubleClickValue={0.0}
-        onChangeValue={async (volume) => {
-          await BackendAPI.setVolumedB(volume);
-        }}
+        onChangeValue={BackendAPI.setVolumedB}
       />
     </div>
   );

@@ -11,18 +11,19 @@ type FloatRangeInputProps = {
   max: number;
   step: number;
   precision: number;
-  detents: number[];
+  detents?: number[] | null;
   disabled?: boolean;
   initialValue: number;
   disabledValue?: number;
   doubleClickValue?: number | null;
-  onChangeValue?: (value: number) => void;
+  onChangeValue?: (value: number) => void | Promise<void>;
 };
 
 const FloatRangeInput = forwardRef(
   (
     {
       className = "",
+      detents = null,
       disabled = false,
       disabledValue = NaN,
       doubleClickValue = null,
@@ -31,7 +32,7 @@ const FloatRangeInput = forwardRef(
     }: FloatRangeInputProps,
     ref,
   ) => {
-    const {id, unit, min, max, step, precision, initialValue, detents} = props;
+    const {id, unit, min, max, step, precision, initialValue} = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
     const prevValueRef = useRef<number>(initialValue);
@@ -156,7 +157,7 @@ const FloatRangeInput = forwardRef(
           list={`${id}Detents`}
         />
         <datalist id={`${id}Detents`}>
-          {detents.map((detent) => (
+          {detents?.map((detent) => (
             <option
               key={`${id}Detents.value${detent}`}
               aria-label={`${id} detent value ${detent}`}
