@@ -549,27 +549,30 @@ function MainViewer(props: MainViewerProps) {
     );
     updateLensParams({startSec, pxPerSec});
   });
+  const timeZoomIn = useEvent(() => {
+    if (trackIds.length > 0) zoomLens(false);
+  });
+  const timeZoomOut = useEvent(() => {
+    if (trackIds.length > 0) zoomLens(true);
+  });
   useEffect(() => {
-    ipcRenderer.on("time-zoom-in", () => {
-      if (trackIds.length > 0) zoomLens(false);
-    });
-    ipcRenderer.on("time-zoom-out", () => {
-      if (trackIds.length > 0) zoomLens(true);
-    });
+    ipcRenderer.on("time-zoom-in", timeZoomIn);
+    ipcRenderer.on("time-zoom-out", timeZoomOut);
     return () => {
       ipcRenderer.removeAllListeners("time-zoom-in");
       ipcRenderer.removeAllListeners("time-zoom-out");
     };
-  }, [trackIds, zoomLens]);
+  }, [timeZoomIn, timeZoomOut]);
 
   // Track Selection Hotkeys
-  useHotkeys("mod+a", () => selectAllTracks(trackIds), {preventDefault: true}, [trackIds]);
+  const selectAllTracksEvent = useEvent(() => selectAllTracks(trackIds));
+  useHotkeys("mod+a", selectAllTracksEvent, {preventDefault: true}, [selectAllTracksEvent]);
   useEffect(() => {
-    ipcRenderer.on("select-all-tracks", () => selectAllTracks(trackIds));
+    ipcRenderer.on("select-all-tracks", selectAllTracksEvent);
     return () => {
       ipcRenderer.removeAllListeners("select-all-tracks");
     };
-  }, [selectAllTracks, trackIds]);
+  }, [selectAllTracksEvent]);
 
   useHotkeys(
     "down, up, shift+down, shift+up",
