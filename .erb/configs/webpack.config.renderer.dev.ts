@@ -115,16 +115,6 @@ const configuration: webpack.Configuration = {
           "file-loader",
         ],
       },
-      {
-        test: /\.m?js/,
-        type: "javascript/auto",
-      },
-      {
-        test: /\.m?js/,
-        resolve: {
-          fullySpecified: false,
-        },
-      },
     ],
   },
   plugins: [
