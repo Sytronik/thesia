@@ -184,8 +184,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     needRefresh,
     hidden,
   } = props;
+
+  const specIsNotNeeded = blend <= 0 || hidden;
+  const needHideWav = blend >= 1 || hidden;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const wavCanvasScale = devicePixelRatio * WAV_IMAGE_SCALE;
+
   const spectrogramRef = useRef<Spectrogram | null>(null);
   const wavDrawingInfoRef = useRef<WavDrawingInfo | null>(null);
 
@@ -358,9 +362,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     [],
   );
   const getSpectrogramIfNotHidden = useCallback(() => {
-    if (hidden) return;
+    if (specIsNotNeeded) return;
     throttledGetSpectrogram(startSec, width, pxPerSec, idChStr, hzRange);
-  }, [hidden, hzRange, idChStr, pxPerSec, startSec, width, throttledGetSpectrogram]);
+  }, [specIsNotNeeded, throttledGetSpectrogram, startSec, width, pxPerSec, idChStr, hzRange]);
 
   // getSpectrogram is called when needRefresh is true ...
   const prevGetSpectrogramRef = useRef<() => void>(getSpectrogramIfNotHidden);
@@ -369,9 +373,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   prevGetSpectrogramRef.current = getSpectrogramIfNotHidden;
 
   // or when deps change
-  useEffect(() => {
-    getSpectrogramIfNotHidden();
-  }, [getSpectrogramIfNotHidden]);
+  useEffect(getSpectrogramIfNotHidden, [getSpectrogramIfNotHidden]);
 
   // drawWavImage is not updated when deps change
   // the actual render (transferFromImageBitmap) is called once at a frame
@@ -474,7 +476,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // Use a ref to store the latest draw function
   const drawWavImageRef = useRef(drawWavImage);
   useEffect(() => {
-    if (blend >= 1 || hidden) {
+    if (needHideWav) {
       if (wavCanvasElem.current) {
         wavCanvasElem.current.width = width * devicePixelRatio;
         wavCanvasElem.current.height = height * devicePixelRatio;
@@ -490,7 +492,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
-  }, [blend, devicePixelRatio, drawWavImage, height, hidden, wavCanvasScale, width]);
+  }, [devicePixelRatio, drawWavImage, height, hidden, needHideWav, wavCanvasScale, width]);
 
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame
@@ -520,18 +522,18 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     [],
   );
   const getWavImageIfNotHidden = useCallback(() => {
-    if (hidden) return;
+    if (needHideWav) return;
     throttledGetWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio);
   }, [
-    hidden,
-    throttledGetWavImage,
-    idChStr,
-    startSec,
-    pxPerSec,
-    width,
-    height,
     ampRange,
     devicePixelRatio,
+    height,
+    idChStr,
+    needHideWav,
+    pxPerSec,
+    startSec,
+    throttledGetWavImage,
+    width,
   ]);
 
   // getWavImage is called when needRefresh is true ...
@@ -542,9 +544,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   prevGetWavImageRef.current = getWavImageIfNotHidden;
 
   // or when deps change
-  useEffect(() => {
-    getWavImageIfNotHidden();
-  }, [getWavImageIfNotHidden]);
+  useEffect(getWavImageIfNotHidden, [getWavImageIfNotHidden]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
