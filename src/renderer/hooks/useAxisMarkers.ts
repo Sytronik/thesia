@@ -21,7 +21,7 @@ const getTickScale = (
 ): [number, number] | null => {
   const target = boundaries.find((boundary) => value >= boundary);
   if (target === undefined) {
-    console.error("invalid tick scale determinant");
+    console.warn("invalid tick scale determinant");
     return null;
   }
 
