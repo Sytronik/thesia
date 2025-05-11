@@ -43,8 +43,7 @@ static TRACK_LIST: LazyLock<AsyncRwLock<TrackList>> =
 static TM: LazyLock<AsyncRwLock<TrackManager>> =
     LazyLock::new(|| AsyncRwLock::new(TrackManager::new()));
 
-static DRAW_WAV_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> =
-    LazyLock::new(|| DashMap::new());
+static DRAW_WAV_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> = LazyLock::new(DashMap::new);
 
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: SyncRwLock<SpecSetting> = SyncRwLock::new(SpecSetting::new());
@@ -156,6 +155,9 @@ fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let removed_id_ch_tuples = TRACK_LIST.blocking_write().remove_tracks(&track_ids);
+    removed_id_ch_tuples.iter().for_each(|(id, ch)| {
+        DRAW_WAV_TASK_ID_MAP.remove(&format_id_ch(*id, *ch));
+    });
     spawn_blocking(move || {
         TM.blocking_write()
             .remove_tracks(&TRACK_LIST.blocking_read(), &removed_id_ch_tuples);
@@ -280,7 +282,10 @@ async fn get_spectrogram(
     margin_px: u32,
 ) -> Result<Option<Spectrogram>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
+    let sec_range = (sec_range.0.max(0.), sec_range.1);
+    if sec_range.0 >= sec_range.1 {
+        return Ok(None);
+    }
 
     spawn_blocking(move || {
         let track_sec = {
@@ -366,7 +371,10 @@ async fn get_wav_drawing_info(
     margin_ratio: f64,
 ) -> Result<Option<WavDrawingInfo>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
+    let sec_range = (sec_range.0.max(0.), sec_range.1);
+    if sec_range.0 >= sec_range.1 {
+        return Ok(None);
+    }
 
     let width = width as f32;
     let height = height as f32;
@@ -430,7 +438,10 @@ async fn get_wav_drawing_info(
         if task.is_finished() {
             return Ok(task.await.unwrap());
         }
-        if *DRAW_WAV_TASK_ID_MAP.get(&id_ch_str).unwrap() != task_id {
+        if DRAW_WAV_TASK_ID_MAP
+            .get(&id_ch_str)
+            .is_none_or(|id| *id != task_id)
+        {
             return Ok(None); // if new task is started, return None
         }
         tokio::time::sleep(tokio::time::Duration::from_micros(100)).await;
