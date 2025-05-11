@@ -127,18 +127,17 @@ export async function getWavDrawingInfo(
   height: number,
   ampRange: [number, number],
   wavStrokeWidth: number,
-  dpr: number,
+  devicePixelRatio: number,
   marginRatio: number,
 ): Promise<WavDrawingInfo | null> {
   const info = await backend.getWavDrawingInfo(
     idChStr,
     secRange,
-    width,
-    height,
+    width * devicePixelRatio,
+    height * devicePixelRatio,
     ampRange,
-    wavStrokeWidth,
-    WAV_TOPBOTTOM_CONTEXT_SIZE,
-    dpr,
+    wavStrokeWidth * devicePixelRatio,
+    WAV_TOPBOTTOM_CONTEXT_SIZE * devicePixelRatio,
     marginRatio,
   );
   if (!info) return null;

@@ -363,18 +363,16 @@ async fn get_wav_drawing_info(
     amp_range: (f64, f64),
     wav_stroke_width: f64,
     topbottom_context_size: f64,
-    dpr: f64, // TODO: remove dependency?
     margin_ratio: f64,
 ) -> Result<Option<WavDrawingInfo>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
 
-    let dpr = dpr as f32;
-    let width = width as f32 * dpr;
-    let height = height as f32 * dpr;
+    let width = width as f32;
+    let height = height as f32;
     let amp_range = (amp_range.0 as f32, amp_range.1 as f32);
-    let wav_stroke_width = wav_stroke_width as f32 * dpr;
-    let topbottom_context_size = topbottom_context_size as f32 * dpr;
+    let wav_stroke_width = wav_stroke_width as f32;
+    let topbottom_context_size = topbottom_context_size as f32;
 
     let task_id = {
         let mut entry = DRAW_WAV_TASK_ID_MAP

@@ -84,7 +84,7 @@ export declare function setCommonGuardClipping(mode: GuardClippingMode): Promise
 export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getSpectrogram(idChStr: string, secRange: [number, number], hzRange: [number, number], marginPx: number): Promise<Spectrogram | null>
-export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, dpr: number, marginRatio: number): Promise<WavDrawingInfo | null>
+export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
 export declare function findIdByPath(path: string): Promise<number>
 export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Overview>
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
