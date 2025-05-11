@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::num::Wrapping;
 use std::sync::LazyLock;
 
-use backend::visualize::SlicedWavDrawingInfo;
 use dashmap::DashMap;
 use log::LevelFilter;
 use napi::bindgen_prelude::*;
@@ -316,51 +315,6 @@ async fn get_spectrogram(
     .unwrap()
 }
 
-fn convert_wav_drawing_info(internal: SlicedWavDrawingInfo, start_sec: f64) -> WavDrawingInfo {
-    if internal.drawing_sec == 0. {
-        return WavDrawingInfo {
-            line: Some(Default::default()),
-            start_sec,
-            ..Default::default()
-        };
-    }
-    let base = WavDrawingInfo {
-        start_sec,
-        ..Default::default()
-    };
-    match internal.drawing_info {
-        WavDrawingInfoInternal::FillRect => base,
-        WavDrawingInfoInternal::Line(line, clip_values) => {
-            let buf: &[u8] = bytemuck::cast_slice(&line);
-
-            let points_per_sec = line.len() as f64 / internal.drawing_sec;
-            WavDrawingInfo {
-                line: Some(buf.into()),
-                points_per_sec,
-                pre_margin: internal.pre_margin_sec * points_per_sec,
-                post_margin: internal.post_margin_sec * points_per_sec,
-                clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
-                ..base
-            }
-        }
-        WavDrawingInfoInternal::TopBottomEnvelope(top_envelope, bottom_envelope, clip_values) => {
-            let top_buf: &[u8] = bytemuck::cast_slice(&top_envelope);
-            let bottom_buf: &[u8] = bytemuck::cast_slice(&bottom_envelope);
-
-            let points_per_sec = top_envelope.len() as f64 / internal.drawing_sec;
-            WavDrawingInfo {
-                top_envelope: Some(top_buf.into()),
-                bottom_envelope: Some(bottom_buf.into()),
-                points_per_sec,
-                pre_margin: internal.pre_margin_sec * points_per_sec,
-                post_margin: internal.post_margin_sec * points_per_sec,
-                clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
-                ..base
-            }
-        }
-    }
-}
-
 #[napi]
 async fn get_wav_drawing_info(
     id_ch_str: String,
@@ -399,7 +353,7 @@ async fn get_wav_drawing_info(
             topbottom_context_size as f32,
             margin_ratio,
         );
-        Some(convert_wav_drawing_info(internal, sec_range.0))
+        Some(WavDrawingInfo::new(internal, sec_range.0))
     });
 
     loop {
@@ -465,10 +419,10 @@ async fn get_overview_drawing_info(
         limiter_gain_infos,
         heights,
     } = internal;
-    let convert = |internal| {
-        convert_wav_drawing_info(
+    let convert = |drawing_info| {
+        WavDrawingInfo::new(
             SlicedWavDrawingInfo {
-                drawing_info: internal,
+                drawing_info,
                 drawing_sec: track_sec,
                 pre_margin_sec: 0.,
                 post_margin_sec: 0.,

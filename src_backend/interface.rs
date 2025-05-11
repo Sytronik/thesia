@@ -8,7 +8,10 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ndarray::Array2;
 
-use crate::{GuardClippingMode, IdChValueVec, SpecSetting, SpectrogramSliceArgs};
+use crate::{
+    GuardClippingMode, IdChValueVec, SlicedWavDrawingInfo, SpecSetting, SpectrogramSliceArgs,
+    WavDrawingInfoInternal,
+};
 
 #[napi(object)]
 pub struct UserSettingsOptionals {
@@ -88,6 +91,57 @@ pub struct WavDrawingInfo {
     pub pre_margin: f64,
     pub post_margin: f64,
     pub clip_values: Option<Vec<f64>>,
+}
+
+impl WavDrawingInfo {
+    pub fn new(internal: SlicedWavDrawingInfo, start_sec: f64) -> Self {
+        if internal.drawing_sec == 0. {
+            return Self {
+                line: Some(Default::default()),
+                start_sec,
+                ..Default::default()
+            };
+        }
+        let base = Self {
+            start_sec,
+            ..Default::default()
+        };
+        match internal.drawing_info {
+            WavDrawingInfoInternal::FillRect => base,
+            WavDrawingInfoInternal::Line(line, clip_values) => {
+                let buf: &[u8] = bytemuck::cast_slice(&line);
+
+                let points_per_sec = line.len() as f64 / internal.drawing_sec;
+                Self {
+                    line: Some(buf.into()),
+                    points_per_sec,
+                    pre_margin: internal.pre_margin_sec * points_per_sec,
+                    post_margin: internal.post_margin_sec * points_per_sec,
+                    clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
+                    ..base
+                }
+            }
+            WavDrawingInfoInternal::TopBottomEnvelope(
+                top_envelope,
+                bottom_envelope,
+                clip_values,
+            ) => {
+                let top_buf: &[u8] = bytemuck::cast_slice(&top_envelope);
+                let bottom_buf: &[u8] = bytemuck::cast_slice(&bottom_envelope);
+
+                let points_per_sec = top_envelope.len() as f64 / internal.drawing_sec;
+                Self {
+                    top_envelope: Some(top_buf.into()),
+                    bottom_envelope: Some(bottom_buf.into()),
+                    points_per_sec,
+                    pre_margin: internal.pre_margin_sec * points_per_sec,
+                    post_margin: internal.post_margin_sec * points_per_sec,
+                    clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
+                    ..base
+                }
+            }
+        }
+    }
 }
 
 #[napi(object)]

@@ -22,9 +22,10 @@ pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
 use visualize::Mipmaps;
 pub use visualize::{
-    ArrWithSliceInfo, OverviewDrawingInfoInternal, SpectrogramSliceArgs, WavDrawingInfoInternal,
-    calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
-    convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
+    ArrWithSliceInfo, OverviewDrawingInfoInternal, SlicedWavDrawingInfo, SpectrogramSliceArgs,
+    WavDrawingInfoInternal, calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers,
+    calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label,
+    convert_time_label_to_sec,
 };
 
 pub type IdCh = (usize, usize);
