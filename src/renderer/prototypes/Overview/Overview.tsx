@@ -223,10 +223,10 @@ function Overview(props: OverviewProps) {
 
     const width = backgroundElem.current.clientWidth;
     const height = backgroundElem.current.clientHeight;
-    backgroundElem.current.width = width * devicePixelRatio;
-    backgroundElem.current.height = height * devicePixelRatio;
     const backgroundCtx = backgroundElem.current.getContext("2d", {desynchronized: true});
     if (trackId === null) {
+      backgroundElem.current.width = width * devicePixelRatio;
+      backgroundElem.current.height = height * devicePixelRatio;
       backgroundCtx?.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
       lensCtxRef.current?.clearRect(
         0,
@@ -247,6 +247,8 @@ function Overview(props: OverviewProps) {
     );
     if (!drawingInfo) return;
 
+    backgroundElem.current.width = width * devicePixelRatio;
+    backgroundElem.current.height = height * devicePixelRatio;
     backgroundCtx.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
     const {
       chDrawingInfos,
