@@ -253,7 +253,7 @@ function Overview(props: OverviewProps) {
 
   const calcPxPerSec = useCallback(() => {
     const width = lensElem.current?.clientWidth ?? 0;
-    return width / maxTrackSec;
+    return width / (maxTrackSec + 1e-8);
   }, [maxTrackSec]);
 
   const drawLens = useCallback(() => {

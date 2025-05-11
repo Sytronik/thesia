@@ -65,6 +65,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     needRefresh,
     hidden,
   } = props;
+  const endSec = startSec + width / (pxPerSec + 1e-8);
 
   const specIsNotNeeded = blend <= 0 || hidden;
   const needHideWav = blend >= 1 || hidden;
@@ -227,11 +228,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawNewSpectrogramRequestRef = useRef<number>(0);
   const throttledGetSpectrogram = useMemo(
     () =>
-      throttle(1000 / 120, async (_startSec, _width, _pxPerSec, _idChStr, _hzRange) => {
-        const endSec = _startSec + _width / _pxPerSec;
+      throttle(1000 / 120, async (_startSec, _endSec, _idChStr, _hzRange) => {
         const spectrogram = await BackendAPI.getSpectrogram(
           _idChStr,
-          [_startSec, endSec],
+          [_startSec, _endSec],
           _hzRange,
           MARGIN_FOR_RESIZE,
         );
@@ -246,8 +246,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   );
   const getSpectrogramIfNotHidden = useCallback(() => {
     if (specIsNotNeeded) return;
-    throttledGetSpectrogram(startSec, width, pxPerSec, idChStr, hzRange);
-  }, [specIsNotNeeded, throttledGetSpectrogram, startSec, width, pxPerSec, idChStr, hzRange]);
+    throttledGetSpectrogram(startSec, endSec, idChStr, hzRange);
+  }, [specIsNotNeeded, throttledGetSpectrogram, startSec, endSec, idChStr, hzRange]);
 
   // getSpectrogram is called when needRefresh is true ...
   const prevGetSpectrogramRef = useRef<() => void>(getSpectrogramIfNotHidden);
@@ -382,11 +382,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     () =>
       throttle(
         1000 / 120,
-        async (_idChStr, _startSec, _pxPerSec, _width, _height, _ampRange, _devicePixelRatio) => {
-          const endSec = _startSec + _width / _pxPerSec;
+        async (_idChStr, _startSec, _endSec, _width, _height, _ampRange, _devicePixelRatio) => {
           const wavSlice = await BackendAPI.getWavDrawingInfo(
             _idChStr,
-            [_startSec, endSec],
+            [_startSec, _endSec],
             _width,
             _height,
             _ampRange,
@@ -405,14 +404,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   );
   const getWavImageIfNotHidden = useCallback(() => {
     if (needHideWav) return;
-    throttledGetWavImage(idChStr, startSec, pxPerSec, width, height, ampRange, devicePixelRatio);
+    throttledGetWavImage(idChStr, startSec, endSec, width, height, ampRange, devicePixelRatio);
   }, [
     ampRange,
     devicePixelRatio,
+    endSec,
     height,
     idChStr,
     needHideWav,
-    pxPerSec,
     startSec,
     throttledGetWavImage,
     width,

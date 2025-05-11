@@ -112,7 +112,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const [width, setWidth] = useState(600);
-  const endSec = startSec + width / pxPerSec;
+  const endSec = startSec + width / (pxPerSec + 1e-8);
 
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
