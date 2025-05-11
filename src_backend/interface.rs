@@ -9,8 +9,8 @@ use napi_derive::napi;
 use ndarray::Array2;
 
 use crate::{
-    GuardClippingMode, IdChValueVec, SlicedWavDrawingInfo, SpecSetting, SpectrogramSliceArgs,
-    WavDrawingInfoInternal,
+    GuardClippingMode, IdChValueVec, OverviewDrawingInfoInternal, SlicedWavDrawingInfo,
+    SpecSetting, SpectrogramSliceArgs, WavDrawingInfoInternal,
 };
 
 #[napi(object)]
@@ -153,6 +153,40 @@ pub struct OverviewDrawingInfo {
     pub gap_height: f64,
     pub limiter_gain_height: f64,
     pub ch_wo_gain_height: f64,
+}
+
+impl OverviewDrawingInfo {
+    pub fn new(internal: OverviewDrawingInfoInternal, track_sec: f64) -> Self {
+        let OverviewDrawingInfoInternal {
+            ch_drawing_infos,
+            limiter_gain_infos,
+            heights,
+        } = internal;
+        let convert = |drawing_info| {
+            WavDrawingInfo::new(
+                SlicedWavDrawingInfo {
+                    drawing_info,
+                    drawing_sec: track_sec,
+                    pre_margin_sec: 0.,
+                    post_margin_sec: 0.,
+                },
+                0.,
+            )
+        };
+        let ch_drawing_infos = ch_drawing_infos.into_iter().map(convert).collect();
+        let (top, bottom) = limiter_gain_infos.map_or((None, None), |(top, bottom)| {
+            (Some(convert(top)), Some(convert(bottom)))
+        });
+        Self {
+            ch_drawing_infos,
+            limiter_gain_top_info: top,
+            limiter_gain_bottom_info: bottom,
+            ch_height: heights.ch as f64,
+            gap_height: heights.gap as f64,
+            limiter_gain_height: heights.gain as f64,
+            ch_wo_gain_height: heights.ch_wo_gain as f64,
+        }
+    }
 }
 
 #[derive(Default)]
