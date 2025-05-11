@@ -310,6 +310,50 @@ async fn get_spectrogram(
     .unwrap()
 }
 
+fn convert_wav_drawing_info(
+    internal: WavDrawingInfoInternal,
+    start_sec: f64,
+    drawing_sec: f64,
+    pre_margin_sec: f64,
+    post_margin_sec: f64,
+) -> WavDrawingInfo {
+    let base = WavDrawingInfo {
+        start_sec,
+        ..Default::default()
+    };
+    match internal {
+        WavDrawingInfoInternal::FillRect => base,
+        WavDrawingInfoInternal::Line(line, clip_values) => {
+            let buf: &[u8] = bytemuck::cast_slice(&line);
+
+            let points_per_sec = line.len() as f64 / drawing_sec;
+            WavDrawingInfo {
+                line: Some(buf.into()),
+                points_per_sec,
+                pre_margin: pre_margin_sec * points_per_sec,
+                post_margin: post_margin_sec * points_per_sec,
+                clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
+                ..base
+            }
+        }
+        WavDrawingInfoInternal::TopBottomEnvelope(top_envelope, bottom_envelope, clip_values) => {
+            let top_buf: &[u8] = bytemuck::cast_slice(&top_envelope);
+            let bottom_buf: &[u8] = bytemuck::cast_slice(&bottom_envelope);
+
+            let points_per_sec = top_envelope.len() as f64 / drawing_sec;
+            WavDrawingInfo {
+                top_envelope: Some(top_buf.into()),
+                bottom_envelope: Some(bottom_buf.into()),
+                points_per_sec,
+                pre_margin: pre_margin_sec * points_per_sec,
+                post_margin: post_margin_sec * points_per_sec,
+                clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
+                ..base
+            }
+        }
+    }
+}
+
 #[napi]
 async fn get_wav_drawing_info(
     id_ch_str: String,
@@ -317,18 +361,20 @@ async fn get_wav_drawing_info(
     width: u32,
     height: u32,
     amp_range: (f64, f64),
+    wav_stroke_width: f64,
+    topbottom_context_size: f64,
     dpr: f64, // TODO: remove dependency?
     margin_ratio: f64,
 ) -> Result<Option<WavDrawingInfo>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let sec_range = (sec_range.0.max(0.), sec_range.1.max(sec_range.0));
 
-    let width_f32 = width as f32 * dpr as f32;
-    let height_f32 = height as f32 * dpr as f32;
-    let opt_for_wav = DrawOptionForWav {
-        amp_range: (amp_range.0 as f32, amp_range.1 as f32),
-        dpr: dpr as f32,
-    };
+    let dpr = dpr as f32;
+    let width = width as f32 * dpr;
+    let height = height as f32 * dpr;
+    let amp_range = (amp_range.0 as f32, amp_range.1 as f32);
+    let wav_stroke_width = wav_stroke_width as f32 * dpr;
+    let topbottom_context_size = topbottom_context_size as f32 * dpr;
 
     let task_id = {
         let mut entry = DRAW_WAV_TASK_ID_MAP
@@ -348,76 +394,35 @@ async fn get_wav_drawing_info(
             let length_f64 = end_samples_f64 - start_samples_f64;
             let margin = (length_f64 * margin_ratio).round() as usize;
             let (start_w_margin, length_w_margin, pre_margin, post_margin) =
-                SpectrogramSliceArgs::calc_margin(
-                    start_samples_f64,
-                    length_f64,
-                    wav.len() as usize,
-                    margin,
-                ); // TODO: refactor
+                SpectrogramSliceArgs::calc_margin(start_samples_f64, length_f64, wav.len(), margin); // TODO: refactor
 
-            let base = WavDrawingInfo {
-                line: None,
-                top_envelope: None,
-                bottom_envelope: None,
-                start_sec: sec_range.0,
-                points_per_sec: 0.,
-                pre_margin: 0.,
-                post_margin: 0.,
-                clip_values: None,
-            };
             if start_w_margin > wav.len() {
                 return Some(WavDrawingInfo {
                     line: Some(Default::default()),
-                    ..base
+                    start_sec: sec_range.0,
+                    ..Default::default()
                 });
             }
-            let (pre_margin_sec, post_margin_sec) = (
-                pre_margin as f64 / sr as f64,
-                post_margin as f64 / sr as f64,
-            );
-            let width_w_margin = width_f32 * length_w_margin as f32 / length_f64 as f32;
-            match WavDrawingInfoInternal::new(
-                ArrWithSliceInfo::new(wav, (start_w_margin as isize, length_w_margin)),
+            let (pre_margin_sec, post_margin_sec) =
+                (pre_margin / sr as f64, post_margin / sr as f64);
+            let width_w_margin = width * length_w_margin as f32 / length_f64 as f32;
+            let wav_slice = ArrWithSliceInfo::new(wav, (start_w_margin as isize, length_w_margin));
+            let internal = WavDrawingInfoInternal::new(
+                wav_slice,
                 width_w_margin,
-                height_f32,
-                &opt_for_wav,
+                height,
+                amp_range,
+                wav_stroke_width,
+                topbottom_context_size,
                 is_clipped,
-            ) {
-                WavDrawingInfoInternal::FillRect => Some(base),
-                WavDrawingInfoInternal::Line(line, clip_values) => {
-                    let buf: &[u8] = bytemuck::cast_slice(&line);
-
-                    let points_per_sec = line.len() as f64 * sr as f64 / length_w_margin as f64;
-                    Some(WavDrawingInfo {
-                        line: Some(buf.into()),
-                        points_per_sec,
-                        pre_margin: pre_margin_sec * points_per_sec,
-                        post_margin: post_margin_sec * points_per_sec,
-                        clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
-                        ..base
-                    })
-                }
-                WavDrawingInfoInternal::TopBottomEnvelope(
-                    top_envelope,
-                    bottom_envelope,
-                    clip_values,
-                ) => {
-                    let top_buf: &[u8] = bytemuck::cast_slice(&top_envelope);
-                    let bottom_buf: &[u8] = bytemuck::cast_slice(&bottom_envelope);
-
-                    let points_per_sec =
-                        top_envelope.len() as f64 * sr as f64 / length_w_margin as f64;
-                    Some(WavDrawingInfo {
-                        top_envelope: Some(top_buf.into()),
-                        bottom_envelope: Some(bottom_buf.into()),
-                        points_per_sec,
-                        pre_margin: pre_margin_sec * points_per_sec,
-                        post_margin: post_margin_sec * points_per_sec,
-                        clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
-                        ..base
-                    })
-                }
-            }
+            );
+            Some(convert_wav_drawing_info(
+                internal,
+                sec_range.0,
+                length_w_margin as f64 / sr as f64,
+                pre_margin_sec,
+                post_margin_sec,
+            ))
         } else {
             None
         }

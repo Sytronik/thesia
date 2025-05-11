@@ -12,17 +12,13 @@ import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 
+import {WAV_CLIPPING_COLOR, WAV_COLOR} from "renderer/prototypes/constants/colors";
 import {
-  WAV_BORDER_COLOR,
-  WAV_CLIPPING_COLOR,
-  WAV_COLOR,
-} from "renderer/prototypes/constants/colors";
-import {
-  WAV_BORDER_WIDTH,
   WAV_IMAGE_SCALE,
   WAV_LINE_WIDTH_FACTOR,
   WAV_MARGIN_RATIO,
 } from "renderer/prototypes/constants/tracks";
+import {drawWavEnvelope, drawWavLine} from "renderer/lib/drawing-wav";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 import {
@@ -52,121 +48,6 @@ type ImgCanvasProps = {
 type ImgTooltipInfo = {pos: number[]; lines: string[]};
 
 const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
-
-const clipFn = (clipValues: [number, number] | null) => {
-  if (!clipValues) return (v: number) => v;
-  const [min, max] = clipValues;
-  return (v: number) => Math.min(Math.max(v, min), max);
-};
-
-const setLinePath = (
-  ctx: CanvasRenderingContext2D,
-  points: Float32Array,
-  startPx: number,
-  pxPerPoints: number,
-  scaleY: number,
-  clipValues: [number, number] | null = null,
-) => {
-  const clip = clipFn(clipValues);
-  ctx.moveTo(startPx, clip(points[0]) * scaleY);
-  ctx.beginPath();
-  points.forEach((v, i) => {
-    if (i === 0) return;
-    ctx.lineTo(startPx + i * pxPerPoints, clip(v) * scaleY);
-  });
-};
-
-const drawWavLine = (
-  ctx: CanvasRenderingContext2D,
-  wavLine: Float32Array,
-  startPx: number,
-  pxPerPoints: number,
-  height: number,
-  scale: number,
-  devicePixelRatio: number,
-  color: string,
-  clipValues: [number, number] | null = null,
-) => {
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  // border
-  ctx.strokeStyle = WAV_BORDER_COLOR;
-  ctx.lineWidth = WAV_LINE_WIDTH_FACTOR * scale + 2 * WAV_BORDER_WIDTH * devicePixelRatio;
-  setLinePath(ctx, wavLine, startPx, pxPerPoints, height * scale, clipValues);
-  ctx.stroke();
-
-  // line
-  ctx.strokeStyle = color;
-  ctx.lineWidth = WAV_LINE_WIDTH_FACTOR * scale;
-  setLinePath(ctx, wavLine, startPx, pxPerPoints, height * scale, clipValues);
-  ctx.stroke();
-};
-
-const setEnvelopePath = (
-  ctx: CanvasRenderingContext2D,
-  topEnvelope: Float32Array,
-  bottomEnvelope: Float32Array,
-  startPx: number,
-  pxPerPoints: number,
-  scaleY: number,
-  clipValues: [number, number] | null = null,
-) => {
-  const clip = clipFn(clipValues);
-  ctx.moveTo(startPx, clip(topEnvelope[0]));
-  ctx.beginPath();
-  for (let i = 1; i < topEnvelope.length; i += 1) {
-    ctx.lineTo(startPx + i * pxPerPoints, clip(topEnvelope[i]) * scaleY);
-  }
-  for (let i = bottomEnvelope.length - 1; i >= 0; i -= 1) {
-    ctx.lineTo(startPx + i * pxPerPoints, clip(bottomEnvelope[i]) * scaleY);
-  }
-  ctx.closePath();
-};
-
-const drawWavEnvelope = (
-  ctx: CanvasRenderingContext2D,
-  topEnvelope: Float32Array,
-  bottomEnvelope: Float32Array,
-  startPx: number,
-  pxPerPoints: number,
-  height: number,
-  scale: number,
-  devicePixelRatio: number,
-  color: string,
-  clipValues: [number, number] | null = null,
-  needBorder: boolean = true,
-) => {
-  // fill
-  ctx.fillStyle = color;
-  setEnvelopePath(
-    ctx,
-    topEnvelope,
-    bottomEnvelope,
-    startPx,
-    pxPerPoints,
-    height * scale,
-    clipValues,
-  );
-  ctx.fill();
-
-  if (needBorder) {
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = WAV_BORDER_COLOR;
-    ctx.lineWidth = WAV_BORDER_WIDTH * devicePixelRatio;
-    setEnvelopePath(
-      ctx,
-      topEnvelope,
-      bottomEnvelope,
-      startPx,
-      pxPerPoints,
-      height * scale,
-      clipValues,
-    );
-    ctx.stroke();
-  }
-};
 
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {
@@ -410,65 +291,43 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     const startPx =
       -wavDrawingInfo.preMargin * pxPerPoints -
       (startSec - wavDrawingInfo.startSec) * pxPerSec * wavCanvasScale;
-    // line case
+    const options = {
+      startPx,
+      pxPerPoints,
+      height,
+      scale: wavCanvasScale,
+      devicePixelRatio,
+      needBorder: true,
+    };
+    ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
     if (wavDrawingInfo.line) {
-      ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      // line case
 
       if (wavDrawingInfo.clipValues) {
-        drawWavLine(
-          ctx,
-          wavDrawingInfo.line,
-          startPx,
-          pxPerPoints,
-          height,
-          wavCanvasScale,
-          devicePixelRatio,
-          WAV_CLIPPING_COLOR,
-        );
+        drawWavLine(ctx, wavDrawingInfo.line, {...options, color: WAV_CLIPPING_COLOR});
       }
 
-      drawWavLine(
-        ctx,
-        wavDrawingInfo.line,
-        startPx,
-        pxPerPoints,
-        height,
-        wavCanvasScale,
-        devicePixelRatio,
-        WAV_COLOR,
-        wavDrawingInfo.clipValues,
-      );
+      drawWavLine(ctx, wavDrawingInfo.line, {
+        ...options,
+        color: WAV_COLOR,
+        clipValues: wavDrawingInfo.clipValues,
+      });
     } else if (wavDrawingInfo.topEnvelope && wavDrawingInfo.bottomEnvelope) {
       // envelope case
-      ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
 
       if (wavDrawingInfo.clipValues) {
-        drawWavEnvelope(
-          ctx,
-          wavDrawingInfo.topEnvelope,
-          wavDrawingInfo.bottomEnvelope,
-          startPx,
-          pxPerPoints,
-          height,
-          wavCanvasScale,
-          devicePixelRatio,
-          WAV_CLIPPING_COLOR,
-        );
+        drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
+          ...options,
+          color: WAV_CLIPPING_COLOR,
+        });
       }
 
-      drawWavEnvelope(
-        ctx,
-        wavDrawingInfo.topEnvelope,
-        wavDrawingInfo.bottomEnvelope,
-        startPx,
-        pxPerPoints,
-        height,
-        wavCanvasScale,
-        devicePixelRatio,
-        WAV_COLOR,
-        wavDrawingInfo.clipValues,
-        wavDrawingInfo.clipValues === null,
-      );
+      drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
+        ...options,
+        color: WAV_COLOR,
+        clipValues: wavDrawingInfo.clipValues,
+        needBorder: wavDrawingInfo.clipValues === null,
+      });
     }
   }, [blend, devicePixelRatio, height, pxPerSec, startSec, wavCanvasScale, width]);
 
@@ -509,6 +368,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
             _width,
             _height,
             _ampRange,
+            WAV_LINE_WIDTH_FACTOR,
             _devicePixelRatio,
             WAV_MARGIN_RATIO,
           );

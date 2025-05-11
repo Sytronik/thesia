@@ -1,4 +1,5 @@
-import backend, {Spectrogram} from "backend";
+import backend, {Spectrogram, WavDrawingInfo as _WavDrawingInfo} from "backend";
+import {WAV_TOPBOTTOM_CONTEXT_SIZE} from "renderer/prototypes/constants/tracks";
 
 export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
@@ -94,7 +95,8 @@ export type IdChArr = IdChannel[];
 export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
-type _WavDrawingInfo = {
+
+export type WavDrawingInfo = {
   line: Float32Array | null;
   topEnvelope: Float32Array | null;
   bottomEnvelope: Float32Array | null;
@@ -104,28 +106,8 @@ type _WavDrawingInfo = {
   postMargin: number;
   clipValues: [number, number] | null;
 };
-export type WavDrawingInfo = _WavDrawingInfo;
 
-export async function getWavDrawingInfo(
-  idChStr: string,
-  secRange: [number, number],
-  width: number,
-  height: number,
-  ampRange: [number, number],
-  dpr: number,
-  marginRatio: number,
-): Promise<_WavDrawingInfo | null> {
-  const info = await backend.getWavDrawingInfo(
-    idChStr,
-    secRange,
-    width,
-    height,
-    ampRange,
-    dpr,
-    marginRatio,
-  );
-  if (!info) return null;
-
+function convertWavDrawingInfo(info: _WavDrawingInfo): WavDrawingInfo {
   let line = null;
   let topEnvelope = null;
   let bottomEnvelope = null;
@@ -136,6 +118,32 @@ export async function getWavDrawingInfo(
   if (info.clipValues) clipValues = [info.clipValues[0], info.clipValues[1]];
 
   return {...info, line, topEnvelope, bottomEnvelope, clipValues};
+}
+
+export async function getWavDrawingInfo(
+  idChStr: string,
+  secRange: [number, number],
+  width: number,
+  height: number,
+  ampRange: [number, number],
+  wavStrokeWidth: number,
+  dpr: number,
+  marginRatio: number,
+): Promise<WavDrawingInfo | null> {
+  const info = await backend.getWavDrawingInfo(
+    idChStr,
+    secRange,
+    width,
+    height,
+    ampRange,
+    wavStrokeWidth,
+    WAV_TOPBOTTOM_CONTEXT_SIZE,
+    dpr,
+    marginRatio,
+  );
+  if (!info) return null;
+  return convertWavDrawingInfo(info);
+}
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
