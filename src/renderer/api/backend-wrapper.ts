@@ -1,5 +1,10 @@
 import backend, {Spectrogram, WavDrawingInfo as _WavDrawingInfo} from "backend";
-import {WAV_TOPBOTTOM_CONTEXT_SIZE} from "renderer/prototypes/constants/tracks";
+import {
+  OVERVIEW_CH_GAP_HEIGHT,
+  OVERVIEW_GAIN_HEIGHT_RATIO,
+  OVERVIEW_LINE_WIDTH_FACTOR,
+  WAV_TOPBOTTOM_CONTEXT_SIZE,
+} from "renderer/prototypes/constants/tracks";
 
 export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
@@ -143,6 +148,46 @@ export async function getWavDrawingInfo(
   if (!info) return null;
   return convertWavDrawingInfo(info);
 }
+
+export type OverviewDrawingInfo = {
+  chDrawingInfos: WavDrawingInfo[];
+  limiterGainTopInfo: WavDrawingInfo | null;
+  limiterGainBottomInfo: WavDrawingInfo | null;
+  scaledChHeight: number;
+  scaledGapHeight: number;
+  scaledLimiterGainHeight: number;
+  scaledChWoGainHeight: number;
+};
+
+export async function getOverviewDrawingInfo(
+  trackId: number,
+  width: number,
+  height: number,
+  devicePixelRatio: number,
+): Promise<OverviewDrawingInfo | null> {
+  const info = await backend.getOverviewDrawingInfo(
+    trackId,
+    width * devicePixelRatio,
+    height * devicePixelRatio,
+    OVERVIEW_CH_GAP_HEIGHT * devicePixelRatio,
+    OVERVIEW_GAIN_HEIGHT_RATIO,
+    OVERVIEW_LINE_WIDTH_FACTOR * devicePixelRatio,
+    WAV_TOPBOTTOM_CONTEXT_SIZE * devicePixelRatio,
+  );
+  if (!info) return null;
+  return {
+    chDrawingInfos: info.chDrawingInfos.map(convertWavDrawingInfo),
+    limiterGainTopInfo: info.limiterGainTopInfo
+      ? convertWavDrawingInfo(info.limiterGainTopInfo)
+      : null,
+    limiterGainBottomInfo: info.limiterGainBottomInfo
+      ? convertWavDrawingInfo(info.limiterGainBottomInfo)
+      : null,
+    scaledChHeight: info.chHeight,
+    scaledGapHeight: info.gapHeight,
+    scaledLimiterGainHeight: info.limiterGainHeight,
+    scaledChWoGainHeight: info.chWoGainHeight,
+  };
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
@@ -197,7 +242,6 @@ export const {
   getMindB,
   getMaxTrackHz,
   getSpectrogram,
-  getOverview,
   getdBRange,
   setdBRange,
   setColormapLength,

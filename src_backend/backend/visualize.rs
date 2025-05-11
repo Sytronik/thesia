@@ -11,7 +11,6 @@ pub use axis::{
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
 };
 pub use drawing::convert_spec_to_img;
-pub use drawing_wav::{WavDrawingInfoInternal, draw_overview, draw_wav_to};
+pub use drawing_wav::{OverviewDrawingInfoInternal, WavDrawingInfoInternal};
 pub use img_slice::{ArrWithSliceInfo, CalcWidth, IdxLen, SpectrogramSliceArgs};
 pub use mipmap::Mipmaps;
-pub use params::DrawOptionForWav;

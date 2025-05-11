@@ -78,13 +78,7 @@ impl Spectrogram {
 }
 
 #[napi(object)]
-pub struct Overview {
-    pub buf: Buffer,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[napi(object)]
+#[derive(Default)]
 pub struct WavDrawingInfo {
     pub line: Option<Buffer>,
     pub top_envelope: Option<Buffer>,
@@ -94,6 +88,17 @@ pub struct WavDrawingInfo {
     pub pre_margin: f64,
     pub post_margin: f64,
     pub clip_values: Option<Vec<f64>>,
+}
+
+#[napi(object)]
+pub struct OverviewDrawingInfo {
+    pub ch_drawing_infos: Vec<WavDrawingInfo>,
+    pub limiter_gain_top_info: Option<WavDrawingInfo>,
+    pub limiter_gain_bottom_info: Option<WavDrawingInfo>,
+    pub ch_height: f64,
+    pub gap_height: f64,
+    pub limiter_gain_height: f64,
+    pub ch_wo_gain_height: f64,
 }
 
 #[derive(Default)]

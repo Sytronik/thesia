@@ -22,10 +22,9 @@ pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
 use visualize::Mipmaps;
 pub use visualize::{
-    ArrWithSliceInfo, DrawOptionForWav, SpectrogramSliceArgs, WavDrawingInfoInternal,
+    ArrWithSliceInfo, OverviewDrawingInfoInternal, SpectrogramSliceArgs, WavDrawingInfoInternal,
     calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
-    draw_overview,
 };
 
 pub type IdCh = (usize, usize);
@@ -170,6 +169,7 @@ impl TrackManager {
             (args, sliced_arr.to_owned())
         })
     }
+
     fn update_specs<'a>(
         &mut self,
         tracklist: &TrackList,

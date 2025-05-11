@@ -446,28 +446,64 @@ async fn find_id_by_path(path: String) -> i32 {
         .map_or(-1, |id| id as i32)
 }
 
-#[napi] // TODO: draw in frontend
-async fn get_overview(track_id: u32, width: u32, height: u32, dpr: f64) -> Overview {
+#[napi]
+async fn get_overview_drawing_info(
+    track_id: u32,
+    width: u32,
+    height: u32,
+    gap_height: f64,
+    limiter_gain_height_ratio: f64,
+    wav_stroke_width: f64,
+    topbottom_context_size: f64,
+) -> Option<OverviewDrawingInfo> {
     assert!(width >= 1 && height >= 1);
-    let width = (width as f64 * dpr).round() as u32;
-    let height = (height as f64 * dpr).round() as u32;
+    let width = width as f32;
+    let height = height as f32;
+    let gap_height = gap_height as f32;
+    let wav_stroke_width = wav_stroke_width as f32;
+    let topbottom_context_size = topbottom_context_size as f32;
 
-    let arr = spawn_blocking(move || {
-        draw_overview(
-            &TRACK_LIST.blocking_read(),
-            track_id as usize,
+    let (internal, track_sec) = spawn_blocking(move || {
+        let tracklist = TRACK_LIST.blocking_read();
+        let track = if let Some(track) = tracklist.get(track_id as usize) {
+            track
+        } else {
+            return None;
+        };
+        let internal = OverviewDrawingInfoInternal::new(
+            track,
             width,
+            tracklist.max_sec,
             height,
-            dpr as f32,
-        )
+            gap_height,
+            limiter_gain_height_ratio as f32,
+            wav_stroke_width,
+            topbottom_context_size,
+        );
+        Some((internal, track.sec()))
     })
     .await
-    .unwrap();
-    Overview {
-        buf: arr.into(),
-        width,
-        height,
-    }
+    .unwrap()?;
+
+    let OverviewDrawingInfoInternal {
+        ch_drawing_infos,
+        limiter_gain_infos,
+        heights,
+    } = internal;
+    let convert = |internal| convert_wav_drawing_info(internal, 0., track_sec, 0., 0.);
+    let ch_drawing_infos = ch_drawing_infos.into_iter().map(convert).collect();
+    let (top, bottom) = limiter_gain_infos.map_or((None, None), |(top, bottom)| {
+        (Some(convert(top)), Some(convert(bottom)))
+    });
+    Some(OverviewDrawingInfo {
+        ch_drawing_infos,
+        limiter_gain_top_info: top,
+        limiter_gain_bottom_info: bottom,
+        ch_height: heights.ch as f64,
+        gap_height: heights.gap as f64,
+        limiter_gain_height: heights.gain as f64,
+        ch_wo_gain_height: heights.ch_wo_gain as f64,
+    })
 }
 
 #[napi]

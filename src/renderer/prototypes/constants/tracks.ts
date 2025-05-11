@@ -211,3 +211,7 @@ export const WAV_IMAGE_SCALE = 2;
 export const WAV_LINE_WIDTH_FACTOR = 2;
 export const WAV_BORDER_WIDTH = 1.5;
 export const WAV_TOPBOTTOM_CONTEXT_SIZE = 2;
+
+export const OVERVIEW_CH_GAP_HEIGHT = 1;
+export const OVERVIEW_GAIN_HEIGHT_RATIO = 0.2;
+export const OVERVIEW_LINE_WIDTH_FACTOR = 1;

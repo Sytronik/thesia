@@ -2,13 +2,16 @@ import {WAV_BORDER_COLOR} from "renderer/prototypes/constants/colors";
 import {WAV_BORDER_WIDTH, WAV_LINE_WIDTH_FACTOR} from "renderer/prototypes/constants/tracks";
 
 export type WavDrawingOptions = {
-  startPx: number;
-  pxPerPoints: number;
-  height: number;
-  offsetY?: number;
+  startPx: number; // canvas pixels
+  pxPerPoints: number; // canvas pixels per point
+  height: number; // canvas pixels
+  offsetY?: number; // canvas pixels
+
+  // to set line style
   scale: number;
   devicePixelRatio: number;
   color: string;
+
   clipValues?: [number, number] | null;
   needBorder?: boolean;
 };
@@ -24,16 +27,17 @@ const setLinePath = (
   points: Float32Array,
   startPx: number,
   pxPerPoints: number,
-  scaleY: number,
+  height: number,
   offsetY: number = 0,
   clipValues: [number, number] | null = null,
 ) => {
   const clip = clipFn(clipValues);
-  ctx.moveTo(startPx, clip(points[0]) * scaleY + offsetY);
+  const relYtoY = (v: number) => clip(v) * height + offsetY;
+  ctx.moveTo(startPx, relYtoY(points[0]));
   ctx.beginPath();
   points.forEach((v, i) => {
     if (i === 0) return;
-    ctx.lineTo(startPx + i * pxPerPoints, clip(v) * scaleY + offsetY);
+    ctx.lineTo(startPx + i * pxPerPoints, relYtoY(v));
   });
 };
 
@@ -56,7 +60,7 @@ export const drawWavLine = (
       wavLine,
       options.startPx,
       options.pxPerPoints,
-      options.height * options.scale,
+      options.height,
       options.offsetY,
       options.clipValues,
     );
@@ -71,7 +75,7 @@ export const drawWavLine = (
     wavLine,
     options.startPx,
     options.pxPerPoints,
-    options.height * options.scale,
+    options.height,
     options.offsetY,
     options.clipValues,
   );
@@ -84,25 +88,20 @@ const setEnvelopePath = (
   bottomEnvelope: Float32Array,
   startPx: number,
   pxPerPoints: number,
-  scaleY: number,
+  height: number,
   offsetY: number = 0,
   clipValues: [number, number] | null = null,
   strokeWidth: number = 0,
 ) => {
   const clip = clipFn(clipValues);
-  ctx.moveTo(startPx, clip(topEnvelope[0]) * scaleY + offsetY);
+  const relYtoY = (v: number) => clip(v) * height + offsetY;
+  ctx.moveTo(startPx, relYtoY(topEnvelope[0]));
   ctx.beginPath();
   for (let i = 1; i < topEnvelope.length; i += 1) {
-    ctx.lineTo(
-      startPx + i * pxPerPoints,
-      clip(topEnvelope[i]) * scaleY + offsetY - strokeWidth / 2,
-    );
+    ctx.lineTo(startPx + i * pxPerPoints, relYtoY(topEnvelope[i]) - strokeWidth / 2);
   }
   for (let i = bottomEnvelope.length - 1; i >= 0; i -= 1) {
-    ctx.lineTo(
-      startPx + i * pxPerPoints,
-      clip(bottomEnvelope[i]) * scaleY + offsetY + strokeWidth / 2,
-    );
+    ctx.lineTo(startPx + i * pxPerPoints, relYtoY(bottomEnvelope[i]) + strokeWidth / 2);
   }
   ctx.closePath();
 };
@@ -113,20 +112,6 @@ export const drawWavEnvelope = (
   bottomEnvelope: Float32Array,
   options: WavDrawingOptions,
 ) => {
-  // fill
-  ctx.fillStyle = options.color;
-  setEnvelopePath(
-    ctx,
-    topEnvelope,
-    bottomEnvelope,
-    options.startPx,
-    options.pxPerPoints,
-    options.height * options.scale,
-    options.offsetY,
-    options.clipValues,
-  );
-  ctx.fill();
-
   if (options.needBorder) {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -138,11 +123,25 @@ export const drawWavEnvelope = (
       bottomEnvelope,
       options.startPx,
       options.pxPerPoints,
-      options.height * options.scale,
+      options.height,
       options.offsetY,
       options.clipValues,
       ctx.lineWidth,
     );
     ctx.stroke();
   }
+
+  // fill
+  ctx.fillStyle = options.color;
+  setEnvelopePath(
+    ctx,
+    topEnvelope,
+    bottomEnvelope,
+    options.startPx,
+    options.pxPerPoints,
+    options.height,
+    options.offsetY,
+    options.clipValues,
+  );
+  ctx.fill();
 };

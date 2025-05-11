@@ -42,10 +42,6 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
             (self.index as isize..(end as isize)).into(),
         )
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.length == 0
-    }
 }
 
 impl<'a, A, D: Dimension> From<ArrayView<'a, A, D>> for ArrWithSliceInfo<'a, A, D> {
@@ -95,38 +91,29 @@ pub fn calc_effective_slice(
     }
 }
 
+/// Heights of the overview
+/// height (total) = ch + gap + ... + ch
+/// ch = gain + ch_wo_gain + gain
 #[readonly::make]
 pub struct OverviewHeights {
-    pub total: usize,
-    pub ch: usize,
-    pub gap: usize,
-    pub margin: usize,
+    pub ch: f32,
+    pub gap: f32,
+    pub gain: f32,
+    pub ch_wo_gain: f32,
 }
 
 impl OverviewHeights {
-    pub fn new(height: u32, n_ch: usize, gap: f32, dpr: f32) -> Self {
-        let total = height as usize;
-        let gap = (gap * dpr).round() as usize;
-        let height_without_gap = total - gap * (n_ch - 1);
-        let ch = height_without_gap / n_ch;
-        let margin = height_without_gap % n_ch / 2;
+    pub fn new(height: f32, gap: f32, n_ch: usize, gain_height_ratio: f32) -> Self {
+        let height_without_gap = height - gap * ((n_ch - 1) as f32);
+        let ch = height_without_gap / n_ch as f32;
+        let gain = ch * gain_height_ratio;
+        let ch_wo_gain = ch - 2. * gain;
         OverviewHeights {
-            total,
             ch,
             gap,
-            margin,
+            gain,
+            ch_wo_gain,
         }
-    }
-
-    #[inline]
-    pub fn ch_and_gap(&self) -> usize {
-        self.ch + self.gap
-    }
-
-    #[inline]
-    pub fn decompose_by_gain(&self, gain_height_denom: usize) -> (usize, usize) {
-        let gain_h = self.ch / gain_height_denom;
-        (gain_h, self.ch - 2 * gain_h)
     }
 }
 

@@ -70,6 +70,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const needHideWav = blend >= 1 || hidden;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const wavCanvasScale = devicePixelRatio * WAV_IMAGE_SCALE;
+  const scaledWidth = width * wavCanvasScale;
+  const scaledHeight = height * wavCanvasScale;
 
   const spectrogramRef = useRef<Spectrogram | null>(null);
   const wavDrawingInfoRef = useRef<WavDrawingInfo | null>(null);
@@ -276,14 +278,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
     // startSec > trackSec case
     if (wavDrawingInfo.line !== null && wavDrawingInfo.line.length === 0) {
-      ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      ctx.clearRect(0, 0, scaledWidth, scaledHeight);
       return;
     }
 
     // fillRect case
     if (!wavDrawingInfo.line && !wavDrawingInfo.topEnvelope && !wavDrawingInfo.bottomEnvelope) {
       ctx.fillStyle = WAV_COLOR;
-      ctx.fillRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      ctx.fillRect(0, 0, scaledWidth, scaledHeight);
       return;
     }
 
@@ -294,12 +296,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     const options = {
       startPx,
       pxPerPoints,
-      height,
+      height: scaledHeight,
       scale: wavCanvasScale,
       devicePixelRatio,
       needBorder: true,
     };
-    ctx.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+    ctx.clearRect(0, 0, scaledWidth, scaledHeight);
     if (wavDrawingInfo.line) {
       // line case
 
@@ -329,7 +331,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         needBorder: wavDrawingInfo.clipValues === null,
       });
     }
-  }, [blend, devicePixelRatio, height, pxPerSec, startSec, wavCanvasScale, width]);
+  }, [
+    blend,
+    devicePixelRatio,
+    height,
+    pxPerSec,
+    scaledHeight,
+    scaledWidth,
+    startSec,
+    wavCanvasScale,
+    width,
+  ]);
 
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
@@ -341,7 +353,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         wavCanvasElem.current.height = height * devicePixelRatio;
         wavCanvasElem.current.style.opacity = "0";
       }
-      wavCtxRef.current?.clearRect(0, 0, width * wavCanvasScale, height * wavCanvasScale);
+      wavCtxRef.current?.clearRect(0, 0, scaledWidth, scaledHeight);
       return () => {};
     }
     drawWavImageRef.current = drawWavImage;
@@ -351,7 +363,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
-  }, [devicePixelRatio, drawWavImage, height, hidden, needHideWav, wavCanvasScale, width]);
+  }, [
+    devicePixelRatio,
+    drawWavImage,
+    height,
+    hidden,
+    needHideWav,
+    scaledHeight,
+    scaledWidth,
+    wavCanvasScale,
+    width,
+  ]);
 
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame

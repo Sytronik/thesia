@@ -1,10 +1,13 @@
 import React, {useRef, useEffect, useMemo, useContext, useCallback} from "react";
 import useEvent from "react-use-event-hook";
+
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.module.scss";
 import BackendAPI from "../../api";
 import {OVERVIEW_LENS_STYLE} from "../constants/tracks";
 import Draggable, {CursorStateInfo} from "../../modules/Draggable";
+import {WAV_COLOR, WAV_CLIPPING_COLOR, LIMITER_GAIN_COLOR} from "../constants/colors";
+import {drawWavLine, drawWavEnvelope} from "../../lib/drawing-wav";
 
 const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
   OVERVIEW_LENS_STYLE;
@@ -93,13 +96,138 @@ function Overview(props: OverviewProps) {
     return () => cancelAnimationFrame(animationFrameId);
   }, [drawLens]);
 
+  const getWavDrawingOptionsBase = useCallback(
+    (scaledWidth: number, scaledHeight: number, offsetY: number, pointsPerSec: number) => {
+      const pxPerPoints = scaledWidth / maxTrackSec / pointsPerSec;
+      // line case
+      return {
+        startPx: 0,
+        pxPerPoints,
+        height: scaledHeight,
+        offsetY,
+        scale: devicePixelRatio,
+        devicePixelRatio,
+        needBorder: false,
+      };
+    },
+    [devicePixelRatio, maxTrackSec],
+  );
+
+  const drawChannel = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      wavDrawingInfo: WavDrawingInfo,
+      scaledWidth: number,
+      scaledHeight: number,
+      offsetY: number,
+    ) => {
+      const baseOptions = getWavDrawingOptionsBase(
+        scaledWidth,
+        scaledHeight,
+        offsetY,
+        wavDrawingInfo.pointsPerSec,
+      );
+      if (wavDrawingInfo.line) {
+        if (wavDrawingInfo.clipValues) {
+          drawWavLine(ctx, wavDrawingInfo.line, {...baseOptions, color: WAV_CLIPPING_COLOR}, 1);
+        }
+
+        drawWavLine(
+          ctx,
+          wavDrawingInfo.line,
+          {
+            ...baseOptions,
+            color: WAV_COLOR,
+            clipValues: wavDrawingInfo.clipValues,
+          },
+          1,
+        );
+      } else if (wavDrawingInfo.topEnvelope && wavDrawingInfo.bottomEnvelope) {
+        // envelope case
+
+        if (wavDrawingInfo.clipValues) {
+          drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
+            ...baseOptions,
+            color: WAV_CLIPPING_COLOR,
+          });
+        }
+
+        drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
+          ...baseOptions,
+          color: WAV_COLOR,
+          clipValues: wavDrawingInfo.clipValues,
+        });
+      }
+    },
+    [getWavDrawingOptionsBase],
+  );
+
+  const drawLimiterGain = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      gainTopDrawingInfo: WavDrawingInfo,
+      gainBottomDrawingInfo: WavDrawingInfo,
+      scaledWidth: number,
+      gainHeight: number,
+      chWoGainHeight: number,
+      offsetY: number,
+    ) => {
+      if (!gainTopDrawingInfo.topEnvelope || !gainTopDrawingInfo.bottomEnvelope) {
+        console.error(
+          "gainTopDrawingInfo.topEnvelope or gainTopDrawingInfo.bottomEnvelope is null",
+        );
+        return;
+      }
+
+      const topBaseOptions = getWavDrawingOptionsBase(
+        scaledWidth,
+        gainHeight,
+        offsetY,
+        gainTopDrawingInfo.pointsPerSec,
+      );
+      drawWavEnvelope(ctx, gainTopDrawingInfo.topEnvelope, gainTopDrawingInfo.bottomEnvelope, {
+        ...topBaseOptions,
+        color: LIMITER_GAIN_COLOR,
+        clipValues: gainTopDrawingInfo.clipValues,
+      });
+
+      if (!gainBottomDrawingInfo.topEnvelope || !gainBottomDrawingInfo.bottomEnvelope) {
+        console.error(
+          "gainBottomDrawingInfo.topEnvelope or gainBottomDrawingInfo.bottomEnvelope is null",
+        );
+        return;
+      }
+
+      const bottomBaseOptions = getWavDrawingOptionsBase(
+        scaledWidth,
+        gainHeight,
+        offsetY + gainHeight + chWoGainHeight,
+        gainBottomDrawingInfo.pointsPerSec,
+      );
+      drawWavEnvelope(
+        ctx,
+        gainBottomDrawingInfo.topEnvelope,
+        gainBottomDrawingInfo.bottomEnvelope,
+        {
+          ...bottomBaseOptions,
+          color: LIMITER_GAIN_COLOR,
+          clipValues: gainBottomDrawingInfo.clipValues,
+        },
+      );
+    },
+    [getWavDrawingOptionsBase],
+  );
+
   const draw = useCallback(async () => {
     if (!backgroundElem.current || !lensElem.current) return;
 
-    const backgroundCtx = backgroundElem.current.getContext("bitmaprenderer");
-
+    const width = backgroundElem.current.clientWidth;
+    const height = backgroundElem.current.clientHeight;
+    backgroundElem.current.width = width * devicePixelRatio;
+    backgroundElem.current.height = height * devicePixelRatio;
+    const backgroundCtx = backgroundElem.current.getContext("2d", {desynchronized: true});
     if (trackId === null) {
-      backgroundCtx?.transferFromImageBitmap(null);
+      backgroundCtx?.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
       lensCtxRef.current?.clearRect(
         0,
         0,
@@ -110,23 +238,62 @@ function Overview(props: OverviewProps) {
     }
 
     if (!backgroundCtx) return;
-    const rect = backgroundElem.current.getBoundingClientRect();
-    if (rect.width < 1) {
-      backgroundCtx.transferFromImageBitmap(null);
-      return;
-    }
-    const img = await BackendAPI.getOverview(trackId, rect.width, rect.height, devicePixelRatio);
-    if (img.buf.length > 0) {
-      const imdata = new ImageData(new Uint8ClampedArray(img.buf.buffer), img.width, img.height);
-      const imbmp = await createImageBitmap(imdata);
-      backgroundCtx.transferFromImageBitmap(imbmp);
-    }
-  }, [devicePixelRatio, trackId]);
+
+    const drawingInfo = await BackendAPI.getOverviewDrawingInfo(
+      trackId,
+      width,
+      height,
+      devicePixelRatio,
+    );
+    if (!drawingInfo) return;
+
+    backgroundCtx.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
+    const {
+      chDrawingInfos,
+      limiterGainTopInfo: gainTopDrawingInfo,
+      limiterGainBottomInfo: gainBottomDrawingInfo,
+      scaledChHeight: chHeight,
+      scaledGapHeight: gapHeight,
+      scaledLimiterGainHeight: gainHeight,
+      scaledChWoGainHeight: chWoGainHeight,
+    } = drawingInfo;
+    chDrawingInfos.forEach((chDrawingInfo, chIdx) => {
+      if (gainTopDrawingInfo === null || gainBottomDrawingInfo === null) {
+        drawChannel(
+          backgroundCtx,
+          chDrawingInfo,
+          width * devicePixelRatio,
+          chHeight,
+          chIdx * (chHeight + gapHeight),
+        );
+      } else {
+        drawChannel(
+          backgroundCtx,
+          chDrawingInfo,
+          width * devicePixelRatio,
+          chWoGainHeight,
+          chIdx * (chHeight + gapHeight) + gainHeight,
+        );
+        drawLimiterGain(
+          backgroundCtx,
+          gainTopDrawingInfo,
+          gainBottomDrawingInfo,
+          width * devicePixelRatio,
+          gainHeight,
+          chWoGainHeight,
+          chIdx * (chHeight + gapHeight),
+        );
+      }
+    });
+  }, [devicePixelRatio, drawChannel, drawLimiterGain, trackId]);
+
+  const prevDrawRef = useRef(draw);
+  if (prevDrawRef.current === draw && needRefresh) draw();
+  prevDrawRef.current = draw;
 
   useEffect(() => {
-    if (!needRefresh) return;
     draw();
-  }, [draw, needRefresh]);
+  }, [draw]);
 
   const resizeObserverCallback = useEvent(() => {
     if (!lensElem.current) return;

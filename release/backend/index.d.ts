@@ -54,11 +54,6 @@ export interface Spectrogram {
   topMargin: number
   bottomMargin: number
 }
-export interface Overview {
-  buf: Buffer
-  width: number
-  height: number
-}
 export interface WavDrawingInfo {
   line?: Buffer
   topEnvelope?: Buffer
@@ -68,6 +63,15 @@ export interface WavDrawingInfo {
   preMargin: number
   postMargin: number
   clipValues?: Array<number>
+}
+export interface OverviewDrawingInfo {
+  chDrawingInfos: Array<WavDrawingInfo>
+  limiterGainTopInfo?: WavDrawingInfo
+  limiterGainBottomInfo?: WavDrawingInfo
+  chHeight: number
+  gapHeight: number
+  limiterGainHeight: number
+  chWoGainHeight: number
 }
 export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number): UserSettings
 export declare function addTracks(idList: Array<number>, pathList: Array<string>): Promise<Array<number>>
@@ -86,7 +90,7 @@ export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getSpectrogram(idChStr: string, secRange: [number, number], hzRange: [number, number], marginPx: number): Promise<Spectrogram | null>
 export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
 export declare function findIdByPath(path: string): Promise<number>
-export declare function getOverview(trackId: number, width: number, height: number, dpr: number): Promise<Overview>
+export declare function getOverviewDrawingInfo(trackId: number, width: number, height: number, gapHeight: number, limiterGainHeightRatio: number, wavStrokeWidth: number, topbottomContextSize: number): Promise<OverviewDrawingInfo | null>
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
 export declare function secondsToLabel(sec: number): string
