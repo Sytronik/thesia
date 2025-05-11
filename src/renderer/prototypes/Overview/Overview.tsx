@@ -50,52 +50,6 @@ function Overview(props: OverviewProps) {
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const lensCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
-  const calcPxPerSec = useCallback(() => {
-    const width = lensElem.current?.clientWidth ?? 0;
-    return width / maxTrackSec;
-  }, [maxTrackSec]);
-
-  const drawLens = useCallback(() => {
-    const ctx = lensCtxRef.current;
-    if (!lensElem.current || !ctx) return;
-    const {clientWidth: width, clientHeight: height} = lensElem.current;
-    const pxPerSec = calcPxPerSec();
-    const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
-    const endSec = durationSec * pxPerSec;
-    ctx.clearRect(0, 0, width, height);
-    if (durationSec < maxTrackSec) {
-      ctx.save();
-      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
-      ctx.fillRect(endSec, 0, width, height);
-      ctx.restore();
-    }
-    if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
-    ctx.beginPath();
-    ctx.roundRect(
-      startSec * pxPerSec + LINE_WIDTH / 2,
-      LINE_WIDTH / 2,
-      lensDurationSec * pxPerSec - LINE_WIDTH,
-      height - LINE_WIDTH,
-      2,
-    );
-    ctx.stroke();
-    if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
-  }, [calcPxPerSec, durationSec, lensDurationSec, maxTrackSec, startSec]);
-
-  const drawLensRef = useRef(drawLens);
-  useEffect(() => {
-    drawLensRef.current = drawLens;
-    // Request a redraw only when the draw function or its dependencies change
-    const animationFrameId = requestAnimationFrame(() => {
-      // Ensure drawRef.current exists and call it
-      if (drawLensRef.current) drawLensRef.current();
-    });
-
-    // Cleanup function to cancel the frame if the component unmounts
-    // or if dependencies change again before the frame executes
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [drawLens]);
-
   const getWavDrawingOptionsBase = useCallback(
     (scaledWidth: number, scaledHeight: number, offsetY: number, pointsPerSec: number) => {
       const pxPerPoints = scaledWidth / maxTrackSec / pointsPerSec;
@@ -297,7 +251,53 @@ function Overview(props: OverviewProps) {
     draw();
   }, [draw]);
 
-  const resizeObserverCallback = useEvent(() => {
+  const calcPxPerSec = useCallback(() => {
+    const width = lensElem.current?.clientWidth ?? 0;
+    return width / maxTrackSec;
+  }, [maxTrackSec]);
+
+  const drawLens = useCallback(() => {
+    const ctx = lensCtxRef.current;
+    if (!lensElem.current || !ctx) return;
+    const {clientWidth: width, clientHeight: height} = lensElem.current;
+    const pxPerSec = calcPxPerSec();
+    const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
+    const endSec = durationSec * pxPerSec;
+    ctx.clearRect(0, 0, width, height);
+    if (durationSec < maxTrackSec) {
+      ctx.save();
+      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
+      ctx.fillRect(endSec, 0, width, height);
+      ctx.restore();
+    }
+    if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
+    ctx.beginPath();
+    ctx.roundRect(
+      startSec * pxPerSec + LINE_WIDTH / 2,
+      LINE_WIDTH / 2,
+      lensDurationSec * pxPerSec - LINE_WIDTH,
+      height - LINE_WIDTH,
+      2,
+    );
+    ctx.stroke();
+    if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
+  }, [calcPxPerSec, durationSec, lensDurationSec, maxTrackSec, startSec]);
+
+  const drawLensRef = useRef(drawLens);
+  useEffect(() => {
+    drawLensRef.current = drawLens;
+    // Request a redraw only when the draw function or its dependencies change
+    const requestId = requestAnimationFrame(() => {
+      // Ensure drawRef.current exists and call it
+      if (drawLensRef.current) drawLensRef.current();
+    });
+
+    // Cleanup function to cancel the frame if the component unmounts
+    // or if dependencies change again before the frame executes
+    return () => cancelAnimationFrame(requestId);
+  }, [drawLens]);
+
+  const resizeObserverCallback = useEvent(async () => {
     if (!lensElem.current) return;
     lensElem.current.width = lensElem.current.clientWidth * devicePixelRatio;
     lensElem.current.height = lensElem.current.clientHeight * devicePixelRatio;
@@ -308,7 +308,7 @@ function Overview(props: OverviewProps) {
     lensCtx.lineWidth = LINE_WIDTH;
     lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
     lensCtx.strokeStyle = LENS_STROKE_STYLE;
-    draw();
+    await draw();
     drawLens();
   });
 
