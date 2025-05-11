@@ -1,6 +1,5 @@
 use ndarray::prelude::*;
 
-use super::super::audio::Audio;
 use super::super::spectrogram::SpecSetting;
 
 pub type IdxLen = (isize, usize);
@@ -47,31 +46,6 @@ impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
 impl<'a, A, D: Dimension> From<ArrayView<'a, A, D>> for ArrWithSliceInfo<'a, A, D> {
     fn from(value: ArrayView<'a, A, D>) -> Self {
         ArrWithSliceInfo::entire(value)
-    }
-}
-
-pub trait CalcWidth {
-    fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen;
-
-    fn decompose_width_of(&self, start_sec: f64, width: u32, px_per_sec: f64) -> (u32, u32, u32);
-}
-
-impl CalcWidth for Audio {
-    fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen {
-        let i = (start_sec * self.sr as f64).round() as isize;
-        let length = ((self.sr as u64 * width as u64) as f64 / px_per_sec).round() as usize;
-        (i, length)
-    }
-
-    fn decompose_width_of(&self, start_sec: f64, width: u32, px_per_sec: f64) -> (u32, u32, u32) {
-        let total_width = (px_per_sec * self.len() as f64 / self.sr as f64).max(1.);
-        let pad_left = ((-start_sec * px_per_sec).max(0.).round() as u32).min(width);
-        let pad_right = ((start_sec.mul_add(px_per_sec, width as f64) - total_width)
-            .max(0.)
-            .round() as u32)
-            .min(width - pad_left);
-
-        (pad_left, width - pad_left - pad_right, pad_right)
     }
 }
 

@@ -17,7 +17,6 @@ use super::dynamics::{
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
-use super::visualize::{CalcWidth, IdxLen};
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -153,18 +152,6 @@ impl AudioTrack {
     #[inline]
     pub fn guard_clip_stats(&self) -> ArrayView1<GuardClippingStats> {
         self.audio.guard_clip_stats.view()
-    }
-}
-
-impl CalcWidth for AudioTrack {
-    #[inline]
-    fn calc_part_wav_info(&self, start_sec: f64, width: u32, px_per_sec: f64) -> IdxLen {
-        self.audio.calc_part_wav_info(start_sec, width, px_per_sec)
-    }
-
-    #[inline]
-    fn decompose_width_of(&self, start_sec: f64, width: u32, px_per_sec: f64) -> (u32, u32, u32) {
-        self.audio.decompose_width_of(start_sec, width, px_per_sec)
     }
 }
 

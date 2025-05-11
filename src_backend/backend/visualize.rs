@@ -3,7 +3,6 @@ mod drawing;
 mod drawing_wav;
 mod img_slice;
 mod mipmap;
-mod params;
 mod resample;
 
 pub use axis::{
@@ -12,5 +11,5 @@ pub use axis::{
 };
 pub use drawing::convert_spec_to_img;
 pub use drawing_wav::{OverviewDrawingInfoInternal, WavDrawingInfoInternal};
-pub use img_slice::{ArrWithSliceInfo, CalcWidth, IdxLen, SpectrogramSliceArgs};
+pub use img_slice::{ArrWithSliceInfo, SpectrogramSliceArgs};
 pub use mipmap::Mipmaps;
