@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::num::Wrapping;
 use std::sync::LazyLock;
 
+use backend::visualize::SlicedWavDrawingInfo;
 use dashmap::DashMap;
 use log::LevelFilter;
 use napi::bindgen_prelude::*;
@@ -315,28 +316,29 @@ async fn get_spectrogram(
     .unwrap()
 }
 
-fn convert_wav_drawing_info(
-    internal: WavDrawingInfoInternal,
-    start_sec: f64,
-    drawing_sec: f64,
-    pre_margin_sec: f64,
-    post_margin_sec: f64,
-) -> WavDrawingInfo {
+fn convert_wav_drawing_info(internal: SlicedWavDrawingInfo, start_sec: f64) -> WavDrawingInfo {
+    if internal.drawing_sec == 0. {
+        return WavDrawingInfo {
+            line: Some(Default::default()),
+            start_sec,
+            ..Default::default()
+        };
+    }
     let base = WavDrawingInfo {
         start_sec,
         ..Default::default()
     };
-    match internal {
+    match internal.drawing_info {
         WavDrawingInfoInternal::FillRect => base,
         WavDrawingInfoInternal::Line(line, clip_values) => {
             let buf: &[u8] = bytemuck::cast_slice(&line);
 
-            let points_per_sec = line.len() as f64 / drawing_sec;
+            let points_per_sec = line.len() as f64 / internal.drawing_sec;
             WavDrawingInfo {
                 line: Some(buf.into()),
                 points_per_sec,
-                pre_margin: pre_margin_sec * points_per_sec,
-                post_margin: post_margin_sec * points_per_sec,
+                pre_margin: internal.pre_margin_sec * points_per_sec,
+                post_margin: internal.post_margin_sec * points_per_sec,
                 clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
                 ..base
             }
@@ -345,13 +347,13 @@ fn convert_wav_drawing_info(
             let top_buf: &[u8] = bytemuck::cast_slice(&top_envelope);
             let bottom_buf: &[u8] = bytemuck::cast_slice(&bottom_envelope);
 
-            let points_per_sec = top_envelope.len() as f64 / drawing_sec;
+            let points_per_sec = top_envelope.len() as f64 / internal.drawing_sec;
             WavDrawingInfo {
                 top_envelope: Some(top_buf.into()),
                 bottom_envelope: Some(bottom_buf.into()),
                 points_per_sec,
-                pre_margin: pre_margin_sec * points_per_sec,
-                post_margin: post_margin_sec * points_per_sec,
+                pre_margin: internal.pre_margin_sec * points_per_sec,
+                post_margin: internal.post_margin_sec * points_per_sec,
                 clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
                 ..base
             }
@@ -376,12 +378,6 @@ async fn get_wav_drawing_info(
         return Ok(None);
     }
 
-    let width = width as f32;
-    let height = height as f32;
-    let amp_range = (amp_range.0 as f32, amp_range.1 as f32);
-    let wav_stroke_width = wav_stroke_width as f32;
-    let topbottom_context_size = topbottom_context_size as f32;
-
     let task_id = {
         let mut entry = DRAW_WAV_TASK_ID_MAP
             .entry(id_ch_str.clone())
@@ -392,46 +388,18 @@ async fn get_wav_drawing_info(
 
     let task = spawn_blocking(move || {
         let tracklist = TRACK_LIST.blocking_read();
-        if let Some(track) = tracklist.get(id) {
-            let (wav, is_clipped) = track.channel_for_drawing(ch);
-            let sr = track.sr();
-            let start_samples_f64 = sec_range.0 * sr as f64;
-            let end_samples_f64 = sec_range.1 * sr as f64;
-            let length_f64 = end_samples_f64 - start_samples_f64;
-            let margin = (length_f64 * margin_ratio).round() as usize;
-            let (start_w_margin, length_w_margin, pre_margin, post_margin) =
-                SpectrogramSliceArgs::calc_margin(start_samples_f64, length_f64, wav.len(), margin); // TODO: refactor
-
-            if start_w_margin > wav.len() {
-                return Some(WavDrawingInfo {
-                    line: Some(Default::default()),
-                    start_sec: sec_range.0,
-                    ..Default::default()
-                });
-            }
-            let (pre_margin_sec, post_margin_sec) =
-                (pre_margin / sr as f64, post_margin / sr as f64);
-            let width_w_margin = width * length_w_margin as f32 / length_f64 as f32;
-            let wav_slice = ArrWithSliceInfo::new(wav, (start_w_margin as isize, length_w_margin));
-            let internal = WavDrawingInfoInternal::new(
-                wav_slice,
-                width_w_margin,
-                height,
-                amp_range,
-                wav_stroke_width,
-                topbottom_context_size,
-                is_clipped,
-            );
-            Some(convert_wav_drawing_info(
-                internal,
-                sec_range.0,
-                length_w_margin as f64 / sr as f64,
-                pre_margin_sec,
-                post_margin_sec,
-            ))
-        } else {
-            None
-        }
+        let track = tracklist.get(id)?;
+        let internal = track.calc_wav_drawing_info(
+            ch,
+            sec_range,
+            width as f32,
+            height as f32,
+            (amp_range.0 as f32, amp_range.1 as f32),
+            wav_stroke_width as f32,
+            topbottom_context_size as f32,
+            margin_ratio,
+        );
+        Some(convert_wav_drawing_info(internal, sec_range.0))
     });
 
     loop {
@@ -476,11 +444,7 @@ async fn get_overview_drawing_info(
 
     let (internal, track_sec) = spawn_blocking(move || {
         let tracklist = TRACK_LIST.blocking_read();
-        let track = if let Some(track) = tracklist.get(track_id as usize) {
-            track
-        } else {
-            return None;
-        };
+        let track = tracklist.get(track_id as usize)?;
         let internal = OverviewDrawingInfoInternal::new(
             track,
             width,
@@ -501,7 +465,17 @@ async fn get_overview_drawing_info(
         limiter_gain_infos,
         heights,
     } = internal;
-    let convert = |internal| convert_wav_drawing_info(internal, 0., track_sec, 0., 0.);
+    let convert = |internal| {
+        convert_wav_drawing_info(
+            SlicedWavDrawingInfo {
+                drawing_info: internal,
+                drawing_sec: track_sec,
+                pre_margin_sec: 0.,
+                post_margin_sec: 0.,
+            },
+            0.,
+        )
+    };
     let ch_drawing_infos = ch_drawing_infos.into_iter().map(convert).collect();
     let (top, bottom) = limiter_gain_infos.map_or((None, None), |(top, bottom)| {
         (Some(convert(top)), Some(convert(bottom)))

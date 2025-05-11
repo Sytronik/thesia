@@ -8,7 +8,6 @@ use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
-use super::IdChVec;
 use super::audio::{Audio, AudioFormatInfo, open_audio_file};
 use super::dynamics::{
     AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
@@ -17,6 +16,8 @@ use super::dynamics::{
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
+use super::visualize::SlicedWavDrawingInfo;
+use super::{ArrWithSliceInfo, IdChVec, SpectrogramSliceArgs, WavDrawingInfoInternal};
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -109,6 +110,49 @@ impl AudioTrack {
                 (before_clip.slice(s![ch, ..]), true)
             }
             _ => (self.channel(ch), false),
+        }
+    }
+
+    pub fn calc_wav_drawing_info(
+        &self,
+        ch: usize,
+        sec_range: (f64, f64),
+        width: f32,
+        height: f32,
+        amp_range: (f32, f32),
+        wav_stroke_width: f32,
+        topbottom_context_size: f32,
+        margin_ratio: f64,
+    ) -> SlicedWavDrawingInfo {
+        let (wav, is_clipped) = self.channel_for_drawing(ch);
+        let sr = self.sr();
+        let start_samples_f64 = sec_range.0 * sr as f64;
+        let end_samples_f64 = sec_range.1 * sr as f64;
+        let length_f64 = end_samples_f64 - start_samples_f64;
+        let margin = (length_f64 * margin_ratio).round() as usize;
+        let (start_w_margin, length_w_margin, pre_margin, post_margin) =
+            SpectrogramSliceArgs::calc_margin(start_samples_f64, length_f64, wav.len(), margin); // TODO: refactor
+
+        if start_w_margin > wav.len() {
+            return Default::default();
+        }
+        let (pre_margin_sec, post_margin_sec) = (pre_margin / sr as f64, post_margin / sr as f64);
+        let width_w_margin = width * length_w_margin as f32 / length_f64 as f32;
+        let wav_slice = ArrWithSliceInfo::new(wav, (start_w_margin as isize, length_w_margin));
+        let drawing_info = WavDrawingInfoInternal::new(
+            wav_slice,
+            width_w_margin,
+            height,
+            amp_range,
+            wav_stroke_width,
+            topbottom_context_size,
+            is_clipped,
+        );
+        SlicedWavDrawingInfo {
+            drawing_info,
+            drawing_sec: length_w_margin as f64 / sr as f64,
+            pre_margin_sec,
+            post_margin_sec,
         }
     }
 

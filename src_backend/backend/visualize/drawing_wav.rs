@@ -17,10 +17,21 @@ const THR_TOPBOTTOM_PERCENT: usize = 70;
 
 const OVERVIEW_MAX_CH: usize = 4;
 
+#[derive(Default)]
 pub enum WavDrawingInfoInternal {
+    #[default]
     FillRect,
     Line(Vec<f32>, Option<(f32, f32)>),
     TopBottomEnvelope(Vec<f32>, Vec<f32>, Option<(f32, f32)>),
+}
+
+/// default value means no drawing (sliced wav is empty)
+#[derive(Default)]
+pub struct SlicedWavDrawingInfo {
+    pub drawing_info: WavDrawingInfoInternal,
+    pub drawing_sec: f64,
+    pub pre_margin_sec: f64,
+    pub post_margin_sec: f64,
 }
 
 impl WavDrawingInfoInternal {
