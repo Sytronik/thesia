@@ -68,7 +68,8 @@ impl WavDrawingInfoInternal {
             };
             WavDrawingInfoInternal::Line(
                 wav.slice(s![..outline_len])
-                    .iter()
+                    .into_par_iter()
+                    .with_min_len(outline_len / rayon::current_num_threads())
                     .map(|&x| amp_to_rel_y(x))
                     .collect(),
                 clip_values,
@@ -80,39 +81,47 @@ impl WavDrawingInfoInternal {
             let zero_rel_y = amp_to_rel_y(0.);
             let zero_top = zero_rel_y - wav_stroke_width / height / 2.;
             let zero_btm = zero_rel_y + wav_stroke_width / height / 2.;
-            let mut top_envlop = Vec::with_capacity(outline_len);
-            let mut btm_envlop = Vec::with_capacity(outline_len);
-            let mut n_mean_crossing = 0;
-            for i_envlop in 0..outline_len {
-                let i_envlop = i_envlop as f32;
-                let i_start = ((i_envlop - half_context_size) / resample_ratio)
-                    .round()
-                    .max(0.) as usize;
-                let i_end = (((i_envlop + half_context_size) / resample_ratio).round() as usize)
-                    .min(wav.len());
-                let wav_slice = wav.slice(s![i_start..i_end]);
-                let top = amp_to_rel_y(*wav_slice.max_skipnan());
-                let bottom = amp_to_rel_y(*wav_slice.min_skipnan());
-                let is_mean_crossing = top < mean_rel_y + f32::EPSILON
-                    && bottom > mean_rel_y - thr_long_height
-                    || top < mean_rel_y + thr_long_height && bottom > mean_rel_y - f32::EPSILON;
-                let is_larger_than_stroke_width = bottom - top >= wav_stroke_width / height;
-                if is_mean_crossing && is_larger_than_stroke_width {
-                    n_mean_crossing += 1;
-                }
-                if is_larger_than_stroke_width {
-                    top_envlop.push(top);
-                    btm_envlop.push(bottom);
-                } else {
-                    top_envlop.push(zero_top);
-                    btm_envlop.push(zero_btm);
-                }
-            }
+            let result: Vec<_> = (0..outline_len)
+                .into_par_iter()
+                .with_min_len(outline_len / rayon::current_num_threads())
+                .map(|i_envlop| {
+                    let i_envlop = i_envlop as f32;
+                    let i_start = ((i_envlop - half_context_size) / resample_ratio)
+                        .round()
+                        .max(0.) as usize;
+                    let i_end = (((i_envlop + half_context_size) / resample_ratio).round()
+                        as usize)
+                        .min(wav.len());
+                    let wav_slice = wav.slice(s![i_start..i_end]);
+                    let top = amp_to_rel_y(*wav_slice.max_skipnan());
+                    let bottom = amp_to_rel_y(*wav_slice.min_skipnan());
+                    let is_mean_crossing = top < mean_rel_y + f32::EPSILON
+                        && bottom > mean_rel_y - thr_long_height
+                        || top < mean_rel_y + thr_long_height && bottom > mean_rel_y - f32::EPSILON;
+                    let is_larger_than_stroke_width = bottom - top >= wav_stroke_width / height;
+                    if is_larger_than_stroke_width {
+                        (top, bottom, is_mean_crossing)
+                    } else {
+                        (zero_top, zero_btm, false)
+                    }
+                })
+                .collect();
+            let n_mean_crossing = result
+                .iter()
+                .filter(|(_, _, is_mean_crossing)| *is_mean_crossing)
+                .count();
             if n_mean_crossing > outline_len * THR_TOPBOTTOM_PERCENT / 100 {
+                let (top_envlop, btm_envlop) = result
+                    .into_iter()
+                    .map(|(top, bottom, _)| (top, bottom))
+                    .unzip();
                 WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
             } else {
                 WavDrawingInfoInternal::Line(
-                    wav.iter().map(|&x| amp_to_rel_y(x)).collect(),
+                    wav.into_par_iter()
+                        .with_min_len(wav.len() / rayon::current_num_threads())
+                        .map(|&x| amp_to_rel_y(x))
+                        .collect(),
                     clip_values,
                 )
             }
