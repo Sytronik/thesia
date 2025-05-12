@@ -5,7 +5,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use super::super::spectrogram::SpecSetting;
 
 use super::drawing::resize;
-use super::img_slice::SpectrogramSliceArgs;
+use super::slice_args::SpectrogramSliceArgs;
 
 pub struct Mipmaps {
     mipmaps: Vec<Vec<Array2<pixels::F32>>>,

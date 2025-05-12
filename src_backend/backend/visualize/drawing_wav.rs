@@ -9,8 +9,8 @@ use rayon::prelude::*;
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
 use super::super::track::AudioTrack;
 
-use super::img_slice::{ArrWithSliceInfo, OverviewHeights};
 use super::resample::FftResampler;
+use super::slice_args::{ArrWithSliceInfo, OverviewHeights};
 
 const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: usize = 70;
