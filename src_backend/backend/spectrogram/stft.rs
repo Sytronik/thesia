@@ -40,12 +40,11 @@ where
     let fft_module = fft_module
         .into()
         .unwrap_or_else(|| RealFftPlanner::<A>::new().plan_fft_forward(n_fft));
-    let do_fft = move |(x, y): (&mut Array1<A>, &mut [Complex<A>])| {
+    let do_fft = move |(x, mut y): (&mut Array1<A>, ArrayViewMut1<Complex<A>>)| {
         let x = x.as_slice_mut().unwrap();
+        let y = y.as_slice_mut().unwrap();
         fft_module.process(x, y).unwrap();
     };
-
-    let n_chunks = rayon::current_num_threads();
 
     if input.len() < win_length {
         let padded = input.pad((win_length / 2, win_length / 2), Axis(0), PadMode::Reflect);
@@ -53,23 +52,24 @@ where
 
         let n_frames = frames.len();
         let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
-        let mut out_frames: Vec<&mut [Complex<A>]> = output
-            .axis_iter_mut(Axis(0))
-            .map(|x| x.into_slice().unwrap())
-            .collect();
 
         if parallel {
+            let min_len = n_frames / rayon::current_num_threads();
             frames
-                .par_chunks_mut(n_chunks)
-                .zip_eq(out_frames.par_chunks_mut(n_chunks))
-                .for_each(|(in_chunk, out_chunk)| {
-                    in_chunk
-                        .iter_mut()
-                        .zip_eq(out_chunk)
-                        .for_each(|(frame, out_frame)| do_fft((frame, *out_frame)))
-                });
+                .par_iter_mut()
+                .with_min_len(min_len)
+                .zip_eq(
+                    output
+                        .axis_iter_mut(Axis(0))
+                        .into_par_iter()
+                        .with_min_len(min_len),
+                )
+                .for_each(do_fft);
         } else {
-            frames.iter_mut().zip_eq(out_frames).for_each(do_fft);
+            frames
+                .iter_mut()
+                .zip_eq(output.axis_iter_mut(Axis(0)))
+                .for_each(do_fft);
         }
         return output;
     }
@@ -94,37 +94,28 @@ where
 
     let n_frames = front_frames.len() + frames.len() + back_frames.len();
     let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
-    let mut out_frames: Vec<&mut [Complex<A>]> = output
-        .axis_iter_mut(Axis(0))
-        .map(|x| x.into_slice().unwrap())
-        .collect();
 
     if parallel {
-        let (front_out_frames, out_frames) = out_frames.split_at_mut(front_frames.len());
-        let (out_frames, back_out_frames) = out_frames.split_at_mut(frames.len());
-        let in_frames = front_frames
-            .par_chunks_mut(n_chunks)
-            .chain(frames.par_chunks_mut(n_chunks))
-            .chain(back_frames.par_chunks_mut(n_chunks));
-        in_frames
+        let min_len = n_frames / rayon::current_num_threads();
+        front_frames
+            .par_iter_mut()
+            .chain(frames.par_iter_mut())
+            .chain(back_frames.par_iter_mut())
+            .with_min_len(min_len)
             .zip_eq(
-                front_out_frames
-                    .par_chunks_mut(n_chunks)
-                    .chain(out_frames.par_chunks_mut(n_chunks))
-                    .chain(back_out_frames.par_chunks_mut(n_chunks)),
+                output
+                    .axis_iter_mut(Axis(0))
+                    .into_par_iter()
+                    .with_min_len(min_len),
             )
-            .for_each(|(in_chunk, out_chunk)| {
-                in_chunk
-                    .iter_mut()
-                    .zip_eq(out_chunk)
-                    .for_each(|(frame, out_frame)| do_fft((frame, *out_frame)))
-            });
+            .for_each(do_fft);
     } else {
-        let in_frames = front_frames
+        front_frames
             .iter_mut()
             .chain(frames.iter_mut())
-            .chain(back_frames.iter_mut());
-        in_frames.zip_eq(out_frames).for_each(do_fft);
+            .chain(back_frames.iter_mut())
+            .zip_eq(output.axis_iter_mut(Axis(0)))
+            .for_each(do_fft);
     }
 
     output
