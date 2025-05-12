@@ -55,11 +55,10 @@ function TrackSummary(props: TrackSummaryProps) {
     );
 
   const createGuardClipStatsTooltip = () => {
-    const guardClipStatsLines = guardClipStats.split("\n");
-    const formattedGuardClipStats =
-      guardClipStatsLines.length > 1
-        ? guardClipStatsLines.map((s, i) => `${CHANNEL[chCount][i]}: ${s}`).join("<br />")
-        : guardClipStats;
+    const guardClipStatsLines = Object.entries(guardClipStats).map(([channel, stat]) =>
+      channel ? `${CHANNEL[chCount][parseInt(channel, 10)]}: ${stat}` : stat,
+    );
+    const formattedGuardClipStats = guardClipStatsLines.join("<br />");
     return (
       <>
         <span data-tooltip-id="guardclipstat-tooltip" data-tooltip-html={formattedGuardClipStats}>
@@ -109,7 +108,7 @@ function TrackSummary(props: TrackSummaryProps) {
       </span>
       <span className={styles.loudness}>
         <span style={{paddingRight: "0.5em"}}>{globalLUFS}</span>
-        {guardClipStats ? createGuardClipStatsTooltip() : ""}
+        {Object.keys(guardClipStats).length > 0 && createGuardClipStatsTooltip()}
       </span>
     </div>
   );

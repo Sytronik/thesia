@@ -4,6 +4,7 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use log::LevelFilter;
@@ -558,30 +559,30 @@ fn get_max_peak_dB(track_id: u32) -> f64 {
 }
 
 #[napi]
-fn get_guard_clip_stats(track_id: u32) -> String {
+fn get_guard_clip_stats(track_id: u32) -> HashMap<String, String> {
     let tracklist = TRACK_LIST.blocking_read();
     let mode = tracklist.common_guard_clipping;
     let prefix = mode.to_string();
     tracklist
         .get(track_id as usize)
-        .map_or_else(String::new, |track| {
-            let stats = if mode == GuardClippingMode::ReduceGlobalLevel {
-                track.guard_clip_stats().slice_move(ndarray::s![0..1])
-            } else {
-                track.guard_clip_stats()
+        .map_or_else(HashMap::new, |track| {
+            let stat_to_string_if_not_empty = |(ch_str, stat): (String, &GuardClippingStats)| {
+                let stat = stat.to_string();
+                (!stat.is_empty()).then_some((ch_str, format!("{} by {}", &prefix, stat)))
             };
-            itertools::intersperse(
-                stats.iter().map(|stat| {
-                    let stat = stat.to_string();
-                    if !stat.is_empty() {
-                        format!("{} by {}", &prefix, stat)
-                    } else {
-                        stat
-                    }
-                }),
-                "\n".to_string(),
-            )
-            .collect()
+            if mode == GuardClippingMode::Clip {
+                track
+                    .guard_clip_stats()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, stat)| (i.to_string(), stat))
+                    .filter_map(stat_to_string_if_not_empty)
+                    .collect()
+            } else {
+                std::iter::once(("".to_string(), &track.guard_clip_stats()[0]))
+                    .filter_map(stat_to_string_if_not_empty)
+                    .collect()
+            }
         })
 }
 
