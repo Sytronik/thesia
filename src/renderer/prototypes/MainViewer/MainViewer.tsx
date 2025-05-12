@@ -425,7 +425,7 @@ function MainViewer(props: MainViewerProps) {
       return;
     setHiddenIdChArr(newHiddenIdChArr);
   });
-  useEffect(onVerticalViewportChange, [onVerticalViewportChange, height]);
+  useEffect(onVerticalViewportChange, [onVerticalViewportChange, height, trackIdChMap]);
 
   const draggingTrackIdRef = useRef<number>(-1);
   const hideDraggingImage = useEvent((id) => {
