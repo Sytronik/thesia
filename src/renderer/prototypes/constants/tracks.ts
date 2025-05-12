@@ -208,7 +208,7 @@ export const MIN_VOLUME_dB = -36;
 
 export const WAV_MARGIN_RATIO = 0.1;
 export const WAV_IMAGE_SCALE = 2;
-export const WAV_LINE_WIDTH_FACTOR = 2;
+export const WAV_LINE_WIDTH_FACTOR = 1.75;
 export const WAV_BORDER_WIDTH = 1.5;
 export const WAV_TOPBOTTOM_CONTEXT_SIZE = 2;
 
