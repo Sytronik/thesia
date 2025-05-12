@@ -177,11 +177,11 @@ function Overview(props: OverviewProps) {
 
     const width = backgroundElem.current.clientWidth;
     const height = backgroundElem.current.clientHeight;
-    const backgroundCtx = backgroundElem.current.getContext("2d", {desynchronized: true});
+    const ctx = backgroundElem.current.getContext("2d", {desynchronized: true});
     if (trackId === null) {
       backgroundElem.current.width = width * devicePixelRatio;
       backgroundElem.current.height = height * devicePixelRatio;
-      backgroundCtx?.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
+      ctx?.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
       lensCtxRef.current?.clearRect(
         0,
         0,
@@ -191,7 +191,7 @@ function Overview(props: OverviewProps) {
       return;
     }
 
-    if (!backgroundCtx) return;
+    if (!ctx) return;
 
     const drawingInfo = await BackendAPI.getOverviewDrawingInfo(
       trackId,
@@ -203,7 +203,7 @@ function Overview(props: OverviewProps) {
 
     backgroundElem.current.width = width * devicePixelRatio;
     backgroundElem.current.height = height * devicePixelRatio;
-    backgroundCtx.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
+    ctx.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
     const {
       chDrawingInfos,
       limiterGainTopInfo: gainTopDrawingInfo,
@@ -216,7 +216,7 @@ function Overview(props: OverviewProps) {
     chDrawingInfos.forEach((chDrawingInfo, chIdx) => {
       if (gainTopDrawingInfo === null || gainBottomDrawingInfo === null) {
         drawChannel(
-          backgroundCtx,
+          ctx,
           chDrawingInfo,
           width * devicePixelRatio,
           chHeight,
@@ -224,14 +224,14 @@ function Overview(props: OverviewProps) {
         );
       } else {
         drawChannel(
-          backgroundCtx,
+          ctx,
           chDrawingInfo,
           width * devicePixelRatio,
           chWoGainHeight,
           chIdx * (chHeight + gapHeight) + gainHeight,
         );
         drawLimiterGain(
-          backgroundCtx,
+          ctx,
           gainTopDrawingInfo,
           gainBottomDrawingInfo,
           width * devicePixelRatio,
@@ -240,8 +240,15 @@ function Overview(props: OverviewProps) {
           chIdx * (chHeight + gapHeight),
         );
       }
+
+      // fill out of track area
+      if (durationSec < maxTrackSec) {
+        ctx.fillStyle = OUT_TRACK_FILL_STYLE;
+        const x = width * devicePixelRatio * (durationSec / maxTrackSec);
+        ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
+      }
     });
-  }, [devicePixelRatio, drawChannel, drawLimiterGain, trackId]);
+  }, [devicePixelRatio, drawChannel, drawLimiterGain, durationSec, maxTrackSec, trackId]);
 
   const prevDrawRef = useRef(draw);
   if (prevDrawRef.current === draw && needRefresh) draw();
@@ -262,14 +269,7 @@ function Overview(props: OverviewProps) {
     const {clientWidth: width, clientHeight: height} = lensElem.current;
     const pxPerSec = calcPxPerSec();
     const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
-    const endSec = durationSec * pxPerSec;
     ctx.clearRect(0, 0, width, height);
-    if (durationSec < maxTrackSec) {
-      ctx.save();
-      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
-      ctx.fillRect(endSec, 0, width, height);
-      ctx.restore();
-    }
     if (startSec > 0) ctx.fillRect(0, 0, startSec * pxPerSec, height);
     ctx.beginPath();
     ctx.roundRect(
@@ -281,7 +281,7 @@ function Overview(props: OverviewProps) {
     );
     ctx.stroke();
     if (width > lensEndSec) ctx.fillRect(lensEndSec, 0, width - lensEndSec, height);
-  }, [calcPxPerSec, durationSec, lensDurationSec, maxTrackSec, startSec]);
+  }, [calcPxPerSec, lensDurationSec, startSec]);
 
   const drawLensRef = useRef(drawLens);
   useEffect(() => {
