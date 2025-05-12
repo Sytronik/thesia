@@ -91,6 +91,29 @@ impl OverviewHeights {
     }
 }
 
+fn add_pre_post_margin(
+    start: f64,
+    length: f64,
+    max_length: usize,
+    margin: usize,
+) -> (usize, usize, f64, f64) {
+    let start_w_margin = start as isize - margin as isize;
+    let len_w_margin = ((start + length).ceil() as isize + margin as isize - start_w_margin).max(0);
+
+    let start_w_margin_clipped = start_w_margin.max(0) as usize;
+    let len_w_margin_clipped =
+        len_w_margin.min(max_length as isize - start_w_margin_clipped as isize) as usize;
+
+    let pre_margin = start - start_w_margin_clipped as f64;
+    let post_margin = len_w_margin_clipped as f64 - length;
+    (
+        start_w_margin_clipped,
+        len_w_margin_clipped,
+        pre_margin,
+        post_margin,
+    )
+}
+
 #[derive(Debug)]
 #[readonly::make]
 pub struct SpectrogramSliceArgs {
@@ -121,7 +144,7 @@ impl SpectrogramSliceArgs {
         let width_f64 = ((sec_range.1 - sec_range.0) * px_per_sec).max(0.);
 
         let (left_w_margin_clipped, width_w_margin_clipped, left_margin, right_margin) =
-            Self::calc_margin(left_f64, width_f64, n_frames, margin_px);
+            add_pre_post_margin(left_f64, width_f64, n_frames, margin_px);
 
         let (top_f64, height_f64) = {
             let top_f64 = spec_setting
@@ -136,7 +159,7 @@ impl SpectrogramSliceArgs {
         };
 
         let (top_w_margin_clipped, height_w_margin_clipped, top_margin, bottom_margin) =
-            Self::calc_margin(top_f64, height_f64, n_freqs, margin_px);
+            add_pre_post_margin(top_f64, height_f64, n_freqs, margin_px);
 
         Self {
             px_per_sec,
@@ -150,29 +173,43 @@ impl SpectrogramSliceArgs {
             bottom_margin,
         }
     }
+}
 
-    // TODO: refactor
-    pub fn calc_margin(
-        start: f64,
-        length: f64,
-        max_length: usize,
-        margin: usize,
-    ) -> (usize, usize, f64, f64) {
-        let start_w_margin = start as isize - margin as isize;
-        let len_w_margin =
-            ((start + length).ceil() as isize + margin as isize - start_w_margin).max(0);
+#[readonly::make]
+pub struct WavSliceArgs {
+    pub start_w_margin: usize,
+    pub length_w_margin: usize,
+    pub drawing_sec: f64,
+    pub pre_margin_sec: f64,
+    pub post_margin_sec: f64,
+    pub width_w_margin: f32,
+}
 
-        let start_w_margin_clipped = start_w_margin.max(0) as usize;
-        let len_w_margin_clipped =
-            len_w_margin.min(max_length as isize - start_w_margin_clipped as isize) as usize;
+impl WavSliceArgs {
+    pub fn new(
+        sr: u32,
+        sec_range: (f64, f64),
+        width: f32,
+        wav_len: usize,
+        margin_ratio: f64,
+    ) -> Self {
+        let start_samples_f64 = sec_range.0 * sr as f64;
+        let end_samples_f64 = sec_range.1 * sr as f64;
+        let length_f64 = end_samples_f64 - start_samples_f64;
+        let margin = (length_f64 * margin_ratio).round() as usize;
+        let (start_w_margin, length_w_margin, pre_margin, post_margin) =
+            add_pre_post_margin(start_samples_f64, length_f64, wav_len, margin); // TODO: refactor
 
-        let pre_margin = start - start_w_margin_clipped as f64;
-        let post_margin = len_w_margin_clipped as f64 - length;
-        (
-            start_w_margin_clipped,
-            len_w_margin_clipped,
-            pre_margin,
-            post_margin,
-        )
+        let drawing_sec = length_w_margin as f64 / sr as f64;
+        let (pre_margin_sec, post_margin_sec) = (pre_margin / sr as f64, post_margin / sr as f64);
+        let width_w_margin = width * length_w_margin as f32 / length_f64 as f32;
+        Self {
+            start_w_margin,
+            length_w_margin,
+            drawing_sec,
+            pre_margin_sec,
+            post_margin_sec,
+            width_w_margin,
+        }
     }
 }

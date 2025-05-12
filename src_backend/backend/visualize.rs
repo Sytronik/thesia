@@ -11,5 +11,5 @@ pub use axis::{
 };
 pub use drawing::convert_spec_to_img;
 pub use drawing_wav::{OverviewDrawingInfoInternal, SlicedWavDrawingInfo, WavDrawingInfoInternal};
-pub use img_slice::{ArrWithSliceInfo, SpectrogramSliceArgs};
+pub use img_slice::{ArrWithSliceInfo, SpectrogramSliceArgs, WavSliceArgs};
 pub use mipmap::Mipmaps;
