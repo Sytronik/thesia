@@ -244,11 +244,14 @@ function MainViewer(props: MainViewerProps) {
   const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, setSelectSec), [setSelectSec]);
 
   const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
-    return Math.min(Math.max(_startSec, 0), maxEndSec - width / _pxPerSec);
+    return Math.min(Math.max(_startSec, 0), Math.max(maxEndSec - width / _pxPerSec, 0));
   });
 
   const normalizePxPerSec = useEvent((_pxPerSec, _startSec) =>
-    Math.min(Math.max(_pxPerSec, width / (maxTrackSec - _startSec)), MAX_PX_PER_SEC),
+    Math.min(
+      Math.max(_pxPerSec, width / (maxTrackSec - _startSec)),
+      Math.max(MAX_PX_PER_SEC, width / (maxTrackSec - _startSec)),
+    ),
   );
 
   const updateLensParams = useEvent(
@@ -259,10 +262,9 @@ function MainViewer(props: MainViewerProps) {
       let newStartSec = params.startSec ?? startSec;
       let newPxPerSec = params.pxPerSec ?? pxPerSec;
 
-      if (Math.abs(newStartSec - startSec) > 1e-3)
+      if (newStartSec !== startSec)
         newStartSec = normalizeStartSec(newStartSec, newPxPerSec, maxTrackSec);
-      if (Math.abs(newPxPerSec - pxPerSec) > 1e-6)
-        newPxPerSec = normalizePxPerSec(newPxPerSec, newStartSec);
+      if (newPxPerSec !== pxPerSec) newPxPerSec = normalizePxPerSec(newPxPerSec, newStartSec);
 
       setStartSec(newStartSec);
       setPxPerSec(newPxPerSec);
