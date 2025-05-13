@@ -29,10 +29,10 @@ function labelAndSublabel(
   return {label: labelWithAcc, sublabel};
 }
 
-export function showOpenDialog() {
+export function showOpenDialog(browserWindow: BrowserWindow | null) {
   const defaultPath = app.isPackaged ? app.getPath("home") : path.join(__dirname, "../../samples/");
 
-  return dialog.showOpenDialog({
+  const options: Electron.OpenDialogOptions = {
     title: "Select the audio files to be open",
     defaultPath,
     filters: [
@@ -42,7 +42,9 @@ export function showOpenDialog() {
       },
     ],
     properties: ["openFile", "multiSelections"],
-  });
+  };
+  if (browserWindow) return dialog.showOpenDialog(browserWindow, options);
+  return dialog.showOpenDialog(options);
 }
 
 export function addAppRenderedListener(pathsToOpen: string[]) {
@@ -69,7 +71,10 @@ export default function addIPCListeners() {
     const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
     if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
 
-    event.reply("open-dialog-closed", await showOpenDialog());
+    event.reply(
+      "open-dialog-closed",
+      await showOpenDialog(BrowserWindow.fromWebContents(event.sender)),
+    );
 
     mutateEditMenu((item) => {
       item.enabled = false;

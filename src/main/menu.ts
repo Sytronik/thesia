@@ -21,7 +21,7 @@ const clickOpenMenu: MenuItemClick = async (_, browserWindow) => {
   const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
   if (selectAllTracksMenu) selectAllTracksMenu.enabled = false;
 
-  browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog());
+  browserWindow?.webContents.send("open-dialog-closed", await showOpenDialog(browserWindow));
 
   mutateEditMenu((item) => {
     item.enabled = false;
