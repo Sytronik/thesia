@@ -33,6 +33,7 @@ type ControlProps = {
   setCommonGuardClipping: (commonGuardClipping: GuardClippingMode) => Promise<void>;
   commonNormalize: NormalizeTarget;
   setCommonNormalize: (commonNormalize: NormalizeTarget) => Promise<void>;
+  isLoading: boolean;
 };
 
 // TODO: this should be changed if FreqScale has more than 2 values.
@@ -51,13 +52,19 @@ function Control(props: ControlProps) {
     setCommonGuardClipping,
     commonNormalize,
     setCommonNormalize,
+    isLoading,
   } = props;
 
-  const isCommonNormalizeOn = commonNormalize.type !== "Off";
-  const [commonNormalizePeakdB, setCommonNormalizePeakdB] = useState<number>(
+  // use temp value during isLoading=true to instant update UI
+  const [tempCommonNormalize, setTempCommonNormalize] = useState<NormalizeTarget>(commonNormalize);
+
+  const commonNormalizeOrTemp = isLoading ? tempCommonNormalize : commonNormalize;
+
+  const isCommonNormalizeOn = commonNormalizeOrTemp.type !== "Off";
+  const commonNormalizePeakdBRef = useRef<number>(
     commonNormalize.type === "PeakdB" ? commonNormalize.target : 0.0,
   );
-  const [commonNormalizedB, setCommonNormalizedB] = useState<number>(
+  const commonNormalizedBRef = useRef<number>(
     commonNormalize.type === "LUFS" ? commonNormalize.target : -18.0,
   );
 
@@ -115,35 +122,46 @@ function Control(props: ControlProps) {
         const type = e.target.selectedOptions[0].value;
         switch (type) {
           case "Off":
+            setTempCommonNormalize({type: "Off"});
             await setCommonNormalize({type: "Off"});
             break;
           case "PeakdB":
-            await setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdB});
+            setTempCommonNormalize({type: "PeakdB", target: commonNormalizePeakdBRef.current});
+            await setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdBRef.current});
             if (commonNormalizedBInputElem.current)
-              commonNormalizedBInputElem.current.setValue(commonNormalizePeakdB);
+              commonNormalizedBInputElem.current.setValue(commonNormalizePeakdBRef.current);
             break;
           default:
-            await setCommonNormalize({type: type as NormalizeOnType, target: commonNormalizedB});
+            setTempCommonNormalize({
+              type: type as NormalizeOnType,
+              target: commonNormalizedBRef.current,
+            });
+            await setCommonNormalize({
+              type: type as NormalizeOnType,
+              target: commonNormalizedBRef.current,
+            });
             if (commonNormalizedBInputElem.current)
-              commonNormalizedBInputElem.current.setValue(commonNormalizedB);
+              commonNormalizedBInputElem.current.setValue(commonNormalizedBRef.current);
             break;
         }
       }),
-    [commonNormalizePeakdB, commonNormalizedB, setCommonNormalize],
+    [setCommonNormalize],
   );
 
   const debouncedChangeCommonNormalizedB = useMemo(
     () =>
       debounce(250, (dB: number) => {
-        if (isCommonNormalizeOn) setCommonNormalize({type: commonNormalize.type, target: dB});
+        if (!isCommonNormalizeOn) return;
+        setTempCommonNormalize({type: commonNormalizeOrTemp.type, target: dB});
+        setCommonNormalize({type: commonNormalizeOrTemp.type, target: dB});
       }),
-    [commonNormalize, isCommonNormalizeOn, setCommonNormalize],
+    [commonNormalizeOrTemp, isCommonNormalizeOn, setCommonNormalize],
   );
 
   const onCommonNormalizedBInputChange = useEvent((value: number) => {
     if (!isCommonNormalizeOn) return;
-    if (commonNormalize.type === "PeakdB") setCommonNormalizePeakdB(value);
-    else setCommonNormalizedB(value);
+    if (commonNormalizeOrTemp.type === "PeakdB") commonNormalizePeakdBRef.current = value;
+    else commonNormalizedBRef.current = value;
     debouncedChangeCommonNormalizedB(value);
   });
 
@@ -361,7 +379,7 @@ function Control(props: ControlProps) {
               name="commonNormalize"
               id="commonNormalize"
               onChange={onCommonNormalizeTypeChange}
-              defaultValue={commonNormalize.type}
+              defaultValue={commonNormalizeOrTemp.type}
             >
               <option value="Off">Off</option>
               {NormalizeOnTypeValues.map((type) => (
@@ -380,7 +398,9 @@ function Control(props: ControlProps) {
               precision={2}
               detents={COMMON_NORMALIZE_DB_DETENTS}
               initialValue={
-                commonNormalize.type === "Off" ? MIN_COMMON_NORMALIZE_dB : commonNormalize.target
+                commonNormalizeOrTemp.type === "Off"
+                  ? MIN_COMMON_NORMALIZE_dB
+                  : commonNormalizeOrTemp.target
               }
               disabled={!isCommonNormalizeOn}
               onChangeValue={onCommonNormalizedBInputChange}

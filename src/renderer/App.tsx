@@ -213,6 +213,7 @@ function MyApp({userSettings}: AppProps) {
             setCommonGuardClipping={setCommonGuardClipping}
             commonNormalize={commonNormalize}
             setCommonNormalize={setCommonNormalize}
+            isLoading={isLoading}
           />
           <DevicePixelRatioProvider>
             <MainViewer
