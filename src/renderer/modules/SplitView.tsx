@@ -1,6 +1,6 @@
 import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle, useMemo} from "react";
 import useEvent from "react-use-event-hook";
-import {AXIS_SPACE, TIME_CANVAS_HEIGHT, TINY_MARGIN} from "renderer/prototypes/constants/tracks";
+import {AXIS_SPACE, TIME_CANVAS_HEIGHT} from "renderer/prototypes/constants/tracks";
 import {NativeTypes} from "react-dnd-html5-backend";
 import {DropTargetMonitor, useDrop} from "react-dnd";
 import styles from "./SplitView.module.scss";
@@ -37,7 +37,6 @@ const SplitView = forwardRef(
 
     const [leftWidth, setLeftWidth] = useState<number>(INIT_WIDTH);
     const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
-    const [rightVisibility, setRightVisibility] = useState<boolean>(true);
 
     const splitPaneElem = useRef<HTMLDivElement>(null);
     const rightPaneElem = useRef<HTMLDivElement>(null);
@@ -97,10 +96,8 @@ const SplitView = forwardRef(
           const {target} = entries[0];
           if (target.clientWidth > AXIS_SPACE) {
             setCanvasWidth(target.clientWidth - AXIS_SPACE);
-            setRightVisibility(true);
           } else {
-            setCanvasWidth(AXIS_SPACE - TINY_MARGIN);
-            setRightVisibility(false);
+            setCanvasWidth(0);
           }
         }),
       [setCanvasWidth],
@@ -198,7 +195,7 @@ const SplitView = forwardRef(
             <div className={styles.dividerLine} />
           </div>
           <div className={styles.RightPane} ref={rightPaneElem}>
-            {rightVisibility ? right : null}
+            {right}
           </div>
         </div>
       </div>
