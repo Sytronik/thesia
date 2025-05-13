@@ -22,6 +22,7 @@ type OverviewProps = {
   moveLens: (sec: number, anchorRatio: number) => void;
   resizeLensLeft: (sec: number) => void;
   resizeLensRight: (sec: number) => void;
+  resetLens: () => void;
   needRefresh: boolean;
 };
 
@@ -36,6 +37,7 @@ function Overview(props: OverviewProps) {
     moveLens,
     resizeLensLeft,
     resizeLensRight,
+    resetLens,
     needRefresh,
   } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
@@ -409,6 +411,11 @@ function Overview(props: OverviewProps) {
           className={styles.OverviewLens}
           ref={lensElem}
           style={{display: trackId !== null ? "block" : "none"}}
+          onClick={(e) => {
+            if (e.altKey && e.button === 0) {
+              resetLens();
+            }
+          }}
         />
       </Draggable>
     </div>

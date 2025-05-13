@@ -769,12 +769,12 @@ function MainViewer(props: MainViewerProps) {
   }, [selectedTrackIds, selectionIsAdded, reducerForTrackInfoElemRange]);
 
   // set LensParams when track list, width, or canvasIsFit change
-  const setLensParamsForFitCanvas = useEvent((newWidth: number, newCanvasIsFit: boolean) => {
+  const setLensParamsForFitCanvas = useEvent((newWidth: number, _CanvasIsFit: boolean) => {
     const newStartSec =
-      prevTrackCountRef.current === 0 || newCanvasIsFit
+      prevTrackCountRef.current === 0 || _CanvasIsFit
         ? 0
         : normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-    const newPxPerSec = newCanvasIsFit
+    const newPxPerSec = _CanvasIsFit
       ? newWidth / maxTrackSec
       : normalizePxPerSec(pxPerSec, startSec);
     updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec}, false);
@@ -959,6 +959,7 @@ function MainViewer(props: MainViewerProps) {
           moveLens={moveLens}
           resizeLensLeft={resizeLensLeft}
           resizeLensRight={resizeLensRight}
+          resetLens={resetTimeAxis}
           needRefresh={
             overviewTrackId !== null &&
             needRefreshTrackIdChArr.some((idCh) => idCh.startsWith(`${overviewTrackId}_`))
