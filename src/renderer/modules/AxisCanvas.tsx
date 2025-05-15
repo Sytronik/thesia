@@ -43,7 +43,7 @@ type AxisCanvasProps = {
   shiftWhenResize?: boolean;
 
   onWheel?: (e: WheelEvent) => void;
-  onClick?: (e: MouseEvent) => void;
+  onClick?: (e: React.MouseEvent) => void;
 };
 
 const AxisCanvas = forwardRef(
@@ -68,16 +68,14 @@ const AxisCanvas = forwardRef(
       (elem: HTMLCanvasElement | null) => {
         if (!elem) {
           if (onWheel) canvasElem.current?.removeEventListener("wheel", onWheel);
-          if (onClick) canvasElem.current?.removeEventListener("click", onClick);
           canvasElem.current = null;
           return;
         }
         bgColor.current = window.getComputedStyle(elem).backgroundColor;
         if (onWheel) elem.addEventListener("wheel", onWheel, {passive: false});
-        if (onClick) elem.addEventListener("click", onClick);
         canvasElem.current = elem;
       },
-      [onWheel, onClick],
+      [onWheel],
     );
 
     const correctMarkerPos = useEvent((x: number, axisLength: number) => {
@@ -200,6 +198,7 @@ const AxisCanvas = forwardRef(
           e.preventDefault();
           showAxisContextMenu(className, id);
         }}
+        onClick={onClick}
       />
     );
   },

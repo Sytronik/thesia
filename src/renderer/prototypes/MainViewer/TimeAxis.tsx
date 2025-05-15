@@ -64,7 +64,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     [handleDragging],
   );
 
-  const onClick = useEvent((e: MouseEvent) => {
+  const onClick = useEvent((e: React.MouseEvent) => {
     if (!enableInteraction) return;
     if (e.altKey && e.button === 0 && e.detail === 1) resetTimeAxis();
   });

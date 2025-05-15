@@ -103,7 +103,7 @@ function AmpAxis(props: AmpAxisProps) {
     }
   });
 
-  const onClick = useEvent((e: MouseEvent) => {
+  const onClick = useEvent((e: React.MouseEvent) => {
     if (!enableInteraction) return;
     if (e.button === 0 && e.altKey && e.detail === 1) {
       e.preventDefault();
