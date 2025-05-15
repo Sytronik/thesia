@@ -25,9 +25,7 @@ const calcCursorY = (e: MouseEvent | React.MouseEvent, rect: DOMRect) => {
   return e.clientY - rect.top;
 };
 
-const stopImmediatePropagation = (e: Event) => {
-  e.stopImmediatePropagation();
-};
+const stopPropagation = (e: Event) => e.stopPropagation();
 
 function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   const {
@@ -39,10 +37,11 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     onCursorStateChange: cursorStateChangeCallback,
     children,
   } = props;
+  const dragAnchorPosRef = useRef<number>(0);
   const dragAnchorRef = useRef<U>(dragAnchorDefault);
   const cursorStateRef = useRef<T>();
   const divElem = useRef<HTMLDivElement>(null);
-  const draggedRef = useRef<boolean>(false);
+  const hasDraggedRef = useRef<boolean>(false);
 
   let calcCursorPosFunc: (e: MouseEvent | React.MouseEvent, rect: DOMRect) => number;
   if (calcCursorPos === "x") calcCursorPosFunc = calcCursorX;
@@ -68,14 +67,10 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
         value.handleDragging(cursorStateRef.current, cursorPos, dragAnchorRef.current, rect);
       }
     });
-    e.target?.removeEventListener("click", stopImmediatePropagation);
-    if (draggedRef.current) {
-      e.target?.addEventListener("click", stopImmediatePropagation, {once: true});
-    }
-    draggedRef.current = true;
+    if (cursorPos !== dragAnchorPosRef.current) hasDraggedRef.current = true;
   });
 
-  const onMouseUp = (e: MouseEvent) => {
+  const onMouseUp = useEvent((e: MouseEvent) => {
     e.preventDefault();
     dragAnchorRef.current = dragAnchorDefault;
     const bodyElem = document.querySelector("body");
@@ -86,7 +81,8 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     }
     updateCursorState(e);
     document.removeEventListener("mousemove", onDragging);
-  };
+    if (hasDraggedRef.current) e.target?.addEventListener("click", stopPropagation, {once: true});
+  });
 
   const onMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -95,9 +91,10 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     e.preventDefault();
     updateCursorState(e);
     const rect = divElem.current.getBoundingClientRect();
+    dragAnchorPosRef.current = calcCursorPosFunc(e, rect);
     dragAnchorRef.current = calcDragAnchor(
       cursorStateRef.current as T,
-      calcCursorPosFunc(e, rect),
+      dragAnchorPosRef.current,
       rect,
     );
 
@@ -109,7 +106,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
         }
       });
     }
-    draggedRef.current = false;
+    hasDraggedRef.current = false;
     onDragging(e);
     document.addEventListener("mousemove", onDragging);
     document.addEventListener("mouseup", onMouseUp, {once: true});
