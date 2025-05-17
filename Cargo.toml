@@ -21,8 +21,6 @@ path = "src_backend/lib.rs"
 napi = {version = "2.16.17", features = [
   "async",
   "serde-json",
-  "tokio_macros",
-  "tokio_sync",
   "tokio_time",
 ], default-features = false}
 napi-derive = {version = "2.16.13", features = ["full"], default-features = false}
