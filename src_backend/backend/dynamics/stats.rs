@@ -156,9 +156,8 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
             GuardClippingResult::WavBeforeClip(before_clip) => {
                 let raw_dim = before_clip.raw_dim();
                 let vec = before_clip
-                    .lanes(Axis(raw_dim.ndim() - 1))
-                    .into_iter()
-                    .par_bridge()
+                    .axis_iter(Axis(0))
+                    .into_par_iter()
                     .map(GuardClippingStats::from_wav_before_clip)
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
@@ -170,9 +169,8 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
             GuardClippingResult::GainSequence(gain_seq) => {
                 let raw_dim = gain_seq.raw_dim();
                 let vec = gain_seq
-                    .lanes(Axis(raw_dim.ndim() - 1))
-                    .into_iter()
-                    .par_bridge()
+                    .axis_iter(Axis(0))
+                    .into_par_iter()
                     .map(GuardClippingStats::from_gain_seq)
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
