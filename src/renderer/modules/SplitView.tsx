@@ -153,6 +153,8 @@ const SplitView = forwardRef(
         }
       },
       scrollTop: () => splitPaneElem.current?.scrollTop ?? 0,
+      hasScrollBar: () =>
+        (splitPaneElem.current?.scrollHeight ?? 0) > (splitPaneElem.current?.clientHeight ?? 0),
     });
     useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 

@@ -30,7 +30,12 @@ type TickScaleTable = {
   [key: number]: [number, number];
 };
 
-type VScrollAnchorInfo = {imgIndex: number; cursorRatioOnImg: number; cursorOffset: number};
+type VScrollAnchorInfo = {
+  clientY: number;
+  imgIndex: number;
+  cursorRatioOnImg: number;
+  cursorOffset: number;
+};
 
 type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
 
@@ -38,6 +43,7 @@ type SplitViewHandleElement = {
   getBoundingClientRect: () => DOMRect | null;
   scrollTo: (option: ScrollToOptions) => void;
   scrollTop: () => number;
+  hasScrollBar: () => boolean;
 };
 
 type ImgCanvasHandleElement = {

@@ -130,6 +130,7 @@ function MainViewer(props: MainViewerProps) {
   const needFollowCursor = useRef<boolean>(true);
   const prevCursorClientY = useRef<number>(0);
   const vScrollAnchorInfoRef = useRef<VScrollAnchorInfo>({
+    clientY: 0,
     imgIndex: 0,
     cursorRatioOnImg: 0.0,
     cursorOffset: 0,
@@ -298,22 +299,14 @@ function MainViewer(props: MainViewerProps) {
     return newHeight;
   });
 
-  const zoomHeightAtCursor = useEvent((delta, cursorY) => {
-    const newHeight = zoomHeight((delta * height) / 1000);
-    const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
-    // TODO: remove hard-coded 2
-    setScrollTop(
-      imgIndex * (newHeight + 2) +
-        VERTICAL_AXIS_PADDING +
-        cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
-        cursorOffset -
-        cursorY,
-    );
-  });
-
-  const updateVScrollAnchorInfo = useEvent((cursorClientY: number) => {
+  const updateVScrollAnchorInfo = useEvent((_cursorClientY?: number) => {
     let i = 0;
     let prevBottom = 0;
+    let cursorClientY = vScrollAnchorInfoRef.current.clientY;
+    if (_cursorClientY !== undefined) {
+      vScrollAnchorInfoRef.current.clientY = _cursorClientY;
+      cursorClientY = _cursorClientY;
+    }
     trackIds.forEach((id) =>
       trackIdChMap.get(id)?.forEach((idChStr) => {
         const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
@@ -340,6 +333,20 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
+  const zoomHeightAtCursor = useEvent((delta, cursorY) => {
+    const newHeight = zoomHeight((delta * height) / 1000);
+    const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
+    // TODO: remove hard-coded 2
+    setScrollTop(
+      imgIndex * (newHeight + 2) +
+        VERTICAL_AXIS_PADDING +
+        cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
+        cursorOffset -
+        cursorY,
+    );
+
+    if (!splitViewElem.current?.hasScrollBar()) updateVScrollAnchorInfo();
+  });
   const onMouseMove = (e: React.MouseEvent) => {
     if (Math.abs(e.clientY - prevCursorClientY.current) < 1e-3) return;
     updateVScrollAnchorInfo(e.clientY);
