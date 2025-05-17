@@ -774,9 +774,10 @@ function MainViewer(props: MainViewerProps) {
       prevTrackCountRef.current === 0 || _CanvasIsFit
         ? 0
         : normalizeStartSec(startSec, pxPerSec, maxTrackSec);
-    const newPxPerSec = _CanvasIsFit
-      ? newWidth / maxTrackSec
-      : normalizePxPerSec(pxPerSec, startSec);
+    const newPxPerSec =
+      prevTrackCountRef.current === 0 || _CanvasIsFit
+        ? newWidth / maxTrackSec
+        : normalizePxPerSec(pxPerSec, startSec);
     updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec}, false);
   });
   useEffect(() => {
