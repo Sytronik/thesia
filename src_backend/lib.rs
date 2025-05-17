@@ -4,7 +4,6 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
-use std::collections::HashMap;
 use std::num::Wrapping;
 use std::sync::LazyLock;
 
@@ -603,31 +602,30 @@ fn get_max_peak_dB(track_id: u32) -> f64 {
 }
 
 #[napi]
-fn get_guard_clip_stats(track_id: u32) -> HashMap<String, String> {
+fn get_guard_clip_stats(track_id: u32) -> serde_json::Value {
     let tracklist = TRACK_LIST.blocking_read();
     let mode = tracklist.common_guard_clipping;
     let prefix = mode.to_string();
-    tracklist
-        .get(track_id as usize)
-        .map_or_else(HashMap::new, |track| {
-            let stat_to_string_if_not_empty = |(ch_str, stat): (String, &GuardClippingStats)| {
-                let stat = stat.to_string();
-                (!stat.is_empty()).then_some((ch_str, format!("{} by {}", &prefix, stat)))
+    match tracklist.get(track_id as usize) {
+        Some(track) => {
+            let format_ch_stat = |(ch, stat): (isize, String)| {
+                (!stat.is_empty()).then_some((ch, format!("{} by {}", &prefix, stat)))
             };
-            if mode == GuardClippingMode::Clip {
-                track
+            let vec: Vec<_> = match mode {
+                GuardClippingMode::Clip => track
                     .guard_clip_stats()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, stat)| (i.to_string(), stat))
-                    .filter_map(stat_to_string_if_not_empty)
-                    .collect()
-            } else {
-                std::iter::once(("".to_string(), &track.guard_clip_stats()[0]))
-                    .filter_map(stat_to_string_if_not_empty)
-                    .collect()
-            }
-        })
+                    .indexed_iter()
+                    .map(|(ch, stat)| (ch as isize, stat.to_string()))
+                    .filter_map(format_ch_stat)
+                    .collect(),
+                _ => std::iter::once((-1, track.guard_clip_stats()[0].to_string()))
+                    .filter_map(format_ch_stat)
+                    .collect(),
+            };
+            json!(vec)
+        }
+        None => json!([]),
+    }
 }
 
 #[napi]

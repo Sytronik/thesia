@@ -112,7 +112,7 @@ export declare function getFormatInfo(trackId: number): AudioFormatInfo
 export declare function getGlobalLUFS(trackId: number): number
 export declare function getRMSdB(trackId: number): number
 export declare function getMaxPeakdB(trackId: number): number
-export declare function getGuardClipStats(trackId: number): Record<string, string>
+export declare function getGuardClipStats(trackId: number): any
 export declare function getPath(trackId: number): string
 export declare function getFileName(trackId: number): string
 export declare function setVolumedB(volumeDB: number): Promise<void>

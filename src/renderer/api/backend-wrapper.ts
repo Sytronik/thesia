@@ -207,6 +207,12 @@ export async function setCommonNormalize(commonNormalize: NormalizeTarget): Prom
   return backend.setCommonNormalize(commonNormalize);
 }
 
+export function getGuardClipStats(trackId: number): [number, string][] {
+  // [channel, stats]
+  // if [[-1, stats]], then all channels have the same stats
+  return backend.getGuardClipStats(trackId);
+}
+
 export type PlayerState = {
   err: string;
   isPlaying: boolean;
@@ -250,7 +256,6 @@ export const {
   setSpecSetting,
   getCommonGuardClipping,
   setCommonGuardClipping,
-  getGuardClipStats,
   setVolumedB,
   setTrackPlayer,
   pausePlayer,

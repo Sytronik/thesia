@@ -22,7 +22,7 @@ type TrackSummaryData = {
   bitrate: string;
   sampleRate: string;
   globalLUFS: string;
-  guardClipStats: Record<string, string>;
+  guardClipStats: [number, string][];
 };
 
 // Axis Tick
