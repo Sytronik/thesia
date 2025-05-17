@@ -157,7 +157,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Check if img and img.data are valid before proceeding
     if (!spectrogram || hidden || startSec >= trackSec || width <= 0) {
       const {gl} = webglResourcesRef.current;
-      gl.clearColor(0, 0, 0, 0); // Clear to transparent black
+      const alpha = blend === 0 ? 1.0 : 0.0;
+      gl.clearColor(0, 0, 0, alpha);
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
