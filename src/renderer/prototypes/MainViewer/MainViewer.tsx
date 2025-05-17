@@ -780,7 +780,9 @@ function MainViewer(props: MainViewerProps) {
         : normalizePxPerSec(pxPerSec, startSec);
     updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec}, false);
   });
-  useEffect(() => {
+
+  // should be useLayoutEffect to avoid jittering of overview lens by width change
+  useLayoutEffect(() => {
     if (trackIds.length > 0) setLensParamsForFitCanvas(width, canvasIsFit);
 
     prevTrackCountRef.current = trackIds.length;
