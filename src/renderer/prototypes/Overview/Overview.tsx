@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useMemo, useContext, useCallback, useLayoutEffect} from "react";
+import React, {useRef, useEffect, useMemo, useContext, useCallback} from "react";
 import useEvent from "react-use-event-hook";
 
 import {DevicePixelRatioContext} from "renderer/contexts";
@@ -310,8 +310,8 @@ function Overview(props: OverviewProps) {
     lensCtx.lineWidth = LINE_WIDTH;
     lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
     lensCtx.strokeStyle = LENS_STROKE_STYLE;
-    await draw();
     drawLens();
+    await draw();
   });
 
   useEffect(() => {
