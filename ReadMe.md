@@ -48,7 +48,6 @@ The target binary is under `release/build/<os>/thesia.app`.
 
 ## Plan
 
-- [ ] Re-ordering tracks
 - [ ] Releasing v1.0
 - [ ] Selecting audio output device (and exclusive mode)
 - [ ] Region selection and loop playback 
@@ -56,4 +55,5 @@ The target binary is under `release/build/<os>/thesia.app`.
 - [ ] pitch / formant tracker
 - [ ] Adaptive STFT (sth like iZotope RX Editor)
 - [ ] Showing the average FFT magnitude
+- [ ] Save normalized audio
 - [ ] Export as figures
