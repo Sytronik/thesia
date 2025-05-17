@@ -359,9 +359,18 @@ export type WebGLResources = {
     uColorMap: WebGLUniformLocation | null;
     uOverlayAlpha: WebGLUniformLocation | null;
   };
-  resizePosBuffer: WebGLBuffer | null; // Buffer for vertex/UV data used in resize passes
-  cmapVao: WebGLVertexArrayObject | null; // VAO for the colormap pass fullscreen quad
-  cmapVbo: WebGLBuffer | null; // VBO for the colormap pass fullscreen quad
+  resizePosBuffer: WebGLBuffer | null;
+  cmapVao: WebGLVertexArrayObject | null;
+  cmapVbo: WebGLBuffer | null;
+  textureCache: {
+    texMid: WebGLTexture | null;
+    texResized: WebGLTexture | null;
+    fbMid: WebGLFramebuffer | null;
+    fbo: WebGLFramebuffer | null;
+    cmapTex: WebGLTexture | null;
+    lastMidSize: {width: number; height: number} | null;
+    lastResizedSize: {width: number; height: number} | null;
+  };
 };
 
 export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources | null {
@@ -370,7 +379,6 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
     antialias: false,
     depth: false,
     preserveDrawingBuffer: true,
-    // desynchronized: true,  // cause flickering when resizing on Windows 10
   });
 
   if (!gl) {
@@ -480,6 +488,17 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
 
     gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind buffer
 
+    // Initialize texture cache
+    resources.textureCache = {
+      texMid: null,
+      texResized: null,
+      fbMid: null,
+      fbo: null,
+      cmapTex: null,
+      lastMidSize: null,
+      lastResizedSize: null,
+    };
+
     // Check if all required resources were created
     if (
       !resources.resizeProgram ||
@@ -490,12 +509,13 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
       !resources.colormapUniforms ||
       !resources.resizePosBuffer ||
       !resources.cmapVao ||
-      !resources.cmapVbo
+      !resources.cmapVbo ||
+      !resources.textureCache
     ) {
       throw new Error("Failed to initialize all WebGL resources.");
     }
 
-    return resources as WebGLResources; // Cast to full type after successful creation
+    return resources as WebGLResources;
   } catch (error) {
     console.error("Error initializing WebGL resources:", error);
     // Clean up partially created resources
@@ -506,6 +526,14 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
       if (resources.resizePosBuffer) gl.deleteBuffer(resources.resizePosBuffer);
       if (resources.cmapVao) gl.deleteVertexArray(resources.cmapVao);
       if (resources.cmapVbo) gl.deleteBuffer(resources.cmapVbo);
+      // Clean up texture cache
+      if (resources.textureCache) {
+        if (resources.textureCache.texMid) gl.deleteTexture(resources.textureCache.texMid);
+        if (resources.textureCache.texResized) gl.deleteTexture(resources.textureCache.texResized);
+        if (resources.textureCache.fbMid) gl.deleteFramebuffer(resources.textureCache.fbMid);
+        if (resources.textureCache.fbo) gl.deleteFramebuffer(resources.textureCache.fbo);
+        if (resources.textureCache.cmapTex) gl.deleteTexture(resources.textureCache.cmapTex);
+      }
     }
     return null;
   }
@@ -523,10 +551,11 @@ function renderSpectrogramInternal(
   dstH: number,
   blend: number,
   resizeProgram: WebGLProgram,
-  resizeUniforms: WebGLResources["resizeUniforms"] | WebGLResources["bilinearResizeUniforms"], // Union type for uniforms
-  isBilinear: boolean, // Flag to differentiate logic if needed (e.g., uScale uniform)
+  resizeUniforms: WebGLResources["resizeUniforms"] | WebGLResources["bilinearResizeUniforms"],
+  isBilinear: boolean,
 ) {
-  const {gl, colormapProgram, colormapUniforms, resizePosBuffer, cmapVao} = webglResources;
+  const {gl, colormapProgram, colormapUniforms, resizePosBuffer, cmapVao, textureCache} =
+    webglResources;
 
   // --- Initial checks and clearing (same as before) ---
   if (blend <= 0) {
@@ -544,16 +573,11 @@ function renderSpectrogramInternal(
     return;
   }
 
-  // Vertical texture coordinates parameters (same as before)
+  // Vertical texture coordinates parameters
   const vTexOffset = srcTop / spectrogram.height;
   const vTexScale = srcH / spectrogram.height;
 
   let texSrc: WebGLTexture | null = null;
-  let texMid: WebGLTexture | null = null;
-  let texResized: WebGLTexture | null = null;
-  let fbMid: WebGLFramebuffer | null = null;
-  let fbo: WebGLFramebuffer | null = null;
-  let cmapTex: WebGLTexture | null = null;
 
   try {
     // Use the provided Resize Program
@@ -561,15 +585,38 @@ function renderSpectrogramInternal(
 
     // Bind the shared position/UV buffer for resize passes
     gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
-    // Attributes are assumed to be set up correctly in prepareWebGLResources
 
-    // --- Texture and Framebuffer Setup (same as before) ---
+    // --- Texture and Framebuffer Setup ---
     const data = new Float32Array(spectrogram.buf.buffer);
     texSrc = createTexture(gl, spectrogram.width, spectrogram.height, data, gl.R32F);
-    texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
-    fbMid = gl.createFramebuffer();
-    texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
-    fbo = gl.createFramebuffer();
+
+    // Check if we need to recreate intermediate texture
+    if (
+      !textureCache.texMid ||
+      !textureCache.lastMidSize ||
+      textureCache.lastMidSize.width !== dstW ||
+      textureCache.lastMidSize.height !== srcH
+    ) {
+      if (textureCache.texMid) gl.deleteTexture(textureCache.texMid);
+      if (textureCache.fbMid) gl.deleteFramebuffer(textureCache.fbMid);
+      textureCache.texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
+      textureCache.fbMid = gl.createFramebuffer();
+      textureCache.lastMidSize = {width: dstW, height: srcH};
+    }
+
+    // Check if we need to recreate final texture
+    if (
+      !textureCache.texResized ||
+      !textureCache.lastResizedSize ||
+      textureCache.lastResizedSize.width !== dstW ||
+      textureCache.lastResizedSize.height !== dstH
+    ) {
+      if (textureCache.texResized) gl.deleteTexture(textureCache.texResized);
+      if (textureCache.fbo) gl.deleteFramebuffer(textureCache.fbo);
+      textureCache.texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
+      textureCache.fbo = gl.createFramebuffer();
+      textureCache.lastResizedSize = {width: dstW, height: dstH};
+    }
 
     // Set texture unit 0 for the sampler
     gl.uniform1i(resizeUniforms.uTex, 0);
@@ -577,95 +624,95 @@ function renderSpectrogramInternal(
 
     // --- Pass-1 (horizontal resize + vertical crop setup) ---
     const scaleX = dstW / srcW;
-    // Set common uniforms
-    gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0); // Step relative to full src width
+    gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0);
     gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
     gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
     gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
     gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
-    // Set specific uniforms (Lanczos needs uScale)
     if (!isBilinear && "uScale" in resizeUniforms) {
       gl.uniform1f(resizeUniforms.uScale, scaleX);
     }
 
     gl.bindTexture(gl.TEXTURE_2D, texSrc);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbMid);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texMid, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, textureCache.fbMid);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      textureCache.texMid,
+      0,
+    );
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
       throw new Error("Framebuffer 'fbMid' incomplete");
     }
-    gl.viewport(0, 0, dstW, srcH); // Viewport for intermediate texture
-    gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
+    gl.viewport(0, 0, dstW, srcH);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     // --- Pass-2 (vertical resize) ---
     const scaleY = dstH / srcH;
-    // Set common uniforms
-    gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH); // Vertical step relative to cropped height (srcH)
+    gl.uniform2f(resizeUniforms.uStep, 0, 1 / srcH);
     gl.uniform1f(resizeUniforms.uTexOffset, 0.0);
     gl.uniform1f(resizeUniforms.uTexScale, 1.0);
     gl.uniform1f(resizeUniforms.uTexOffsetY, 0.0);
     gl.uniform1f(resizeUniforms.uTexScaleY, 1.0);
-    // Set specific uniforms (Lanczos needs uScale)
     if (!isBilinear && "uScale" in resizeUniforms) {
       gl.uniform1f(resizeUniforms.uScale, scaleY);
     }
 
-    gl.bindTexture(gl.TEXTURE_2D, texMid); // Read from intermediate texMid
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); // Render to final fbo
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texResized, 0);
+    gl.bindTexture(gl.TEXTURE_2D, textureCache.texMid);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, textureCache.fbo);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      textureCache.texResized,
+      0,
+    );
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
       throw new Error("Framebuffer 'fbo' incomplete");
     }
-    gl.viewport(0, 0, dstW, dstH); // Set viewport to final destination size
-    gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw quad
+    gl.viewport(0, 0, dstW, dstH);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // --- Pass-3 Colormap Application (same as before) ---
+    // --- Pass-3 Colormap Application ---
     gl.useProgram(colormapProgram);
-    gl.bindVertexArray(cmapVao); // Bind the VAO for the fullscreen quad
+    gl.bindVertexArray(cmapVao);
 
-    cmapTex = createCmapTexture(gl);
+    // Create or reuse colormap texture
+    if (!textureCache.cmapTex) {
+      textureCache.cmapTex = createCmapTexture(gl);
+    }
 
-    // Calculate overlay alpha based on blend value
     const overlayAlpha = blend < 0.5 ? Math.max(0.0, 1.0 - 2.0 * blend) : 0.0;
 
-    // Setup textures for colormap pass
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texResized); // Use the final resized R32F texture
+    gl.bindTexture(gl.TEXTURE_2D, textureCache.texResized);
     gl.uniform1i(colormapUniforms.uLum, 0);
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, cmapTex);
+    gl.bindTexture(gl.TEXTURE_2D, textureCache.cmapTex);
     gl.uniform1i(colormapUniforms.uColorMap, 1);
 
-    // Set the overlay alpha uniform
     gl.uniform1f(colormapUniforms.uOverlayAlpha, overlayAlpha);
 
-    // Render to canvas
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, dstW, dstH); // Ensure viewport matches canvas destination size
+    gl.viewport(0, 0, dstW, dstH);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the quad using TRIANGLE_STRIP
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Check for WebGL errors after drawing
     const error = gl.getError();
     const errorType = isBilinear ? "bilinear" : "lanczos";
     if (error !== gl.NO_ERROR) console.error(`WebGL Error after ${errorType} draw:`, error);
   } catch (error) {
     console.error(`Error during WebGL ${isBilinear ? "bilinear" : "lanczos"} draw:`, error);
   } finally {
-    // --- Cleanup (same as before) ---
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.bindVertexArray(null); // Unbind VAO
-    gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind any buffers
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
     if (texSrc) gl.deleteTexture(texSrc);
-    if (texMid) gl.deleteTexture(texMid);
-    if (texResized) gl.deleteTexture(texResized);
-    if (cmapTex) gl.deleteTexture(cmapTex);
-    if (fbMid) gl.deleteFramebuffer(fbMid);
-    if (fbo) gl.deleteFramebuffer(fbo);
   }
 }
 
@@ -693,7 +740,7 @@ export function renderSpectrogram(
     blend,
     isBilinear ? webglResources.bilinearResizeProgram : webglResources.resizeProgram,
     isBilinear ? webglResources.bilinearResizeUniforms : webglResources.resizeUniforms,
-    isBilinear, // Not bilinear
+    isBilinear,
   );
 }
 
@@ -706,13 +753,24 @@ export function cleanupWebGLResources(resources: WebGLResources) {
     resizePosBuffer,
     cmapVao,
     cmapVbo,
+    textureCache,
   } = resources;
   gl.deleteProgram(resizeProgram);
-  gl.deleteProgram(bilinearResizeProgram); // Delete the new program
+  gl.deleteProgram(bilinearResizeProgram);
   gl.deleteProgram(colormapProgram);
   gl.deleteBuffer(resizePosBuffer);
   gl.deleteVertexArray(cmapVao);
   gl.deleteBuffer(cmapVbo);
+
+  // Clean up texture cache
+  if (textureCache) {
+    if (textureCache.texMid) gl.deleteTexture(textureCache.texMid);
+    if (textureCache.texResized) gl.deleteTexture(textureCache.texResized);
+    if (textureCache.fbMid) gl.deleteFramebuffer(textureCache.fbMid);
+    if (textureCache.fbo) gl.deleteFramebuffer(textureCache.fbo);
+    if (textureCache.cmapTex) gl.deleteTexture(textureCache.cmapTex);
+  }
+
   // Attempt to lose context gracefully
   const loseCtxExt = gl.getExtension("WEBGL_lose_context");
   if (loseCtxExt) {
