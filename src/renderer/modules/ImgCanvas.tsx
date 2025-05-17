@@ -228,7 +228,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawNewSpectrogramRequestRef = useRef<number>(0);
   const throttledGetSpectrogram = useMemo(
     () =>
-      throttle(1000 / 120, async (_startSec, _endSec, _idChStr, _hzRange) => {
+      throttle(1000 / 60, async (_startSec, _endSec, _idChStr, _hzRange) => {
         const spectrogram = await BackendAPI.getSpectrogram(
           _idChStr,
           [_startSec, _endSec],
@@ -378,10 +378,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame
   const drawWavImageRequestRef = useRef<number>(0);
-  const throttledGetWavImage = useMemo(
+  const throttledGetWavDrawingInfo = useMemo(
     () =>
       throttle(
-        1000 / 120,
+        1000 / 60,
         async (_idChStr, _startSec, _endSec, _width, _height, _ampRange, _devicePixelRatio) => {
           const wavSlice = await BackendAPI.getWavDrawingInfo(
             _idChStr,
@@ -402,9 +402,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       ),
     [],
   );
-  const getWavImageIfNotHidden = useCallback(() => {
+  const getWavDrawingInfoIfNotHidden = useCallback(() => {
     if (needHideWav) return;
-    throttledGetWavImage(idChStr, startSec, endSec, width, height, ampRange, devicePixelRatio);
+    throttledGetWavDrawingInfo(
+      idChStr,
+      startSec,
+      endSec,
+      width,
+      height,
+      ampRange,
+      devicePixelRatio,
+    );
   }, [
     ampRange,
     devicePixelRatio,
@@ -413,19 +421,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     idChStr,
     needHideWav,
     startSec,
-    throttledGetWavImage,
+    throttledGetWavDrawingInfo,
     width,
   ]);
 
-  // getWavImage is called when needRefresh is true ...
-  const prevGetWavImageRef = useRef<() => void>(getWavImageIfNotHidden);
-  if (prevGetWavImageRef.current === getWavImageIfNotHidden && needRefresh) {
-    getWavImageIfNotHidden();
+  // getWavDrawingInfo is called when needRefresh is true ...
+  const prevGetWavDrawingInfoRef = useRef<() => void>(getWavDrawingInfoIfNotHidden);
+  if (prevGetWavDrawingInfoRef.current === getWavDrawingInfoIfNotHidden && needRefresh) {
+    getWavDrawingInfoIfNotHidden();
   }
-  prevGetWavImageRef.current = getWavImageIfNotHidden;
+  prevGetWavDrawingInfoRef.current = getWavDrawingInfoIfNotHidden;
 
   // or when deps change
-  useEffect(getWavImageIfNotHidden, [getWavImageIfNotHidden]);
+  useEffect(getWavDrawingInfoIfNotHidden, [getWavDrawingInfoIfNotHidden]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
