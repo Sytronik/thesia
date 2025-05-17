@@ -187,9 +187,8 @@ impl TrackManager {
             }
         }
         let parallel = id_ch_tuples.len() < rayon::current_num_threads();
-        let specs: Vec<_> = id_ch_tuples
-            .into_par_iter()
-            .map(|(id, ch)| {
+        self.specs
+            .par_extend(id_ch_tuples.into_par_iter().map(|(id, ch)| {
                 let track = &tracklist[id];
                 let spec = self.spec_analyzer.calc_spec(
                     track.channel(ch),
@@ -198,9 +197,7 @@ impl TrackManager {
                     parallel,
                 );
                 ((id, ch), spec)
-            })
-            .collect();
-        self.specs.extend(specs);
+            }));
     }
 
     /// update spec_mipmaps, max_dB, min_dB, max_sr
@@ -242,7 +239,7 @@ impl TrackManager {
         };
 
         if !ids_need_update.is_empty() {
-            let new_spec_mipmaps: Vec<_> = self
+            let new_mipmaps_iter = self
                 .specs
                 .par_iter()
                 .filter(|((id, _), _)| ids_need_update.contains(id))
@@ -260,14 +257,12 @@ impl TrackManager {
                         Some(self.colormap_length),
                     );
                     ((id, ch), Mipmaps::new(spec_img, self.max_spectrogram_size))
-                })
-                .collect();
+                });
 
             if need_update_all {
-                self.spec_mipmaps = new_spec_mipmaps.into_iter().collect();
-            } else {
-                self.spec_mipmaps.extend(new_spec_mipmaps)
+                self.spec_mipmaps.clear();
             }
+            self.spec_mipmaps.par_extend(new_mipmaps_iter);
         }
         ids_need_update
     }

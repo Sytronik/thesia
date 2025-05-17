@@ -174,7 +174,7 @@ impl SpectrogramAnalyzer {
 
     pub fn prepare(&mut self, params: &TupleIntSet<SrWinNfft>, freq_scale: FreqScale) {
         let mut real_fft_planner = RealFftPlanner::<f32>::new();
-        let entries: Vec<_> = params
+        let new_windows: Vec<_> = params
             .par_iter()
             .filter_map(|param| {
                 let k = (param.win_length, param.n_fft);
@@ -186,14 +186,14 @@ impl SpectrogramAnalyzer {
                 }
             })
             .collect();
-        self.windows.extend(entries);
+        self.windows.extend(new_windows);
         for param in params.iter() {
             self.fft_modules
                 .entry(param.n_fft)
                 .or_insert_with(|| real_fft_planner.plan_fft_forward(param.n_fft));
         }
         if let FreqScale::Mel = freq_scale {
-            let entries: Vec<_> = params
+            let new_mel_fbs: Vec<_> = params
                 .par_iter()
                 .filter_map(|param| {
                     let k = (param.sr, param.n_fft);
@@ -205,7 +205,7 @@ impl SpectrogramAnalyzer {
                     }
                 })
                 .collect();
-            self.mel_fbs.extend(entries);
+            self.mel_fbs.extend(new_mel_fbs);
         } else {
             self.mel_fbs.clear();
             self.mel_fbs.shrink_to_fit();
