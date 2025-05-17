@@ -98,17 +98,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup previous resources if the element changes
     if (webglResourcesRef.current?.gl && elem !== specCanvasElem.current) {
       cleanupWebGLResources(webglResourcesRef.current);
-      webglResourcesRef.current = null;
     }
 
     specCanvasElem.current = elem;
-    if (!specCanvasElem.current) {
-      webglResourcesRef.current = null;
-      return;
-    }
-
-    webglResourcesRef.current = prepareWebGLResources(specCanvasElem.current);
-  }, []); // Empty dependency array: This setup runs once per canvas element instance.
+    webglResourcesRef.current = null;
+  }, []);
 
   const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
     wavCanvasElem.current = elem;
@@ -149,8 +143,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   );
 
   const drawSpectrogram = useCallback(() => {
+    if (!specCanvasElem.current) return;
+    if (!webglResourcesRef.current)
+      webglResourcesRef.current = prepareWebGLResources(specCanvasElem.current);
+
     // Ensure WebGL resources are ready
-    if (!specCanvasElem.current || !webglResourcesRef.current) return;
+    if (!webglResourcesRef.current) return;
 
     const spectrogram = spectrogramRef.current;
 
@@ -444,7 +442,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }, 500);
   }, [setLoadingDisplay]);
 
-  // Cleanup WebGL resources on unmount or when canvas element changes
+  // Cleanup WebGL resources on unmount
   useEffect(() => {
     return () => {
       const resources = webglResourcesRef.current;
