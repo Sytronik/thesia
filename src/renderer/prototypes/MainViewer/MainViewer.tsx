@@ -232,7 +232,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   useEffect(() => {
-    if (trackIds.length === 0) return;
+    if (trackIds.length === 0 || needRefreshTrackIdChArr.length === 0) return;
     Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()])
       .then(([mindB, maxdB]) => setMinMaxdB({mindB, maxdB}))
       .catch(() => {});
