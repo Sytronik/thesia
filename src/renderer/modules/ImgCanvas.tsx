@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useEffect,
   useCallback,
+  useLayoutEffect,
 } from "react";
 import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
@@ -214,7 +215,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
   const drawSpectrogramRef = useRef(drawSpectrogram);
-  useEffect(() => {
+  useLayoutEffect(() => {
     drawSpectrogramRef.current = drawSpectrogram;
     // Request a redraw only when the draw function or its dependencies change
     const requestId = requestAnimationFrame(() => drawSpectrogramRef.current?.());

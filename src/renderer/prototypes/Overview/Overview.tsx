@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useMemo, useContext, useCallback} from "react";
+import React, {useRef, useEffect, useMemo, useContext, useCallback, useLayoutEffect} from "react";
 import useEvent from "react-use-event-hook";
 
 import {DevicePixelRatioContext} from "renderer/contexts";
