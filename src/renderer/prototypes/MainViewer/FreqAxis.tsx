@@ -91,8 +91,11 @@ function FreqAxis(props: FreqAxisProps) {
       let newHzRange = [anchorHzRange[0], anchorHzRange[1]];
       switch (cursorState) {
         case "control-max-hz": {
-          const ratio = (anchorAxisPos - cursorAxisPos) / (axisHeight - anchorAxisPos);
-          const maxHz = BackendAPI.freqPosToHz(ratio * axisHeight, axisHeight, anchorHzRange);
+          const anchorRelFreq = 1 - anchorAxisPos / axisHeight;
+          const cursorRelFreq = 1 - cursorAxisPos / axisHeight;
+          const newMaxRelFreq = anchorRelFreq / cursorRelFreq;
+          const newMaxAxisPos = (1 - newMaxRelFreq) * axisHeight;
+          const maxHz = BackendAPI.freqPosToHz(newMaxAxisPos, axisHeight, anchorHzRange);
           newHzRange[1] = clampMaxHz(maxHz, anchorHzRange[0]);
           break;
         }
