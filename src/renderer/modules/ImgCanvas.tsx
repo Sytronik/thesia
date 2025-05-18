@@ -155,8 +155,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Check if img and img.data are valid before proceeding
     if (!spectrogram || hidden || startSec >= trackSec || width <= 0) {
       const {gl} = webglResourcesRef.current;
-      const alpha = blend === 0 ? 1.0 : 0.0;
-      gl.clearColor(0, 0, 0, alpha);
+      gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
@@ -244,15 +243,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       }),
     [],
   );
-  const getSpectrogramIfNotHidden = useCallback(() => {
-    if (specIsNotNeeded) return;
-    throttledGetSpectrogram(startSec, endSec, idChStr, hzRange);
-  }, [specIsNotNeeded, throttledGetSpectrogram, startSec, endSec, idChStr, hzRange]);
+  const getSpectrogramIfNotHidden = useCallback(
+    (force: boolean = false) => {
+      // Even if specIsNotNeeded, need at least one spectrogram to draw black box with proper size
+      if (specIsNotNeeded && (spectrogramRef.current || !force)) return;
+      throttledGetSpectrogram(startSec, endSec, idChStr, hzRange);
+    },
+    [specIsNotNeeded, throttledGetSpectrogram, startSec, endSec, idChStr, hzRange],
+  );
 
   // getSpectrogram is called when needRefresh is true ...
   const prevGetSpectrogramRef = useRef<() => void>(getSpectrogramIfNotHidden);
   if (prevGetSpectrogramRef.current === getSpectrogramIfNotHidden && needRefresh)
-    getSpectrogramIfNotHidden();
+    getSpectrogramIfNotHidden(true);
   prevGetSpectrogramRef.current = getSpectrogramIfNotHidden;
 
   // or when deps change
