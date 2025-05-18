@@ -251,6 +251,10 @@
         "role": "Viewer"
       },
       {
+        "ext": "opus",
+        "role": "Viewer"
+      },
+      {
         "ext": "wav",
         "role": "Viewer"
       }
