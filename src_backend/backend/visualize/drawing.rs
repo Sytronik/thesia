@@ -43,7 +43,7 @@ pub fn resize(img: ArrayView2<pixels::F32>, width: u32, height: u32) -> Array2<p
         let src_img = TypedImageRef::new(
             img.shape()[1] as u32,
             img.shape()[0] as u32,
-            img.as_slice_memory_order().unwrap(),
+            img.as_slice().unwrap(),
         )
         .unwrap();
         let resize_opt =
