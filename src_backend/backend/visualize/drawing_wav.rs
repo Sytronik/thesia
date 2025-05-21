@@ -1,6 +1,8 @@
 // use std::time::Instant;
 use std::ops::Neg;
+use std::slice::SliceIndex;
 
+use approx::relative_ne;
 use cached::proc_macro::cached;
 use ndarray::prelude::*;
 use ndarray_stats::QuantileExt;
@@ -9,6 +11,7 @@ use rayon::prelude::*;
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
 use super::super::track::AudioTrack;
 
+use super::WavSliceArgs;
 use super::resample::FftResampler;
 use super::slice_args::{ArrWithSliceInfo, OverviewHeights};
 
@@ -23,6 +26,142 @@ pub enum WavDrawingInfoInternal {
     FillRect,
     Line(Vec<f32>, Option<(f32, f32)>),
     TopBottomEnvelope(Vec<f32>, Vec<f32>, Option<(f32, f32)>),
+}
+
+impl WavDrawingInfoInternal {
+    pub fn len(&self) -> usize {
+        match self {
+            WavDrawingInfoInternal::FillRect => 0,
+            WavDrawingInfoInternal::Line(line, ..) => line.len(),
+            WavDrawingInfoInternal::TopBottomEnvelope(top, ..) => top.len(),
+        }
+    }
+
+    pub fn slice(
+        &self,
+        range: impl SliceIndex<[f32], Output = [f32]> + Clone,
+    ) -> WavDrawingInfoInternal {
+        match self {
+            WavDrawingInfoInternal::FillRect => WavDrawingInfoInternal::FillRect,
+            WavDrawingInfoInternal::Line(..) => {
+                unimplemented!();
+            }
+            WavDrawingInfoInternal::TopBottomEnvelope(top, bottom, clip_values) => {
+                WavDrawingInfoInternal::TopBottomEnvelope(
+                    top[range.clone()].to_owned(),
+                    bottom[range].to_owned(),
+                    clip_values.clone(),
+                )
+            }
+        }
+    }
+
+    pub fn convert_amp_range(
+        &self,
+        orig_amp_range: (f32, f32),
+        target_amp_range: (f32, f32),
+        height: f32,
+        wav_stroke_width: f32,
+    ) -> Self {
+        let amp_to_rel_y = get_amp_to_rel_y_fn(target_amp_range);
+        let orig_scale = orig_amp_range.1 - orig_amp_range.0;
+        let convert = |orig_rel_y: f32| amp_to_rel_y(orig_amp_range.1 - orig_rel_y * orig_scale);
+        let need_convert = relative_ne!(orig_amp_range.0, target_amp_range.0)
+            && relative_ne!(orig_amp_range.1, target_amp_range.1);
+
+        match self {
+            WavDrawingInfoInternal::FillRect => WavDrawingInfoInternal::FillRect,
+            WavDrawingInfoInternal::Line(..) => {
+                unimplemented!();
+            }
+            WavDrawingInfoInternal::TopBottomEnvelope(
+                orig_top_envlop,
+                orig_btm_envlop,
+                orig_clip_values,
+            ) => {
+                let zero_top = amp_to_rel_y(0.) - wav_stroke_width / height / 2.;
+                let zero_btm = amp_to_rel_y(0.) + wav_stroke_width / height / 2.;
+
+                let handle_zero = move |(top, btm)| {
+                    let is_larger_than_stroke_width = btm - top >= wav_stroke_width / height;
+                    if is_larger_than_stroke_width {
+                        (top, btm)
+                    } else {
+                        (zero_top, zero_btm)
+                    }
+                };
+                let (top_envlop, btm_envlop) = if need_convert {
+                    orig_top_envlop
+                        .iter()
+                        .copied()
+                        .map(convert)
+                        .zip(orig_btm_envlop.iter().copied().map(convert))
+                        .map(handle_zero)
+                        .unzip() // TODO: use SIMD
+                } else {
+                    orig_top_envlop
+                        .iter()
+                        .copied()
+                        .zip(orig_btm_envlop.iter().copied())
+                        .map(handle_zero)
+                        .unzip() // TODO: use SIMD
+                };
+                let clip_values = orig_clip_values.map(|(top, btm)| (convert(top), convert(btm)));
+
+                WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
+            }
+        }
+    }
+}
+
+// #[readonly::make]
+pub struct WavDrawingInfoCache {
+    pub wav_stroke_width: f32,
+    pub topbottom_context_size: f32,
+    pub px_per_sec: f32,
+    pub drawing_infos: Vec<WavDrawingInfoInternal>,
+    pub amp_ranges: Vec<(f32, f32)>,
+}
+
+impl WavDrawingInfoCache {
+    pub fn slice(
+        &self,
+        ch: usize,
+        sec_range: (f64, f64),
+        track_sec: f64,
+        height: f32,
+        amp_range: (f32, f32),
+        wav_stroke_width: f32,
+        margin_ratio: f64,
+    ) -> SlicedWavDrawingInfo {
+        let drawing_info = &self.drawing_infos[ch];
+        let cache_len = drawing_info.len();
+
+        let slice_args =
+            WavSliceArgs::from_cache_len(cache_len, sec_range, track_sec, margin_ratio);
+
+        if slice_args.start_w_margin >= cache_len {
+            return Default::default();
+        }
+        let drawing_info_sliced = drawing_info.slice(
+            slice_args.start_w_margin..(slice_args.start_w_margin + slice_args.length_w_margin),
+        );
+
+        // convert amp_range
+        let drawing_info_sliced = drawing_info_sliced.convert_amp_range(
+            self.amp_ranges[ch],
+            amp_range,
+            height,
+            wav_stroke_width,
+        );
+
+        SlicedWavDrawingInfo {
+            drawing_info: drawing_info_sliced,
+            drawing_sec: slice_args.drawing_sec,
+            pre_margin_sec: slice_args.pre_margin_sec,
+            post_margin_sec: slice_args.post_margin_sec,
+        } // return cache
+    }
 }
 
 /// default value means no drawing (sliced wav is empty)
@@ -71,7 +210,7 @@ impl WavDrawingInfoInternal {
                     .into_par_iter()
                     .with_min_len(outline_len / rayon::current_num_threads())
                     .map(|&x| amp_to_rel_y(x))
-                    .collect(),
+                    .collect(), // TODO: benchmark parallel iterator, use SIMD
                 clip_values,
             )
         } else {
@@ -105,7 +244,7 @@ impl WavDrawingInfoInternal {
                         (zero_top, zero_btm, false)
                     }
                 })
-                .collect();
+                .collect(); // TODO: benchmark parallel iterator, use SIMD
             let n_mean_crossing = result
                 .iter()
                 .filter(|(_, _, is_mean_crossing)| *is_mean_crossing)
@@ -121,7 +260,7 @@ impl WavDrawingInfoInternal {
                     wav.into_par_iter()
                         .with_min_len(wav.len() / rayon::current_num_threads())
                         .map(|&x| amp_to_rel_y(x))
-                        .collect(),
+                        .collect(), // TODO: benchmark parallel iterator, use SIMD
                     clip_values,
                 )
             }
@@ -275,7 +414,8 @@ impl OverviewDrawingInfoInternal {
 
 #[inline]
 fn get_amp_to_rel_y_fn(amp_range: (f32, f32)) -> impl Fn(f32) -> f32 {
-    move |x: f32| (amp_range.1 - x) / (amp_range.1 - amp_range.0)
+    let scale = amp_range.1 - amp_range.0;
+    move |x: f32| (amp_range.1 - x) / scale
 }
 
 fn quantize_px_per_samples(px_per_samples: f32) -> f32 {

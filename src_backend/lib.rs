@@ -342,7 +342,7 @@ async fn get_wav_drawing_info(
     let task = spawn_blocking(move || {
         let tracklist = TRACK_LIST.blocking_read();
         let track = tracklist.get(id)?;
-        let internal = track.calc_wav_drawing_info(
+        let internal = track.get_wav_drawing_info(
             ch,
             sec_range,
             width as f32,

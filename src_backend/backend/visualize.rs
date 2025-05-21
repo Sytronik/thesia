@@ -10,6 +10,8 @@ pub use axis::{
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
 };
 pub use drawing::convert_spec_to_img;
-pub use drawing_wav::{OverviewDrawingInfoInternal, SlicedWavDrawingInfo, WavDrawingInfoInternal};
+pub use drawing_wav::{
+    OverviewDrawingInfoInternal, SlicedWavDrawingInfo, WavDrawingInfoCache, WavDrawingInfoInternal,
+};
 pub use mipmap::Mipmaps;
 pub use slice_args::{ArrWithSliceInfo, SpectrogramSliceArgs, WavSliceArgs};
