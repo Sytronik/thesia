@@ -29,22 +29,38 @@ function labelAndSublabel(
   return {label: labelWithAcc, sublabel};
 }
 
-export function showOpenDialog(browserWindow: BrowserWindow | null) {
+export async function showOpenDialog(browserWindow: BrowserWindow | null) {
+  // get the default path
   const defaultPath = app.isPackaged ? app.getPath("home") : path.join(__dirname, "../../samples/");
+  const openDialogPath = ((await settings.get("openDialogPath")) as string) ?? defaultPath;
 
+  // show the open dialog
   const options: Electron.OpenDialogOptions = {
     title: "Select the audio files to be open",
-    defaultPath,
-    filters: [
-      {
-        name: "Audio Files",
-        extensions: SUPPORTED_TYPES,
-      },
-    ],
+    defaultPath: openDialogPath,
+    filters: [{name: "Audio Files", extensions: SUPPORTED_TYPES}],
     properties: ["openFile", "multiSelections"],
   };
-  if (browserWindow) return dialog.showOpenDialog(browserWindow, options);
-  return dialog.showOpenDialog(options);
+  const dialogResult = browserWindow
+    ? await dialog.showOpenDialog(browserWindow, options)
+    : await dialog.showOpenDialog(options);
+
+  if (!dialogResult.canceled && dialogResult.filePaths.length > 0) {
+    // find the common directory of the filepaths
+    const commonDir = dialogResult.filePaths.reduce((common, filePath) => {
+      const resolved = path.resolve(filePath);
+      let newCommon = common;
+      while (!resolved.startsWith(newCommon)) {
+        newCommon = path.dirname(newCommon);
+      }
+      return newCommon;
+    }, path.resolve(dialogResult.filePaths[0]));
+
+    // save the common directory to settings
+    await settings.set("openDialogPath", commonDir);
+  }
+
+  return dialogResult;
 }
 
 export function addAppRenderedListener(pathsToOpen: string[]) {

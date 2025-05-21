@@ -16,7 +16,14 @@ ipcRenderer.once("render-with-settings", (_, settings) => {
   const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   gl.getExtension("WEBGL_lose_context")?.loseContext();
 
-  const userSettingsOrInitialValues = BackendAPI.init(settings, maxTextureSize);
+  const userSettings: UserSettings = {
+    specSetting: settings.specSetting,
+    blend: settings.blend,
+    dBRange: settings.dBRange,
+    commonGuardClipping: settings.commonGuardClipping,
+    commonNormalize: settings.commonNormalize,
+  };
+  const userSettingsOrInitialValues = BackendAPI.init(userSettings, maxTextureSize);
   Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
     setUserSetting(key as keyof UserSettings, value),
   );
