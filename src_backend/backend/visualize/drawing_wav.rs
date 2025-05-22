@@ -182,6 +182,7 @@ impl WavDrawingInfoInternal {
         wav_stroke_width: f32,
         topbottom_context_size: f32,
         show_clipping: bool,
+        force_topbottom: bool,
     ) -> WavDrawingInfoInternal {
         let thr_long_height = wav_stroke_width / height;
         let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
@@ -194,7 +195,7 @@ impl WavDrawingInfoInternal {
         if amp_range.1 - amp_range.0 < 1e-16 {
             // over-zoomed
             WavDrawingInfoInternal::FillRect
-        } else if resample_ratio > 0.5 {
+        } else if resample_ratio > 0.5 && !force_topbottom {
             // upsampling
             let mut resampler;
             let wav = if resample_ratio != 1. {
@@ -249,7 +250,8 @@ impl WavDrawingInfoInternal {
                 .iter()
                 .filter(|(_, _, is_mean_crossing)| *is_mean_crossing)
                 .count();
-            if wav.len() > MAX_WAV_LINE_LEN
+            if force_topbottom
+                || wav.len() > MAX_WAV_LINE_LEN
                 || n_mean_crossing > outline_len * THR_TOPBOTTOM_PERCENT / 100
             {
                 let (top_envlop, btm_envlop) = result
@@ -348,6 +350,7 @@ impl OverviewDrawingInfoInternal {
                         wav_stroke_width,
                         topbottom_context_size,
                         false,
+                        false,
                     )
                 };
                 match track.guard_clip_result() {
@@ -364,6 +367,7 @@ impl OverviewDrawingInfoInternal {
                                     wav_stroke_width,
                                     topbottom_context_size,
                                     true,
+                                    false,
                                 ),
                                 None,
                             )

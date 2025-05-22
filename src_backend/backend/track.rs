@@ -170,6 +170,7 @@ impl AudioTrack {
                 wav_stroke_width,
                 topbottom_context_size,
                 margin_ratio,
+                false,
             )
         } else {
             let cache = self.wav_drawing_info_cache.read();
@@ -206,19 +207,12 @@ impl AudioTrack {
                         wav_stroke_width,
                         topbottom_context_size,
                         0.,
+                        true,
                     )
                     .drawing_info;
                 (amp_range, drawing_info)
             })
             .unzip();
-        debug_assert!(
-            drawing_infos
-                .iter()
-                .all(|ch| matches!(ch, WavDrawingInfoInternal::TopBottomEnvelope(..))),
-            "px_per_sec = {}, px_per_samples = {} are too high!",
-            px_per_sec,
-            px_per_samples,
-        );
         self.wav_drawing_info_cache
             .write()
             .replace(WavDrawingInfoCache {
@@ -250,6 +244,7 @@ impl AudioTrack {
         wav_stroke_width: f32,
         topbottom_context_size: f32,
         margin_ratio: f64,
+        force_topbottom: bool,
     ) -> SlicedWavDrawingInfo {
         let (wav, is_clipped) = self.channel_for_drawing(ch);
         let args = WavSliceArgs::new(self.sr(), sec_range, width, wav.len(), margin_ratio);
@@ -268,6 +263,7 @@ impl AudioTrack {
             wav_stroke_width,
             topbottom_context_size,
             is_clipped,
+            force_topbottom,
         );
         SlicedWavDrawingInfo {
             drawing_info,
