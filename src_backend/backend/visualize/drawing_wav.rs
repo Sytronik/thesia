@@ -280,7 +280,7 @@ pub fn calc_limiter_gain_drawing_info(
 
     let envlop_iter = (0..width).map(|i_px| {
         let i_px = i_px as f32;
-        let i_mid = (i_px * samples_per_px).round() as usize;
+        let i_mid = ((i_px * samples_per_px).round() as usize).min(gain.len() - 1);
         if gain[i_mid.max(1) - 1] == gain[i_mid]
             || gain[i_mid] == gain[i_mid.min(gain.len() - 2) + 1]
         {
