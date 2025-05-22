@@ -19,7 +19,7 @@ const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: usize = 70;
 
 const OVERVIEW_MAX_CH: usize = 4;
-
+const MAX_WAV_LINE_LEN: usize = 2_usize.pow(23);
 #[derive(Default)]
 pub enum WavDrawingInfoInternal {
     #[default]
@@ -249,7 +249,9 @@ impl WavDrawingInfoInternal {
                 .iter()
                 .filter(|(_, _, is_mean_crossing)| *is_mean_crossing)
                 .count();
-            if n_mean_crossing > outline_len * THR_TOPBOTTOM_PERCENT / 100 {
+            if wav.len() > MAX_WAV_LINE_LEN
+                || n_mean_crossing > outline_len * THR_TOPBOTTOM_PERCENT / 100
+            {
                 let (top_envlop, btm_envlop) = result
                     .into_iter()
                     .map(|(top, bottom, _)| (top, bottom))
