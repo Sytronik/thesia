@@ -116,15 +116,14 @@ fn init(user_settings: UserSettingsOptionals, max_spectrogram_size: u32) -> Resu
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    let added_ids = spawn_blocking(move || {
+    let added_ids = tokio_rayon::spawn_fifo(move || {
         TRACK_LIST
             .blocking_write()
             .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list)
     })
-    .await
-    .unwrap();
+    .await;
     let added_ids_u32 = added_ids.iter().map(|&x| x as u32).collect();
-    spawn_blocking(move || {
+    rayon::spawn_fifo(move || {
         TM.blocking_write()
             .add_tracks(&TRACK_LIST.blocking_read(), &added_ids);
     });
@@ -137,10 +136,9 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let (reloaded_ids, no_err_ids) =
-        spawn_blocking(move || TRACK_LIST.blocking_write().reload_tracks(&track_ids))
-            .await
-            .unwrap();
-    spawn_blocking(move || {
+        tokio_rayon::spawn_fifo(move || TRACK_LIST.blocking_write().reload_tracks(&track_ids))
+            .await;
+    rayon::spawn_fifo(move || {
         TM.blocking_write()
             .reload_tracks(&TRACK_LIST.blocking_read(), &reloaded_ids);
     });
@@ -156,7 +154,7 @@ fn remove_tracks(track_ids: Vec<u32>) {
     removed_id_ch_tuples.iter().for_each(|(id, ch)| {
         DRAW_WAV_TASK_ID_MAP.remove(&format_id_ch(*id, *ch));
     });
-    spawn_blocking(move || {
+    rayon::spawn_fifo(move || {
         TM.blocking_write()
             .remove_tracks(&TRACK_LIST.blocking_read(), &removed_id_ch_tuples);
     });
@@ -164,15 +162,14 @@ fn remove_tracks(track_ids: Vec<u32>) {
 
 #[napi]
 async fn apply_track_list_changes() -> Vec<String> {
-    let (id_ch_tuples, sr) = spawn_blocking(move || {
+    let (id_ch_tuples, sr) = tokio_rayon::spawn_fifo(move || {
         let mut tm = TM.blocking_write();
         let tracklist = TRACK_LIST.blocking_read();
         let (updated_id_set, sr) = tm.apply_track_list_changes(&tracklist);
         let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
         (tracklist.id_ch_tuples_from(&updated_ids), sr)
     })
-    .await
-    .unwrap();
+    .await;
     let id_ch_strs = id_ch_tuples
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
@@ -191,23 +188,21 @@ async fn get_dB_range() -> f64 {
 #[allow(non_snake_case)]
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    spawn_blocking(move || {
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .set_dB_range(&TRACK_LIST.blocking_read(), dB_range as f32)
     })
-    .await
-    .unwrap();
+    .await;
 }
 
 #[napi]
 async fn set_colormap_length(colormap_length: u32) {
     assert!(colormap_length > 0);
-    spawn_blocking(move || {
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .set_colormap_length(&TRACK_LIST.blocking_read(), colormap_length)
     })
-    .await
-    .unwrap();
+    .await;
 }
 
 #[napi]
@@ -221,12 +216,11 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
     *SPEC_SETTING.write() = spec_setting.clone();
-    spawn_blocking(move || {
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .set_setting(&TRACK_LIST.blocking_read(), spec_setting)
     })
-    .await
-    .unwrap();
+    .await;
 }
 
 #[napi]
@@ -236,15 +230,13 @@ fn get_common_guard_clipping() -> GuardClippingMode {
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
-    spawn_blocking(move || TRACK_LIST.blocking_write().set_common_guard_clipping(mode))
-        .await
-        .unwrap();
-    spawn_blocking(move || {
+    tokio_rayon::spawn_fifo(move || TRACK_LIST.blocking_write().set_common_guard_clipping(mode))
+        .await;
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .update_all_specs_mipmaps(&TRACK_LIST.blocking_read());
     })
-    .await
-    .unwrap();
+    .await;
     refresh_track_player().await;
 }
 
@@ -257,17 +249,15 @@ fn get_common_normalize() -> serde_json::Value {
 async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
-    spawn_blocking(move || {
+    tokio_rayon::spawn_fifo(move || {
         TRACK_LIST.blocking_write().set_common_normalize(target);
     })
-    .await
-    .unwrap();
-    spawn_blocking(move || {
+    .await;
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .update_all_specs_mipmaps(&TRACK_LIST.blocking_read());
     })
-    .await
-    .unwrap();
+    .await;
     refresh_track_player().await;
     Ok(())
 }
@@ -285,7 +275,7 @@ async fn get_spectrogram(
         return Ok(None);
     }
 
-    spawn_blocking(move || {
+    tokio_rayon::spawn(move || {
         let track_sec = {
             let tracklist = TRACK_LIST.blocking_read();
             if let Some(track) = tracklist.get(id) {
@@ -310,7 +300,6 @@ async fn get_spectrogram(
         Ok(Some(Spectrogram::new(args, sliced_mipmap, sec_range.0)))
     })
     .await
-    .unwrap()
 }
 
 #[napi]
@@ -338,7 +327,7 @@ async fn get_wav_drawing_info(
         *entry.value()
     };
 
-    let out = spawn_blocking(move || {
+    let out = tokio_rayon::spawn(move || {
         let tracklist = TRACK_LIST.blocking_read();
         let track = tracklist.get(id)?;
         let internal = track.get_wav_drawing_info(
@@ -353,8 +342,7 @@ async fn get_wav_drawing_info(
         );
         Some(WavDrawingInfo::new(internal, sec_range.0))
     })
-    .await
-    .unwrap();
+    .await;
 
     if DRAW_WAV_TASK_ID_MAP
         .get(&id_ch_str)
@@ -391,7 +379,7 @@ async fn get_overview_drawing_info(
     let wav_stroke_width = wav_stroke_width as f32;
     let topbottom_context_size = topbottom_context_size as f32;
 
-    let (internal, track_sec) = spawn_blocking(move || {
+    let (internal, track_sec) = tokio_rayon::spawn_fifo(move || {
         let tracklist = TRACK_LIST.blocking_read();
         let track = tracklist.get(track_id as usize)?;
         let internal = OverviewDrawingInfoInternal::new(
@@ -406,8 +394,7 @@ async fn get_overview_drawing_info(
         );
         Some((internal, track.sec()))
     })
-    .await
-    .unwrap()?;
+    .await?;
 
     Some(OverviewDrawingInfo::new(internal, track_sec))
 }
