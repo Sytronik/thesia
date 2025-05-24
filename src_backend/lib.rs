@@ -10,7 +10,6 @@ use std::sync::LazyLock;
 use dashmap::DashMap;
 use log::LevelFilter;
 use napi::bindgen_prelude::*;
-use napi::tokio;
 use napi::tokio::sync::RwLock as AsyncRwLock;
 use napi_derive::napi;
 use parking_lot::RwLock as SyncRwLock;
@@ -339,7 +338,7 @@ async fn get_wav_drawing_info(
         *entry.value()
     };
 
-    let task = spawn_blocking(move || {
+    let out = spawn_blocking(move || {
         let tracklist = TRACK_LIST.blocking_read();
         let track = tracklist.get(id)?;
         let internal = track.get_wav_drawing_info(
@@ -353,20 +352,17 @@ async fn get_wav_drawing_info(
             margin_ratio,
         );
         Some(WavDrawingInfo::new(internal, sec_range.0))
-    });
+    })
+    .await
+    .unwrap();
 
-    loop {
-        if task.is_finished() {
-            return Ok(task.await.unwrap());
-        }
-        if DRAW_WAV_TASK_ID_MAP
-            .get(&id_ch_str)
-            .is_none_or(|id| *id != task_id)
-        {
-            return Ok(None); // if new task is started, return None
-        }
-        tokio::time::sleep(tokio::time::Duration::from_micros(100)).await;
+    if DRAW_WAV_TASK_ID_MAP
+        .get(&id_ch_str)
+        .is_none_or(|id| *id != task_id)
+    {
+        return Ok(None); // if new task has been started, return None
     }
+    Ok(out)
 }
 
 #[napi]
