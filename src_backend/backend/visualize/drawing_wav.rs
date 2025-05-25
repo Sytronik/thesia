@@ -1,12 +1,19 @@
-// use std::time::Instant;
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::*;
+#[cfg(target_arch = "aarch64")]
+use std::arch::is_aarch64_feature_detected;
+#[cfg(target_arch = "x86_64")]
+use std::arch::is_x86_feature_detected;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 use std::ops::Neg;
 use std::slice::SliceIndex;
 
 use approx::relative_ne;
 use cached::proc_macro::cached;
+use itertools::Itertools;
 use ndarray::prelude::*;
 use ndarray::{ErrorKind, ShapeError};
-use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
@@ -269,6 +276,7 @@ impl WavDrawingInfoInternal {
             let zero_rel_y = amp_to_rel_y(0.);
             let zero_top = zero_rel_y - wav_stroke_width / height / 2.;
             let zero_btm = zero_rel_y + wav_stroke_width / height / 2.;
+
             let result: Vec<_> = (0..args.total_len)
                 .into_par_iter()
                 .with_min_len(args.total_len / rayon::current_num_threads())
@@ -281,12 +289,36 @@ impl WavDrawingInfoInternal {
                         + (i_envlop + half_context_size) / resample_ratio)
                         as usize)
                         .min(wav.len());
-                    let wav_slice = wav.slice(s![i_start..i_end]);
-                    let top = amp_to_rel_y(*wav_slice.max_skipnan());
-                    let bottom = amp_to_rel_y(*wav_slice.min_skipnan());
+
+                    let wav_slice = &wav.as_slice().unwrap()[i_start..i_end];
+
+                    // Use SIMD if available, otherwise fall back to scalar
+                    #[cfg(target_arch = "aarch64")]
+                    let (min_val, max_val) = if is_aarch64_feature_detected!("neon") {
+                        find_min_max_neon(wav_slice)
+                    } else {
+                        find_min_max_scalar(wav_slice)
+                    };
+
+                    #[cfg(target_arch = "x86_64")]
+                    let (min_val, max_val) = if is_x86_feature_detected!("avx2") {
+                        find_min_max_avx2(wav_slice)
+                    } else if is_x86_feature_detected!("sse4.1") {
+                        find_min_max_sse4(wav_slice)
+                    } else {
+                        find_min_max_scalar(wav_slice)
+                    };
+
+                    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+                    let (min_val, max_val) = find_min_max_scalar(wav_slice);
+
+                    let top = amp_to_rel_y(max_val);
+                    let bottom = amp_to_rel_y(min_val);
+
                     let is_mean_crossing = top < mean_rel_y + f32::EPSILON
                         && bottom > mean_rel_y - thr_long_height
                         || top < mean_rel_y + thr_long_height && bottom > mean_rel_y - f32::EPSILON;
+
                     let is_larger_than_stroke_width = bottom - top >= wav_stroke_width / height;
                     if is_larger_than_stroke_width {
                         (top, bottom, is_mean_crossing)
@@ -294,7 +326,7 @@ impl WavDrawingInfoInternal {
                         (zero_top, zero_btm, false)
                     }
                 })
-                .collect(); // TODO: benchmark parallel iterator, use SIMD
+                .collect();
             let n_mean_crossing = result
                 .iter()
                 .filter(|(_, _, is_mean_crossing)| *is_mean_crossing)
@@ -507,4 +539,123 @@ fn quantize_px_per_samples(px_per_samples: f32) -> f32 {
 #[cached(size = 64)]
 fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> {
     FftResampler::new(input_size, output_size)
+}
+
+#[inline]
+fn find_min_max_scalar(slice: &[f32]) -> (f32, f32) {
+    let (min, max) = slice.iter().minmax().into_option().unwrap();
+    (*min, *max)
+}
+
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn find_min_max_neon(slice: &[f32]) -> (f32, f32) {
+    let mut min_val = f32::INFINITY;
+    let mut max_val = f32::NEG_INFINITY;
+    const SIMD_WIDTH: usize = 4;
+
+    // Process full NEON chunks
+    for chunk in slice.chunks_exact(SIMD_WIDTH) {
+        unsafe {
+            let v = vld1q_f32(chunk.as_ptr());
+            min_val = min_val.min(vminvq_f32(v));
+            max_val = max_val.max(vmaxvq_f32(v));
+        }
+    }
+
+    // Handle remaining elements
+    for &val in slice.chunks_exact(SIMD_WIDTH).remainder() {
+        min_val = min_val.min(val);
+        max_val = max_val.max(val);
+    }
+
+    (min_val, max_val)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
+    let mut min_val = f32::INFINITY;
+    let mut max_val = f32::NEG_INFINITY;
+    const SIMD_WIDTH: usize = 8; // AVX2 processes 8 f32 values at once
+
+    // Process full AVX2 chunks
+    for chunk in slice.chunks_exact(SIMD_WIDTH) {
+        unsafe {
+            let v = _mm256_loadu_ps(chunk.as_ptr());
+            min_val = min_val.min(_mm256_reduce_min_ps(v));
+            max_val = max_val.max(_mm256_reduce_max_ps(v));
+        }
+    }
+
+    // Handle remaining elements
+    for &val in slice.chunks_exact(SIMD_WIDTH).remainder() {
+        min_val = min_val.min(val);
+        max_val = max_val.max(val);
+    }
+
+    (min_val, max_val)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
+    let mut min_val = f32::INFINITY;
+    let mut max_val = f32::NEG_INFINITY;
+    const SIMD_WIDTH: usize = 4; // SSE4 processes 4 f32 values at once
+
+    // Process full SSE4 chunks
+    for chunk in slice.chunks_exact(SIMD_WIDTH) {
+        unsafe {
+            let v = _mm_loadu_ps(chunk.as_ptr());
+            min_val = min_val.min(_mm_reduce_min_ps(v));
+            max_val = max_val.max(_mm_reduce_max_ps(v));
+        }
+    }
+
+    // Handle remaining elements
+    for &val in slice.chunks_exact(SIMD_WIDTH).remainder() {
+        min_val = min_val.min(val);
+        max_val = max_val.max(val);
+    }
+
+    (min_val, max_val)
+}
+
+// Helper functions for SSE4.1 and AVX2 reductions
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn _mm256_reduce_min_ps(v: __m256) -> f32 {
+    let low = _mm256_extractf128_ps(v, 0);
+    let high = _mm256_extractf128_ps(v, 1);
+    let min1 = _mm_min_ps(low, high);
+    _mm_reduce_min_ps(min1)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn _mm256_reduce_max_ps(v: __m256) -> f32 {
+    let low = _mm256_extractf128_ps(v, 0);
+    let high = _mm256_extractf128_ps(v, 1);
+    let max1 = _mm_max_ps(low, high);
+    _mm_reduce_max_ps(max1)
+}
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn _mm_reduce_min_ps(v: __m128) -> f32 {
+    let shuf = _mm_movehdup_ps(v);
+    let min1 = _mm_min_ps(v, shuf);
+    let shuf2 = _mm_movehl_ps(min1, min1);
+    let min2 = _mm_min_ps(min1, shuf2);
+    _mm_cvtss_f32(min2)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn _mm_reduce_max_ps(v: __m128) -> f32 {
+    let shuf = _mm_movehdup_ps(v);
+    let max1 = _mm_max_ps(v, shuf);
+    let shuf2 = _mm_movehl_ps(max1, max1);
+    let max2 = _mm_max_ps(max1, shuf2);
+    _mm_cvtss_f32(max2)
 }
