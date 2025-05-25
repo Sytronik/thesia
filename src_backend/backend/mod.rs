@@ -31,7 +31,6 @@ pub use visualize::{
 pub type IdCh = (usize, usize);
 pub type IdChVec = Vec<IdCh>;
 pub type IdChArr = [IdCh];
-pub type IdChValueVec<T> = Vec<(IdCh, T)>;
 pub type IdChMap<T> = TupleIntMap<IdCh, T>;
 
 use spectrogram::{SpectrogramAnalyzer, SrWinNfft};

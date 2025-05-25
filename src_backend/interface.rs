@@ -9,8 +9,8 @@ use napi_derive::napi;
 use ndarray::Array2;
 
 use crate::{
-    GuardClippingMode, IdChValueVec, OverviewDrawingInfoInternal, SlicedWavDrawingInfo,
-    SpecSetting, SpectrogramSliceArgs, WavDrawingInfoInternal,
+    GuardClippingMode, OverviewDrawingInfoInternal, SlicedWavDrawingInfo, SpecSetting,
+    SpectrogramSliceArgs, WavDrawingInfoInternal,
 };
 
 #[napi(object)]
@@ -186,33 +186,6 @@ impl OverviewDrawingInfo {
             limiter_gain_height: heights.gain as f64,
             ch_wo_gain_height: heights.ch_wo_gain as f64,
         }
-    }
-}
-
-#[derive(Default)]
-pub struct IdChSpectrograms(pub IdChValueVec<Spectrogram>);
-
-impl TypeName for IdChSpectrograms {
-    fn type_name() -> &'static str {
-        "HashMap"
-    }
-
-    fn value_type() -> ValueType {
-        ValueType::Object
-    }
-}
-
-impl ValidateNapiValue for IdChSpectrograms {}
-
-impl ToNapiValue for IdChSpectrograms {
-    unsafe fn to_napi_value(raw_env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let env = Env::from(raw_env);
-        let mut obj = env.create_object()?;
-        for ((id, ch), spectrogram) in val.0.into_iter() {
-            obj.set(format_id_ch(id, ch), spectrogram)?;
-        }
-
-        unsafe { Object::to_napi_value(raw_env, obj) }
     }
 }
 
