@@ -9,8 +9,8 @@ use napi_derive::napi;
 use ndarray::Array2;
 
 use crate::{
-    GuardClippingMode, OverviewDrawingInfoInternal, SlicedWavDrawingInfo, SpecSetting,
-    SpectrogramSliceArgs, WavDrawingInfoInternal,
+    GuardClippingMode, OverviewDrawingInfoInternal, SpecSetting, SpectrogramSliceArgs,
+    WavDrawingInfoInternal, WavDrawingInfoKind,
 };
 
 #[napi(object)]
@@ -94,7 +94,7 @@ pub struct WavDrawingInfo {
 }
 
 impl WavDrawingInfo {
-    pub fn new(internal: SlicedWavDrawingInfo, start_sec: f64) -> Self {
+    pub fn new(internal: WavDrawingInfoInternal, start_sec: f64) -> Self {
         if internal.drawing_sec == 0. {
             return Self {
                 line: Some(Default::default()),
@@ -106,12 +106,12 @@ impl WavDrawingInfo {
             start_sec,
             ..Default::default()
         };
-        match internal.drawing_info {
-            WavDrawingInfoInternal::FillRect => base,
-            WavDrawingInfoInternal::Line(line, clip_values) => {
-                let buf: &[u8] = bytemuck::cast_slice(&line);
+        match &internal.kind {
+            WavDrawingInfoKind::FillRect => base,
+            WavDrawingInfoKind::Line(line, clip_values) => {
+                let buf: &[u8] = bytemuck::cast_slice(line);
 
-                let points_per_sec = line.len() as f64 / internal.drawing_sec;
+                let points_per_sec = line.len() as f64 / internal.drawing_sec; // Internal에서 애초에 수정
                 Self {
                     line: Some(buf.into()),
                     points_per_sec,
@@ -121,13 +121,9 @@ impl WavDrawingInfo {
                     ..base
                 }
             }
-            WavDrawingInfoInternal::TopBottomEnvelope(
-                top_envelope,
-                bottom_envelope,
-                clip_values,
-            ) => {
-                let top_buf: &[u8] = bytemuck::cast_slice(&top_envelope);
-                let bottom_buf: &[u8] = bytemuck::cast_slice(&bottom_envelope);
+            WavDrawingInfoKind::TopBottomEnvelope(top_envelope, bottom_envelope, clip_values) => {
+                let top_buf: &[u8] = bytemuck::cast_slice(top_envelope);
+                let bottom_buf: &[u8] = bytemuck::cast_slice(bottom_envelope);
 
                 let points_per_sec = top_envelope.len() as f64 / internal.drawing_sec;
                 Self {
@@ -162,14 +158,9 @@ impl OverviewDrawingInfo {
             limiter_gain_infos,
             heights,
         } = internal;
-        let convert = |drawing_info| {
+        let convert = |drawing_info_kind| {
             WavDrawingInfo::new(
-                SlicedWavDrawingInfo {
-                    drawing_info,
-                    drawing_sec: track_sec,
-                    pre_margin_sec: 0.,
-                    post_margin_sec: 0.,
-                },
+                WavDrawingInfoInternal::new(drawing_info_kind, track_sec, 0., 0.),
                 0.,
             )
         };

@@ -5,6 +5,7 @@ use std::slice::SliceIndex;
 use approx::relative_ne;
 use cached::proc_macro::cached;
 use ndarray::prelude::*;
+use ndarray::{ErrorKind, ShapeError};
 use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
@@ -20,34 +21,35 @@ const THR_TOPBOTTOM_PERCENT: usize = 70;
 
 const OVERVIEW_MAX_CH: usize = 4;
 const MAX_WAV_LINE_LEN: usize = 2_usize.pow(23);
+
 #[derive(Default)]
-pub enum WavDrawingInfoInternal {
+pub enum WavDrawingInfoKind {
     #[default]
     FillRect,
     Line(Vec<f32>, Option<(f32, f32)>),
     TopBottomEnvelope(Vec<f32>, Vec<f32>, Option<(f32, f32)>),
 }
 
-impl WavDrawingInfoInternal {
+impl WavDrawingInfoKind {
     pub fn len(&self) -> usize {
         match self {
-            WavDrawingInfoInternal::FillRect => 0,
-            WavDrawingInfoInternal::Line(line, ..) => line.len(),
-            WavDrawingInfoInternal::TopBottomEnvelope(top, ..) => top.len(),
+            WavDrawingInfoKind::FillRect => 0,
+            WavDrawingInfoKind::Line(line, ..) => line.len(),
+            WavDrawingInfoKind::TopBottomEnvelope(top, ..) => top.len(),
         }
     }
 
     pub fn slice(
         &self,
         range: impl SliceIndex<[f32], Output = [f32]> + Clone,
-    ) -> WavDrawingInfoInternal {
+    ) -> WavDrawingInfoKind {
         match self {
-            WavDrawingInfoInternal::FillRect => WavDrawingInfoInternal::FillRect,
-            WavDrawingInfoInternal::Line(..) => {
+            WavDrawingInfoKind::FillRect => WavDrawingInfoKind::FillRect,
+            WavDrawingInfoKind::Line(..) => {
                 unimplemented!();
             }
-            WavDrawingInfoInternal::TopBottomEnvelope(top, bottom, clip_values) => {
-                WavDrawingInfoInternal::TopBottomEnvelope(
+            WavDrawingInfoKind::TopBottomEnvelope(top, bottom, clip_values) => {
+                WavDrawingInfoKind::TopBottomEnvelope(
                     top[range.clone()].to_owned(),
                     bottom[range].to_owned(),
                     clip_values.clone(),
@@ -70,11 +72,11 @@ impl WavDrawingInfoInternal {
             && relative_ne!(orig_amp_range.1, target_amp_range.1);
 
         match self {
-            WavDrawingInfoInternal::FillRect => WavDrawingInfoInternal::FillRect,
-            WavDrawingInfoInternal::Line(..) => {
+            WavDrawingInfoKind::FillRect => WavDrawingInfoKind::FillRect,
+            WavDrawingInfoKind::Line(..) => {
                 unimplemented!();
             }
-            WavDrawingInfoInternal::TopBottomEnvelope(
+            WavDrawingInfoKind::TopBottomEnvelope(
                 orig_top_envlop,
                 orig_btm_envlop,
                 orig_clip_values,
@@ -108,66 +110,17 @@ impl WavDrawingInfoInternal {
                 };
                 let clip_values = orig_clip_values.map(|(top, btm)| (convert(top), convert(btm)));
 
-                WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
+                WavDrawingInfoKind::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
             }
         }
     }
 }
 
-// #[readonly::make]
-pub struct WavDrawingInfoCache {
-    pub wav_stroke_width: f32,
-    pub topbottom_context_size: f32,
-    pub px_per_sec: f32,
-    pub drawing_infos: Vec<WavDrawingInfoInternal>,
-    pub amp_ranges: Vec<(f32, f32)>,
-}
-
-impl WavDrawingInfoCache {
-    pub fn slice(
-        &self,
-        ch: usize,
-        sec_range: (f64, f64),
-        track_sec: f64,
-        height: f32,
-        amp_range: (f32, f32),
-        wav_stroke_width: f32,
-        margin_ratio: f64,
-    ) -> SlicedWavDrawingInfo {
-        let drawing_info = &self.drawing_infos[ch];
-        let cache_len = drawing_info.len();
-
-        let slice_args =
-            WavSliceArgs::from_cache_len(cache_len, sec_range, track_sec, margin_ratio);
-
-        if slice_args.start_w_margin >= cache_len {
-            return Default::default();
-        }
-        let drawing_info_sliced = drawing_info.slice(
-            slice_args.start_w_margin..(slice_args.start_w_margin + slice_args.length_w_margin),
-        );
-
-        // convert amp_range
-        let drawing_info_sliced = drawing_info_sliced.convert_amp_range(
-            self.amp_ranges[ch],
-            amp_range,
-            height,
-            wav_stroke_width,
-        );
-
-        SlicedWavDrawingInfo {
-            drawing_info: drawing_info_sliced,
-            drawing_sec: slice_args.drawing_sec,
-            pre_margin_sec: slice_args.pre_margin_sec,
-            post_margin_sec: slice_args.post_margin_sec,
-        } // return cache
-    }
-}
-
 /// default value means no drawing (sliced wav is empty)
 #[derive(Default)]
-pub struct SlicedWavDrawingInfo {
-    pub drawing_info: WavDrawingInfoInternal,
+#[readonly::make]
+pub struct WavDrawingInfoInternal {
+    pub kind: WavDrawingInfoKind,
     pub drawing_sec: f64,
     pub pre_margin_sec: f64,
     pub post_margin_sec: f64,
@@ -175,16 +128,37 @@ pub struct SlicedWavDrawingInfo {
 
 impl WavDrawingInfoInternal {
     pub fn new(
+        kind: WavDrawingInfoKind,
+        drawing_sec: f64,
+        pre_margin_sec: f64,
+        post_margin_sec: f64,
+    ) -> Self {
+        Self {
+            kind,
+            drawing_sec,
+            pre_margin_sec,
+            post_margin_sec,
+        }
+    }
+
+    pub fn from_wav(
         wav: ArrayView1<f32>,
         sr: u32,
-        args: WavSliceArgs,
+        sec_range: (f64, f64),
+        margin_ratio: f64,
+        width: f32,
         height: f32,
         amp_range: (f32, f32),
         wav_stroke_width: f32,
         topbottom_context_size: f32,
         show_clipping: bool,
         force_topbottom: bool,
-    ) -> (WavDrawingInfoInternal, WavSliceArgs) {
+    ) -> Result<WavDrawingInfoInternal, ShapeError> {
+        let mut args = WavSliceArgs::new(sr, sec_range, width, wav.len(), margin_ratio);
+
+        if args.start_w_margin > wav.len() {
+            return Err(ShapeError::from_kind(ErrorKind::OutOfBounds));
+        }
         let end_w_margin = args.start_w_margin + args.length_w_margin;
         let thr_long_height = wav_stroke_width / height;
         let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
@@ -193,9 +167,9 @@ impl WavDrawingInfoInternal {
         let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
             .then_some((amp_to_rel_y(1.), amp_to_rel_y(-1.)));
 
-        if amp_range.1 - amp_range.0 < 1e-16 {
+        let kind = if amp_range.1 - amp_range.0 < 1e-16 {
             // over-zoomed
-            (WavDrawingInfoInternal::FillRect, args)
+            WavDrawingInfoKind::FillRect
         } else if resample_ratio > 0.5 && !force_topbottom {
             let outline_len = (args.length_w_margin as f32 * resample_ratio).round() as usize;
             // upsampling
@@ -210,23 +184,22 @@ impl WavDrawingInfoInternal {
             } else {
                 wav.slice(s![args.start_w_margin..end_w_margin])
             };
-            let line = WavDrawingInfoInternal::Line(
+            WavDrawingInfoKind::Line(
                 wav.slice(s![..outline_len])
                     .into_par_iter()
                     .with_min_len(outline_len / rayon::current_num_threads())
                     .map(|&x| amp_to_rel_y(x))
                     .collect(), // TODO: benchmark parallel iterator, use SIMD
                 clip_values,
-            );
-            (line, args)
+            )
         } else {
             let start_f32 = args.start_w_margin as f32;
             let bias = (start_f32 * resample_ratio).ceil() / resample_ratio - start_f32;
             let start_f32 = start_f32 + bias;
             let outline_len =
                 ((args.length_w_margin as f32 - bias) * resample_ratio).round() as usize;
-            let pre_margin_sec = args.pre_margin_sec - bias as f64 / sr as f64;
-            let drawing_sec = args.drawing_sec - bias as f64 / sr as f64;
+            args.pre_margin_sec = args.pre_margin_sec - bias as f64 / sr as f64;
+            args.drawing_sec = args.drawing_sec - bias as f64 / sr as f64;
             let half_context_size = topbottom_context_size / 2.;
             let mean_rel_y = amp_to_rel_y(
                 wav.slice(s![start_f32 as usize..end_w_margin])
@@ -273,28 +246,79 @@ impl WavDrawingInfoInternal {
                     .into_iter()
                     .map(|(top, bottom, _)| (top, bottom))
                     .unzip();
-                let topbottom =
-                    WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values);
-                (
-                    topbottom,
-                    WavSliceArgs {
-                        pre_margin_sec,
-                        drawing_sec,
-                        ..args
-                    },
-                )
+
+                WavDrawingInfoKind::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
             } else {
-                let line = WavDrawingInfoInternal::Line(
+                WavDrawingInfoKind::Line(
                     wav.slice(s![args.start_w_margin..end_w_margin])
                         .into_par_iter()
                         .with_min_len(args.length_w_margin / rayon::current_num_threads())
                         .map(|&x| amp_to_rel_y(x))
                         .collect(), // TODO: benchmark parallel iterator, use SIMD
                     clip_values,
-                );
-                (line, args)
+                )
             }
+        };
+
+        Ok(WavDrawingInfoInternal::new(
+            kind,
+            args.drawing_sec,
+            args.pre_margin_sec,
+            args.post_margin_sec,
+        ))
+    }
+}
+
+impl From<WavDrawingInfoInternal> for WavDrawingInfoKind {
+    fn from(info: WavDrawingInfoInternal) -> Self {
+        info.kind
+    }
+}
+
+// #[readonly::make]
+pub struct WavDrawingInfoCache {
+    pub wav_stroke_width: f32,
+    pub topbottom_context_size: f32,
+    pub px_per_sec: f32,
+    pub drawing_info_kinds: Vec<WavDrawingInfoKind>,
+    pub amp_ranges: Vec<(f32, f32)>,
+}
+
+impl WavDrawingInfoCache {
+    pub fn slice(
+        &self,
+        ch: usize,
+        sec_range: (f64, f64),
+        track_sec: f64,
+        height: f32,
+        amp_range: (f32, f32),
+        wav_stroke_width: f32,
+        margin_ratio: f64,
+    ) -> WavDrawingInfoInternal {
+        let kind = &self.drawing_info_kinds[ch];
+        let cache_len = kind.len();
+
+        let slice_args =
+            WavSliceArgs::from_cache_len(cache_len, sec_range, track_sec, margin_ratio);
+
+        if slice_args.start_w_margin >= cache_len {
+            return Default::default();
         }
+
+        // slice
+        let kind = kind.slice(
+            slice_args.start_w_margin..(slice_args.start_w_margin + slice_args.length_w_margin),
+        );
+
+        // convert amp_range
+        let kind = kind.convert_amp_range(self.amp_ranges[ch], amp_range, height, wav_stroke_width);
+
+        WavDrawingInfoInternal {
+            kind,
+            drawing_sec: slice_args.drawing_sec,
+            pre_margin_sec: slice_args.pre_margin_sec,
+            post_margin_sec: slice_args.post_margin_sec,
+        } // return cache
     }
 }
 
@@ -303,7 +327,7 @@ pub fn calc_limiter_gain_drawing_info(
     width: u32,
     amp_range: (f32, f32),
     topbottom_context_size: f32,
-) -> WavDrawingInfoInternal {
+) -> WavDrawingInfoKind {
     let half_context_size = topbottom_context_size / 2.;
     let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
     let samples_per_px = gain.len() as f32 / width as f32;
@@ -328,13 +352,13 @@ pub fn calc_limiter_gain_drawing_info(
     let top_px = amp_to_rel_y(amp_range.1);
     let btm_px = amp_to_rel_y(amp_range.0);
     if amp_range.1 > 0. {
-        WavDrawingInfoInternal::TopBottomEnvelope(
+        WavDrawingInfoKind::TopBottomEnvelope(
             (0..width).map(|_| top_px).collect(),
             envlop_iter.collect(),
             Some((top_px, btm_px)),
         )
     } else {
-        WavDrawingInfoInternal::TopBottomEnvelope(
+        WavDrawingInfoKind::TopBottomEnvelope(
             envlop_iter.collect(),
             (0..width).map(|_| btm_px).collect(),
             Some((top_px, btm_px)),
@@ -343,8 +367,8 @@ pub fn calc_limiter_gain_drawing_info(
 }
 
 pub struct OverviewDrawingInfoInternal {
-    pub ch_drawing_infos: Vec<WavDrawingInfoInternal>,
-    pub limiter_gain_infos: Option<(WavDrawingInfoInternal, WavDrawingInfoInternal)>,
+    pub ch_drawing_infos: Vec<WavDrawingInfoKind>,
+    pub limiter_gain_infos: Option<(WavDrawingInfoKind, WavDrawingInfoKind)>,
     pub heights: OverviewHeights,
 }
 
@@ -369,49 +393,42 @@ impl OverviewDrawingInfoInternal {
             .map(|ch| {
                 let new_wav_drawing_info = |h| {
                     let wav = track.channel(ch);
-                    let (wav_drawing_info, _) = WavDrawingInfoInternal::new(
+                    let wav_drawing_info = WavDrawingInfoInternal::from_wav(
                         wav,
                         track.sr(),
-                        WavSliceArgs {
-                            start_w_margin: 0,
-                            length_w_margin: wav.len(),
-                            drawing_sec: track.sec(),
-                            pre_margin_sec: 0.,
-                            post_margin_sec: 0.,
-                            width_w_margin: drawing_width,
-                        },
+                        (0., track.sec()),
+                        0.,
+                        drawing_width,
                         h,
                         (-1., 1.),
                         wav_stroke_width,
                         topbottom_context_size,
                         false,
                         false,
-                    );
-                    wav_drawing_info
+                    )
+                    .unwrap();
+                    wav_drawing_info.kind
                 };
                 match track.guard_clip_result() {
                     GuardClippingResult::WavBeforeClip(before_clip) => {
                         let clipped_peak = before_clip.max_peak();
                         if clipped_peak > 1. {
                             // draw wav with clipping
-                            let (wav_drawing_info, _) = WavDrawingInfoInternal::new(
+                            let wav_drawing_info = WavDrawingInfoInternal::from_wav(
                                 before_clip.slice(s![ch, ..]),
                                 track.sr(),
-                                WavSliceArgs {
-                                    start_w_margin: 0,
-                                    length_w_margin: before_clip.shape()[1],
-                                    drawing_sec: track.sec(),
-                                    pre_margin_sec: 0.,
-                                    post_margin_sec: 0.,
-                                    width_w_margin: drawing_width,
-                                },
+                                (0., track.sec()),
+                                0.,
+                                drawing_width,
                                 heights.ch,
                                 (-clipped_peak, clipped_peak),
                                 wav_stroke_width,
                                 topbottom_context_size,
                                 true,
                                 false,
-                            );
+                            )
+                            .unwrap()
+                            .kind;
                             (wav_drawing_info, None)
                         } else {
                             (new_wav_drawing_info(heights.ch), None)

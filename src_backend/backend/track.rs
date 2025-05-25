@@ -19,9 +19,7 @@ use super::dynamics::{
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
-use super::visualize::{
-    SlicedWavDrawingInfo, WavDrawingInfoCache, WavDrawingInfoInternal, WavSliceArgs,
-};
+use super::visualize::{WavDrawingInfoCache, WavDrawingInfoInternal};
 
 const CACHE_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 
@@ -132,7 +130,7 @@ impl AudioTrack {
         wav_stroke_width: f32,
         topbottom_context_size: f32,
         margin_ratio: f64,
-    ) -> SlicedWavDrawingInfo {
+    ) -> WavDrawingInfoInternal {
         let px_per_sec = width / (sec_range.1 - sec_range.0) as f32;
         let (return_cache, need_new_cache) = {
             if let Some(cache) = self.wav_drawing_info_cache.read().as_ref() {
@@ -189,14 +187,14 @@ impl AudioTrack {
         let px_per_sec = CACHE_PX_PER_SEC;
         let px_per_samples = (px_per_sec / self.sr() as f32).min(0.1);
         let width = self.audio.len() as f32 * px_per_samples;
-        let (amp_ranges, drawing_infos): (Vec<_>, Vec<_>) = (0..self.n_ch())
+        let (amp_ranges, kinds): (Vec<_>, Vec<_>) = (0..self.n_ch())
             .into_par_iter()
             .map(|ch| {
                 let amp_range = {
                     let (wav, _) = self.channel_for_drawing(ch);
                     ((*wav.min_skipnan()).min(-1.), (*wav.max_skipnan()).max(1.))
                 };
-                let drawing_info = self
+                let kind = self
                     ._calc_wav_drawing_info(
                         ch,
                         (0., self.sec()),
@@ -208,8 +206,8 @@ impl AudioTrack {
                         0.,
                         true,
                     )
-                    .drawing_info;
-                (amp_range, drawing_info)
+                    .into();
+                (amp_range, kind)
             })
             .unzip();
         self.wav_drawing_info_cache
@@ -218,7 +216,7 @@ impl AudioTrack {
                 wav_stroke_width,
                 topbottom_context_size,
                 px_per_sec,
-                drawing_infos,
+                drawing_info_kinds: kinds,
                 amp_ranges,
             });
     }
@@ -244,31 +242,23 @@ impl AudioTrack {
         topbottom_context_size: f32,
         margin_ratio: f64,
         force_topbottom: bool,
-    ) -> SlicedWavDrawingInfo {
+    ) -> WavDrawingInfoInternal {
         let (wav, is_clipped) = self.channel_for_drawing(ch);
-        let args = WavSliceArgs::new(self.sr(), sec_range, width, wav.len(), margin_ratio);
 
-        if args.start_w_margin > wav.len() {
-            return Default::default();
-        }
-
-        let (drawing_info, args) = WavDrawingInfoInternal::new(
+        WavDrawingInfoInternal::from_wav(
             wav,
             self.sr(),
-            args,
+            sec_range,
+            margin_ratio,
+            width,
             height,
             amp_range,
             wav_stroke_width,
             topbottom_context_size,
             is_clipped,
             force_topbottom,
-        );
-        SlicedWavDrawingInfo {
-            drawing_info,
-            drawing_sec: args.drawing_sec,
-            pre_margin_sec: args.pre_margin_sec,
-            post_margin_sec: args.post_margin_sec,
-        }
+        )
+        .unwrap_or_default()
     }
 
     #[inline]
