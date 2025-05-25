@@ -113,46 +113,64 @@ impl SpectrogramSliceArgs {
 pub struct WavSliceArgs {
     pub start_w_margin: usize,
     pub length_w_margin: usize,
+    pub start_w_margin_f32: f32,
     pub drawing_sec: f64,
     pub pre_margin_sec: f64,
     pub post_margin_sec: f64,
-    pub width_w_margin: f32,
+    pub total_len: usize,
 }
 
 impl WavSliceArgs {
     pub fn new(
         sr: u32,
         sec_range: (f64, f64),
-        width: f32,
+        px_per_samples: f64,
         wav_len: usize,
         margin_ratio: f64,
     ) -> Self {
-        let start_samples_f64 = sec_range.0 * sr as f64;
-        let end_samples_f64 = sec_range.1 * sr as f64;
-        let length_f64 = end_samples_f64 - start_samples_f64;
-        let margin = (length_f64 * margin_ratio).round() as usize;
-        let (start_w_margin, length_w_margin, pre_margin, post_margin) =
-            add_pre_post_margin(start_samples_f64, length_f64, wav_len, margin); // TODO: refactor
+        let px_per_sec = px_per_samples * sr as f64;
+        let start_px_f64 = sec_range.0 * px_per_sec;
+        let end_px_f64 = sec_range.1 * px_per_sec;
+        let length_px_f64 = end_px_f64 - start_px_f64;
+        let margin = (length_px_f64 * margin_ratio).round() as usize;
+        let (start_px_w_margin, length_px_w_margin, pre_margin_px, post_margin_px) =
+            add_pre_post_margin(
+                start_px_f64,
+                length_px_f64,
+                (wav_len as f64 * px_per_samples) as usize,
+                margin,
+            );
 
-        let drawing_sec = length_w_margin as f64 / sr as f64;
-        let (pre_margin_sec, post_margin_sec) = (pre_margin / sr as f64, post_margin / sr as f64);
-        let width_w_margin = width * length_w_margin as f32 / length_f64 as f32;
+        let (start_w_margin, length_w_margin) = (
+            (start_px_w_margin as f64 / px_per_samples).round() as usize,
+            (length_px_w_margin as f64 / px_per_samples).round() as usize,
+        ); // this rounding makes pre_margin_sec and post_margin_sec not accurate, but it's okay for human eyes
+        let start_w_margin_f32 = start_px_w_margin as f32 / px_per_samples as f32;
+        let drawing_sec = length_px_w_margin as f64 / px_per_sec;
+        let (pre_margin_sec, post_margin_sec) =
+            (pre_margin_px / px_per_sec, post_margin_px / px_per_sec);
         Self {
             start_w_margin,
             length_w_margin,
+            start_w_margin_f32,
             drawing_sec,
             pre_margin_sec,
             post_margin_sec,
-            width_w_margin,
+            total_len: length_px_w_margin,
         }
     }
+}
 
-    pub fn from_cache_len(
-        cache_len: usize,
-        sec_range: (f64, f64),
-        track_sec: f64,
-        margin_ratio: f64,
-    ) -> Self {
+pub struct WavDrawingInfoSliceArgs {
+    pub start_w_margin: usize,
+    pub length_w_margin: usize,
+    pub drawing_sec: f64,
+    pub pre_margin_sec: f64,
+    pub post_margin_sec: f64,
+}
+
+impl WavDrawingInfoSliceArgs {
+    pub fn new(cache_len: usize, sec_range: (f64, f64), track_sec: f64, margin_ratio: f64) -> Self {
         let cache_len_f64 = cache_len as f64;
 
         let i_start = sec_range.0 / track_sec * cache_len_f64;
@@ -162,18 +180,15 @@ impl WavSliceArgs {
         let (start_w_margin, length_w_margin, pre_margin, post_margin) =
             add_pre_post_margin(i_start, length_f64, cache_len, margin);
 
-        let drawing_sec = length_w_margin as f64 / cache_len_f64 * track_sec;
-        let (pre_margin_sec, post_margin_sec) = (
-            pre_margin / cache_len_f64 * track_sec,
-            post_margin / cache_len_f64 * track_sec,
-        );
+        let len_to_sec = track_sec / cache_len_f64;
+        let drawing_sec = length_w_margin as f64 * len_to_sec;
+        let (pre_margin_sec, post_margin_sec) = (pre_margin * len_to_sec, post_margin * len_to_sec);
         Self {
             start_w_margin,
             length_w_margin,
             drawing_sec,
             pre_margin_sec,
             post_margin_sec,
-            width_w_margin: -1.,
         }
     }
 }
