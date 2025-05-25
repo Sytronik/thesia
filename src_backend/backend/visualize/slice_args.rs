@@ -1,69 +1,4 @@
-use ndarray::prelude::*;
-
 use super::super::spectrogram::SpecSetting;
-
-pub type IdxLen = (isize, usize);
-
-#[readonly::make]
-pub struct ArrWithSliceInfo<'a, A, D: Dimension> {
-    pub arr: ArrayView<'a, A, D>,
-    pub index: usize,
-    pub length: usize,
-}
-
-impl<'a, A, D: Dimension> ArrWithSliceInfo<'a, A, D> {
-    pub fn new(arr: ArrayView<'a, A, D>, (index, length): IdxLen) -> Self {
-        let (index, length) =
-            calc_effective_slice(index, length, arr.shape()[arr.ndim() - 1]).unwrap_or((0, 0));
-        ArrWithSliceInfo { arr, index, length }
-    }
-
-    pub fn entire(arr: ArrayView<'a, A, D>) -> Self {
-        let length = arr.shape()[arr.ndim() - 1];
-        ArrWithSliceInfo {
-            arr,
-            index: 0,
-            length,
-        }
-    }
-
-    pub fn as_sliced(&self) -> ArrayView<A, D> {
-        self.arr.slice_axis(
-            Axis(self.arr.ndim() - 1),
-            ((self.index as isize)..((self.index + self.length) as isize)).into(),
-        )
-    }
-
-    pub fn as_sliced_with_tail(&self, tail: usize) -> ArrayView<A, D> {
-        let end = (self.index + self.length + tail).min(self.arr.shape()[self.arr.ndim() - 1]);
-        self.arr.slice_axis(
-            Axis(self.arr.ndim() - 1),
-            (self.index as isize..(end as isize)).into(),
-        )
-    }
-}
-
-impl<'a, A, D: Dimension> From<ArrayView<'a, A, D>> for ArrWithSliceInfo<'a, A, D> {
-    fn from(value: ArrayView<'a, A, D>) -> Self {
-        ArrWithSliceInfo::entire(value)
-    }
-}
-
-#[inline]
-pub fn calc_effective_slice(
-    index: isize,
-    length: usize,
-    total_length: usize,
-) -> Option<(usize, usize)> {
-    if index >= total_length as isize {
-        None
-    } else if index < 0 {
-        let i_right = length as isize + index;
-        (i_right > 0).then_some((0, (i_right as usize).min(total_length)))
-    } else {
-        Some((index as usize, length.min(total_length - index as usize)))
-    }
-}
 
 /// Heights of the overview
 /// height (total) = ch + gap + ... + ch
@@ -175,7 +110,6 @@ impl SpectrogramSliceArgs {
     }
 }
 
-#[readonly::make]
 pub struct WavSliceArgs {
     pub start_w_margin: usize,
     pub length_w_margin: usize,

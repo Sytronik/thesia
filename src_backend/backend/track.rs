@@ -20,8 +20,7 @@ use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
 use super::visualize::{
-    ArrWithSliceInfo, SlicedWavDrawingInfo, WavDrawingInfoCache, WavDrawingInfoInternal,
-    WavSliceArgs,
+    SlicedWavDrawingInfo, WavDrawingInfoCache, WavDrawingInfoInternal, WavSliceArgs,
 };
 
 const CACHE_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
@@ -253,11 +252,10 @@ impl AudioTrack {
             return Default::default();
         }
 
-        let wav_slice =
-            ArrWithSliceInfo::new(wav, (args.start_w_margin as isize, args.length_w_margin));
-        let drawing_info = WavDrawingInfoInternal::new(
-            wav_slice,
-            args.width_w_margin,
+        let (drawing_info, args) = WavDrawingInfoInternal::new(
+            wav,
+            self.sr(),
+            args,
             height,
             amp_range,
             wav_stroke_width,

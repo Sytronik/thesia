@@ -14,4 +14,4 @@ pub use drawing_wav::{
     OverviewDrawingInfoInternal, SlicedWavDrawingInfo, WavDrawingInfoCache, WavDrawingInfoInternal,
 };
 pub use mipmap::Mipmaps;
-pub use slice_args::{ArrWithSliceInfo, SpectrogramSliceArgs, WavSliceArgs};
+pub use slice_args::{SpectrogramSliceArgs, WavSliceArgs};

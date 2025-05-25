@@ -13,7 +13,7 @@ use super::super::track::AudioTrack;
 
 use super::WavSliceArgs;
 use super::resample::FftResampler;
-use super::slice_args::{ArrWithSliceInfo, OverviewHeights};
+use super::slice_args::OverviewHeights;
 
 const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: usize = 70;
@@ -175,49 +175,64 @@ pub struct SlicedWavDrawingInfo {
 
 impl WavDrawingInfoInternal {
     pub fn new(
-        wav: ArrWithSliceInfo<f32, Ix1>,
-        width: f32,
+        wav: ArrayView1<f32>,
+        sr: u32,
+        args: WavSliceArgs,
         height: f32,
         amp_range: (f32, f32),
         wav_stroke_width: f32,
         topbottom_context_size: f32,
         show_clipping: bool,
         force_topbottom: bool,
-    ) -> WavDrawingInfoInternal {
+    ) -> (WavDrawingInfoInternal, WavSliceArgs) {
+        let end_w_margin = args.start_w_margin + args.length_w_margin;
         let thr_long_height = wav_stroke_width / height;
         let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
-        let px_per_samples = width / wav.length as f32;
+        let px_per_samples = args.width_w_margin / args.length_w_margin as f32;
         let resample_ratio = quantize_px_per_samples(px_per_samples);
-        let outline_len = (wav.length as f32 * resample_ratio).round() as usize;
         let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
             .then_some((amp_to_rel_y(1.), amp_to_rel_y(-1.)));
 
         if amp_range.1 - amp_range.0 < 1e-16 {
             // over-zoomed
-            WavDrawingInfoInternal::FillRect
+            (WavDrawingInfoInternal::FillRect, args)
         } else if resample_ratio > 0.5 && !force_topbottom {
+            let outline_len = (args.length_w_margin as f32 * resample_ratio).round() as usize;
             // upsampling
             let mut resampler;
             let wav = if resample_ratio != 1. {
-                let wav_tail = wav.as_sliced_with_tail(RESAMPLE_TAIL);
-                let upsampled_len_tail = (wav_tail.len() as f32 * resample_ratio).round();
-                resampler = create_resampler(wav_tail.len(), upsampled_len_tail as usize);
-                resampler.resample(wav_tail)
+                let end_w_tail =
+                    (args.start_w_margin + args.length_w_margin + RESAMPLE_TAIL).min(wav.len());
+                let wav_w_tail = wav.slice(s![args.start_w_margin..end_w_tail]);
+                let upsampled_len_tail = (wav_w_tail.len() as f32 * resample_ratio).round();
+                resampler = create_resampler(wav_w_tail.len(), upsampled_len_tail as usize);
+                resampler.resample(wav_w_tail)
             } else {
-                wav.as_sliced()
+                wav.slice(s![args.start_w_margin..end_w_margin])
             };
-            WavDrawingInfoInternal::Line(
+            let line = WavDrawingInfoInternal::Line(
                 wav.slice(s![..outline_len])
                     .into_par_iter()
                     .with_min_len(outline_len / rayon::current_num_threads())
                     .map(|&x| amp_to_rel_y(x))
                     .collect(), // TODO: benchmark parallel iterator, use SIMD
                 clip_values,
-            )
+            );
+            (line, args)
         } else {
-            let wav = wav.as_sliced();
+            let start_f32 = args.start_w_margin as f32;
+            let bias = (start_f32 * resample_ratio).ceil() / resample_ratio - start_f32;
+            let start_f32 = start_f32 + bias;
+            let outline_len =
+                ((args.length_w_margin as f32 - bias) * resample_ratio).round() as usize;
+            let pre_margin_sec = args.pre_margin_sec - bias as f64 / sr as f64;
+            let drawing_sec = args.drawing_sec - bias as f64 / sr as f64;
             let half_context_size = topbottom_context_size / 2.;
-            let mean_rel_y = amp_to_rel_y(wav.mean().unwrap_or(0.));
+            let mean_rel_y = amp_to_rel_y(
+                wav.slice(s![start_f32 as usize..end_w_margin])
+                    .mean()
+                    .unwrap_or(0.),
+            );
             let zero_rel_y = amp_to_rel_y(0.);
             let zero_top = zero_rel_y - wav_stroke_width / height / 2.;
             let zero_btm = zero_rel_y + wav_stroke_width / height / 2.;
@@ -226,11 +241,11 @@ impl WavDrawingInfoInternal {
                 .with_min_len(outline_len / rayon::current_num_threads())
                 .map(|i_envlop| {
                     let i_envlop = i_envlop as f32;
-                    let i_start = ((i_envlop - half_context_size) / resample_ratio)
+                    let i_start = (start_f32 + (i_envlop - half_context_size) / resample_ratio)
                         .round()
                         .max(0.) as usize;
-                    let i_end = (((i_envlop + half_context_size) / resample_ratio).round()
-                        as usize)
+                    let i_end = ((start_f32 + (i_envlop + half_context_size) / resample_ratio)
+                        .round() as usize)
                         .min(wav.len());
                     let wav_slice = wav.slice(s![i_start..i_end]);
                     let top = amp_to_rel_y(*wav_slice.max_skipnan());
@@ -251,22 +266,33 @@ impl WavDrawingInfoInternal {
                 .filter(|(_, _, is_mean_crossing)| *is_mean_crossing)
                 .count();
             if force_topbottom
-                || wav.len() > MAX_WAV_LINE_LEN
+                || args.length_w_margin > MAX_WAV_LINE_LEN
                 || n_mean_crossing > outline_len * THR_TOPBOTTOM_PERCENT / 100
             {
                 let (top_envlop, btm_envlop) = result
                     .into_iter()
                     .map(|(top, bottom, _)| (top, bottom))
                     .unzip();
-                WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
+                let topbottom =
+                    WavDrawingInfoInternal::TopBottomEnvelope(top_envlop, btm_envlop, clip_values);
+                (
+                    topbottom,
+                    WavSliceArgs {
+                        pre_margin_sec,
+                        drawing_sec,
+                        ..args
+                    },
+                )
             } else {
-                WavDrawingInfoInternal::Line(
-                    wav.into_par_iter()
-                        .with_min_len(wav.len() / rayon::current_num_threads())
+                let line = WavDrawingInfoInternal::Line(
+                    wav.slice(s![args.start_w_margin..end_w_margin])
+                        .into_par_iter()
+                        .with_min_len(args.length_w_margin / rayon::current_num_threads())
                         .map(|&x| amp_to_rel_y(x))
                         .collect(), // TODO: benchmark parallel iterator, use SIMD
                     clip_values,
-                )
+                );
+                (line, args)
             }
         }
     }
@@ -342,35 +368,51 @@ impl OverviewDrawingInfoInternal {
             .into_par_iter()
             .map(|ch| {
                 let new_wav_drawing_info = |h| {
-                    WavDrawingInfoInternal::new(
-                        track.channel(ch).into(),
-                        drawing_width,
+                    let wav = track.channel(ch);
+                    let (wav_drawing_info, _) = WavDrawingInfoInternal::new(
+                        wav,
+                        track.sr(),
+                        WavSliceArgs {
+                            start_w_margin: 0,
+                            length_w_margin: wav.len(),
+                            drawing_sec: track.sec(),
+                            pre_margin_sec: 0.,
+                            post_margin_sec: 0.,
+                            width_w_margin: drawing_width,
+                        },
                         h,
                         (-1., 1.),
                         wav_stroke_width,
                         topbottom_context_size,
                         false,
                         false,
-                    )
+                    );
+                    wav_drawing_info
                 };
                 match track.guard_clip_result() {
                     GuardClippingResult::WavBeforeClip(before_clip) => {
                         let clipped_peak = before_clip.max_peak();
                         if clipped_peak > 1. {
                             // draw wav with clipping
-                            (
-                                WavDrawingInfoInternal::new(
-                                    before_clip.slice(s![ch, ..]).into(),
-                                    drawing_width,
-                                    heights.ch,
-                                    (-clipped_peak, clipped_peak),
-                                    wav_stroke_width,
-                                    topbottom_context_size,
-                                    true,
-                                    false,
-                                ),
-                                None,
-                            )
+                            let (wav_drawing_info, _) = WavDrawingInfoInternal::new(
+                                before_clip.slice(s![ch, ..]),
+                                track.sr(),
+                                WavSliceArgs {
+                                    start_w_margin: 0,
+                                    length_w_margin: before_clip.shape()[1],
+                                    drawing_sec: track.sec(),
+                                    pre_margin_sec: 0.,
+                                    post_margin_sec: 0.,
+                                    width_w_margin: drawing_width,
+                                },
+                                heights.ch,
+                                (-clipped_peak, clipped_peak),
+                                wav_stroke_width,
+                                topbottom_context_size,
+                                true,
+                                false,
+                            );
+                            (wav_drawing_info, None)
                         } else {
                             (new_wav_drawing_info(heights.ch), None)
                         }
