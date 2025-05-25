@@ -41,6 +41,8 @@ static TRACK_LIST: LazyLock<AsyncRwLock<TrackList>> =
 static TM: LazyLock<AsyncRwLock<TrackManager>> =
     LazyLock::new(|| AsyncRwLock::new(TrackManager::new()));
 
+static DRAW_SPEC_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> =
+    LazyLock::new(DashMap::new);
 static DRAW_WAV_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> = LazyLock::new(DashMap::new);
 
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
@@ -152,7 +154,9 @@ fn remove_tracks(track_ids: Vec<u32>) {
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let removed_id_ch_tuples = TRACK_LIST.blocking_write().remove_tracks(&track_ids);
     removed_id_ch_tuples.iter().for_each(|(id, ch)| {
-        DRAW_WAV_TASK_ID_MAP.remove(&format_id_ch(*id, *ch));
+        let id_ch_str = format_id_ch(*id, *ch);
+        DRAW_SPEC_TASK_ID_MAP.remove(&id_ch_str);
+        DRAW_WAV_TASK_ID_MAP.remove(&id_ch_str);
     });
     rayon::spawn_fifo(move || {
         TM.blocking_write()
@@ -275,31 +279,41 @@ async fn get_spectrogram(
         return Ok(None);
     }
 
-    tokio_rayon::spawn(move || {
+    let task_id = {
+        let mut entry = DRAW_SPEC_TASK_ID_MAP
+            .entry(id_ch_str.clone())
+            .or_insert(Wrapping(0));
+        *entry.value_mut() += 1;
+        *entry.value()
+    };
+
+    let out = tokio_rayon::spawn(move || {
         let track_sec = {
             let tracklist = TRACK_LIST.blocking_read();
-            if let Some(track) = tracklist.get(id) {
-                track.sec()
-            } else {
-                return Ok(None);
-            }
+            tracklist.get(id)?.sec()
         };
         if sec_range.0 >= track_sec {
-            return Ok(None);
+            return None;
         }
-        let Some((args, sliced_mipmap)) = TM.blocking_read().get_sliced_spec_mipmap(
+        let (args, sliced_mipmap) = TM.blocking_read().get_sliced_spec_mipmap(
             (id, ch),
             track_sec,
             sec_range,
             (hz_range.0 as f32, hz_range.1 as f32),
             margin_px as usize,
-        ) else {
-            return Ok(None);
-        };
+        )?;
 
-        Ok(Some(Spectrogram::new(args, sliced_mipmap, sec_range.0)))
+        Some(Spectrogram::new(args, sliced_mipmap, sec_range.0))
     })
-    .await
+    .await;
+
+    if DRAW_SPEC_TASK_ID_MAP
+        .get(&id_ch_str)
+        .is_none_or(|id| *id != task_id)
+    {
+        return Ok(None); // if new task has been started, return None
+    }
+    Ok(out)
 }
 
 #[napi]

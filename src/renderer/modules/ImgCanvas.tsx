@@ -68,8 +68,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   } = props;
   const endSec = startSec + width / (pxPerSec + 1e-8);
 
+  const needClearSpec = hidden || startSec >= trackSec || width <= 0;
   const specIsNotNeeded = blend <= 0 || hidden;
   const needHideWav = blend >= 1 || hidden;
+
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const wavCanvasScale = devicePixelRatio * WAV_IMAGE_SCALE;
   const scaledWidth = width * wavCanvasScale;
@@ -120,26 +122,30 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }
   }, []);
 
+  const renderSpecHighQuality = useEvent((srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
+    if (!webglResourcesRef.current || !spectrogramRef.current || needClearSpec) return;
+    renderSpectrogram(
+      webglResourcesRef.current,
+      spectrogramRef.current,
+      srcLeft,
+      srcTop,
+      srcW,
+      srcH,
+      dstW,
+      dstH,
+      _blend,
+      false,
+    );
+  });
+
   const debouncedRenderSpecHighQuality = useMemo(
     () =>
-      debounce(100, (spectrogram, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
-        requestAnimationFrame(() => {
-          if (!webglResourcesRef.current) return;
-          renderSpectrogram(
-            webglResourcesRef.current,
-            spectrogram,
-            srcLeft,
-            srcTop,
-            srcW,
-            srcH,
-            dstW,
-            dstH,
-            _blend,
-            false,
-          );
-        });
-      }),
-    [],
+      debounce(100, (srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) =>
+        requestAnimationFrame(() =>
+          renderSpecHighQuality(srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend),
+        ),
+      ),
+    [renderSpecHighQuality],
   );
 
   const drawSpectrogram = useCallback(() => {
@@ -153,7 +159,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     const spectrogram = spectrogramRef.current;
 
     // Check if img and img.data are valid before proceeding
-    if (!spectrogram || hidden || startSec >= trackSec || width <= 0) {
+    if (!spectrogram || needClearSpec) {
       const {gl} = webglResourcesRef.current;
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -197,14 +203,14 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       blend,
       true, // bilinear: low qality
     );
-    debouncedRenderSpecHighQuality(spectrogram, srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
+    debouncedRenderSpecHighQuality(srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
   }, [
-    hidden,
-    startSec,
-    trackSec,
+    needClearSpec,
     width,
     pxPerSec,
+    startSec,
     devicePixelRatio,
+    trackSec,
     height,
     blend,
     debouncedRenderSpecHighQuality,
