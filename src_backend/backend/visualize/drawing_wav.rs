@@ -33,28 +33,23 @@ pub enum WavDrawingInfoKind {
 impl WavDrawingInfoKind {
     pub fn len(&self) -> usize {
         match self {
-            WavDrawingInfoKind::FillRect => 0,
-            WavDrawingInfoKind::Line(line, ..) => line.len(),
-            WavDrawingInfoKind::TopBottomEnvelope(top, ..) => top.len(),
+            Self::FillRect => 0,
+            Self::Line(line, ..) => line.len(),
+            Self::TopBottomEnvelope(top, ..) => top.len(),
         }
     }
 
-    pub fn slice(
-        &self,
-        range: impl SliceIndex<[f32], Output = [f32]> + Clone,
-    ) -> WavDrawingInfoKind {
+    pub fn slice(&self, range: impl SliceIndex<[f32], Output = [f32]> + Clone) -> Self {
         match self {
-            WavDrawingInfoKind::FillRect => WavDrawingInfoKind::FillRect,
-            WavDrawingInfoKind::Line(..) => {
+            Self::FillRect => Self::FillRect,
+            Self::Line(..) => {
                 unimplemented!();
             }
-            WavDrawingInfoKind::TopBottomEnvelope(top, bottom, clip_values) => {
-                WavDrawingInfoKind::TopBottomEnvelope(
-                    top[range.clone()].to_owned(),
-                    bottom[range].to_owned(),
-                    clip_values.clone(),
-                )
-            }
+            Self::TopBottomEnvelope(top, bottom, clip_values) => Self::TopBottomEnvelope(
+                top[range.clone()].to_owned(),
+                bottom[range].to_owned(),
+                clip_values.clone(),
+            ),
         }
     }
 
@@ -72,15 +67,11 @@ impl WavDrawingInfoKind {
             && relative_ne!(orig_amp_range.1, target_amp_range.1);
 
         match self {
-            WavDrawingInfoKind::FillRect => WavDrawingInfoKind::FillRect,
-            WavDrawingInfoKind::Line(..) => {
+            Self::FillRect => Self::FillRect,
+            Self::Line(..) => {
                 unimplemented!();
             }
-            WavDrawingInfoKind::TopBottomEnvelope(
-                orig_top_envlop,
-                orig_btm_envlop,
-                orig_clip_values,
-            ) => {
+            Self::TopBottomEnvelope(orig_top_envlop, orig_btm_envlop, orig_clip_values) => {
                 let zero_top = amp_to_rel_y(0.) - wav_stroke_width / height / 2.;
                 let zero_btm = amp_to_rel_y(0.) + wav_stroke_width / height / 2.;
 
@@ -110,8 +101,52 @@ impl WavDrawingInfoKind {
                 };
                 let clip_values = orig_clip_values.map(|(top, btm)| (convert(top), convert(btm)));
 
-                WavDrawingInfoKind::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
+                Self::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
             }
+        }
+    }
+
+    pub fn from_limiter_gain(
+        gain: ArrayView1<f32>,
+        width: u32,
+        amp_range: (f32, f32),
+        topbottom_context_size: f32,
+    ) -> Self {
+        let half_context_size = topbottom_context_size / 2.;
+        let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
+        let samples_per_px = gain.len() as f32 / width as f32;
+
+        let envlop_iter = (0..width).map(|i_px| {
+            let i_px = i_px as f32;
+            let i_mid = ((i_px * samples_per_px).round() as usize).min(gain.len() - 1);
+            if gain[i_mid.max(1) - 1] == gain[i_mid]
+                || gain[i_mid] == gain[i_mid.min(gain.len() - 2) + 1]
+            {
+                amp_to_rel_y(gain[i_mid])
+            } else {
+                let i_start = ((i_px - half_context_size) * samples_per_px)
+                    .round()
+                    .max(0.) as usize;
+                let i_end = (((i_px + half_context_size) * samples_per_px).round() as usize)
+                    .min(gain.len());
+                amp_to_rel_y(gain.slice(s![i_start..i_end]).mean().unwrap_or_default())
+            }
+        });
+
+        let top_px = amp_to_rel_y(amp_range.1);
+        let btm_px = amp_to_rel_y(amp_range.0);
+        if amp_range.1 > 0. {
+            Self::TopBottomEnvelope(
+                (0..width).map(|_| top_px).collect(),
+                envlop_iter.collect(),
+                Some((top_px, btm_px)),
+            )
+        } else {
+            Self::TopBottomEnvelope(
+                envlop_iter.collect(),
+                (0..width).map(|_| btm_px).collect(),
+                Some((top_px, btm_px)),
+            )
         }
     }
 }
@@ -142,6 +177,34 @@ impl WavDrawingInfoInternal {
     }
 
     pub fn from_wav(
+        wav: ArrayView1<f32>,
+        sr: u32,
+        width: f32,
+        height: f32,
+        amp_range: (f32, f32),
+        wav_stroke_width: f32,
+        topbottom_context_size: f32,
+        show_clipping: bool,
+        force_topbottom: bool,
+    ) -> Self {
+        let wav_sec = wav.len() as f64 / sr as f64;
+        Self::from_wav_with_slicing(
+            wav,
+            sr,
+            (0., wav_sec),
+            0.,
+            width,
+            height,
+            amp_range,
+            wav_stroke_width,
+            topbottom_context_size,
+            show_clipping,
+            force_topbottom,
+        )
+        .unwrap()
+    }
+
+    pub fn from_wav_with_slicing(
         wav: ArrayView1<f32>,
         sr: u32,
         sec_range: (f64, f64),
@@ -322,50 +385,6 @@ impl WavDrawingInfoCache {
     }
 }
 
-pub fn calc_limiter_gain_drawing_info(
-    gain: ArrayView1<f32>,
-    width: u32,
-    amp_range: (f32, f32),
-    topbottom_context_size: f32,
-) -> WavDrawingInfoKind {
-    let half_context_size = topbottom_context_size / 2.;
-    let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
-    let samples_per_px = gain.len() as f32 / width as f32;
-
-    let envlop_iter = (0..width).map(|i_px| {
-        let i_px = i_px as f32;
-        let i_mid = ((i_px * samples_per_px).round() as usize).min(gain.len() - 1);
-        if gain[i_mid.max(1) - 1] == gain[i_mid]
-            || gain[i_mid] == gain[i_mid.min(gain.len() - 2) + 1]
-        {
-            amp_to_rel_y(gain[i_mid])
-        } else {
-            let i_start = ((i_px - half_context_size) * samples_per_px)
-                .round()
-                .max(0.) as usize;
-            let i_end =
-                (((i_px + half_context_size) * samples_per_px).round() as usize).min(gain.len());
-            amp_to_rel_y(gain.slice(s![i_start..i_end]).mean().unwrap_or_default())
-        }
-    });
-
-    let top_px = amp_to_rel_y(amp_range.1);
-    let btm_px = amp_to_rel_y(amp_range.0);
-    if amp_range.1 > 0. {
-        WavDrawingInfoKind::TopBottomEnvelope(
-            (0..width).map(|_| top_px).collect(),
-            envlop_iter.collect(),
-            Some((top_px, btm_px)),
-        )
-    } else {
-        WavDrawingInfoKind::TopBottomEnvelope(
-            envlop_iter.collect(),
-            (0..width).map(|_| btm_px).collect(),
-            Some((top_px, btm_px)),
-        )
-    }
-}
-
 pub struct OverviewDrawingInfoInternal {
     pub ch_drawing_infos: Vec<WavDrawingInfoKind>,
     pub limiter_gain_infos: Option<(WavDrawingInfoKind, WavDrawingInfoKind)>,
@@ -391,13 +410,11 @@ impl OverviewDrawingInfoInternal {
         let (wav_drawing_infos, mut gain_drawing_infos): (Vec<_>, Vec<_>) = (0..n_ch)
             .into_par_iter()
             .map(|ch| {
-                let new_wav_drawing_info = |h| {
+                let new_wav_drawing_info_kind = |h| {
                     let wav = track.channel(ch);
-                    let wav_drawing_info = WavDrawingInfoInternal::from_wav(
+                    WavDrawingInfoInternal::from_wav(
                         wav,
                         track.sr(),
-                        (0., track.sec()),
-                        0.,
                         drawing_width,
                         h,
                         (-1., 1.),
@@ -406,19 +423,16 @@ impl OverviewDrawingInfoInternal {
                         false,
                         false,
                     )
-                    .unwrap();
-                    wav_drawing_info.kind
+                    .into()
                 };
                 match track.guard_clip_result() {
                     GuardClippingResult::WavBeforeClip(before_clip) => {
                         let clipped_peak = before_clip.max_peak();
                         if clipped_peak > 1. {
                             // draw wav with clipping
-                            let wav_drawing_info = WavDrawingInfoInternal::from_wav(
+                            let wav_drawing_info_kind = WavDrawingInfoInternal::from_wav(
                                 before_clip.slice(s![ch, ..]),
                                 track.sr(),
-                                (0., track.sec()),
-                                0.,
                                 drawing_width,
                                 heights.ch,
                                 (-clipped_peak, clipped_peak),
@@ -427,11 +441,10 @@ impl OverviewDrawingInfoInternal {
                                 true,
                                 false,
                             )
-                            .unwrap()
-                            .kind;
-                            (wav_drawing_info, None)
+                            .into();
+                            (wav_drawing_info_kind, None)
                         } else {
-                            (new_wav_drawing_info(heights.ch), None)
+                            (new_wav_drawing_info_kind(heights.ch), None)
                         }
                     }
                     GuardClippingResult::GainSequence(gain_seq)
@@ -445,13 +458,13 @@ impl OverviewDrawingInfoInternal {
                             let neg_gain_seq = gain_seq.neg();
 
                             Some((
-                                calc_limiter_gain_drawing_info(
+                                WavDrawingInfoKind::from_limiter_gain(
                                     gain_seq,
                                     drawing_width.round() as u32,
                                     (0.5, 1.),
                                     topbottom_context_size,
                                 ),
-                                calc_limiter_gain_drawing_info(
+                                WavDrawingInfoKind::from_limiter_gain(
                                     neg_gain_seq.view(),
                                     drawing_width.round() as u32,
                                     (-1., -0.5),
@@ -460,11 +473,14 @@ impl OverviewDrawingInfoInternal {
                             ))
                         };
 
-                        (new_wav_drawing_info(heights.ch_wo_gain), gain_drawing_infos)
+                        (
+                            new_wav_drawing_info_kind(heights.ch_wo_gain),
+                            gain_drawing_infos,
+                        )
                     }
                     _ => {
                         // draw wav only
-                        (new_wav_drawing_info(heights.ch), None)
+                        (new_wav_drawing_info_kind(heights.ch), None)
                     }
                 }
             })

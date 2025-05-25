@@ -158,17 +158,22 @@ impl AudioTrack {
 
         // second, calculate sliced wav drawing info
         if !return_cache {
-            self._calc_wav_drawing_info(
-                ch,
+            let (wav, is_clipped) = self.channel_for_drawing(ch);
+
+            WavDrawingInfoInternal::from_wav_with_slicing(
+                wav,
+                self.sr(),
                 sec_range,
+                margin_ratio,
                 width,
                 height,
                 amp_range,
                 wav_stroke_width,
                 topbottom_context_size,
-                margin_ratio,
+                is_clipped,
                 false,
             )
+            .unwrap_or_default()
         } else {
             let cache = self.wav_drawing_info_cache.read();
             cache.as_ref().unwrap().slice(
@@ -194,19 +199,20 @@ impl AudioTrack {
                     let (wav, _) = self.channel_for_drawing(ch);
                     ((*wav.min_skipnan()).min(-1.), (*wav.max_skipnan()).max(1.))
                 };
-                let kind = self
-                    ._calc_wav_drawing_info(
-                        ch,
-                        (0., self.sec()),
-                        width,
-                        10000., // just a large number. doesn't affect the performance
-                        amp_range,
-                        wav_stroke_width,
-                        topbottom_context_size,
-                        0.,
-                        true,
-                    )
-                    .into();
+
+                let (wav, is_clipped) = self.channel_for_drawing(ch);
+                let kind = WavDrawingInfoInternal::from_wav(
+                    wav,
+                    self.sr(),
+                    width,
+                    10000., // just a large number. doesn't affect the performance
+                    amp_range,
+                    wav_stroke_width,
+                    topbottom_context_size,
+                    is_clipped,
+                    true,
+                )
+                .into();
                 (amp_range, kind)
             })
             .unzip();
@@ -229,36 +235,6 @@ impl AudioTrack {
                 return;
             };
         self.set_wav_drawing_info_cache(wav_stroke_width, topbottom_context_size);
-    }
-
-    fn _calc_wav_drawing_info(
-        &self,
-        ch: usize,
-        sec_range: (f64, f64),
-        width: f32,
-        height: f32,
-        amp_range: (f32, f32),
-        wav_stroke_width: f32,
-        topbottom_context_size: f32,
-        margin_ratio: f64,
-        force_topbottom: bool,
-    ) -> WavDrawingInfoInternal {
-        let (wav, is_clipped) = self.channel_for_drawing(ch);
-
-        WavDrawingInfoInternal::from_wav(
-            wav,
-            self.sr(),
-            sec_range,
-            margin_ratio,
-            width,
-            height,
-            amp_range,
-            wav_stroke_width,
-            topbottom_context_size,
-            is_clipped,
-            force_topbottom,
-        )
-        .unwrap_or_default()
     }
 
     #[inline]
