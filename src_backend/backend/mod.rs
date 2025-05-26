@@ -1,11 +1,11 @@
 use fast_image_resize::pixels;
 use identity_hash::IntSet;
-use itertools::Itertools;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 
 mod audio;
 mod dynamics;
+mod simd;
 mod sinc;
 mod spectrogram;
 mod track;
@@ -16,6 +16,7 @@ mod windows;
 
 pub use audio::AudioFormatInfo;
 pub use dynamics::{DeciBel, GuardClippingMode};
+use simd::find_min_max;
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
@@ -204,8 +205,7 @@ impl TrackManager {
         let (mut min, mut max) = self
             .specs
             .par_iter()
-            .filter_map(|(_, spec)| spec.iter().minmax().into_option())
-            .map(|(&min, &max)| (min, max))
+            .map(|(_, spec)| find_min_max(spec.as_slice().unwrap()))
             .reduce(
                 || (f32::INFINITY, f32::NEG_INFINITY),
                 |(min, max), (current_min, current_max)| {
