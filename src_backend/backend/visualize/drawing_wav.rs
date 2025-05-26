@@ -234,7 +234,7 @@ impl WavDrawingInfoInternal {
             margin_ratio,
         );
 
-        if args.start_w_margin > wav.len() {
+        if args.start_w_margin >= wav.len() {
             return Err(ShapeError::from_kind(ErrorKind::OutOfBounds));
         }
         let end_w_margin = args.start_w_margin + args.length_w_margin;
