@@ -457,19 +457,23 @@ impl OverviewDrawingInfoInternal {
                             let gain_seq = gain_seq.slice(s![0, ..]);
                             let neg_gain_seq = gain_seq.neg();
 
-                            Some((
-                                WavDrawingInfoKind::from_limiter_gain(
-                                    gain_seq,
-                                    drawing_width.round() as u32,
-                                    (0.5, 1.),
-                                    topbottom_context_size,
-                                ),
-                                WavDrawingInfoKind::from_limiter_gain(
-                                    neg_gain_seq.view(),
-                                    drawing_width.round() as u32,
-                                    (-1., -0.5),
-                                    topbottom_context_size,
-                                ),
+                            Some(rayon::join(
+                                || {
+                                    WavDrawingInfoKind::from_limiter_gain(
+                                        gain_seq,
+                                        drawing_width.round() as u32,
+                                        (0.5, 1.),
+                                        topbottom_context_size,
+                                    )
+                                },
+                                || {
+                                    WavDrawingInfoKind::from_limiter_gain(
+                                        neg_gain_seq.view(),
+                                        drawing_width.round() as u32,
+                                        (-1., -0.5),
+                                        topbottom_context_size,
+                                    )
+                                },
                             ))
                         };
 
