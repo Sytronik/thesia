@@ -814,9 +814,9 @@ function MainViewer(props: MainViewerProps) {
 
   const selectTrackByTrackInfo = useEvent((e, id) => selectTrack(e, id, trackIds));
 
-  const createLeftPane = (leftWidth: number) => (
+  const leftPane = (
     <>
-      <div className={styles.stickyHeader} style={{width: `${leftWidth}px`}}>
+      <div className={styles.stickyHeader}>
         <TimeUnitSection key="time_unit_label" timeUnitLabel={timeUnitLabel} />
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
@@ -985,7 +985,7 @@ function MainViewer(props: MainViewerProps) {
       >
         <SplitView
           ref={splitViewElem}
-          createLeft={createLeftPane}
+          left={leftPane}
           right={rightPane}
           setCanvasWidth={setWidth}
           onFileHover={onFileHover}

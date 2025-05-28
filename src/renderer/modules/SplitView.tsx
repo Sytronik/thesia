@@ -1,4 +1,12 @@
-import React, {useRef, useEffect, useState, forwardRef, useImperativeHandle, useMemo} from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  ReactNode,
+} from "react";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT} from "renderer/prototypes/constants/tracks";
 import {NativeTypes} from "react-dnd-html5-backend";
@@ -11,8 +19,8 @@ const INIT_WIDTH = 230 + 32;
 const MAX_WIDTH = 480 + 32;
 
 type SplitViewProps = {
-  createLeft: (leftWidth: number) => React.ReactElement;
-  right: React.ReactElement;
+  left: ReactNode;
+  right: ReactNode;
   setCanvasWidth: (value: number) => void;
   className?: string;
   onFileHover?: (item: any, monitor: DropTargetMonitor) => void;
@@ -33,7 +41,7 @@ const SplitView = forwardRef(
     }: SplitViewProps,
     ref,
   ) => {
-    const {createLeft, right, setCanvasWidth} = props;
+    const {left, right, setCanvasWidth} = props;
 
     const [leftWidth, setLeftWidth] = useState<number>(INIT_WIDTH);
     const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
@@ -186,7 +194,7 @@ const SplitView = forwardRef(
       >
         <div className={styles.Scrolled}>
           <div className={styles.LeftPane} style={{width: leftWidth}}>
-            {createLeft(leftWidth)}
+            {left}
           </div>
           <div
             role="presentation"
