@@ -180,10 +180,11 @@ impl AudioTrack {
                 ch,
                 sec_range,
                 self.sec(),
+                margin_ratio,
+                width,
                 height,
                 amp_range,
                 wav_stroke_width,
-                margin_ratio,
             )
         }
     }

@@ -1,3 +1,4 @@
+use std::iter;
 use std::ops::Neg;
 use std::slice::SliceIndex;
 
@@ -5,6 +6,7 @@ use approx::relative_ne;
 use cached::proc_macro::cached;
 use ndarray::prelude::*;
 use ndarray::{ErrorKind, ShapeError};
+use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
@@ -47,6 +49,45 @@ impl WavDrawingInfoKind {
                 btm[range].to_owned(),
                 *clip_values,
             ),
+        }
+    }
+
+    pub fn downsample(&mut self, ratio: usize, offset: usize) {
+        match self {
+            WavDrawingInfoKind::FillRect => (),
+            WavDrawingInfoKind::Line(..) => unimplemented!(),
+            WavDrawingInfoKind::TopBottomEnvelope(top, btm, _) => {
+                rayon::join(
+                    || {
+                        if offset > 0 {
+                            let (pre, main) = top.split_at(offset);
+                            *top = iter::once(pre)
+                                .chain(main.chunks(ratio))
+                                .map(|chunk| *ArrayView1::from(chunk).min_skipnan())
+                                .collect();
+                        } else {
+                            *top = top
+                                .chunks(ratio)
+                                .map(|chunk| *ArrayView1::from(chunk).min_skipnan())
+                                .collect();
+                        }
+                    },
+                    || {
+                        if offset > 0 {
+                            let (pre, main) = btm.split_at(offset);
+                            *btm = iter::once(pre)
+                                .chain(main.chunks(ratio))
+                                .map(|chunk| *ArrayView1::from(chunk).max_skipnan())
+                                .collect()
+                        } else {
+                            *btm = btm
+                                .chunks(ratio)
+                                .map(|chunk| *ArrayView1::from(chunk).max_skipnan())
+                                .collect();
+                        }
+                    },
+                );
+            }
         }
     }
 
@@ -350,10 +391,11 @@ impl WavDrawingInfoCache {
         ch: usize,
         sec_range: (f64, f64),
         track_sec: f64,
+        margin_ratio: f64,
+        width: f32,
         height: f32,
         amp_range: (f32, f32),
         wav_stroke_width: f32,
-        margin_ratio: f64,
     ) -> WavDrawingInfoInternal {
         let kind = &self.drawing_info_kinds[ch];
         let cache_len = kind.len();
@@ -365,7 +407,15 @@ impl WavDrawingInfoCache {
         }
 
         // slice
-        let kind = kind.slice(args.start_w_margin..(args.start_w_margin + args.length_w_margin));
+        let mut kind =
+            kind.slice(args.start_w_margin..(args.start_w_margin + args.length_w_margin));
+
+        let drawing_width = args.drawing_sec / (sec_range.1 - sec_range.0) * width as f64;
+        let ratio = (kind.len() as f64 / drawing_width).floor() as usize;
+        debug_assert!(ratio >= 1);
+        if ratio > 1 {
+            kind.downsample(ratio, args.start_w_margin % ratio);
+        }
 
         // convert amp_range
         kind.convert_amp_range(self.amp_ranges[ch], amp_range, height, wav_stroke_width);
