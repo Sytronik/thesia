@@ -41,9 +41,7 @@ impl WavDrawingInfoKind {
     pub fn slice(&self, range: impl SliceIndex<[f32], Output = [f32]> + Clone) -> Self {
         match self {
             Self::FillRect => Self::FillRect,
-            Self::Line(..) => {
-                unimplemented!();
-            }
+            Self::Line(..) => unimplemented!(),
             Self::TopBottomEnvelope(top, btm, clip_values) => Self::TopBottomEnvelope(
                 top[range.clone()].to_owned(),
                 btm[range].to_owned(),
@@ -53,12 +51,12 @@ impl WavDrawingInfoKind {
     }
 
     pub fn convert_amp_range(
-        &self,
+        &mut self,
         orig_amp_range: (f32, f32),
         target_amp_range: (f32, f32),
         height: f32,
         wav_stroke_width: f32,
-    ) -> Self {
+    ) {
         let amp_to_rel_y = get_amp_to_rel_y_fn(target_amp_range);
         let orig_scale = orig_amp_range.1 - orig_amp_range.0;
         let convert = |orig_rel_y: f32| amp_to_rel_y(orig_amp_range.1 - orig_rel_y * orig_scale);
@@ -66,41 +64,28 @@ impl WavDrawingInfoKind {
             && relative_ne!(orig_amp_range.1, target_amp_range.1);
 
         match self {
-            Self::FillRect => Self::FillRect,
-            Self::Line(..) => {
-                unimplemented!();
-            }
-            Self::TopBottomEnvelope(orig_top_envlop, orig_btm_envlop, orig_clip_values) => {
+            Self::FillRect => {}
+            Self::Line(..) => unimplemented!(),
+            Self::TopBottomEnvelope(top_envlop, btm_envlop, clip_values) => {
                 let zero_top = amp_to_rel_y(0.) - wav_stroke_width / height / 2.;
                 let zero_btm = amp_to_rel_y(0.) + wav_stroke_width / height / 2.;
 
-                let handle_zero = move |(top, btm)| {
-                    let is_larger_than_stroke_width = btm - top >= wav_stroke_width / height;
-                    if is_larger_than_stroke_width {
-                        (top, btm)
-                    } else {
-                        (zero_top, zero_btm)
-                    }
-                };
-                let (top_envlop, btm_envlop) = if need_convert {
-                    orig_top_envlop
-                        .iter()
-                        .copied()
-                        .map(convert)
-                        .zip(orig_btm_envlop.iter().copied().map(convert))
-                        .map(handle_zero)
-                        .unzip() // TODO: use SIMD
-                } else {
-                    orig_top_envlop
-                        .iter()
-                        .copied()
-                        .zip(orig_btm_envlop.iter().copied())
-                        .map(handle_zero)
-                        .unzip() // TODO: use SIMD
-                };
-                let clip_values = orig_clip_values.map(|(top, btm)| (convert(top), convert(btm)));
-
-                Self::TopBottomEnvelope(top_envlop, btm_envlop, clip_values)
+                if need_convert {
+                    rayon::join(
+                        || top_envlop.iter_mut().for_each(|y| *y = convert(*y)),
+                        || btm_envlop.iter_mut().for_each(|y| *y = convert(*y)),
+                    ); // TODO: use SIMD
+                }
+                top_envlop.iter_mut().zip(btm_envlop.iter_mut()).for_each(
+                    |(top, btm): (&mut f32, &mut f32)| {
+                        let is_larger_than_stroke_width = *btm - *top >= wav_stroke_width / height;
+                        if !is_larger_than_stroke_width {
+                            *top = zero_top;
+                            *btm = zero_btm;
+                        }
+                    },
+                );
+                *clip_values = clip_values.map(|(top, btm)| (convert(top), convert(btm)));
             }
         }
     }
@@ -136,14 +121,14 @@ impl WavDrawingInfoKind {
         let btm_px = amp_to_rel_y(amp_range.0);
         if amp_range.1 > 0. {
             Self::TopBottomEnvelope(
-                (0..width).map(|_| top_px).collect(),
+                vec![top_px; width as usize],
                 envlop_iter.collect(),
                 Some((top_px, btm_px)),
             )
         } else {
             Self::TopBottomEnvelope(
                 envlop_iter.collect(),
-                (0..width).map(|_| btm_px).collect(),
+                vec![btm_px; width as usize],
                 Some((top_px, btm_px)),
             )
         }
@@ -383,7 +368,7 @@ impl WavDrawingInfoCache {
         let kind = kind.slice(args.start_w_margin..(args.start_w_margin + args.length_w_margin));
 
         // convert amp_range
-        let kind = kind.convert_amp_range(self.amp_ranges[ch], amp_range, height, wav_stroke_width);
+        kind.convert_amp_range(self.amp_ranges[ch], amp_range, height, wav_stroke_width);
 
         WavDrawingInfoInternal {
             kind,
