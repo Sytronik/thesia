@@ -78,7 +78,7 @@ export declare function addTracks(idList: Array<number>, pathList: Array<string>
 export declare function reloadTracks(trackIds: Array<number>): Promise<Array<number>>
 export declare function removeTracks(trackIds: Array<number>): void
 export declare function applyTrackListChanges(): Promise<Array<string>>
-export declare function getdBRange(): Promise<number>
+export declare function getdBRange(): number
 export declare function setdBRange(dBRange: number): Promise<void>
 export declare function setColormapLength(colormapLength: number): Promise<void>
 export declare function getSpecSetting(): SpecSetting
@@ -89,7 +89,7 @@ export declare function getCommonNormalize(): any
 export declare function setCommonNormalize(target: any): Promise<void>
 export declare function getSpectrogram(idChStr: string, secRange: [number, number], hzRange: [number, number], marginPx: number): Promise<Spectrogram | null>
 export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
-export declare function findIdByPath(path: string): Promise<number>
+export declare function findIdByPath(path: string): number
 export declare function getOverviewDrawingInfo(trackId: number, width: number, height: number, gapHeight: number, limiterGainHeightRatio: number, wavStrokeWidth: number, topbottomContextSize: number): Promise<OverviewDrawingInfo | null>
 export declare function freqPosToHz(y: number, height: number, hzRange: [number, number]): number
 export declare function freqHzToPos(hz: number, height: number, hzRange: [number, number]): number
@@ -101,8 +101,8 @@ export declare function getTimeAxisMarkers(startSec: number, endSec: number, tic
 export declare function getFreqAxisMarkers(maxNumTicks: number, maxNumLabels: number, hzRange: [number, number], maxTrackHz: number): any
 export declare function getAmpAxisMarkers(maxNumTicks: number, maxNumLabels: number, ampRange: [number, number]): any
 export declare function getdBAxisMarkers(maxNumTicks: number, maxNumLabels: number, minDB: number, maxDB: number): any
-export declare function getMaxdB(): Promise<number>
-export declare function getMindB(): Promise<number>
+export declare function getMaxdB(): number
+export declare function getMindB(): number
 export declare function getMaxTrackHz(): number
 export declare function getLongestTrackLengthSec(): number
 export declare function getChannelCounts(trackId: number): number

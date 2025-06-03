@@ -210,7 +210,7 @@ fn main_loop(
                      is_playing: bool| {
         let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
         let sound = TRACK_LIST
-            .blocking_read()
+            .read()
             .get(track_id)
             .map(|track| Sound::from_frames(track.sr(), track.interleaved_frames()));
 
@@ -284,7 +284,7 @@ fn main_loop(
                     );
                 }
                 PlayerCommand::Seek(sec) => {
-                    let max_sec = TRACK_LIST.blocking_read().max_sec;
+                    let max_sec = TRACK_LIST.read().max_sec;
                     let sec = sec.min(max_sec);
                     noti_tx.send_modify(|noti| {
                         if let PlayerNotification::Ok(state) = noti {
@@ -372,7 +372,7 @@ fn main_loop(
                         }
                         let position_sec = prev_state.position_sec
                             + (state.instant - prev_state.instant).as_secs_f64();
-                        let max_sec = TRACK_LIST.blocking_read().max_sec;
+                        let max_sec = TRACK_LIST.read().max_sec;
                         if position_sec >= max_sec {
                             state.is_playing = false;
                             state.position_sec = max_sec;

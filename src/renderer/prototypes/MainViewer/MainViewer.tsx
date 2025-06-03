@@ -233,9 +233,7 @@ function MainViewer(props: MainViewerProps) {
 
   useEffect(() => {
     if (trackIds.length === 0 || needRefreshTrackIdChArr.length === 0) return;
-    Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()])
-      .then(([mindB, maxdB]) => setMinMaxdB({mindB, maxdB}))
-      .catch(() => {});
+    setMinMaxdB({mindB: BackendAPI.getMindB(), maxdB: BackendAPI.getMaxdB()});
   }, [trackIds, needRefreshTrackIdChArr]);
 
   const setSelectSec = useEvent((sec) => {

@@ -56,7 +56,7 @@ function useTracks(userSettings: UserSettings) {
     async (paths: string[], index: number | null = null): Promise<AddTracksResultType> => {
       try {
         setIsLoading(true);
-        const idsOfInputPaths = await Promise.all(paths.map(BackendAPI.findIdByPath));
+        const idsOfInputPaths = paths.map(BackendAPI.findIdByPath);
         const newPaths = paths.filter((_, i) => idsOfInputPaths[i] === -1);
         const existingIds = idsOfInputPaths.filter((id) => id !== -1);
 
@@ -189,7 +189,7 @@ function useTracks(userSettings: UserSettings) {
   const setdBRange = useEvent(async (v: number) => {
     setIsLoading(true);
     await BackendAPI.setdBRange(v);
-    const dBRange = await BackendAPI.getdBRange();
+    const dBRange = BackendAPI.getdBRange();
     setCurrentdBRange(dBRange);
     setUserSetting("dBRange", dBRange);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
