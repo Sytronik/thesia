@@ -125,10 +125,11 @@ async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     })
     .await;
     let added_ids_u32 = added_ids.iter().map(|&x| x as u32).collect();
-    rayon::spawn_fifo(move || {
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .add_tracks(&TRACK_LIST.blocking_read(), &added_ids);
-    });
+    })
+    .await;
     added_ids_u32
 }
 
@@ -140,10 +141,11 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     let (reloaded_ids, no_err_ids) =
         tokio_rayon::spawn_fifo(move || TRACK_LIST.blocking_write().reload_tracks(&track_ids))
             .await;
-    rayon::spawn_fifo(move || {
+    tokio_rayon::spawn_fifo(move || {
         TM.blocking_write()
             .reload_tracks(&TRACK_LIST.blocking_read(), &reloaded_ids);
-    });
+    })
+    .await;
     no_err_ids.into_iter().map(|x| x as u32).collect()
 }
 
