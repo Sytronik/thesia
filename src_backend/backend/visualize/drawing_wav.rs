@@ -108,9 +108,6 @@ impl WavDrawingInfoKind {
             Self::FillRect => {}
             Self::Line(..) => unimplemented!(),
             Self::TopBottomEnvelope(top_envlop, btm_envlop, clip_values) => {
-                let zero_top = amp_to_rel_y(0.) - wav_stroke_width / height / 2.;
-                let zero_btm = amp_to_rel_y(0.) + wav_stroke_width / height / 2.;
-
                 if need_convert {
                     rayon::join(
                         || top_envlop.iter_mut().for_each(|y| *y = convert(*y)),
@@ -119,10 +116,12 @@ impl WavDrawingInfoKind {
                 }
                 top_envlop.iter_mut().zip(btm_envlop.iter_mut()).for_each(
                     |(top, btm): (&mut f32, &mut f32)| {
-                        let is_larger_than_stroke_width = *btm - *top >= wav_stroke_width / height;
-                        if !is_larger_than_stroke_width {
-                            *top = zero_top;
-                            *btm = zero_btm;
+                        // TODO: remove duplicated code
+                        let len_to_fill_stroke_width = wav_stroke_width / height - (*btm - *top);
+
+                        if len_to_fill_stroke_width > 0. {
+                            *top -= len_to_fill_stroke_width / 2.;
+                            *btm += len_to_fill_stroke_width / 2.;
                         }
                     },
                 );
@@ -292,8 +291,6 @@ impl WavDrawingInfoInternal {
                     .unwrap_or(0.),
             );
             let zero_rel_y = amp_to_rel_y(0.);
-            let zero_top = zero_rel_y - wav_stroke_width / height / 2.;
-            let zero_btm = zero_rel_y + wav_stroke_width / height / 2.;
 
             let (mut top_envlop, mut btm_envlop): (Vec<_>, Vec<_>) = (0..args.total_len)
                 .into_par_iter()
@@ -332,15 +329,16 @@ impl WavDrawingInfoInternal {
                         || top_val < mean_rel_y + thr_long_height
                             && btm_val > mean_rel_y - f32::EPSILON;
 
-                    let is_larger_than_stroke_width =
-                        btm_val - top_val >= wav_stroke_width / height;
+                    let len_to_fill_stroke_width = wav_stroke_width / height - (btm_val - top_val);
 
-                    if is_larger_than_stroke_width {
+                    if len_to_fill_stroke_width <= 0. {
                         is_mean_crossing.then_some(())
                     } else {
-                        *top = zero_top;
-                        *btm = zero_btm;
-                        None
+                        *top -= len_to_fill_stroke_width / 2.;
+                        *btm += len_to_fill_stroke_width / 2.;
+
+                        let all_close_to_zero = top_val <= zero_rel_y && btm_val >= zero_rel_y;
+                        all_close_to_zero.then_some(())
                     }
                 })
                 .count();
