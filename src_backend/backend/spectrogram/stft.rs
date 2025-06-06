@@ -54,15 +54,15 @@ where
         let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
 
         if parallel {
-            let min_len = n_frames / rayon::current_num_threads();
+            let min_jobs_per_thread = n_frames / rayon::current_num_threads();
             frames
                 .par_iter_mut()
-                .with_min_len(min_len)
+                .with_min_len(min_jobs_per_thread)
                 .zip_eq(
                     output
                         .axis_iter_mut(Axis(0))
                         .into_par_iter()
-                        .with_min_len(min_len),
+                        .with_min_len(min_jobs_per_thread),
                 )
                 .for_each(do_fft);
         } else {
@@ -96,17 +96,17 @@ where
     let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
 
     if parallel {
-        let min_len = n_frames / rayon::current_num_threads();
+        let min_jobs_per_thread = n_frames / rayon::current_num_threads();
         front_frames
             .par_iter_mut()
             .chain(frames.par_iter_mut())
             .chain(back_frames.par_iter_mut())
-            .with_min_len(min_len)
+            .with_min_len(min_jobs_per_thread)
             .zip_eq(
                 output
                     .axis_iter_mut(Axis(0))
                     .into_par_iter()
-                    .with_min_len(min_len),
+                    .with_min_len(min_jobs_per_thread),
             )
             .for_each(do_fft);
     } else {

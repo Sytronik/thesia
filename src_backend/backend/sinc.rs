@@ -33,8 +33,7 @@ where
     let window: Array1<A> = calc_normalized_win(win_type, totpoints, 1);
     let mut sum = A::zero();
     for (x, w) in window.iter().enumerate().take(totpoints) {
-        let val =
-            *w * sinc(((x).as_() - (totpoints / 2).as_()) * (f_cutoff).as_() / (factor).as_());
+        let val = *w * sinc((x.as_() - (totpoints / 2).as_()) * f_cutoff.as_() / factor.as_());
         sum += val;
         y.push(val);
     }

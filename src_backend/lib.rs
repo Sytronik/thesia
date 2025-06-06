@@ -115,15 +115,14 @@ fn init(user_settings: UserSettingsOptionals, max_spectrogram_size: u32) -> Resu
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    let added_ids_u32 = tokio_rayon::spawn_fifo(move || {
+    tokio_rayon::spawn_fifo(move || {
         let added_ids = TRACK_LIST
             .write()
             .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
         TM.write().add_tracks(&TRACK_LIST.read(), &added_ids);
         added_ids.iter().map(|&x| x as u32).collect()
     })
-    .await;
-    added_ids_u32
+    .await
 }
 
 #[napi]

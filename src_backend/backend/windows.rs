@@ -48,10 +48,10 @@ where
     let size2 = if symmetric { size + 1 } else { size };
     let pi2 = 2.as_() * A::PI();
     let pi4 = 4.as_() * A::PI();
-    let np_f = (size2).as_();
-    let a = (0.42).as_();
-    let b = (0.5).as_();
-    let c = (0.08).as_();
+    let np_f = size2.as_();
+    let a = 0.42.as_();
+    let b = 0.5.as_();
+    let c = 0.08.as_();
     (0..size2)
         .map(|x| {
             let x_float = x.as_();
