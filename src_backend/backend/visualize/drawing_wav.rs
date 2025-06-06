@@ -21,7 +21,7 @@ const RESAMPLE_TAIL: usize = 500;
 const THR_TOPBOTTOM_PERCENT: usize = 70;
 
 const OVERVIEW_MAX_CH: usize = 4;
-const MAX_WAV_LINE_LEN: usize = 2_usize.pow(23);
+const MAX_WAV_LINE_LEN: usize = 2_usize.pow(20);
 
 #[derive(Default)]
 pub enum WavDrawingInfoKind {
