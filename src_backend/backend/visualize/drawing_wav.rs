@@ -114,17 +114,16 @@ impl WavDrawingInfoKind {
                         || btm_envlop.iter_mut().for_each(|y| *y = convert(*y)),
                     ); // TODO: use SIMD
                 }
-                top_envlop.iter_mut().zip(btm_envlop.iter_mut()).for_each(
-                    |(top, btm): (&mut f32, &mut f32)| {
-                        // TODO: remove duplicated code
-                        let len_to_fill_stroke_width = wav_stroke_width / height - (*btm - *top);
-
-                        if len_to_fill_stroke_width > 0. {
-                            *top -= len_to_fill_stroke_width / 2.;
-                            *btm += len_to_fill_stroke_width / 2.;
-                        }
-                    },
-                );
+                top_envlop
+                    .iter_mut()
+                    .zip(btm_envlop.iter_mut())
+                    .for_each(|(top, btm)| {
+                        fill_topbottom_if_shorter_than_stroke_width(
+                            (top, btm),
+                            wav_stroke_width,
+                            height,
+                        );
+                    });
                 *clip_values = clip_values.map(|(top, btm)| (convert(top), convert(btm)));
             }
         }
@@ -329,14 +328,15 @@ impl WavDrawingInfoInternal {
                         || top_val < mean_rel_y + thr_long_height
                             && btm_val > mean_rel_y - f32::EPSILON;
 
-                    let len_to_fill_stroke_width = wav_stroke_width / height - (btm_val - top_val);
+                    let was_shorter = fill_topbottom_if_shorter_than_stroke_width(
+                        (top, btm),
+                        wav_stroke_width,
+                        height,
+                    );
 
-                    if len_to_fill_stroke_width <= 0. {
+                    if !was_shorter {
                         is_mean_crossing.then_some(())
                     } else {
-                        *top -= len_to_fill_stroke_width / 2.;
-                        *btm += len_to_fill_stroke_width / 2.;
-
                         let all_close_to_zero = top_val <= zero_rel_y && btm_val >= zero_rel_y;
                         all_close_to_zero.then_some(())
                     }
@@ -553,6 +553,21 @@ fn quantize_px_per_samples(px_per_samples: f32) -> f32 {
     } else {
         1. / (1. / px_per_samples).round()
     }
+}
+
+fn fill_topbottom_if_shorter_than_stroke_width(
+    (top, btm): (&mut f32, &mut f32),
+    wav_stroke_width: f32,
+    height: f32,
+) -> bool {
+    let len_to_fill_stroke_width = wav_stroke_width / height - (*btm - *top);
+
+    let need_fill = len_to_fill_stroke_width > 0.;
+    if need_fill {
+        *top -= len_to_fill_stroke_width / 2.;
+        *btm += len_to_fill_stroke_width / 2.;
+    }
+    need_fill
 }
 
 #[cached(size = 64)]
