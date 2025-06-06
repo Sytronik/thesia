@@ -1,10 +1,12 @@
-use fast_image_resize::pixels;
+use std::cell::RefCell;
+
+use fast_image_resize::images::{TypedImage, TypedImageRef};
+use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
 use ndarray::prelude::*;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::super::spectrogram::SpecSetting;
 
-use super::drawing::resize;
 use super::slice_args::SpectrogramSliceArgs;
 
 pub struct Mipmaps {
@@ -98,4 +100,29 @@ impl Mipmaps {
         }
         panic!("No mipmap found!");
     }
+}
+
+fn resize(img: ArrayView2<pixels::F32>, width: u32, height: u32) -> Array2<pixels::F32> {
+    thread_local! {
+        static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
+    }
+
+    RESIZER.with_borrow_mut(|resizer| {
+        let src_img = TypedImageRef::new(
+            img.shape()[1] as u32,
+            img.shape()[0] as u32,
+            img.as_slice().unwrap(),
+        )
+        .unwrap();
+        let resize_opt =
+            ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
+
+        let mut dst_buf = vec![pixels::F32::new(0.); width as usize * height as usize];
+        let mut dst_img =
+            TypedImage::<pixels::F32>::from_pixels_slice(width, height, &mut dst_buf).unwrap();
+        resizer
+            .resize_typed(&src_img, &mut dst_img, &resize_opt)
+            .unwrap();
+        Array2::from_shape_vec((height as usize, width as usize), dst_buf).unwrap()
+    })
 }

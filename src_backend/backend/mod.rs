@@ -248,7 +248,7 @@ impl TrackManager {
                         sr,
                         spec.shape()[1],
                     );
-                    let spec_img = visualize::convert_spec_to_img(
+                    let spec_img = visualize::convert_spectrogram_to_img(
                         spec.view(),
                         i_freq_range,
                         (self.min_dB, self.max_dB),
