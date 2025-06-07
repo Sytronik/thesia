@@ -7,7 +7,9 @@ use ndarray_stats::{MaybeNan, QuantileExt};
 use num_traits::{AsPrimitive, Float};
 use rayon::prelude::*;
 
+use super::super::simd::sum_squares;
 use super::super::utils::Planes;
+
 use super::decibel::DeciBel;
 use super::guardclipping::GuardClippingResult;
 
@@ -44,7 +46,7 @@ impl StatCalculator {
                 let n_elem = wavs.len();
                 wavs.axis_iter(Axis(0))
                     .into_par_iter()
-                    .map(|x| x.iter().map(|x| x.powi(2)).sum::<f32>())
+                    .map(|x| sum_squares(x.as_slice().unwrap()))
                     .sum::<f32>()
                     / n_elem as f32
             },

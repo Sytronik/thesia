@@ -75,6 +75,28 @@ pub fn find_max(slice: &[f32]) -> f32 {
     find_max_scalar(slice)
 }
 
+pub fn sum_squares(slice: &[f32]) -> f32 {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        sum_squares_neon(slice)
+    } else {
+        sum_squares_scalar(slice)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        sum_squares_avx2(slice)
+    } else if is_x86_feature_detected!("sse4.1") {
+        sum_squares_sse4(slice)
+    } else {
+        sum_squares_scalar(slice)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    sum_squares_scalar(slice)
+}
+
 #[cfg(target_arch = "aarch64")]
 #[inline]
 fn find_min_max_neon(slice: &[f32]) -> (f32, f32) {
@@ -412,6 +434,184 @@ fn find_max_scalar(slice: &[f32]) -> f32 {
     slice.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
 }
 
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn sum_squares_neon(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let mut c = 0.0f32; // Running compensation
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<float32x4_t>() };
+
+    // Handle prefix elements with Kahan summation
+    for &val in prefix {
+        let y = val * val - c;
+        let t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+
+    // Handle aligned elements using NEON
+    let mut sum_vec = unsafe { vdupq_n_f32(0.0) };
+    let mut comp_vec = unsafe { vdupq_n_f32(0.0) };
+
+    for &v_chunk in middle {
+        unsafe {
+            let squared = vmulq_f32(v_chunk, v_chunk);
+            let y = vsubq_f32(squared, comp_vec);
+            let t = vaddq_f32(sum_vec, y);
+            comp_vec = vsubq_f32(vsubq_f32(t, sum_vec), y);
+            sum_vec = t;
+        }
+    }
+    // Reduce the vector sum
+    sum += unsafe { vaddvq_f32(sum_vec) };
+
+    // Handle suffix elements with Kahan summation
+    for &val in suffix {
+        let y = val * val - c;
+        let t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+
+    sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn sum_squares_avx2(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let mut c = 0.0f32; // Running compensation
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m256>() };
+
+    // Handle prefix elements with Kahan summation
+    for &val in prefix {
+        let y = val * val - c;
+        let t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+
+    // Handle aligned elements using AVX2
+    let mut sum_vec = unsafe { _mm256_setzero_ps() };
+    let mut comp_vec = unsafe { _mm256_setzero_ps() };
+
+    for &v_chunk in middle {
+        unsafe {
+            let squared = _mm256_mul_ps(v_chunk, v_chunk);
+            let y = _mm256_sub_ps(squared, comp_vec);
+            let t = _mm256_add_ps(sum_vec, y);
+            comp_vec = _mm256_sub_ps(_mm256_sub_ps(t, sum_vec), y);
+            sum_vec = t;
+        }
+    }
+    // Reduce the vector sum
+    sum += unsafe { _mm256_reduce_add_ps(sum_vec) };
+
+    // Handle suffix elements with Kahan summation
+    for &val in suffix {
+        let y = val * val - c;
+        let t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+
+    sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn sum_squares_sse4(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let mut c = 0.0f32; // Running compensation
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m128>() };
+
+    // Handle prefix elements with Kahan summation
+    for &val in prefix {
+        let y = val * val - c;
+        let t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+
+    // Handle aligned elements using SSE4
+    let mut sum_vec = unsafe { _mm_setzero_ps() };
+    let mut comp_vec = unsafe { _mm_setzero_ps() };
+
+    for &v_chunk in middle {
+        unsafe {
+            let squared = _mm_mul_ps(v_chunk, v_chunk);
+            let y = _mm_sub_ps(squared, comp_vec);
+            let t = _mm_add_ps(sum_vec, y);
+            comp_vec = _mm_sub_ps(_mm_sub_ps(t, sum_vec), y);
+            sum_vec = t;
+        }
+    }
+    // Reduce the vector sum
+    sum += unsafe { _mm_reduce_add_ps(sum_vec) };
+
+    // Handle suffix elements with Kahan summation
+    for &val in suffix {
+        let y = val * val - c;
+        let t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+
+    sum
+}
+
+// Helper function for SSE4.1 reduction
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn _mm_reduce_add_ps(v: __m128) -> f32 {
+    unsafe {
+        let shuf = _mm_movehdup_ps(v);
+        let sum1 = _mm_add_ps(v, shuf);
+        let shuf2 = _mm_movehl_ps(sum1, sum1);
+        let sum2 = _mm_add_ps(sum1, shuf2);
+        _mm_cvtss_f32(sum2)
+    }
+}
+
+// Helper function for AVX2 reduction
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn _mm256_reduce_add_ps(v: __m256) -> f32 {
+    unsafe {
+        let low = _mm256_extractf128_ps(v, 0);
+        let high = _mm256_extractf128_ps(v, 1);
+        let sum1 = _mm_add_ps(low, high);
+        _mm_reduce_add_ps(sum1)
+    }
+}
+
+#[inline]
+fn sum_squares_scalar(slice: &[f32]) -> f32 {
+    // Use Kahan summation for better numerical stability
+    let mut sum = 0.0f32;
+    let mut c = 0.0f32; // Running compensation for lost low-order bits
+
+    for &x in slice {
+        let y = x * x - c; // Subtract the compensation
+        let t = sum + y; // Add to sum
+        c = (t - sum) - y; // New compensation
+        sum = t;
+    }
+    sum
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::Array1;
@@ -636,6 +836,88 @@ mod tests {
             );
         }
 
+        println!("---------------------------------------\n");
+    }
+
+    #[test]
+    fn test_sum_squares() {
+        let test_cases = vec![
+            (vec![1.0, 2.0, 3.0, 4.0], 30.0), // 1 + 4 + 9 + 16
+            (vec![-1.0, -2.0, -3.0], 14.0),   // 1 + 4 + 9
+            (vec![0.0, 0.0, 0.0], 0.0),
+            (vec![1.0], 1.0),
+            (vec![], 0.0),
+        ];
+
+        for (data, expected) in test_cases {
+            let result = sum_squares(&data);
+            assert!(
+                (result - expected).abs() < 1e-5,
+                "Sum of squares doesn't match for data: {:?}, expected: {}, got: {}",
+                data,
+                expected,
+                result
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn benchmark_sum_squares() {
+        let data_size = 1_000_000;
+        let data = generate_random_data(data_size);
+
+        if data_size > 1000 {
+            let warm_up_data = generate_random_data(1000);
+            let _ = sum_squares_scalar(&warm_up_data);
+            let _ = sum_squares(&warm_up_data);
+        }
+
+        println!("\n--- Performance Test: sum_squares ---");
+        println!("Data size: {} f32 elements", data_size);
+
+        let start_scalar = Instant::now();
+        let sum_scalar = sum_squares_scalar(&data);
+        let duration_scalar = start_scalar.elapsed();
+        println!(
+            "Scalar sum_squares: sum={:.6}, time={:?}",
+            sum_scalar, duration_scalar
+        );
+
+        let start_simd = Instant::now();
+        let sum_simd = sum_squares(&data);
+        let duration_simd = start_simd.elapsed();
+        println!(
+            "SIMD sum_squares: sum={:.6}, time={:?}",
+            sum_simd, duration_simd
+        );
+
+        // Verify results with a larger epsilon for floating-point comparison
+        let epsilon = 1e-3; // Increased epsilon for floating-point comparison
+        let relative_error = (sum_scalar - sum_simd).abs() / sum_scalar.abs();
+        assert!(
+            relative_error < epsilon,
+            "Sum of squares doesn't match: scalar {} vs SIMD {}, relative error: {}",
+            sum_scalar,
+            sum_simd,
+            relative_error
+        );
+
+        // Print performance comparison
+        if duration_simd < duration_scalar {
+            let diff = duration_scalar - duration_simd;
+            let percentage = (diff.as_secs_f64() / duration_scalar.as_secs_f64()) * 100.0;
+            println!("SIMD version was faster by {:?} ({:.2}%)", diff, percentage);
+        } else if duration_scalar < duration_simd {
+            let diff = duration_simd - duration_scalar;
+            let percentage = (diff.as_secs_f64() / duration_simd.as_secs_f64()) * 100.0;
+            println!(
+                "Scalar version was faster by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        } else {
+            println!("Scalar and SIMD versions had similar performance.");
+        }
         println!("---------------------------------------\n");
     }
 }
