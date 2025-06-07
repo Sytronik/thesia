@@ -3,11 +3,11 @@ use std::fmt::Display;
 use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
 use ndarray::{Data, RemoveAxis};
-use ndarray_stats::{MaybeNan, QuantileExt};
+use ndarray_stats::MaybeNan;
 use num_traits::{AsPrimitive, Float};
 use rayon::prelude::*;
 
-use super::super::simd::{abs_max, sum_squares};
+use super::super::simd::{MinSIMD, abs_max, sum_squares};
 use super::super::utils::Planes;
 
 use super::decibel::DeciBel;
@@ -143,14 +143,16 @@ impl GuardClippingStats {
         }
     }
 
-    pub fn from_gain_seq<A, D>(gain_seq: ArrayView<A, D>) -> Self
+    pub fn from_gain_seq<'a, A, S, D>(gain_seq: ArrayView<'a, A, D>) -> Self
     where
         A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
         <A as MaybeNan>::NotNan: Ord,
+        S: Data<Elem = A>,
         D: Dimension,
+        ArrayView<'a, A, D>: MinSIMD<A, S, D>,
     {
         GuardClippingStats {
-            max_reduction_gain_dB: gain_seq.min_skipnan().dB_from_amp_default().as_(),
+            max_reduction_gain_dB: gain_seq.min_simd().dB_from_amp_default().as_(),
             reduction_cnt: gain_seq.iter().filter(|&&x| x != A::one()).count(),
         }
     }

@@ -8,6 +8,10 @@ use std::arch::is_x86_feature_detected;
 use std::arch::x86_64::*;
 
 use itertools::Itertools;
+use ndarray::ArrayBase;
+use ndarray::Data;
+use ndarray::Dimension;
+use ndarray_stats::QuantileExt;
 
 pub fn find_min_max(slice: &[f32]) -> (f32, f32) {
     // Use SIMD if available, otherwise fall back to scalar
@@ -51,6 +55,35 @@ pub fn find_min(slice: &[f32]) -> f32 {
 
     #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
     find_min_scalar(slice)
+}
+
+pub trait MinSIMD<A, S, D>
+where
+    S: Data<Elem = A>,
+    D: Dimension,
+{
+    fn min_simd(&self) -> A;
+}
+
+impl<S, D> MinSIMD<f32, S, D> for ArrayBase<S, D>
+where
+    S: Data<Elem = f32>,
+    D: Dimension,
+{
+    fn min_simd(&self) -> f32 {
+        find_min(self.as_slice_memory_order().unwrap())
+    }
+}
+
+impl<S, D> MinSIMD<f64, S, D> for ArrayBase<S, D>
+where
+    S: Data<Elem = f64>,
+    D: Dimension,
+{
+    fn min_simd(&self) -> f64 {
+        log::warn!("min_simd for f64 is not implemented");
+        *self.min_skipnan()
+    }
 }
 
 pub fn find_max(slice: &[f32]) -> f32 {
