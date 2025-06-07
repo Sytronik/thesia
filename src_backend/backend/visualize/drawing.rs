@@ -7,11 +7,10 @@ use cached::proc_macro::cached;
 use fast_image_resize::pixels;
 use ndarray::prelude::*;
 use ndarray::{ErrorKind, ShapeError};
-use ndarray_stats::QuantileExt;
 use rayon::prelude::*;
 
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
-use super::super::simd::find_min_max;
+use super::super::simd::{find_max, find_min, find_min_max};
 use super::super::track::AudioTrack;
 
 use super::WavSliceArgs;
@@ -93,13 +92,10 @@ impl WavDrawingInfoKind {
                             let (pre, main) = top.split_at(offset);
                             *top = iter::once(pre)
                                 .chain(main.chunks(ratio))
-                                .map(|chunk| *ArrayView1::from(chunk).min_skipnan())
+                                .map(find_min)
                                 .collect();
                         } else {
-                            *top = top
-                                .chunks(ratio)
-                                .map(|chunk| *ArrayView1::from(chunk).min_skipnan())
-                                .collect();
+                            *top = top.chunks(ratio).map(find_min).collect();
                         }
                     },
                     || {
@@ -107,13 +103,10 @@ impl WavDrawingInfoKind {
                             let (pre, main) = btm.split_at(offset);
                             *btm = iter::once(pre)
                                 .chain(main.chunks(ratio))
-                                .map(|chunk| *ArrayView1::from(chunk).max_skipnan())
+                                .map(find_max)
                                 .collect()
                         } else {
-                            *btm = btm
-                                .chunks(ratio)
-                                .map(|chunk| *ArrayView1::from(chunk).max_skipnan())
-                                .collect();
+                            *btm = btm.chunks(ratio).map(find_max).collect();
                         }
                     },
                 );

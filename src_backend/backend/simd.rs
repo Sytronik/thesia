@@ -31,10 +31,48 @@ pub fn find_min_max(slice: &[f32]) -> (f32, f32) {
     find_min_max_scalar(slice)
 }
 
-#[inline]
-fn find_min_max_scalar(slice: &[f32]) -> (f32, f32) {
-    let (min, max) = slice.iter().minmax().into_option().unwrap();
-    (*min, *max)
+pub fn find_min(slice: &[f32]) -> f32 {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        find_min_neon(slice)
+    } else {
+        find_min_scalar(slice)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        find_min_avx2(slice)
+    } else if is_x86_feature_detected!("sse4.1") {
+        find_min_sse4(slice)
+    } else {
+        find_min_scalar(slice)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    find_min_scalar(slice)
+}
+
+pub fn find_max(slice: &[f32]) -> f32 {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        find_max_neon(slice)
+    } else {
+        find_max_scalar(slice)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        find_max_avx2(slice)
+    } else if is_x86_feature_detected!("sse4.1") {
+        find_max_sse4(slice)
+    } else {
+        find_max_scalar(slice)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    find_max_scalar(slice)
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -190,6 +228,190 @@ unsafe fn _mm_reduce_max_ps(v: __m128) -> f32 {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn find_min_neon(slice: &[f32]) -> f32 {
+    let mut min_val = f32::INFINITY;
+
+    if slice.is_empty() {
+        return min_val;
+    }
+
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<float32x4_t>() };
+
+    for &val in prefix {
+        min_val = min_val.min(val);
+    }
+
+    for &v_chunk in middle {
+        unsafe {
+            min_val = min_val.min(vminvq_f32(v_chunk));
+        }
+    }
+
+    for &val in suffix {
+        min_val = min_val.min(val);
+    }
+
+    min_val
+}
+
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn find_max_neon(slice: &[f32]) -> f32 {
+    let mut max_val = f32::NEG_INFINITY;
+
+    if slice.is_empty() {
+        return max_val;
+    }
+
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<float32x4_t>() };
+
+    for &val in prefix {
+        max_val = max_val.max(val);
+    }
+
+    for &v_chunk in middle {
+        unsafe {
+            max_val = max_val.max(vmaxvq_f32(v_chunk));
+        }
+    }
+
+    for &val in suffix {
+        max_val = max_val.max(val);
+    }
+
+    max_val
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn find_min_avx2(slice: &[f32]) -> f32 {
+    let mut min_val = f32::INFINITY;
+
+    if slice.is_empty() {
+        return min_val;
+    }
+
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m256>() };
+
+    for &val in prefix {
+        min_val = min_val.min(val);
+    }
+
+    for &v_chunk in middle {
+        unsafe {
+            min_val = min_val.min(_mm256_reduce_min_ps(v_chunk));
+        }
+    }
+
+    for &val in suffix {
+        min_val = min_val.min(val);
+    }
+
+    min_val
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn find_max_avx2(slice: &[f32]) -> f32 {
+    let mut max_val = f32::NEG_INFINITY;
+
+    if slice.is_empty() {
+        return max_val;
+    }
+
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m256>() };
+
+    for &val in prefix {
+        max_val = max_val.max(val);
+    }
+
+    for &v_chunk in middle {
+        unsafe {
+            max_val = max_val.max(_mm256_reduce_max_ps(v_chunk));
+        }
+    }
+
+    for &val in suffix {
+        max_val = max_val.max(val);
+    }
+
+    max_val
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn find_min_sse4(slice: &[f32]) -> f32 {
+    let mut min_val = f32::INFINITY;
+
+    if slice.is_empty() {
+        return min_val;
+    }
+
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m128>() };
+
+    for &val in prefix {
+        min_val = min_val.min(val);
+    }
+
+    for &v_chunk in middle {
+        unsafe {
+            min_val = min_val.min(_mm_reduce_min_ps(v_chunk));
+        }
+    }
+
+    for &val in suffix {
+        min_val = min_val.min(val);
+    }
+
+    min_val
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn find_max_sse4(slice: &[f32]) -> f32 {
+    let mut max_val = f32::NEG_INFINITY;
+
+    if slice.is_empty() {
+        return max_val;
+    }
+
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m128>() };
+
+    for &val in prefix {
+        max_val = max_val.max(val);
+    }
+
+    for &v_chunk in middle {
+        unsafe {
+            max_val = max_val.max(_mm_reduce_max_ps(v_chunk));
+        }
+    }
+
+    for &val in suffix {
+        max_val = max_val.max(val);
+    }
+
+    max_val
+}
+
+#[inline]
+fn find_min_max_scalar(slice: &[f32]) -> (f32, f32) {
+    let (min, max) = slice.iter().minmax().into_option().unwrap();
+    (*min, *max)
+}
+
+#[inline]
+fn find_min_scalar(slice: &[f32]) -> f32 {
+    slice.iter().fold(f32::INFINITY, |a, &b| a.min(b))
+}
+
+#[inline]
+fn find_max_scalar(slice: &[f32]) -> f32 {
+    slice.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::Array1;
@@ -274,5 +496,146 @@ mod tests {
             max_s,
             max_simd
         );
+    }
+
+    #[test]
+    fn test_find_min_max_separate() {
+        let test_cases = vec![
+            vec![1.0, 2.0, 3.0, 4.0, 5.0],
+            vec![-1.0, -2.0, -3.0, -4.0, -5.0],
+            vec![0.0, 0.0, 0.0],
+            vec![f32::INFINITY, f32::NEG_INFINITY, 0.0],
+            vec![1.0],
+            vec![],
+        ];
+
+        for data in test_cases {
+            let (min_combined, max_combined) = find_min_max(&data);
+            let min_separate = find_min(&data);
+            let max_separate = find_max(&data);
+
+            assert_eq!(
+                min_combined, min_separate,
+                "Min values don't match for data: {:?}",
+                data
+            );
+            assert_eq!(
+                max_combined, max_separate,
+                "Max values don't match for data: {:?}",
+                data
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn benchmark_find_min_max_separate() {
+        let data_size = 1_000_000;
+        let data = generate_random_data(data_size);
+
+        if data_size > 1000 {
+            let warm_up_data = generate_random_data(1000);
+            let _ = find_min_scalar(&warm_up_data);
+            let _ = find_max_scalar(&warm_up_data);
+            let _ = find_min(&warm_up_data);
+            let _ = find_max(&warm_up_data);
+        }
+
+        println!("\n--- Performance Test: find_min and find_max ---");
+        println!("Data size: {} f32 elements", data_size);
+
+        // Test find_min
+        let start_scalar_min = Instant::now();
+        let min_s = find_min_scalar(&data);
+        let duration_scalar_min = start_scalar_min.elapsed();
+        println!(
+            "Scalar find_min: min={:.6}, time={:?}",
+            min_s, duration_scalar_min
+        );
+
+        let start_simd_min = Instant::now();
+        let min_simd = find_min(&data);
+        let duration_simd_min = start_simd_min.elapsed();
+        println!(
+            "SIMD find_min: min={:.6}, time={:?}",
+            min_simd, duration_simd_min
+        );
+
+        // Test find_max
+        let start_scalar_max = Instant::now();
+        let max_s = find_max_scalar(&data);
+        let duration_scalar_max = start_scalar_max.elapsed();
+        println!(
+            "Scalar find_max: max={:.6}, time={:?}",
+            max_s, duration_scalar_max
+        );
+
+        let start_simd_max = Instant::now();
+        let max_simd = find_max(&data);
+        let duration_simd_max = start_simd_max.elapsed();
+        println!(
+            "SIMD find_max: max={:.6}, time={:?}",
+            max_simd, duration_simd_max
+        );
+
+        // Compare with combined min_max
+        let start_combined = Instant::now();
+        let (min_combined, max_combined) = find_min_max(&data);
+        let duration_combined = start_combined.elapsed();
+        println!(
+            "Combined find_min_max: min={:.6}, max={:.6}, time={:?}",
+            min_combined, max_combined, duration_combined
+        );
+
+        // Verify results
+        let epsilon = 1e-5;
+        assert!((min_s - min_simd).abs() < epsilon, "Min values don't match");
+        assert!((max_s - max_simd).abs() < epsilon, "Max values don't match");
+        assert!(
+            (min_combined - min_simd).abs() < epsilon,
+            "Combined min doesn't match separate min"
+        );
+        assert!(
+            (max_combined - max_simd).abs() < epsilon,
+            "Combined max doesn't match separate max"
+        );
+
+        // Print performance comparisons
+        if duration_simd_min < duration_scalar_min {
+            let diff = duration_scalar_min - duration_simd_min;
+            let percentage = (diff.as_secs_f64() / duration_scalar_min.as_secs_f64()) * 100.0;
+            println!(
+                "SIMD find_min was faster by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        }
+
+        if duration_simd_max < duration_scalar_max {
+            let diff = duration_scalar_max - duration_simd_max;
+            let percentage = (diff.as_secs_f64() / duration_scalar_max.as_secs_f64()) * 100.0;
+            println!(
+                "SIMD find_max was faster by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        }
+
+        let total_separate = duration_simd_min + duration_simd_max;
+        if total_separate < duration_combined {
+            let diff = duration_combined - total_separate;
+            let percentage = (diff.as_secs_f64() / duration_combined.as_secs_f64()) * 100.0;
+            println!(
+                "Separate min/max was faster than combined by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        } else {
+            let diff = total_separate - duration_combined;
+            let percentage = (diff.as_secs_f64() / total_separate.as_secs_f64()) * 100.0;
+            println!(
+                "Combined min/max was faster than separate by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        }
+
+        println!("---------------------------------------\n");
     }
 }

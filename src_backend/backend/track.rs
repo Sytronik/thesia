@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use identity_hash::{IntMap, IntSet};
 use kittyaudio::Frame;
 use ndarray::prelude::*;
-use ndarray_stats::QuantileExt;
 use parking_lot::RwLock;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -16,6 +15,7 @@ use super::dynamics::{
     AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
     NormalizeTarget, StatCalculator,
 };
+use super::simd::find_min_max;
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
@@ -198,7 +198,8 @@ impl AudioTrack {
             .map(|ch| {
                 let amp_range = {
                     let (wav, _) = self.channel_for_drawing(ch);
-                    ((*wav.min_skipnan()).min(-1.), (*wav.max_skipnan()).max(1.))
+                    let (min, max) = find_min_max(wav.as_slice().unwrap());
+                    (min.min(-1.), max.max(1.))
                 };
 
                 let (wav, is_clipped) = self.channel_for_drawing(ch);
@@ -503,7 +504,8 @@ impl TrackList {
     pub fn max_sr(&self) -> u32 {
         iter_filtered!(self.tracks)
             .map(|track| track.sr())
-            .fold(0u32, |max, x| max.max(x))
+            .max()
+            .unwrap_or(0)
     }
 
     #[inline]
