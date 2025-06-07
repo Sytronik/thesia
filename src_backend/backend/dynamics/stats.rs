@@ -7,7 +7,7 @@ use ndarray_stats::{MaybeNan, QuantileExt};
 use num_traits::{AsPrimitive, Float};
 use rayon::prelude::*;
 
-use super::super::simd::sum_squares;
+use super::super::simd::{abs_max, sum_squares};
 use super::super::utils::Planes;
 
 use super::decibel::DeciBel;
@@ -71,18 +71,24 @@ pub trait MaxPeak<A> {
     fn max_peak(&self) -> A;
 }
 
-impl<A, S, D> MaxPeak<A> for ArrayBase<S, D>
+impl<S, D> MaxPeak<f64> for ArrayBase<S, D>
 where
-    A: Float + MaybeNan,
-    <A as MaybeNan>::NotNan: Ord,
-    S: Data<Elem = A>,
+    S: Data<Elem = f64>,
     D: Dimension,
 {
-    fn max_peak(&self) -> A {
-        self.iter()
-            .map(|x| x.abs())
-            .reduce(Float::max)
-            .unwrap_or(A::zero())
+    fn max_peak(&self) -> f64 {
+        log::warn!("max_peak for f64 does not use SIMD!");
+        self.iter().map(|x| x.abs()).reduce(f64::max).unwrap_or(0.)
+    }
+}
+
+impl<S, D> MaxPeak<f32> for ArrayBase<S, D>
+where
+    S: Data<Elem = f32>,
+    D: Dimension,
+{
+    fn max_peak(&self) -> f32 {
+        self.as_slice().map(abs_max).unwrap_or(0.)
     }
 }
 
@@ -110,11 +116,11 @@ impl Display for GuardClippingStats {
 }
 
 impl GuardClippingStats {
-    pub fn from_wav_before_clip<A, D>(wav_before_clip: ArrayView<A, D>) -> Self
+    pub fn from_wav_before_clip<'a, A, D>(wav_before_clip: ArrayView<'a, A, D>) -> Self
     where
-        A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
-        <A as MaybeNan>::NotNan: Ord,
+        A: Float + AsPrimitive<f32> + DeciBel,
         D: Dimension,
+        ArrayView<'a, A, D>: MaxPeak<A>,
     {
         let max_peak = wav_before_clip.max_peak();
         if max_peak > A::one() {

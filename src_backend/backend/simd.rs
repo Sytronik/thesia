@@ -97,6 +97,28 @@ pub fn sum_squares(slice: &[f32]) -> f32 {
     sum_squares_scalar(slice)
 }
 
+pub fn abs_max(slice: &[f32]) -> f32 {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        abs_max_neon(slice)
+    } else {
+        abs_max_scalar(slice)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        abs_max_avx2(slice)
+    } else if is_x86_feature_detected!("sse4.1") {
+        abs_max_sse4(slice)
+    } else {
+        abs_max_scalar(slice)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    abs_max_scalar(slice)
+}
+
 #[cfg(target_arch = "aarch64")]
 #[inline]
 fn find_min_max_neon(slice: &[f32]) -> (f32, f32) {
@@ -612,6 +634,113 @@ fn sum_squares_scalar(slice: &[f32]) -> f32 {
     sum
 }
 
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn abs_max_neon(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut max_val = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<float32x4_t>() };
+
+    // Handle prefix elements
+    for &val in prefix {
+        max_val = max_val.max(val.abs());
+    }
+
+    // Handle aligned elements using NEON
+    let mut max_vec = unsafe { vdupq_n_f32(0.0) };
+    for &v_chunk in middle {
+        unsafe {
+            let abs = vabsq_f32(v_chunk);
+            max_vec = vmaxq_f32(max_vec, abs);
+        }
+    }
+    // Reduce the vector max
+    max_val = max_val.max(unsafe { vmaxvq_f32(max_vec) });
+
+    // Handle suffix elements
+    for &val in suffix {
+        max_val = max_val.max(val.abs());
+    }
+
+    max_val
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn abs_max_avx2(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut max_val = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m256>() };
+
+    // Handle prefix elements
+    for &val in prefix {
+        max_val = max_val.max(val.abs());
+    }
+
+    // Handle aligned elements using AVX2
+    let mut max_vec = unsafe { _mm256_setzero_ps() };
+    for &v_chunk in middle {
+        unsafe {
+            let abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), v_chunk); // Clear sign bit
+            max_vec = _mm256_max_ps(max_vec, abs);
+        }
+    }
+    // Reduce the vector max
+    max_val = max_val.max(unsafe { _mm256_reduce_max_ps(max_vec) });
+
+    // Handle suffix elements
+    for &val in suffix {
+        max_val = max_val.max(val.abs());
+    }
+
+    max_val
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn abs_max_sse4(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut max_val = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m128>() };
+
+    // Handle prefix elements
+    for &val in prefix {
+        max_val = max_val.max(val.abs());
+    }
+
+    // Handle aligned elements using SSE4
+    let mut max_vec = unsafe { _mm_setzero_ps() };
+    for &v_chunk in middle {
+        unsafe {
+            let abs = _mm_andnot_ps(_mm_set1_ps(-0.0), v_chunk); // Clear sign bit
+            max_vec = _mm_max_ps(max_vec, abs);
+        }
+    }
+    // Reduce the vector max
+    max_val = max_val.max(unsafe { _mm_reduce_max_ps(max_vec) });
+
+    // Handle suffix elements
+    for &val in suffix {
+        max_val = max_val.max(val.abs());
+    }
+
+    max_val
+}
+
+#[inline]
+fn abs_max_scalar(slice: &[f32]) -> f32 {
+    slice.iter().map(|x| x.abs()).fold(0.0, |a, b| a.max(b))
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::Array1;
@@ -901,6 +1030,87 @@ mod tests {
             sum_scalar,
             sum_simd,
             relative_error
+        );
+
+        // Print performance comparison
+        if duration_simd < duration_scalar {
+            let diff = duration_scalar - duration_simd;
+            let percentage = (diff.as_secs_f64() / duration_scalar.as_secs_f64()) * 100.0;
+            println!("SIMD version was faster by {:?} ({:.2}%)", diff, percentage);
+        } else if duration_scalar < duration_simd {
+            let diff = duration_simd - duration_scalar;
+            let percentage = (diff.as_secs_f64() / duration_simd.as_secs_f64()) * 100.0;
+            println!(
+                "Scalar version was faster by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        } else {
+            println!("Scalar and SIMD versions had similar performance.");
+        }
+        println!("---------------------------------------\n");
+    }
+
+    #[test]
+    fn test_abs_max() {
+        let test_cases = vec![
+            (vec![1.0, -2.0, 3.0, -4.0], 4.0),
+            (vec![-1.0, -2.0, -3.0], 3.0),
+            (vec![0.0, 0.0, 0.0], 0.0),
+            (vec![1.0], 1.0),
+            (vec![-1.0], 1.0),
+            (vec![], 0.0),
+        ];
+
+        for (data, expected) in test_cases {
+            let result = abs_max(&data);
+            assert!(
+                (result - expected).abs() < 1e-5,
+                "Absolute maximum doesn't match for data: {:?}, expected: {}, got: {}",
+                data,
+                expected,
+                result
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn benchmark_abs_max() {
+        let data_size = 1_000_000;
+        let data = generate_random_data(data_size);
+
+        if data_size > 1000 {
+            let warm_up_data = generate_random_data(1000);
+            let _ = abs_max_scalar(&warm_up_data);
+            let _ = abs_max(&warm_up_data);
+        }
+
+        println!("\n--- Performance Test: abs_max ---");
+        println!("Data size: {} f32 elements", data_size);
+
+        let start_scalar = Instant::now();
+        let max_scalar = abs_max_scalar(&data);
+        let duration_scalar = start_scalar.elapsed();
+        println!(
+            "Scalar abs_max: max={:.6}, time={:?}",
+            max_scalar, duration_scalar
+        );
+
+        let start_simd = Instant::now();
+        let max_simd = abs_max(&data);
+        let duration_simd = start_simd.elapsed();
+        println!(
+            "SIMD abs_max: max={:.6}, time={:?}",
+            max_simd, duration_simd
+        );
+
+        // Verify results
+        let epsilon = 1e-5;
+        assert!(
+            (max_scalar - max_simd).abs() < epsilon,
+            "Absolute maximum doesn't match: scalar {} vs SIMD {}",
+            max_scalar,
+            max_simd
         );
 
         // Print performance comparison
