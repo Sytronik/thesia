@@ -99,13 +99,14 @@ where
         self.assign_to(result.slice_axis_mut(axis, s_result_main));
         match mode {
             PadMode::Constant(constant) => {
+                let constant = MaybeUninit::new(constant);
                 result
                     .slice_axis_mut(axis, (..n_pad_left).into())
-                    .mapv_inplace(|_| MaybeUninit::new(constant));
+                    .mapv_inplace(|_| constant);
                 if n_pad_right > 0 {
                     result
                         .slice_axis_mut(axis, (-(n_pad_right as isize)..).into())
-                        .mapv_inplace(|_| MaybeUninit::new(constant));
+                        .mapv_inplace(|_| constant);
                 }
             }
             PadMode::Reflect => {

@@ -89,10 +89,10 @@ impl PerfectLimiter {
     }
 
     /// process one sample, and returns (delayed_output, gain)
-    pub fn _step(&mut self, value: ArrayView1<f32>) -> (Array1<f32>, f32) {
+    pub fn _step(&mut self, frame: ArrayView1<f32>) -> (Array1<f32>, f32) {
         let mut delayed = self.buffer.slice(s![self.i_buf, ..]).to_owned();
-        let gain = self.calc_gain(value);
-        azip!((y in &mut self.buffer.slice_mut(s![self.i_buf, ..]), x in &value) *y = *x as f64);
+        let gain = self.calc_gain(frame);
+        azip!((y in &mut self.buffer.slice_mut(s![self.i_buf, ..]), x in &frame) *y = *x as f64);
         self.i_buf = (self.i_buf + 1) % self.buffer.shape()[0];
         // println!("i={} d={} g={}", value, delayed, gain);
         delayed *= gain;
@@ -142,8 +142,9 @@ impl PerfectLimiter {
         (out, gain_seq)
     }
 
-    fn calc_gain(&mut self, value: ArrayView1<f32>) -> f64 {
-        let v_abs = value.iter().map(|x| x.abs()).reduce(f32::max).unwrap() as f64;
+    fn calc_gain(&mut self, frame: ArrayView1<f32>) -> f64 {
+        // max abs over all channels
+        let v_abs = frame.iter().map(|x| x.abs()).reduce(f32::max).unwrap() as f64;
         let raw_gain = if v_abs > self.threshold {
             self.threshold / (v_abs + f64::EPSILON)
         } else {
