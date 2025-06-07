@@ -10,6 +10,7 @@ use std::arch::x86_64::*;
 use itertools::Itertools;
 use ndarray::ArrayBase;
 use ndarray::Data;
+use ndarray::DataMut;
 use ndarray::Dimension;
 use ndarray_stats::QuantileExt;
 
@@ -150,6 +151,53 @@ pub fn abs_max(slice: &[f32]) -> f32 {
 
     #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
     abs_max_scalar(slice)
+}
+
+pub fn scalar_mul(slice: &mut [f32], scalar: f32) {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        scalar_mul_neon(slice, scalar)
+    } else {
+        scalar_mul_scalar(slice, scalar)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        scalar_mul_avx2(slice, scalar)
+    } else if is_x86_feature_detected!("sse4.1") {
+        scalar_mul_sse4(slice, scalar)
+    } else {
+        scalar_mul_scalar(slice, scalar)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    scalar_mul_scalar(slice, scalar)
+}
+
+pub trait ScalarMulSIMDInplace<A> {
+    fn scalar_mul_simd_inplace(&mut self, scalar: A);
+}
+
+impl<S, D> ScalarMulSIMDInplace<f32> for ArrayBase<S, D>
+where
+    S: DataMut<Elem = f32>,
+    D: Dimension,
+{
+    fn scalar_mul_simd_inplace(&mut self, scalar: f32) {
+        scalar_mul(self.as_slice_memory_order_mut().unwrap(), scalar)
+    }
+}
+
+impl<S, D> ScalarMulSIMDInplace<f64> for ArrayBase<S, D>
+where
+    S: DataMut<Elem = f64>,
+    D: Dimension,
+{
+    fn scalar_mul_simd_inplace(&mut self, scalar: f64) {
+        log::warn!("scalar_mul for f64 is not implemented");
+        self.mapv_inplace(|x| x * scalar);
+    }
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -774,6 +822,97 @@ fn abs_max_scalar(slice: &[f32]) -> f32 {
     slice.iter().map(|x| x.abs()).fold(0.0, |a, b| a.max(b))
 }
 
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn scalar_mul_neon(slice: &mut [f32], scalar: f32) {
+    if slice.is_empty() {
+        return;
+    }
+
+    let scalar_vec = unsafe { vdupq_n_f32(scalar) };
+    let (prefix, middle, suffix) = unsafe { slice.align_to_mut::<float32x4_t>() };
+
+    // Handle prefix elements
+    for val in prefix {
+        *val *= scalar;
+    }
+
+    // Handle aligned elements using NEON
+    for v_chunk in middle {
+        unsafe {
+            *v_chunk = vmulq_f32(*v_chunk, scalar_vec);
+        }
+    }
+
+    // Handle suffix elements
+    for val in suffix {
+        *val *= scalar;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
+    if slice.is_empty() {
+        return;
+    }
+
+    let scalar_vec = unsafe { _mm256_set1_ps(scalar) };
+    let (prefix, middle, suffix) = unsafe { slice.align_to_mut::<__m256>() };
+
+    // Handle prefix elements
+    for val in prefix {
+        *val *= scalar;
+    }
+
+    // Handle aligned elements using AVX2
+    for v_chunk in middle {
+        unsafe {
+            *v_chunk = _mm256_mul_ps(*v_chunk, scalar_vec);
+        }
+    }
+
+    // Handle suffix elements
+    for val in suffix {
+        *val *= scalar;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn scalar_mul_sse4(slice: &mut [f32], scalar: f32) {
+    if slice.is_empty() {
+        return;
+    }
+
+    let scalar_vec = unsafe { _mm_set1_ps(scalar) };
+    let (prefix, middle, suffix) = unsafe { slice.align_to_mut::<__m128>() };
+
+    // Handle prefix elements
+    for val in prefix {
+        *val *= scalar;
+    }
+
+    // Handle aligned elements using SSE4
+    for v_chunk in middle {
+        unsafe {
+            *v_chunk = _mm_mul_ps(*v_chunk, scalar_vec);
+        }
+    }
+
+    // Handle suffix elements
+    for val in suffix {
+        *val *= scalar;
+    }
+}
+
+#[inline]
+fn scalar_mul_scalar(slice: &mut [f32], scalar: f32) {
+    for val in slice {
+        *val *= scalar;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::Array1;
@@ -801,10 +940,7 @@ mod tests {
             let _ = find_min_max(&warm_up_data); // Dispatch to SIMD or scalar
         }
 
-        println!(
-            "
---- Performance Test: find_min_max ---"
-        );
+        println!("\n--- Performance Test: find_min_max ---");
         println!("Data size: {} f32 elements", data_size);
 
         let start_scalar = Instant::now();
@@ -1145,6 +1281,84 @@ mod tests {
             max_scalar,
             max_simd
         );
+
+        // Print performance comparison
+        if duration_simd < duration_scalar {
+            let diff = duration_scalar - duration_simd;
+            let percentage = (diff.as_secs_f64() / duration_scalar.as_secs_f64()) * 100.0;
+            println!("SIMD version was faster by {:?} ({:.2}%)", diff, percentage);
+        } else if duration_scalar < duration_simd {
+            let diff = duration_simd - duration_scalar;
+            let percentage = (diff.as_secs_f64() / duration_simd.as_secs_f64()) * 100.0;
+            println!(
+                "Scalar version was faster by {:?} ({:.2}%)",
+                diff, percentage
+            );
+        } else {
+            println!("Scalar and SIMD versions had similar performance.");
+        }
+        println!("---------------------------------------\n");
+    }
+
+    #[test]
+    fn test_scalar_mul() {
+        let test_cases = vec![
+            (vec![1.0, 2.0, 3.0, 4.0], 2.0, vec![2.0, 4.0, 6.0, 8.0]),
+            (vec![-1.0, -2.0, -3.0], 3.0, vec![-3.0, -6.0, -9.0]),
+            (vec![0.0, 0.0, 0.0], 5.0, vec![0.0, 0.0, 0.0]),
+            (vec![1.0], 0.0, vec![0.0]),
+            (vec![], 2.0, vec![]),
+        ];
+
+        for (mut data, scalar, expected) in test_cases {
+            scalar_mul(&mut data, scalar);
+            assert_eq!(
+                data, expected,
+                "Scalar multiplication failed for data: {:?}, scalar: {}",
+                data, scalar
+            );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn benchmark_scalar_mul() {
+        let data_size = 1_000_000;
+        let data = generate_random_data(data_size);
+        let scalar = 2.5f32;
+
+        if data_size > 1000 {
+            let mut warm_up_data = generate_random_data(1000);
+            scalar_mul_scalar(&mut warm_up_data, scalar);
+            scalar_mul(&mut warm_up_data, scalar);
+        }
+
+        println!("\n--- Performance Test: scalar_mul ---");
+        println!("Data size: {} f32 elements", data_size);
+
+        let mut data_scalar = data.clone();
+        let start_scalar = Instant::now();
+        scalar_mul_scalar(&mut data_scalar, scalar);
+        let duration_scalar = start_scalar.elapsed();
+        println!("Scalar multiplication: time={:?}", duration_scalar);
+
+        let mut data_simd = data.clone();
+        let start_simd = Instant::now();
+        scalar_mul(&mut data_simd, scalar);
+        let duration_simd = start_simd.elapsed();
+        println!("SIMD multiplication: time={:?}", duration_simd);
+
+        // Verify results
+        let epsilon = 1e-5;
+        for (i, (a, b)) in data_scalar.iter().zip(data_simd.iter()).enumerate() {
+            assert!(
+                (a - b).abs() < epsilon,
+                "Results don't match at index {}: scalar {} vs SIMD {}",
+                i,
+                a,
+                b
+            );
+        }
 
         // Print performance comparison
         if duration_simd < duration_scalar {

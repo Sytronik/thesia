@@ -6,6 +6,8 @@ use ndarray::prelude::*;
 use ndarray_stats::{MaybeNan, QuantileExt};
 use num_traits::{AsPrimitive, Float};
 
+use super::super::simd::ScalarMulSIMDInplace;
+
 const AMIN_AMP_DEFAULT: f32 = 1e-18;
 const AMIN_POWER_DEFAULT: f32 = 1e-36;
 
@@ -159,6 +161,7 @@ where
     f32: AsPrimitive<A>,
     S: DataMut<Elem = A>,
     D: Dimension,
+    ArrayBase<S, D>: ScalarMulSIMDInplace<A>,
 {
     type A = A;
     fn log_for_dB_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
@@ -192,14 +195,14 @@ where
     fn dB_from_amp_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = 20.0.as_();
         self.log_for_dB_inplace(reference, amin);
-        self.mapv_inplace(|x| factor * x);
+        self.scalar_mul_simd_inplace(factor);
     }
 
     #[inline]
     fn dB_from_power_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
         let factor = 10.0.as_();
         self.log_for_dB_inplace(reference, amin);
-        self.mapv_inplace(|x| factor * x);
+        self.scalar_mul_simd_inplace(factor);
     }
 
     #[inline]
