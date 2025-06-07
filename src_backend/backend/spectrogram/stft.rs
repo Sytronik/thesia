@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use std::ops::*;
 use std::sync::Arc;
 
@@ -133,11 +134,16 @@ fn to_windowed_frames<A: Float>(
         .into_iter()
         .step_by(hop_length)
         .map(|x| {
-            (&x * &window).pad(
-                (n_pad_left, n_pad_right),
-                Axis(0),
-                PadMode::Constant(A::zero()),
-            )
+            let mut y = Array1::<A>::uninit(x.len() + n_pad_left + n_pad_right);
+            let zero = MaybeUninit::new(A::zero());
+            y.slice_mut(s![..n_pad_left]).mapv_inplace(|_| zero);
+            azip!(
+                (y in y.slice_mut(s![n_pad_left..(n_pad_left + x.len())]), &x in x, &w in window)
+                *y = MaybeUninit::new(x * w)
+            );
+            y.slice_mut(s![(n_pad_left + x.len())..])
+                .mapv_inplace(|_| zero);
+            unsafe { y.assume_init() }
         })
         .collect()
 }
