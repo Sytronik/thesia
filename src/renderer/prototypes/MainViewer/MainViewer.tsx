@@ -486,7 +486,7 @@ function MainViewer(props: MainViewerProps) {
       if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
       updateLensParams({startSec: startSec + shiftSec});
     },
-    [trackIds, updateLensParams],
+    [pxPerSec, startSec, trackIds, updateLensParams],
   );
 
   const setScrollTopBySelectedTracks = useEvent((newHeight: number) => {
