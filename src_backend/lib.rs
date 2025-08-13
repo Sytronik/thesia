@@ -59,7 +59,7 @@ fn _init_once() {
 
 // On Windows, this cause hanging.
 #[cfg(not(windows))]
-#[napi::module_init]
+#[napi_derive::module_init]
 fn _napi_init() {
     _init_once();
 }

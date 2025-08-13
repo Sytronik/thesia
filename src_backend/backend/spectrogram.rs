@@ -22,7 +22,7 @@ type WinNfft = (usize, usize);
 type SrNfft = (u32, usize);
 
 #[napi(string_enum)]
-#[derive(Debug, PartialEq, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Hash, Eq, Serialize, Deserialize, Clone, Copy)]
 pub enum FreqScale {
     Linear,
     Mel,

@@ -37,28 +37,25 @@
   ],
   "main": "./src/main/main.ts",
   "napi": {
-    "name": "thesia-backend",
+    "binaryName": "thesia-backend",
     "package": {
       "name": "thesia-backend"
     },
-    "triples": {
-      "defaults": false,
-      "additional": [
-        "aarch64-apple-darwin",
-        "x86_64-apple-darwin",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-pc-windows-msvc"
-      ]
-    }
+    "targets": [
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-pc-windows-msvc"
+    ]
   },
   "scripts": {
     "build": "concurrently \"npm run build:main\" \"npm run build:renderer\"",
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.main.prod.ts",
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
-    "build:backend": "napi build --platform release/backend",
-    "build:backend.release": "napi build --platform --release release/backend",
-    "build:backend.debug": "napi build --platform --profile dev-debug release/backend",
+    "build:backend": "napi build --platform -o release/backend",
+    "build:backend.release": "napi build --platform --release -o release/backend",
+    "build:backend.debug": "napi build --platform --profile dev-debug -o release/backend",
     "postinstall": "ts-node .erb/scripts/check-native-dep.js && electron-builder install-app-deps && npm run build:dll",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
     "package": "ts-node ./.erb/scripts/clean.js dist && npm run build:backend.release && npm run build && electron-builder build --publish never && npm run build:dll",
@@ -148,7 +145,7 @@
   "devDependencies": {
     "@electron/notarize": "^2.1.0",
     "@electron/rebuild": "^3.3.0",
-    "@napi-rs/cli": "^2.18.4",
+    "@napi-rs/cli": "^3.1.3",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
     "@svgr/webpack": "^8.1.0",
     "@teamsupercell/typings-for-css-modules-loader": "^2.5.2",

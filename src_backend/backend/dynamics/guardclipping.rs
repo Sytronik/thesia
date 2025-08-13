@@ -4,7 +4,7 @@ use napi_derive::napi;
 use ndarray::prelude::*;
 
 #[napi(string_enum)]
-#[derive(Default, Eq, PartialEq)]
+#[derive(Default, Eq, PartialEq, Clone, Copy)]
 pub enum GuardClippingMode {
     #[default]
     Clip,

@@ -18,12 +18,12 @@ crate-type = ["cdylib"]
 path = "src_backend/lib.rs"
 
 [dependencies]
-napi = {version = "2.16.17", features = [
+napi = {version = "3.2.2", features = [
   "async",
   "serde-json",
   "tokio_time",
 ], default-features = false}
-napi-derive = {version = "2.16.13", features = ["full"], default-features = false}
+napi-derive = {version = "3.2.2"}
 
 approx = "0.5.1"
 atomic_float = "1.1.0"
@@ -95,7 +95,7 @@ hound = "3.5.1"
 ndarray-rand = "0.15.0"
 
 [build-dependencies]
-napi-build = "2.2.0"
+napi-build = "2.2.3"
 
 [profile.dev]
 lto = true
