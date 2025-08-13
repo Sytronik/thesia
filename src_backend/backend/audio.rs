@@ -41,7 +41,7 @@ impl Audio {
         }
     }
 
-    pub fn view(&self) -> ArrayView2<f32> {
+    pub fn view(&'_ self) -> ArrayView2<'_, f32> {
         self.wavs.view()
     }
 
@@ -61,7 +61,7 @@ impl Audio {
     }
 
     #[inline]
-    pub fn channel(&self, ch: usize) -> ArrayView1<f32> {
+    pub fn channel(&'_ self, ch: usize) -> ArrayView1<'_, f32> {
         self.wavs.slice(s![ch, ..])
     }
 

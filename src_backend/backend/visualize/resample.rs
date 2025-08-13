@@ -84,7 +84,7 @@ where
         }
     }
 
-    pub fn resample(&mut self, wav_in: ArrayView1<A>) -> ArrayView1<A> {
+    pub fn resample(&'_ mut self, wav_in: ArrayView1<A>) -> ArrayView1<'_, A> {
         debug_assert_eq!(wav_in.len(), self.input_size);
         // Copy to input buffer and clear padding area
         self.input_buf

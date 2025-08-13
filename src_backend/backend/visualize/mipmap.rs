@@ -65,14 +65,14 @@ impl Mipmaps {
     }
 
     pub fn get_sliced_mipmap(
-        &self,
+        &'_ self,
         track_sec: f64,
         sec_range: (f64, f64),
         spec_hz_range: (f32, f32),
         hz_range: (f32, f32),
         margin_px: usize,
         spec_setting: &SpecSetting,
-    ) -> (SpectrogramSliceArgs, ArrayView2<pixels::F32>) {
+    ) -> (SpectrogramSliceArgs, ArrayView2<'_, pixels::F32>) {
         let max_size = self.max_size as usize;
         for spec_mipmap_along_widths in &self.mipmaps {
             for mipmap in spec_mipmap_along_widths {

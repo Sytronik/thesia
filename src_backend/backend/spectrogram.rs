@@ -270,7 +270,7 @@ impl SpectrogramAnalyzer {
         }
     }
 
-    fn window(&self, win_length: usize, n_fft: usize) -> CowArray<f32, Ix1> {
+    fn window(&'_ self, win_length: usize, n_fft: usize) -> CowArray<'_, f32, Ix1> {
         self.windows.get(&(win_length, n_fft)).map_or_else(
             || {
                 eprintln!(
@@ -297,7 +297,7 @@ impl SpectrogramAnalyzer {
         )
     }
 
-    fn mel_fb(&self, sr: u32, n_fft: usize) -> CowArray<f32, Ix2> {
+    fn mel_fb(&'_ self, sr: u32, n_fft: usize) -> CowArray<'_, f32, Ix2> {
         self.mel_fbs.get(&(sr, n_fft)).map_or_else(
             || {
                 eprintln!(

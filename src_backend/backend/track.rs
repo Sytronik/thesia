@@ -101,7 +101,7 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn channel(&self, ch: usize) -> ArrayView1<f32> {
+    pub fn channel(&'_ self, ch: usize) -> ArrayView1<'_, f32> {
         self.audio.channel(ch)
     }
 
@@ -111,7 +111,7 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn channel_for_drawing(&self, ch: usize) -> (ArrayView1<f32>, bool) {
+    pub fn channel_for_drawing(&'_ self, ch: usize) -> (ArrayView1<'_, f32>, bool) {
         match self.guard_clip_result() {
             GuardClippingResult::WavBeforeClip(before_clip) => {
                 (before_clip.slice(s![ch, ..]), true)
@@ -277,7 +277,7 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn guard_clip_stats(&self) -> ArrayView1<GuardClippingStats> {
+    pub fn guard_clip_stats(&'_ self) -> ArrayView1<'_, GuardClippingStats> {
         self.audio.guard_clip_stats.view()
     }
 }
