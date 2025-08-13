@@ -390,8 +390,8 @@ fn main_loop(
                     noti_tx.send(PlayerNotification::Ok(state)).unwrap();
                 }
                 let new_device = Device::Default.name();
-                if let Ok(new_device) = new_device {
-                    if new_device != *device_name.borrow() {
+                if let Ok(new_device) = new_device
+                    && new_device != *device_name.borrow() {
                         let sr = match get_optimal_sr(
                             &new_device,
                             current_sr.load(atomic::Ordering::Acquire),
@@ -421,7 +421,6 @@ fn main_loop(
                         }
                         continue;
                     }
-                }
                 std::thread::sleep(PLAYER_NOTI_INTERVAL);
             }
             Err(TryRecvError::Disconnected) => {
