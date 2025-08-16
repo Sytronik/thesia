@@ -31,7 +31,7 @@ cached = "0.56.0"
 chrono = "0.4.41"
 # console-subscriber = "0.4.0"
 bytemuck = "1.23.2"
-cpal = "0.15.3"
+cpal = "0.16.0"
 dashmap = {version = "6.1.0", features = ["inline"]}
 dunce = "1.0.5"
 ebur128 = "0.1.10"
@@ -55,7 +55,7 @@ tokio-rayon = "2.1.0"
 
 [dependencies.kittyaudio]
 git = "https://github.com/Sytronik/kittyaudio.git"
-rev = "31e85229c336d81f29a3940181799c29e01a4171"
+rev = "7172a558ef11c52522025f986bf6df4c3f548759"
 
 [dependencies.symphonia]
 default-features = false
@@ -73,7 +73,7 @@ features = [
   "wav",
 ]
 git = "https://github.com/Sytronik/Symphonia.git"
-rev = "f510ab9bda06e8690b1909915dfb99045a68605d"
+rev = "021a45b7345193ce8f5874cde003180f6fd5de6c"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 accelerate-src = {version = "0.3.2"}
