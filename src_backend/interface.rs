@@ -56,10 +56,16 @@ pub struct Spectrogram {
     pub right_margin: f64,
     pub top_margin: f64,
     pub bottom_margin: f64,
+    pub is_low_quality: bool,
 }
 
 impl Spectrogram {
-    pub fn new(args: SpectrogramSliceArgs, mipmap: Array2<pixels::F32>, start_sec: f64) -> Self {
+    pub fn new(
+        args: SpectrogramSliceArgs,
+        mipmap: Array2<pixels::F32>,
+        start_sec: f64,
+        is_low_quality: bool,
+    ) -> Self {
         let (pixels_vec, _) = mipmap.into_raw_vec_and_offset();
         let f32_slice = unsafe {
             std::slice::from_raw_parts(pixels_vec.as_ptr() as *const f32, pixels_vec.len())
@@ -76,6 +82,7 @@ impl Spectrogram {
             right_margin: args.right_margin,
             top_margin: args.top_margin,
             bottom_margin: args.bottom_margin,
+            is_low_quality,
         }
     }
 }

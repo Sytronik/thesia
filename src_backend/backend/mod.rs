@@ -153,12 +153,12 @@ impl TrackManager {
         sec_range: (f64, f64),
         hz_range: (f32, f32),
         margin_px: usize,
-    ) -> Option<(SpectrogramSliceArgs, Array2<pixels::F32>)> {
+    ) -> Option<(SpectrogramSliceArgs, Array2<pixels::F32>, bool)> {
         let spec_hz_range = (0., self.max_sr as f32 / 2.);
         let hz_range = ((hz_range.0).max(0.), (hz_range.1).min(spec_hz_range.1));
 
         self.spec_mipmaps.get(&(id, ch)).map(|spec_mipmap| {
-            let (args, sliced_arr) = spec_mipmap.get_sliced_mipmap(
+            let (args, sliced_arr, is_low_quality) = spec_mipmap.get_sliced_mipmap(
                 track_sec,
                 (sec_range.0, sec_range.1),
                 spec_hz_range,
@@ -166,7 +166,7 @@ impl TrackManager {
                 margin_px,
                 &self.setting,
             );
-            (args, sliced_arr.to_owned())
+            (args, sliced_arr, is_low_quality)
         })
     }
 

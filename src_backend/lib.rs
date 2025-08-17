@@ -271,7 +271,7 @@ async fn get_spectrogram(
         if sec_range.0 >= track_sec {
             return None;
         }
-        let (args, sliced_mipmap) = TM.read().get_sliced_spec_mipmap(
+        let (args, sliced_mipmap, is_low_quality) = TM.read().get_sliced_spec_mipmap(
             (id, ch),
             track_sec,
             sec_range,
@@ -279,7 +279,12 @@ async fn get_spectrogram(
             margin_px as usize,
         )?;
 
-        Some(Spectrogram::new(args, sliced_mipmap, sec_range.0))
+        Some(Spectrogram::new(
+            args,
+            sliced_mipmap,
+            sec_range.0,
+            is_low_quality,
+        ))
     })
     .await;
 

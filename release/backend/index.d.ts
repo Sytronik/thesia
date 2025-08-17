@@ -145,6 +145,7 @@ export interface Spectrogram {
   rightMargin: number
   topMargin: number
   bottomMargin: number
+  isLowQuality: boolean
 }
 
 export declare function timeLabelToSeconds(label: string): number

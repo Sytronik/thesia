@@ -20,6 +20,7 @@ import {
   WAV_MARGIN_RATIO,
 } from "renderer/prototypes/constants/tracks";
 import {drawWavEnvelope, drawWavLine} from "renderer/lib/drawing-wav";
+import {sleep} from "renderer/utils/time";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI from "../api";
 import {
@@ -203,7 +204,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       blend,
       true, // bilinear: low qality
     );
-    debouncedRenderSpecHighQuality(srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
+    if (!spectrogram.isLowQuality)
+      debouncedRenderSpecHighQuality(srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
   }, [
     needClearSpec,
     width,
@@ -231,23 +233,40 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   // getSpectrogram is throttled and it calls drawSpectrogram once at a frame
   const drawNewSpectrogramRequestRef = useRef<number>(0);
+
+  const getSpectrogram = useEvent(async (_startSec, _endSec, _idChStr, _hzRange) => {
+    const spectrogram = await BackendAPI.getSpectrogram(
+      _idChStr,
+      [_startSec, _endSec],
+      _hzRange,
+      MARGIN_FOR_RESIZE,
+    );
+    spectrogramRef.current = spectrogram;
+    if (drawNewSpectrogramRequestRef.current !== 0)
+      cancelAnimationFrame(drawNewSpectrogramRequestRef.current);
+    drawNewSpectrogramRequestRef.current = requestAnimationFrame(() =>
+      drawSpectrogramRef.current?.(),
+    );
+  });
+  const thGetSpecCallId = useRef<number>(0);
   const throttledGetSpectrogram = useMemo(
     () =>
       throttle(1000 / 60, async (_startSec, _endSec, _idChStr, _hzRange) => {
-        const spectrogram = await BackendAPI.getSpectrogram(
-          _idChStr,
-          [_startSec, _endSec],
-          _hzRange,
-          MARGIN_FOR_RESIZE,
-        );
-        spectrogramRef.current = spectrogram;
-        if (drawNewSpectrogramRequestRef.current !== 0)
-          cancelAnimationFrame(drawNewSpectrogramRequestRef.current);
-        drawNewSpectrogramRequestRef.current = requestAnimationFrame(() =>
-          drawSpectrogramRef.current?.(),
-        );
+        thGetSpecCallId.current = (thGetSpecCallId.current + 1) % (Number.MAX_SAFE_INTEGER - 1);
+        const callId = thGetSpecCallId.current;
+        await getSpectrogram(_startSec, _endSec, _idChStr, _hzRange);
+        await sleep(1000 / 60);
+        /* eslint-disable no-await-in-loop */
+        while (
+          callId === thGetSpecCallId.current &&
+          (spectrogramRef.current === null || spectrogramRef.current.isLowQuality)
+        ) {
+          await getSpectrogram(_startSec, _endSec, _idChStr, _hzRange);
+          await sleep(1000 / 60);
+        }
+        /* eslint-enable no-await-in-loop */
       }),
-    [],
+    [getSpectrogram],
   );
   const getSpectrogramIfNotHidden = useCallback(
     (force: boolean = false) => {
