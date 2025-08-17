@@ -593,7 +593,7 @@ fn fill_topbottom_if_shorter_than_stroke_width(
     need_fill
 }
 
-#[cached(size = 64)]
+#[cached(size = 16)]
 fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> {
     FftResampler::new(input_size, output_size)
 }
