@@ -39,7 +39,9 @@ fast_image_resize = "5.2.1"
 identity-hash = "0.1.0"
 itertools = "0.14.0"
 log = "0.4.27"
+memmap2 = "0.9.8"
 ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"]}
+ndarray-npy = "0.9.1"
 ndarray-stats = "0.6.0"
 num-traits = "0.2.19"
 num_cpus = "1.17.0"
@@ -50,6 +52,7 @@ realfft = "3.5.0"
 serde = {version = "1.0.219", features = ["derive"]}
 serde_json = "1.0.142"
 simple_logger = "5.0.0"
+temp-dir = "0.1.16"
 tiny-skia = "0.11.4"
 tokio-rayon = "2.1.0"
 
