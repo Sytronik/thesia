@@ -16,6 +16,14 @@ use super::super::spectrogram::SpecSetting;
 
 use super::slice_args::SpectrogramSliceArgs;
 
+fn f32_to_u16(x: pixels::F32) -> u16 {
+    (x.0 * u16::MAX as f32).round().clamp(0., u16::MAX as f32) as u16
+}
+
+fn u16_to_f32(x: u16) -> f32 {
+    (x as f32) / u16::MAX as f32
+}
+
 #[derive(Clone, Copy)]
 enum FileStatus {
     NoFile,
@@ -41,17 +49,15 @@ impl Mipmap {
         }
     }
 
-    fn read<I: SliceArg<Ix2, OutDim = Ix2>>(&self, slice: I) -> Array2<pixels::F32> {
+    fn read<I: SliceArg<Ix2, OutDim = Ix2>>(&self, slice: I) -> Array2<f32> {
         let file = File::open(&self.path).unwrap();
         let mmap = unsafe { Mmap::map(&file).unwrap() };
-        let view = ArrayView2::<f32>::view_npy(&mmap).unwrap();
-        let view = unsafe { mem::transmute::<ArrayView2<f32>, ArrayView2<pixels::F32>>(view) };
-        view.slice(slice).to_owned()
+        let view = ArrayView2::<u16>::view_npy(&mmap).unwrap();
+        view.slice(slice).mapv(u16_to_f32)
     }
 
     fn write(&mut self, img: ArrayView2<pixels::F32>) {
-        let arr = unsafe { mem::transmute::<ArrayView2<pixels::F32>, ArrayView2<f32>>(img) };
-        write_npy(&self.path, &arr).unwrap();
+        write_npy(&self.path, &img.mapv(f32_to_u16)).unwrap();
         self.status = FileStatus::Exists;
     }
 
@@ -111,7 +117,8 @@ impl Mipmaps {
         if mipmaps.len() > 1 || mipmaps[0].len() > 1 {
             let i_last = mipmaps.len() - 1;
             let last = mipmaps[i_last].last_mut().unwrap();
-            last.write(resize(spec_img.view(), last.width, last.height).view());
+            let img = resize(spec_img.view(), last.width, last.height);
+            last.write(img.view());
         }
 
         Self {
@@ -130,7 +137,7 @@ impl Mipmaps {
         hz_range: (f32, f32),
         margin_px: usize,
         spec_setting: &SpecSetting,
-    ) -> (SpectrogramSliceArgs, Array2<pixels::F32>, bool) {
+    ) -> (SpectrogramSliceArgs, Array2<f32>, bool) {
         let max_size = self.max_size as usize;
         let mut out_idx_img_args = None; // Some((i_h, i_w, args))
         let mut need_to_create = None; // Some((i_h, i_w, is_creating))
@@ -156,7 +163,8 @@ impl Mipmaps {
                             args.left..args.left + args.width
                         ];
                         let sliced_img = if i_h == 0 && i_w == 0 {
-                            self.orig_img.slice(slice).to_owned()
+                            let pixels = self.orig_img.slice(slice).to_owned();
+                            unsafe { mem::transmute::<_, Array2<f32>>(pixels) }
                         } else if mipmap.has_file() {
                             mipmap.read(slice)
                         } else {

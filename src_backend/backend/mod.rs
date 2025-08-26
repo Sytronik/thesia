@@ -1,4 +1,3 @@
-use fast_image_resize::pixels;
 use identity_hash::IntSet;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -153,7 +152,7 @@ impl TrackManager {
         sec_range: (f64, f64),
         hz_range: (f32, f32),
         margin_px: usize,
-    ) -> Option<(SpectrogramSliceArgs, Array2<pixels::F32>, bool)> {
+    ) -> Option<(SpectrogramSliceArgs, Array2<f32>, bool)> {
         let spec_hz_range = (0., self.max_sr as f32 / 2.);
         let hz_range = ((hz_range.0).max(0.), (hz_range.1).min(spec_hz_range.1));
 

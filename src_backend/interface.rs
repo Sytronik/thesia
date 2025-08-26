@@ -3,7 +3,6 @@
 // allow for whole file because [napi(object)] attribite on struct blocks allow(non_snake_case)
 #![allow(non_snake_case)]
 
-use fast_image_resize::pixels;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ndarray::Array2;
@@ -62,15 +61,11 @@ pub struct Spectrogram {
 impl Spectrogram {
     pub fn new(
         args: SpectrogramSliceArgs,
-        mipmap: Array2<pixels::F32>,
+        mipmap: Array2<f32>,
         start_sec: f64,
         is_low_quality: bool,
     ) -> Self {
-        let (pixels_vec, _) = mipmap.into_raw_vec_and_offset();
-        let f32_slice = unsafe {
-            std::slice::from_raw_parts(pixels_vec.as_ptr() as *const f32, pixels_vec.len())
-        };
-        let buf: &[u8] = bytemuck::cast_slice(f32_slice);
+        let buf: &[u8] = bytemuck::cast_slice(mipmap.as_slice().unwrap());
 
         Self {
             buf: buf.into(),
