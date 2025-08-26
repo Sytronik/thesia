@@ -27,6 +27,6 @@ ipcRenderer.once("render-with-settings", (_, settings) => {
   Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
     setUserSetting(key as keyof UserSettings, value),
   );
-  BackendAPI.setColormapLength(COLORMAP_RGBA8.length);
+  BackendAPI.setColormapLength(COLORMAP_RGBA8.length / 4);
   root.render(<App userSettings={userSettingsOrInitialValues} />);
 });
