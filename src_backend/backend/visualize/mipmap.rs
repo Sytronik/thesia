@@ -16,10 +16,6 @@ use super::super::spectrogram::SpecSetting;
 
 use super::slice_args::SpectrogramSliceArgs;
 
-fn f32_to_u16(x: pixels::F32) -> u16 {
-    (x.0 * u16::MAX as f32).round().clamp(0., u16::MAX as f32) as u16
-}
-
 fn u16_to_f32(x: u16) -> f32 {
     (x as f32) / u16::MAX as f32
 }
@@ -56,8 +52,9 @@ impl Mipmap {
         view.slice(slice).mapv(u16_to_f32)
     }
 
-    fn write(&mut self, img: ArrayView2<pixels::F32>) {
-        write_npy(&self.path, &img.mapv(f32_to_u16)).unwrap();
+    fn write(&mut self, img: ArrayView2<pixels::U16>) {
+        let arr = unsafe { mem::transmute::<_, ArrayView2<u16>>(img) };
+        write_npy(&self.path, &arr).unwrap();
         self.status = FileStatus::Exists;
     }
 
@@ -67,14 +64,14 @@ impl Mipmap {
 }
 
 pub struct Mipmaps {
-    orig_img: Arc<Array2<pixels::F32>>,
+    orig_img: Arc<Array2<pixels::U16>>,
     mipmaps: Arc<RwLock<Vec<Vec<Mipmap>>>>,
     max_size: u32,
     _tmp_dir: TempDir,
 }
 
 impl Mipmaps {
-    pub fn new(spec_img: Array2<pixels::F32>, max_size: u32) -> Self {
+    pub fn new(spec_img: Array2<pixels::U16>, max_size: u32) -> Self {
         let _tmp_dir = TempDir::with_prefix("mipmaps").unwrap();
         let (orig_height, orig_width) = (spec_img.shape()[0], spec_img.shape()[1]);
         let mut mipmaps = vec![vec![Mipmap::new(
@@ -162,15 +159,16 @@ impl Mipmaps {
                             args.top..args.top + args.height,
                             args.left..args.left + args.width
                         ];
-                        let sliced_img = if i_h == 0 && i_w == 0 {
-                            let pixels = self.orig_img.slice(slice).to_owned();
-                            unsafe { mem::transmute::<_, Array2<f32>>(pixels) }
+                        let sliced_arr = if i_h == 0 && i_w == 0 {
+                            let pixels = self.orig_img.slice(slice);
+                            let arr = unsafe { mem::transmute::<_, ArrayView2<u16>>(pixels) };
+                            arr.mapv(u16_to_f32)
                         } else if mipmap.has_file() {
                             mipmap.read(slice)
                         } else {
                             unreachable!();
                         };
-                        out_idx_img_args = Some((i_h, i_w, sliced_img, args));
+                        out_idx_img_args = Some((i_h, i_w, sliced_arr, args));
                         break;
                     } else if need_to_create.is_none() {
                         need_to_create = Some((i_h, i_w, mipmap.status));
@@ -232,7 +230,7 @@ impl Mipmaps {
     }
 }
 
-fn resize(img: ArrayView2<pixels::F32>, width: u32, height: u32) -> Array2<pixels::F32> {
+fn resize(img: ArrayView2<pixels::U16>, width: u32, height: u32) -> Array2<pixels::U16> {
     thread_local! {
         static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
     }
@@ -247,9 +245,9 @@ fn resize(img: ArrayView2<pixels::F32>, width: u32, height: u32) -> Array2<pixel
         let resize_opt =
             ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
 
-        let mut dst_buf = vec![pixels::F32::new(0.); width as usize * height as usize];
+        let mut dst_buf = vec![pixels::U16::new(0); width as usize * height as usize];
         let mut dst_img =
-            TypedImage::<pixels::F32>::from_pixels_slice(width, height, &mut dst_buf).unwrap();
+            TypedImage::<pixels::U16>::from_pixels_slice(width, height, &mut dst_buf).unwrap();
         resizer
             .resize_typed(&src_img, &mut dst_img, &resize_opt)
             .unwrap();
