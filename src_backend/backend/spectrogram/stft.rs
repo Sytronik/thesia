@@ -55,7 +55,7 @@ where
         let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
 
         if parallel {
-            let min_jobs_per_thread = n_frames / rayon::current_num_threads();
+            let min_jobs_per_thread = (n_frames / rayon::current_num_threads()).max(1);
             frames
                 .par_iter_mut()
                 .with_min_len(min_jobs_per_thread)
@@ -97,7 +97,7 @@ where
     let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
 
     if parallel {
-        let min_jobs_per_thread = n_frames / rayon::current_num_threads();
+        let min_jobs_per_thread = (n_frames / rayon::current_num_threads()).max(1);
         front_frames
             .par_iter_mut()
             .chain(frames.par_iter_mut())

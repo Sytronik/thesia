@@ -299,7 +299,7 @@ impl WavDrawingInfoInternal {
             WavDrawingInfoKind::Line(
                 wav.slice(s![..args.total_len])
                     .into_par_iter()
-                    .with_min_len(args.total_len / rayon::current_num_threads())
+                    .with_min_len((args.total_len / rayon::current_num_threads()).max(1))
                     .map(|&x| amp_to_rel_y(x))
                     .collect(), // TODO: benchmark parallel iterator, use SIMD
                 clip_values,
@@ -315,7 +315,7 @@ impl WavDrawingInfoInternal {
 
             let (mut top_envlop, mut btm_envlop): (Vec<_>, Vec<_>) = (0..args.total_len)
                 .into_par_iter()
-                .with_min_len(args.total_len / rayon::current_num_threads())
+                .with_min_len((args.total_len / rayon::current_num_threads()).max(1))
                 .map(|i_envlop| {
                     let i_envlop = i_envlop as f32;
                     let i_start = (args.start_w_margin_f32
@@ -335,11 +335,11 @@ impl WavDrawingInfoInternal {
 
             let n_mean_crossing = top_envlop
                 .par_iter_mut()
-                .with_min_len(args.total_len / rayon::current_num_threads())
+                .with_min_len((args.total_len / rayon::current_num_threads()).max(1))
                 .zip(
                     btm_envlop
                         .par_iter_mut()
-                        .with_min_len(args.total_len / rayon::current_num_threads()),
+                        .with_min_len((args.total_len / rayon::current_num_threads()).max(1)),
                 )
                 .filter_map(|(top, btm)| {
                     let top_val = *top;
@@ -373,7 +373,7 @@ impl WavDrawingInfoInternal {
                 WavDrawingInfoKind::Line(
                     wav.slice(s![args.start_w_margin..end_w_margin])
                         .into_par_iter()
-                        .with_min_len(args.length_w_margin / rayon::current_num_threads())
+                        .with_min_len((args.length_w_margin / rayon::current_num_threads()).max(1))
                         .map(|&x| amp_to_rel_y(x))
                         .collect(), // TODO: benchmark parallel iterator, use SIMD
                     clip_values,
