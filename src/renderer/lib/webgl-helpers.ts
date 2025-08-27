@@ -1,5 +1,7 @@
 import {COLORMAP_RGBA8} from "../prototypes/constants/colors";
 
+export const MAX_WEBGL_RESOURCES = 16;
+
 export const MARGIN_FOR_RESIZE = 5; // at least 3 for Lanczos-3 kernel
 
 export const VS_RESIZER = `#version 300 es
@@ -373,7 +375,14 @@ export type WebGLResources = {
   };
 };
 
+let numWebGLResources = 0;
+
 export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources | null {
+  if (numWebGLResources >= MAX_WEBGL_RESOURCES) {
+    console.warn("Too many WebGL resources. Returning null.");
+    return null;
+  }
+
   const gl = canvas.getContext("webgl2", {
     alpha: true,
     antialias: false,
@@ -514,6 +523,8 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
     ) {
       throw new Error("Failed to initialize all WebGL resources.");
     }
+
+    numWebGLResources++;
 
     return resources as WebGLResources;
   } catch (error) {
@@ -776,4 +787,6 @@ export function cleanupWebGLResources(resources: WebGLResources) {
   if (loseCtxExt) {
     loseCtxExt.loseContext();
   }
+
+  numWebGLResources--;
 }
