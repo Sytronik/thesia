@@ -117,8 +117,8 @@ impl WavDrawingInfoKind {
         &mut self,
         orig_amp_range: (f32, f32),
         target_amp_range: (f32, f32),
-        height: f32,
-        wav_stroke_width: f32,
+        height: f64,
+        wav_stroke_width: f64,
     ) {
         let amp_to_rel_y = get_amp_to_rel_y_fn(target_amp_range);
         let orig_scale = orig_amp_range.1 - orig_amp_range.0;
@@ -136,14 +136,14 @@ impl WavDrawingInfoKind {
                         || btm_envlop.iter_mut().for_each(|y| *y = convert(*y)),
                     ); // TODO: use SIMD
                 }
+                let wav_stroke_width_div_height = (wav_stroke_width / height) as f32;
                 top_envlop
                     .iter_mut()
                     .zip(btm_envlop.iter_mut())
                     .for_each(|(top, btm)| {
                         fill_topbottom_if_shorter_than_stroke_width(
                             (top, btm),
-                            wav_stroke_width,
-                            height,
+                            wav_stroke_width_div_height,
                         );
                     });
                 *clip_values = clip_values.map(|(top, btm)| (convert(top), convert(btm)));
@@ -155,9 +155,9 @@ impl WavDrawingInfoKind {
         gain: ArrayView1<f32>,
         width: u32,
         amp_range: (f32, f32),
-        topbottom_context_size: f32,
+        topbottom_context_size: f64,
     ) -> Self {
-        let half_context_size = topbottom_context_size / 2.;
+        let half_context_size = (topbottom_context_size / 2.) as f32;
         let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
         let samples_per_px = gain.len() as f32 / width as f32;
 
@@ -224,11 +224,11 @@ impl WavDrawingInfoInternal {
     pub fn from_wav(
         wav: ArrayView1<f32>,
         sr: u32,
-        width: f32,
-        height: f32,
+        width: f64,
+        height: f64,
         amp_range: (f32, f32),
-        wav_stroke_width: f32,
-        topbottom_context_size: f32,
+        wav_stroke_width: f64,
+        topbottom_context_size: f64,
         show_clipping: bool,
         force_topbottom: bool,
     ) -> Self {
@@ -254,29 +254,23 @@ impl WavDrawingInfoInternal {
         sr: u32,
         sec_range: (f64, f64),
         margin_ratio: f64,
-        width: f32,
-        height: f32,
+        width: f64,
+        height: f64,
         amp_range: (f32, f32),
-        wav_stroke_width: f32,
-        topbottom_context_size: f32,
+        wav_stroke_width: f64,
+        topbottom_context_size: f64,
         show_clipping: bool,
         force_topbottom: bool,
     ) -> Result<WavDrawingInfoInternal, ShapeError> {
-        let px_per_samples = width / (sec_range.1 - sec_range.0) as f32 / sr as f32;
+        let px_per_samples = width / (sec_range.1 - sec_range.0) / sr as f64;
         let resample_ratio = quantize_px_per_samples(px_per_samples);
-        let args = WavSliceArgs::new(
-            sr,
-            sec_range,
-            resample_ratio as f64,
-            wav.len(),
-            margin_ratio,
-        );
+        let args = WavSliceArgs::new(sr, sec_range, resample_ratio, wav.len(), margin_ratio);
 
         if args.start_w_margin >= wav.len() {
             return Err(ShapeError::from_kind(ErrorKind::OutOfBounds));
         }
         let end_w_margin = args.start_w_margin + args.length_w_margin;
-        let thr_long_height = wav_stroke_width / height;
+        let thr_long_height = (wav_stroke_width / height) as f32;
         let amp_to_rel_y = get_amp_to_rel_y_fn(amp_range);
         let clip_values = (show_clipping && (amp_range.0 < -1. || amp_range.1 > 1.))
             .then_some((amp_to_rel_y(1.), amp_to_rel_y(-1.)));
@@ -290,7 +284,7 @@ impl WavDrawingInfoInternal {
             let wav = if resample_ratio != 1. {
                 let end_w_tail = (end_w_margin + RESAMPLE_TAIL).min(wav.len());
                 let wav_w_tail = wav.slice(s![args.start_w_margin..end_w_tail]);
-                let upsampled_len_tail = (wav_w_tail.len() as f32 * resample_ratio).round();
+                let upsampled_len_tail = (wav_w_tail.len() as f64 * resample_ratio).round();
                 resampler = create_resampler(wav_w_tail.len(), upsampled_len_tail as usize);
                 resampler.resample(wav_w_tail)
             } else {
@@ -317,11 +311,11 @@ impl WavDrawingInfoInternal {
                 .into_par_iter()
                 .with_min_len((args.total_len / rayon::current_num_threads()).max(1))
                 .map(|i_envlop| {
-                    let i_envlop = i_envlop as f32;
-                    let i_start = (args.start_w_margin_f32
+                    let i_envlop = i_envlop as f64;
+                    let i_start = (args.start_w_margin_f64
                         + (i_envlop - half_context_size) / resample_ratio)
                         .max(0.) as usize;
-                    let i_end = ((args.start_w_margin_f32
+                    let i_end = ((args.start_w_margin_f64
                         + (i_envlop + half_context_size) / resample_ratio)
                         as usize)
                         .min(wav.len());
@@ -333,6 +327,7 @@ impl WavDrawingInfoInternal {
                 })
                 .unzip();
 
+            let wav_stroke_width_div_height = (wav_stroke_width / height) as f32;
             let n_mean_crossing = top_envlop
                 .par_iter_mut()
                 .with_min_len((args.total_len / rayon::current_num_threads()).max(1))
@@ -352,8 +347,7 @@ impl WavDrawingInfoInternal {
 
                     let was_shorter = fill_topbottom_if_shorter_than_stroke_width(
                         (top, btm),
-                        wav_stroke_width,
-                        height,
+                        wav_stroke_width_div_height,
                     );
 
                     if !was_shorter {
@@ -398,9 +392,9 @@ impl From<WavDrawingInfoInternal> for WavDrawingInfoKind {
 
 // #[readonly::make]
 pub struct WavDrawingInfoCache {
-    pub wav_stroke_width: f32,
-    pub topbottom_context_size: f32,
-    pub px_per_sec: f32,
+    pub wav_stroke_width: f64,
+    pub topbottom_context_size: f64,
+    pub px_per_sec: f64,
     pub drawing_info_kinds: Vec<WavDrawingInfoKind>,
     pub amp_ranges: Vec<(f32, f32)>,
 }
@@ -412,10 +406,10 @@ impl WavDrawingInfoCache {
         sec_range: (f64, f64),
         track_sec: f64,
         margin_ratio: f64,
-        width: f32,
-        height: f32,
+        width: f64,
+        height: f64,
         amp_range: (f32, f32),
-        wav_stroke_width: f32,
+        wav_stroke_width: f64,
     ) -> WavDrawingInfoInternal {
         let kind = &self.drawing_info_kinds[ch];
         let cache_len = kind.len();
@@ -430,7 +424,7 @@ impl WavDrawingInfoCache {
         let mut kind =
             kind.slice(args.start_w_margin..(args.start_w_margin + args.length_w_margin));
 
-        let drawing_width = args.drawing_sec / (sec_range.1 - sec_range.0) * width as f64;
+        let drawing_width = args.drawing_sec / (sec_range.1 - sec_range.0) * width;
         let ratio = (kind.len() as f64 / drawing_width).floor() as usize;
         debug_assert!(ratio >= 1);
         if ratio > 1 {
@@ -458,16 +452,16 @@ pub struct OverviewDrawingInfoInternal {
 impl OverviewDrawingInfoInternal {
     pub fn new(
         track: &AudioTrack,
-        width: f32,
+        width: f64,
         max_sec: f64,
-        height: f32,
-        gap_height: f32,
-        limiter_gain_height_ratio: f32,
-        wav_stroke_width: f32,
-        topbottom_context_size: f32,
+        height: f64,
+        gap_height: f64,
+        limiter_gain_height_ratio: f64,
+        wav_stroke_width: f64,
+        topbottom_context_size: f64,
     ) -> OverviewDrawingInfoInternal {
-        let px_per_sec = width / max_sec as f32;
-        let drawing_width = px_per_sec * track.sec() as f32;
+        let px_per_sec = width / max_sec;
+        let drawing_width = px_per_sec * track.sec();
         let n_ch = track.n_ch().min(OVERVIEW_MAX_CH);
         let heights = OverviewHeights::new(height, gap_height, n_ch, limiter_gain_height_ratio);
 
@@ -567,7 +561,7 @@ fn get_amp_to_rel_y_fn(amp_range: (f32, f32)) -> impl Fn(f32) -> f32 {
     move |x: f32| (amp_range.1 - x) / scale
 }
 
-fn quantize_px_per_samples(px_per_samples: f32) -> f32 {
+fn quantize_px_per_samples(px_per_samples: f64) -> f64 {
     if px_per_samples > 0.75 {
         px_per_samples.round()
     } else if 0.5 < px_per_samples && px_per_samples <= 0.75 {
@@ -579,10 +573,9 @@ fn quantize_px_per_samples(px_per_samples: f32) -> f32 {
 
 fn fill_topbottom_if_shorter_than_stroke_width(
     (top, btm): (&mut f32, &mut f32),
-    wav_stroke_width: f32,
-    height: f32,
+    wav_stroke_width_div_height: f32,
 ) -> bool {
-    let len_to_fill_stroke_width = wav_stroke_width / height - (*btm - *top);
+    let len_to_fill_stroke_width = wav_stroke_width_div_height - (*btm - *top);
 
     let need_fill = len_to_fill_stroke_width > 0.;
     if need_fill {

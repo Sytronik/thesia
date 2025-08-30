@@ -328,11 +328,11 @@ async fn get_wav_drawing_info(
         let internal = track.get_wav_drawing_info(
             ch,
             sec_range,
-            width as f32,
-            height as f32,
+            width as f64,
+            height as f64,
             (amp_range.0 as f32, amp_range.1 as f32),
-            wav_stroke_width as f32,
-            topbottom_context_size as f32,
+            wav_stroke_width,
+            topbottom_context_size,
             margin_ratio,
         );
         Some(WavDrawingInfo::new(internal, sec_range.0))
@@ -367,22 +367,17 @@ async fn get_overview_drawing_info(
     topbottom_context_size: f64,
 ) -> Option<OverviewDrawingInfo> {
     assert!(width >= 1 && height >= 1);
-    let width = width as f32;
-    let height = height as f32;
-    let gap_height = gap_height as f32;
-    let wav_stroke_width = wav_stroke_width as f32;
-    let topbottom_context_size = topbottom_context_size as f32;
 
     let (internal, track_sec) = tokio_rayon::spawn(move || {
         let tracklist = TRACK_LIST.read();
         let track = tracklist.get(track_id as usize)?;
         let internal = OverviewDrawingInfoInternal::new(
             track,
-            width,
+            width as f64,
             tracklist.max_sec,
-            height,
+            height as f64,
             gap_height,
-            limiter_gain_height_ratio as f32,
+            limiter_gain_height_ratio,
             wav_stroke_width,
             topbottom_context_size,
         );

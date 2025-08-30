@@ -5,16 +5,16 @@ use super::super::spectrogram::SpecSetting;
 /// ch = gain + ch_wo_gain + gain
 #[readonly::make]
 pub struct OverviewHeights {
-    pub ch: f32,
-    pub gap: f32,
-    pub gain: f32,
-    pub ch_wo_gain: f32,
+    pub ch: f64,
+    pub gap: f64,
+    pub gain: f64,
+    pub ch_wo_gain: f64,
 }
 
 impl OverviewHeights {
-    pub fn new(height: f32, gap: f32, n_ch: usize, gain_height_ratio: f32) -> Self {
-        let height_without_gap = height - gap * ((n_ch - 1) as f32);
-        let ch = height_without_gap / n_ch as f32;
+    pub fn new(height: f64, gap: f64, n_ch: usize, gain_height_ratio: f64) -> Self {
+        let height_without_gap = height - gap * ((n_ch - 1) as f64);
+        let ch = height_without_gap / n_ch as f64;
         let gain = ch * gain_height_ratio;
         let ch_wo_gain = ch - 2. * gain;
         OverviewHeights {
@@ -113,7 +113,7 @@ impl SpectrogramSliceArgs {
 pub struct WavSliceArgs {
     pub start_w_margin: usize,
     pub length_w_margin: usize,
-    pub start_w_margin_f32: f32,
+    pub start_w_margin_f64: f64,
     pub drawing_sec: f64,
     pub pre_margin_sec: f64,
     pub post_margin_sec: f64,
@@ -145,14 +145,14 @@ impl WavSliceArgs {
             (start_px_w_margin as f64 / px_per_samples).round() as usize,
             (length_px_w_margin as f64 / px_per_samples).round() as usize,
         ); // this rounding makes pre_margin_sec and post_margin_sec not accurate, but it's okay for human eyes
-        let start_w_margin_f32 = start_px_w_margin as f32 / px_per_samples as f32;
+        let start_w_margin_f64 = start_px_w_margin as f64 / px_per_samples;
         let drawing_sec = length_px_w_margin as f64 / px_per_sec;
         let (pre_margin_sec, post_margin_sec) =
             (pre_margin_px / px_per_sec, post_margin_px / px_per_sec);
         Self {
             start_w_margin,
             length_w_margin,
-            start_w_margin_f32,
+            start_w_margin_f64,
             drawing_sec,
             pre_margin_sec,
             post_margin_sec,

@@ -174,10 +174,10 @@ impl OverviewDrawingInfo {
             ch_drawing_infos,
             limiter_gain_top_info: top,
             limiter_gain_bottom_info: bottom,
-            ch_height: heights.ch as f64,
-            gap_height: heights.gap as f64,
-            limiter_gain_height: heights.gain as f64,
-            ch_wo_gain_height: heights.ch_wo_gain as f64,
+            ch_height: heights.ch,
+            gap_height: heights.gap,
+            limiter_gain_height: heights.gain,
+            ch_wo_gain_height: heights.ch_wo_gain,
         }
     }
 }

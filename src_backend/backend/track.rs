@@ -21,7 +21,7 @@ use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
 use super::visualize::{WavDrawingInfoCache, WavDrawingInfoInternal};
 
-const CACHE_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
+const CACHE_PX_PER_SEC: f64 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -124,14 +124,14 @@ impl AudioTrack {
         &self,
         ch: usize,
         sec_range: (f64, f64),
-        width: f32,
-        height: f32,
+        width: f64,
+        height: f64,
         amp_range: (f32, f32),
-        wav_stroke_width: f32,
-        topbottom_context_size: f32,
+        wav_stroke_width: f64,
+        topbottom_context_size: f64,
         margin_ratio: f64,
     ) -> WavDrawingInfoInternal {
-        let px_per_sec = width / (sec_range.1 - sec_range.0) as f32;
+        let px_per_sec = width / (sec_range.1 - sec_range.0);
         let (return_cache, need_new_cache) = {
             if let Some(cache) = self.wav_drawing_info_cache.read().as_ref() {
                 let return_cache = px_per_sec <= cache.px_per_sec;
@@ -189,10 +189,10 @@ impl AudioTrack {
         }
     }
 
-    fn set_wav_drawing_info_cache(&self, wav_stroke_width: f32, topbottom_context_size: f32) {
+    fn set_wav_drawing_info_cache(&self, wav_stroke_width: f64, topbottom_context_size: f64) {
         let px_per_sec = CACHE_PX_PER_SEC;
-        let px_per_samples = (px_per_sec / self.sr() as f32).min(0.1);
-        let width = self.audio.len() as f32 * px_per_samples;
+        let px_per_samples = (px_per_sec / self.sr() as f64).min(0.1);
+        let width = self.audio.len() as f64 * px_per_samples;
         let (amp_ranges, kinds): (Vec<_>, Vec<_>) = (0..self.n_ch())
             .into_par_iter()
             .map(|ch| {
