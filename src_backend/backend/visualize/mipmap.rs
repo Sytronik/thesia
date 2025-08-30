@@ -53,7 +53,7 @@ impl Mipmap {
     }
 
     fn write(&mut self, img: ArrayView2<pixels::U16>) {
-        let arr = unsafe { mem::transmute::<_, ArrayView2<u16>>(img) };
+        let arr = unsafe { mem::transmute::<ArrayView2<pixels::U16>, ArrayView2<u16>>(img) };
         write_npy(&self.path, &arr).unwrap();
         self.status = FileStatus::Exists;
     }
@@ -77,7 +77,7 @@ impl Mipmaps {
         let mut mipmaps = vec![vec![Mipmap::new(
             orig_width as u32,
             orig_height as u32,
-            &_tmp_dir.path(),
+            _tmp_dir.path(),
         )]];
         let mut skip = true; // skip the first (original) mipmap
         let mut height = orig_height as f64;
@@ -93,7 +93,7 @@ impl Mipmaps {
                     skip = false;
                 } else {
                     let i = mipmaps.len() - 1;
-                    mipmaps[i].push(Mipmap::new(width_u32, height_u32, &_tmp_dir.path()));
+                    mipmaps[i].push(Mipmap::new(width_u32, height_u32, _tmp_dir.path()));
                 }
                 if (width_u32) == max_size {
                     break;
@@ -161,7 +161,9 @@ impl Mipmaps {
                         ];
                         let sliced_arr = if i_h == 0 && i_w == 0 {
                             let pixels = self.orig_img.slice(slice);
-                            let arr = unsafe { mem::transmute::<_, ArrayView2<u16>>(pixels) };
+                            let arr = unsafe {
+                                mem::transmute::<ArrayView2<pixels::U16>, ArrayView2<u16>>(pixels)
+                            };
                             arr.mapv(u16_to_f32)
                         } else if mipmap.has_file() {
                             mipmap.read(slice)
@@ -204,22 +206,22 @@ impl Mipmaps {
                     }
                 }
             }
-            if let Some((i_h, i_w, status)) = need_to_create {
-                if matches!(status, FileStatus::NoFile) {
-                    let (width, height) = {
-                        let mut mipmaps = self.mipmaps.write();
-                        mipmaps[i_h][i_w].status = FileStatus::Creating;
-                        (mipmaps[i_h][i_w].width, mipmaps[i_h][i_w].height)
-                    };
-                    if (width, height) != (0, 0) {
-                        let orig_img_clone = Arc::clone(&self.orig_img);
-                        let mipmaps_clone = Arc::clone(&self.mipmaps);
-                        rayon::spawn(move || {
-                            let resized_img = resize(orig_img_clone.view(), width, height);
-                            let mut mipmaps = mipmaps_clone.write();
-                            mipmaps[i_h][i_w].write(resized_img.view());
-                        });
-                    }
+            if let Some((i_h, i_w, status)) = need_to_create
+                && matches!(status, FileStatus::NoFile)
+            {
+                let (width, height) = {
+                    let mut mipmaps = self.mipmaps.write();
+                    mipmaps[i_h][i_w].status = FileStatus::Creating;
+                    (mipmaps[i_h][i_w].width, mipmaps[i_h][i_w].height)
+                };
+                if (width, height) != (0, 0) {
+                    let orig_img_clone = Arc::clone(&self.orig_img);
+                    let mipmaps_clone = Arc::clone(&self.mipmaps);
+                    rayon::spawn(move || {
+                        let resized_img = resize(orig_img_clone.view(), width, height);
+                        let mut mipmaps = mipmaps_clone.write();
+                        mipmaps[i_h][i_w].write(resized_img.view());
+                    });
                 }
             }
 

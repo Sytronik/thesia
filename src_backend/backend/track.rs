@@ -414,16 +414,16 @@ impl TrackList {
         let mut need_update_max_sec = false;
         let mut removed_id_ch_tuples = IdChVec::new();
         for &id in id_list {
-            if id < self.tracks.len() {
-                if let Some(removed) = self.tracks[id].take() {
-                    for ch in 0..removed.n_ch() {
-                        removed_id_ch_tuples.push((id, ch));
-                    }
-                    if id == self.id_max_sec {
-                        need_update_max_sec = true;
-                    }
-                    continue;
+            if id < self.tracks.len()
+                && let Some(removed) = self.tracks[id].take()
+            {
+                for ch in 0..removed.n_ch() {
+                    removed_id_ch_tuples.push((id, ch));
                 }
+                if id == self.id_max_sec {
+                    need_update_max_sec = true;
+                }
+                continue;
             }
             eprintln!("Track ID {} does not exist! Skip removing it ...", id);
         }
