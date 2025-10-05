@@ -8,13 +8,13 @@ use fast_image_resize::pixels;
 use ndarray::prelude::*;
 use ndarray::{ErrorKind, ShapeError};
 use rayon::prelude::*;
+use rubato::{FftFixedInOut, Resampler};
 
 use super::super::dynamics::{GuardClippingResult, MaxPeak};
 use super::super::simd::{find_max, find_min, find_min_max};
 use super::super::track::AudioTrack;
 
 use super::WavSliceArgs;
-use super::resample::FftResampler;
 use super::slice_args::{OverviewHeights, WavDrawingInfoSliceArgs};
 
 const RESAMPLE_TAIL: usize = 500;
@@ -280,15 +280,14 @@ impl WavDrawingInfoInternal {
             WavDrawingInfoKind::FillRect
         } else if resample_ratio > 0.5 && !force_topbottom {
             // upsampling
-            let mut resampler;
-            let wav = if resample_ratio != 1. {
+            let wav: CowArray<f32, Ix1> = if resample_ratio != 1. {
                 let end_w_tail = (end_w_margin + RESAMPLE_TAIL).min(wav.len());
                 let wav_w_tail = wav.slice(s![args.start_w_margin..end_w_tail]);
-                let upsampled_len_tail = (wav_w_tail.len() as f64 * resample_ratio).round();
-                resampler = create_resampler(wav_w_tail.len(), upsampled_len_tail as usize);
-                resampler.resample(wav_w_tail)
+                let upsampled_len_tail =
+                    (wav_w_tail.len() as f64 * resample_ratio).round() as usize;
+                resample(&wav_w_tail, upsampled_len_tail).into()
             } else {
-                wav.slice(s![args.start_w_margin..end_w_margin])
+                wav.slice(s![args.start_w_margin..end_w_margin]).into()
             };
             WavDrawingInfoKind::Line(
                 wav.slice(s![..args.total_len])
@@ -586,6 +585,37 @@ fn fill_topbottom_if_shorter_than_stroke_width(
 }
 
 #[cached(size = 16)]
-fn create_resampler(input_size: usize, output_size: usize) -> FftResampler<f32> {
-    FftResampler::new(input_size, output_size)
+fn create_resampler(input_size: usize, output_size: usize) -> (FftFixedInOut<f32>, [Vec<f32>; 1]) {
+    let resampler = FftFixedInOut::<f32>::new(input_size, output_size, input_size, 1).unwrap();
+    let buffer = [vec![0.; resampler.output_frames_max()]];
+    (resampler, buffer)
+}
+
+fn resample(wav: &ArrayView1<f32>, output_len: usize) -> Array1<f32> {
+    let (mut resampler, mut buffer) = create_resampler(wav.len(), output_len);
+    let delay = resampler.output_delay();
+    let wav_slice = wav.as_slice().unwrap();
+    let mut resampled = Vec::with_capacity(delay + output_len);
+    let mut i = 0;
+    while i + resampler.input_frames_next() <= wav_slice.len() {
+        let resampler_in = [&wav_slice[i..i + resampler.input_frames_next()]];
+        let (in_frame_len, out_frame_len) = resampler
+            .process_into_buffer(&resampler_in, &mut buffer, None)
+            .unwrap();
+        resampled.extend_from_slice(&buffer[0][..out_frame_len]);
+        i += in_frame_len;
+    }
+    let (_, out_frame_len) = if i < wav_slice.len() {
+        let resampler_in = [&wav_slice[i..wav_slice.len()]];
+        resampler
+            .process_partial_into_buffer(Some(&resampler_in), &mut buffer, None)
+            .unwrap()
+    } else {
+        resampler
+            .process_partial_into_buffer::<&[f32], _>(None, &mut buffer, None)
+            .unwrap()
+    };
+    resampled.extend_from_slice(&buffer[0][..out_frame_len]);
+    let resampled = resampled.split_off(delay);
+    Array1::from_vec(resampled)
 }

@@ -4,7 +4,7 @@ use num_traits::{AsPrimitive, Float, FloatConst, NumOps};
 
 pub enum WindowType {
     Hann,
-    Blackman,
+    _Blackman,
     _BoxCar,
 }
 
@@ -22,7 +22,7 @@ where
     let norm_factor = norm_factor.as_();
     match win_type {
         WindowType::Hann => hann(size, false) / norm_factor,
-        WindowType::Blackman => blackman(size, false) / norm_factor,
+        WindowType::_Blackman => blackman(size, false) / norm_factor,
         WindowType::_BoxCar => Array1::from_elem(size, norm_factor.recip()),
     }
 }

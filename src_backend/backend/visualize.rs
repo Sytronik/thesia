@@ -1,7 +1,6 @@
 mod axis;
 mod drawing;
 mod mipmap;
-mod resample;
 mod slice_args;
 
 pub use axis::{

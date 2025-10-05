@@ -5,7 +5,6 @@ use rayon::prelude::*;
 mod audio;
 mod dynamics;
 mod simd;
-mod sinc;
 mod spectrogram;
 mod track;
 mod tuple_hasher;
