@@ -6,7 +6,7 @@ import {
   WAV_TOPBOTTOM_CONTEXT_SIZE,
 } from "renderer/prototypes/constants/tracks";
 
-export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavInfo} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
@@ -248,6 +248,7 @@ export const {
   getMindB,
   getMaxTrackHz,
   getSpectrogram,
+  getWav,
   getdBRange,
   setdBRange,
   setColormapLength,

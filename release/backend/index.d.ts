@@ -74,6 +74,8 @@ export declare function getSpectrogram(idChStr: string, secRange: [number, numbe
 
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
 
+export declare function getWav(idChStr: string): Promise<WavInfo>
+
 export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
 
 export declare const enum GuardClippingMode {
@@ -175,4 +177,10 @@ export interface WavDrawingInfo {
   preMargin: number
   postMargin: number
   clipValues?: Array<number>
+}
+
+export interface WavInfo {
+  wav: Array<number>
+  sr: number
+  isClipped: boolean
 }

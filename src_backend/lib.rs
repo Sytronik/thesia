@@ -349,6 +349,23 @@ async fn get_wav_drawing_info(
 }
 
 #[napi]
+async fn get_wav(id_ch_str: String) -> Result<WavInfo> {
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
+    match TRACK_LIST.read().get(id) {
+        Some(track) => {
+            let (wav, is_clipped) = track.channel_for_drawing(ch);
+            let wav = wav.iter().map(|x| *x as f64).collect();
+            Ok(WavInfo {
+                wav,
+                sr: track.sr(),
+                is_clipped,
+            })
+        }
+        None => Ok(Default::default()),
+    }
+}
+
+#[napi]
 fn find_id_by_path(path: String) -> i32 {
     TRACK_LIST
         .read()

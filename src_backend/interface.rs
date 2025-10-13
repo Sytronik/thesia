@@ -84,6 +84,14 @@ impl Spectrogram {
 
 #[napi(object)]
 #[derive(Default)]
+pub struct WavInfo {
+    pub wav: Vec<f64>,
+    pub sr: u32,
+    pub is_clipped: bool,
+}
+
+#[napi(object)]
+#[derive(Default)]
 pub struct WavDrawingInfo {
     pub line: Option<Buffer>,
     pub top_envelope: Option<Buffer>,

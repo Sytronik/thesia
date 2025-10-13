@@ -540,6 +540,7 @@ module.exports.getSampleRate = nativeBinding.getSampleRate
 module.exports.getSpecSetting = nativeBinding.getSpecSetting
 module.exports.getSpectrogram = nativeBinding.getSpectrogram
 module.exports.getTimeAxisMarkers = nativeBinding.getTimeAxisMarkers
+module.exports.getWav = nativeBinding.getWav
 module.exports.getWavDrawingInfo = nativeBinding.getWavDrawingInfo
 module.exports.GuardClippingMode = nativeBinding.GuardClippingMode
 module.exports.hzToLabel = nativeBinding.hzToLabel
