@@ -285,7 +285,7 @@ impl WavDrawingInfoInternal {
                 let wav_w_tail = wav.slice(s![args.start_w_margin..end_w_tail]);
                 let upsampled_len_tail =
                     (wav_w_tail.len() as f64 * resample_ratio).round() as usize;
-                resample(&wav_w_tail, upsampled_len_tail).into()
+                resample(wav_w_tail, upsampled_len_tail).into()
             } else {
                 wav.slice(s![args.start_w_margin..end_w_margin]).into()
             };
@@ -591,7 +591,7 @@ fn create_resampler(input_size: usize, output_size: usize) -> (FftFixedInOut<f32
     (resampler, buffer)
 }
 
-fn resample(wav: &ArrayView1<f32>, output_len: usize) -> Array1<f32> {
+fn resample(wav: ArrayView1<f32>, output_len: usize) -> Array1<f32> {
     let (mut resampler, mut buffer) = create_resampler(wav.len(), output_len);
     let delay = resampler.output_delay();
     let wav_slice = wav.as_slice().unwrap();
