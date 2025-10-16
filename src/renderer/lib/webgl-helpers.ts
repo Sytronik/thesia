@@ -524,7 +524,7 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
       throw new Error("Failed to initialize all WebGL resources.");
     }
 
-    numWebGLResources++;
+    numWebGLResources += 1;
 
     return resources as WebGLResources;
   } catch (error) {
@@ -788,5 +788,5 @@ export function cleanupWebGLResources(resources: WebGLResources) {
     loseCtxExt.loseContext();
   }
 
-  numWebGLResources--;
+  numWebGLResources -= 1;
 }
