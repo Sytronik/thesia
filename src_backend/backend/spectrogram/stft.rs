@@ -130,9 +130,8 @@ fn to_windowed_frames<A: Float>(
     (n_pad_left, n_pad_right): (usize, usize),
 ) -> Vec<Array1<A>> {
     input
-        .windows(window.len())
+        .windows_with_stride(window.len(), hop_length)
         .into_iter()
-        .step_by(hop_length)
         .map(|x| {
             let mut y = Array1::<A>::uninit(x.len() + n_pad_left + n_pad_right);
             let zero = MaybeUninit::new(A::zero());
