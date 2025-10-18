@@ -1,0 +1,26 @@
+[package]
+authors = {workspace = true}
+edition = {workspace = true}
+license-file = {workspace = true}
+name = "thesia-wasm-renderer"
+version = {workspace = true}
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+
+[dependencies.web-sys]
+features = [
+  "CanvasRenderingContext2d",
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "Window",
+  "console",
+]
+version = "0.3"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["--enable-bulk-memory", "-O"]
