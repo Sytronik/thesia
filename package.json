@@ -53,16 +53,18 @@
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.main.prod.ts",
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
-    "build:backend": "napi build --platform -o release/backend",
-    "build:backend.release": "napi build --platform --release -o release/backend",
-    "build:backend.debug": "napi build --platform --profile dev-debug -o release/backend",
+    "build:wasm": "wasm-pack build thesia-wasm-renderer --release --target web",
+    "build:wasm.debug": "wasm-pack build thesia-wasm-renderer --dev --target web",
+    "build:backend": "napi build --package thesia-native-backend --platform -o release/backend",
+    "build:backend.release": "napi build --package thesia-native-backend --platform --release -o release/backend",
+    "build:backend.debug": "napi build --package thesia-native-backend --platform --profile dev-debug -o release/backend",
     "postinstall": "ts-node .erb/scripts/check-native-dep.js && electron-builder install-app-deps && npm run build:dll",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
-    "package": "ts-node ./.erb/scripts/clean.js dist && npm run build:backend.release && npm run build && electron-builder build --publish never && npm run build:dll",
+    "package": "ts-node ./.erb/scripts/clean.js dist && concurrently \"npm run build:backend.release\" \"npm run build:wasm\" && npm run build && electron-builder build --publish never && npm run build:dll",
     "package.debug": "cross-env DEBUG_PROD=true npm run package",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
-    "debug": "npm run build:backend.debug && ts-node ./.erb/scripts/check-port-in-use.js && cross-env RUST_BACKTRACE=1 npm run start:renderer",
-    "start": "npm run build:backend && ts-node ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
+    "debug": "concurrently \"npm run build:backend.debug\" \"npm run build:wasm.debug\" && ts-node ./.erb/scripts/check-port-in-use.js && cross-env RUST_BACKTRACE=1 npm run start:renderer",
+    "start": "concurrently \"npm run build:backend\" \"npm run build:wasm\" && ts-node ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
     "start:main": "cross-env NODE_ENV=development electronmon -r ts-node/register/transpile-only .",
     "start:renderer": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
     "clean:backend": "cargo clean",
@@ -140,7 +142,8 @@
     "react-tooltip": "^5.28.0",
     "react-use-event-hook": "^0.9.6",
     "throttle-debounce": "^5.0.2",
-    "use-device-pixel-ratio": "^1.1.2"
+    "use-device-pixel-ratio": "^1.1.2",
+    "thesia-wasm-renderer": "file:./thesia-wasm-renderer/pkg"
   },
   "devDependencies": {
     "@electron/notarize": "^2.1.0",
@@ -215,12 +218,13 @@
     "productName": "thesia",
     "appId": "com.bremen.thesia",
     "asar": true,
-    "asarUnpack": "**\\*.{node,dll}",
+    "asarUnpack": "**\\*.{node,dll,wasm}",
     "copyright": "Copyright © 2021 Sytronik",
     "files": [
       "dist",
       "node_modules",
-      "package.json"
+      "package.json",
+      "thesia-wasm-renderer/pkg"
     ],
     "fileAssociations": [
       {
