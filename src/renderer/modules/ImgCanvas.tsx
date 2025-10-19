@@ -304,16 +304,16 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       devicePixelRatio,
     };
     if (wavInfo.isClipped) {
-      WasmAPI.wasmDrawWav(ctx, wavInfo.wav, wavInfo.sr, {...options, color: WAV_CLIPPING_COLOR});
+      WasmAPI.wasmDrawWav(ctx, idChStr, {...options, color: WAV_CLIPPING_COLOR});
     }
-    WasmAPI.wasmDrawWav(ctx, wavInfo.wav, wavInfo.sr, {
+    WasmAPI.wasmDrawWav(ctx, idChStr, {
       ...options,
       color: WAV_COLOR,
       clipValues: wavInfo.isClipped ? [-1, 1] : undefined,
       needBorderForEnvelope: !wavInfo.isClipped,
       doClear: !wavInfo.isClipped,
     });
-  }, [blend, devicePixelRatio, height, pxPerSec, startSec, width, ampRange]);
+  }, [width, devicePixelRatio, height, blend, startSec, pxPerSec, ampRange, idChStr]);
 
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
@@ -351,6 +351,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         const wavInfo = await BackendAPI.getWav(_idChStr);
         if (wavInfo === null) return;
         wavInfoRef.current = wavInfo;
+        WasmAPI.wasmSetWav(_idChStr, wavInfo.wav, wavInfo.sr);
         if (drawWavImageRequestRef.current !== 0)
           cancelAnimationFrame(drawWavImageRequestRef.current);
         drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());

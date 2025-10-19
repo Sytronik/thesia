@@ -1,4 +1,4 @@
-import init, {WavDrawingOptions, draw_wav} from "thesia-wasm-renderer";
+import init, {WavDrawingOptions, draw_wav, set_wav} from "thesia-wasm-renderer";
 
 let wasmInitialized = false;
 
@@ -19,6 +19,13 @@ export async function initWasm(): Promise<void> {
  */
 export function isWasmInitialized(): boolean {
   return wasmInitialized;
+}
+
+export function wasmSetWav(idChStr: string, wav: Float32Array, sr: number): void {
+  if (!wasmInitialized) {
+    throw new Error("WASM module has not been initialized. Please call initWasm() first.");
+  }
+  set_wav(idChStr, wav, sr);
 }
 
 /**
@@ -43,8 +50,7 @@ export interface WasmWavDrawingOptions {
  */
 export function wasmDrawWav(
   ctx: CanvasRenderingContext2D,
-  wav: Float32Array,
-  sampleRate: number,
+  idChStr: string,
   options: WasmWavDrawingOptions,
 ): void {
   if (!wasmInitialized) {
@@ -81,7 +87,7 @@ export function wasmDrawWav(
     wasmOptions.do_clear = options.doClear;
   }
 
-  draw_wav(ctx, wav, sampleRate, wasmOptions);
+  draw_wav(ctx, idChStr, wasmOptions);
 }
 
 /**
@@ -95,4 +101,5 @@ export default {
   initWasm,
   isWasmInitialized,
   wasmDrawWav,
+  wasmSetWav,
 };

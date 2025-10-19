@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{LazyLock, RwLock};
+
 use js_sys::Float32Array;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, Path2d};
@@ -15,6 +18,7 @@ extern "C" {
 }
 
 // Define a macro to provide `println!(..)`-style syntax for `console.log` logging.
+#[allow(unused_macros)]
 macro_rules! console_log {
     ( $( $t:tt )* ) => {
         log(&format!( $( $t )* ))
@@ -89,6 +93,24 @@ impl WavDrawingOptions {
     }
 }
 
+struct Wav {
+    wav: Vec<f32>,
+    sr: u32,
+}
+
+static WAVS: LazyLock<RwLock<HashMap<String, Wav>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+
+#[wasm_bindgen]
+pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32) {
+    WAVS.write().unwrap().insert(
+        id_ch_str.into(),
+        Wav {
+            wav: wav.to_vec(),
+            sr,
+        },
+    );
+}
+
 fn envelope_to_path(
     top_envelope: &[(f64, f64)],
     bottom_envelope: &[(f64, f64)],
@@ -124,182 +146,180 @@ fn envelope_to_path(
 #[wasm_bindgen]
 pub fn draw_wav(
     ctx: &CanvasRenderingContext2d,
-    wav: &Float32Array,
-    sr: u32,
+    id_ch_str: &str,
     options: &WavDrawingOptions,
 ) -> Result<(), JsValue> {
     let width = ctx.canvas().unwrap().width() as f64 * options.scale;
     let height = ctx.canvas().unwrap().height() as f64 * options.scale;
-    let px_per_sec = options.px_per_sec * options.scale * options.device_pixel_ratio;
     let stroke_width = WAV_LINE_WIDTH_FACTOR * options.scale * options.device_pixel_ratio;
-    let sr_f64 = sr as f64;
+    let (line_path, envelope_paths) = {
+        let wavs = WAVS.read().unwrap();
+        let Wav { wav, sr } = wavs.get(id_ch_str).unwrap();
+        let px_per_sec = options.px_per_sec * options.scale * options.device_pixel_ratio;
+        let sr_f64 = *sr as f64;
 
-    let offset_x = -options.start_sec * px_per_sec;
-    let idx_to_x = |idx| (idx as f64 * px_per_sec) / sr_f64 + offset_x;
-    let floor_x = |x: f64| ((x - offset_x) / options.scale).floor() * options.scale + offset_x;
+        let offset_x = -options.start_sec * px_per_sec;
+        let idx_to_x = |idx| (idx as f64 * px_per_sec) / sr_f64 + offset_x;
+        let floor_x = |x: f64| ((x - offset_x) / options.scale).floor() * options.scale + offset_x;
 
-    let amp_range_scale = (options.amp_range.1 - options.amp_range.0).max(1e-8);
-    let wav_to_y = match options.clip_values {
-        Some((clip_min, clip_max)) => Box::new(move |v: f32| {
-            ((options.amp_range.1 - (v.max(clip_min).min(clip_max))) / amp_range_scale) as f64
-                * height
-                + options.offset_y
-        }) as Box<dyn Fn(f32) -> f64>,
-        None => Box::new(|v: f32| {
-            ((options.amp_range.1 - v) / amp_range_scale) as f64 * height + options.offset_y
-        }) as Box<dyn Fn(f32) -> f64>,
-    };
+        let amp_range_scale = (options.amp_range.1 - options.amp_range.0).max(1e-8);
+        let wav_to_y = match options.clip_values {
+            Some((clip_min, clip_max)) => Box::new(move |v: f32| {
+                ((options.amp_range.1 - (v.max(clip_min).min(clip_max))) / amp_range_scale) as f64
+                    * height
+                    + options.offset_y
+            }) as Box<dyn Fn(f32) -> f64>,
+            None => Box::new(|v: f32| {
+                ((options.amp_range.1 - v) / amp_range_scale) as f64 * height + options.offset_y
+            }) as Box<dyn Fn(f32) -> f64>,
+        };
 
-    let margin_samples = (WAV_MARGIN_PX / px_per_sec) * sr_f64;
-    let i_start = (options.start_sec * sr_f64 - margin_samples).floor() as i32;
-    let i_end =
-        (options.start_sec * sr_f64 + width / px_per_sec * sr_f64 + margin_samples).ceil() as u32;
+        let margin_samples = (WAV_MARGIN_PX / px_per_sec) * sr_f64;
+        let i_start = (options.start_sec * sr_f64 - margin_samples)
+            .floor()
+            .max(0.0) as usize;
+        let i_end = (options.start_sec * sr_f64 + width / px_per_sec * sr_f64 + margin_samples)
+            .ceil() as usize;
 
-    let mut line_path: Option<Path2d> = None;
-    let mut top_envelope: Vec<(f64, f64)> = Vec::new();
-    let mut bottom_envelope: Vec<(f64, f64)> = Vec::new();
-    let mut envelope_paths: Vec<Path2d> = Vec::new();
+        let mut line_path: Option<Path2d> = None;
+        let mut top_envelope: Vec<(f64, f64)> = Vec::new();
+        let mut bottom_envelope: Vec<(f64, f64)> = Vec::new();
+        let mut envelope_paths: Vec<Path2d> = Vec::new();
 
-    let wav_len = wav.length();
-    let mut i = i_start.max(0) as u32;
-    let mut i_prev = i;
+        let wav_len = wav.len();
+        let mut i = i_start;
+        let mut i_prev = i;
 
-    while i < i_end.min(wav_len) {
-        let wav_val = wav.get_index(i);
-        let x = idx_to_x(i);
-        let y = wav_to_y(wav_val);
+        while i < i_end.min(wav_len) {
+            let wav_val = wav[i];
+            let x = idx_to_x(i);
+            let y = wav_to_y(wav_val);
 
-        if px_per_sec < sr_f64 {
-            // downsampling
-            let x_floor = floor_x(x);
-            let x_mid = x_floor + options.scale / 2.0;
-            let mut top = y;
-            let mut bottom = y;
-            let mut i2 = i_prev;
-            let mut i_next = i_end;
+            if px_per_sec < sr_f64 {
+                // downsampling
+                let x_floor = floor_x(x);
+                let x_mid = x_floor + options.scale / 2.0;
+                let mut top = y;
+                let mut bottom = y;
+                let mut i2 = i_prev;
+                let mut i_next = i_end;
 
-            while i2 < i_end.min(wav_len) {
-                let x2 = idx_to_x(i2);
-                let x2_floor = floor_x(x2);
-                if x2_floor > x_floor + options.scale {
-                    break;
+                while i2 < i_end.min(wav_len) {
+                    let x2 = idx_to_x(i2);
+                    let x2_floor = floor_x(x2);
+                    if x2_floor > x_floor + options.scale {
+                        break;
+                    }
+                    if x2_floor > x_floor && i_next == i_end {
+                        i_next = i2;
+                    }
+
+                    let y2 = wav_to_y(wav[i2]);
+                    if y2 < top {
+                        top = y2;
+                    }
+                    if y2 > bottom {
+                        bottom = y2;
+                    }
+                    i2 += 1;
                 }
-                if x2_floor > x_floor && i_next == i_end {
-                    i_next = i2;
-                }
 
-                let y2 = wav_to_y(wav.get_index(i2));
-                if y2 < top {
-                    top = y2;
-                }
-                if y2 > bottom {
-                    bottom = y2;
-                }
-                i2 += 1;
-            }
+                if bottom - top > stroke_width / 2.0 {
+                    // need to draw envelope
+                    if top_envelope.is_empty() {
+                        // new envelope starts
+                        let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
+                        top_envelope.push((x_floor, prev_y));
+                        bottom_envelope.clear(); // defensive code
+                        bottom_envelope.push((x_floor, prev_y));
 
-            if bottom - top > stroke_width / 2.0 {
-                // need to draw envelope
-                if top_envelope.is_empty() {
-                    // new envelope starts
-                    let prev_y = if i > 0 {
-                        wav_to_y(wav.get_index(i - 1))
-                    } else {
-                        y
-                    };
-                    top_envelope.push((x_floor, prev_y));
-                    bottom_envelope.clear(); // defensive code
-                    bottom_envelope.push((x_floor, prev_y));
+                        match line_path {
+                            None => {
+                                let new_path = Path2d::new()?;
+                                new_path.move_to(x_mid, y);
+                                line_path = Some(new_path);
+                            }
+                            Some(ref path) => {
+                                path.line_to(x_mid, y);
+                            }
+                        }
+                    }
 
+                    // continue the envelope
+                    top_envelope.push((x_mid, top));
+                    bottom_envelope.push((x_mid, bottom));
+                    if let Some(ref path) = line_path {
+                        path.line_to(x_mid, (top + bottom) / 2.0);
+                    }
+                } else {
+                    // no need to draw envelope
+                    if !top_envelope.is_empty() {
+                        // the recent envelope is finished
+                        top_envelope.push((x_floor, y));
+                        bottom_envelope.push((x_floor, y));
+
+                        envelope_paths.push(envelope_to_path(
+                            &top_envelope,
+                            &bottom_envelope,
+                            stroke_width,
+                        )?);
+                        top_envelope.clear();
+                        bottom_envelope.clear();
+
+                        if let Some(ref path) = line_path {
+                            let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
+                            path.line_to(x_mid - 1.0, prev_y);
+                        }
+                    }
+
+                    // continue the line
                     match line_path {
                         None => {
                             let new_path = Path2d::new()?;
-                            new_path.move_to(x_mid, y);
+                            new_path.move_to(x_mid, (top + bottom) / 2.0);
                             line_path = Some(new_path);
                         }
                         Some(ref path) => {
-                            path.line_to(x_mid, y);
+                            path.line_to(x_mid, (top + bottom) / 2.0);
                         }
                     }
                 }
-
-                // continue the envelope
-                top_envelope.push((x_mid, top));
-                bottom_envelope.push((x_mid, bottom));
-                if let Some(ref path) = line_path {
-                    path.line_to(x_mid, (top + bottom) / 2.0);
-                }
+                i_prev = i;
+                i = i_next;
             } else {
-                // no need to draw envelope
-                if !top_envelope.is_empty() {
-                    // the recent envelope is finished
-                    top_envelope.push((x_floor, y));
-                    bottom_envelope.push((x_floor, y));
-
-                    envelope_paths.push(envelope_to_path(
-                        &top_envelope,
-                        &bottom_envelope,
-                        stroke_width,
-                    )?);
-                    top_envelope.clear();
-                    bottom_envelope.clear();
-
-                    if let Some(ref path) = line_path {
-                        let prev_y = if i > 0 {
-                            wav_to_y(wav.get_index(i - 1))
-                        } else {
-                            y
-                        };
-                        path.line_to(x_mid - 1.0, prev_y);
-                    }
-                }
-
-                // continue the line
+                // no downsampling
                 match line_path {
                     None => {
                         let new_path = Path2d::new()?;
-                        new_path.move_to(x_mid, (top + bottom) / 2.0);
+                        new_path.move_to(x, y);
                         line_path = Some(new_path);
                     }
                     Some(ref path) => {
-                        path.line_to(x_mid, (top + bottom) / 2.0);
+                        path.line_to(x, y);
                     }
                 }
+                i += 1;
             }
-            i_prev = i;
-            i = i_next;
-        } else {
-            // no downsampling
-            match line_path {
-                None => {
-                    let new_path = Path2d::new()?;
-                    new_path.move_to(x, y);
-                    line_path = Some(new_path);
-                }
-                Some(ref path) => {
-                    path.line_to(x, y);
-                }
-            }
-            i += 1;
         }
-    }
 
-    // Handle remaining envelope
-    if !top_envelope.is_empty() {
-        envelope_paths.push(envelope_to_path(
-            &top_envelope,
-            &bottom_envelope,
-            stroke_width,
-        )?);
-        if let Some(ref path) = line_path {
-            let last_y = if i_end > 0 && (i_end - 1) < wav_len {
-                wav_to_y(wav.get_index(i_end - 1))
-            } else {
-                0.0
-            };
-            path.line_to(floor_x(idx_to_x(i_end - 1)), last_y);
+        // Handle remaining envelope
+        if !top_envelope.is_empty() {
+            envelope_paths.push(envelope_to_path(
+                &top_envelope,
+                &bottom_envelope,
+                stroke_width,
+            )?);
+            if let Some(ref path) = line_path {
+                let last_y = if i_end > 0 && (i_end - 1) < wav_len {
+                    wav_to_y(wav[i_end - 1])
+                } else {
+                    0.0
+                };
+                path.line_to(floor_x(idx_to_x(i_end - 1)), last_y);
+            }
         }
-    }
+        (line_path, envelope_paths)
+    };
 
     // Clear canvas if needed
     if options.do_clear {
