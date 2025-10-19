@@ -1,4 +1,8 @@
-import backend, {Spectrogram, WavDrawingInfo as _WavDrawingInfo} from "backend";
+import backend, {
+  Spectrogram,
+  WavInfo as _WavInfo,
+  WavDrawingInfo as _WavDrawingInfo,
+} from "backend";
 import {
   OVERVIEW_CH_GAP_HEIGHT,
   OVERVIEW_GAIN_HEIGHT_RATIO,
@@ -6,7 +10,7 @@ import {
   WAV_TOPBOTTOM_CONTEXT_SIZE,
 } from "renderer/prototypes/constants/tracks";
 
-export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavInfo} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
@@ -100,6 +104,21 @@ export type IdChArr = IdChannel[];
 export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
+
+export type WavInfo = {
+  wav: Float32Array;
+  sr: number;
+  isClipped: boolean;
+};
+
+function convertWavInfo(info: _WavInfo): WavInfo {
+  return {wav: new Float32Array(info.wav), sr: info.sr, isClipped: info.isClipped};
+}
+
+export async function getWav(idChStr: string): Promise<WavInfo | null> {
+  const info = await backend.getWav(idChStr);
+  return convertWavInfo(info);
+}
 
 export type WavDrawingInfo = {
   line: Float32Array | null;
@@ -248,7 +267,6 @@ export const {
   getMindB,
   getMaxTrackHz,
   getSpectrogram,
-  getWav,
   getdBRange,
   setdBRange,
   setColormapLength,

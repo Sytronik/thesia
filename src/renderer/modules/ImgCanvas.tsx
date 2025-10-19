@@ -15,10 +15,9 @@ import {DevicePixelRatioContext} from "renderer/contexts";
 
 import {WAV_CLIPPING_COLOR, WAV_COLOR} from "renderer/prototypes/constants/colors";
 import {WAV_IMAGE_SCALE} from "renderer/prototypes/constants/tracks";
-import {drawWav} from "renderer/lib/drawing-wav";
 import {sleep} from "renderer/utils/time";
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI from "../api";
+import BackendAPI, {WasmAPI} from "../api";
 import {
   cleanupWebGLResources,
   WebGLResources,
@@ -305,9 +304,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       devicePixelRatio,
     };
     if (wavInfo.isClipped) {
-      drawWav(ctx, wavInfo.wav, wavInfo.sr, {...options, color: WAV_CLIPPING_COLOR});
+      WasmAPI.wasmDrawWav(ctx, wavInfo.wav, wavInfo.sr, {...options, color: WAV_CLIPPING_COLOR});
     }
-    drawWav(ctx, wavInfo.wav, wavInfo.sr, {
+    WasmAPI.wasmDrawWav(ctx, wavInfo.wav, wavInfo.sr, {
       ...options,
       color: WAV_COLOR,
       clipValues: wavInfo.isClipped ? [-1, 1] : undefined,

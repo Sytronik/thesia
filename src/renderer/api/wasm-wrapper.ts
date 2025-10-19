@@ -1,4 +1,4 @@
-import init, {greet, ThesiaRenderer} from "thesia-wasm-renderer";
+import init, {WavDrawingOptions, draw_wav} from "thesia-wasm-renderer";
 
 let wasmInitialized = false;
 
@@ -22,50 +22,77 @@ export function isWasmInitialized(): boolean {
 }
 
 /**
- * Wrapper for the WASM greet function.
+ * Wav drawing options for WASM renderer
  */
-export function wasmGreet(name: string): void {
-  if (!wasmInitialized) {
-    throw new Error("WASM module has not been initialized. Please call initWasm() first.");
-  }
-  greet(name);
+export interface WasmWavDrawingOptions {
+  startSec: number;
+  pxPerSec: number;
+  ampRange: [number, number];
+  color: string;
+  scale: number;
+  devicePixelRatio: number;
+  offsetY?: number;
+  clipValues?: [number, number] | null;
+  needBorderForEnvelope?: boolean;
+  needBorderForLine?: boolean;
+  doClear?: boolean;
 }
 
 /**
- * Wrapper class for the Thesia WASM renderer.
+ * Wrapper for the WASM draw_wav function.
  */
-export class WasmRenderer {
-  private renderer: ThesiaRenderer;
-
-  constructor(width: number, height: number) {
-    if (!wasmInitialized) {
-      throw new Error("WASM module has not been initialized. Please call initWasm() first.");
-    }
-    this.renderer = new ThesiaRenderer(width, height);
+export function wasmDrawWav(
+  ctx: CanvasRenderingContext2D,
+  wav: Float32Array,
+  sampleRate: number,
+  options: WasmWavDrawingOptions,
+): void {
+  if (!wasmInitialized) {
+    throw new Error("WASM module has not been initialized. Please call initWasm() first.");
   }
 
-  get width(): number {
-    return this.renderer.width;
+  const wasmOptions = new WavDrawingOptions(
+    options.startSec,
+    options.pxPerSec,
+    options.ampRange[0],
+    options.ampRange[1],
+    options.color,
+    options.scale,
+    options.devicePixelRatio,
+  );
+
+  if (options.offsetY !== undefined) {
+    wasmOptions.offset_y = options.offsetY;
   }
 
-  get height(): number {
-    return this.renderer.height;
+  if (options.clipValues) {
+    wasmOptions.clip_values = new Float64Array(options.clipValues);
   }
 
-  render(): void {
-    this.renderer.render();
+  if (options.needBorderForEnvelope !== undefined) {
+    wasmOptions.need_border_for_envelope = options.needBorderForEnvelope;
   }
 
-  free(): void {
-    this.renderer.free();
+  if (options.needBorderForLine !== undefined) {
+    wasmOptions.need_border_for_line = options.needBorderForLine;
   }
+
+  if (options.doClear !== undefined) {
+    wasmOptions.do_clear = options.doClear;
+  }
+
+  draw_wav(ctx, wav, sampleRate, wasmOptions);
 }
 
-// Default export
-export {ThesiaRenderer};
+/**
+ * Note: ThesiaRenderer class is no longer available.
+ * Use wasmDrawWav function instead for drawing waveforms.
+ */
+
+// Named exports
+export {WavDrawingOptions, draw_wav};
 export default {
   initWasm,
   isWasmInitialized,
-  wasmGreet,
-  WasmRenderer,
+  wasmDrawWav,
 };
