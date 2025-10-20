@@ -72,7 +72,7 @@ export function wasmDrawWav(
   }
 
   if (options.clipValues) {
-    wasmOptions.clip_values = new Float64Array(options.clipValues);
+    wasmOptions.clip_values = new Float32Array(options.clipValues);
   }
 
   if (options.needBorderForEnvelope !== undefined) {
