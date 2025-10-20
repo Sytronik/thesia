@@ -147,16 +147,15 @@ pub fn draw_wav(
             .ceil() as usize;
 
         if px_per_sec >= sr_f32 {
-            let line_path = Path2d::new()?;
-            line_path.move_to(idx_to_x(i_start) as f64, wav_to_y(wav[i_start]) as f64);
-            for i in (i_start + 1)..i_end {
+            let mut line_points = Vec::new();
+            for i in i_start..i_end {
                 let x = idx_to_x(i);
                 let y = wav_to_y(wav[i]);
-                line_path.line_to(x as f64, y as f64);
+                line_points.push((x as f64, y as f64));
             }
-            (Some(line_path), Vec::new())
+            (line_to_path(&line_points)?, Vec::new())
         } else {
-            let mut line_path = None;
+            let mut line_points = Vec::new();
             let mut envelope_x = Vec::new();
             let mut top_envelope_y = Vec::new();
             let mut bottom_envelope_y = Vec::new();
@@ -207,25 +206,14 @@ pub fn draw_wav(
                         bottom_envelope_y.clear(); // defensive code
                         bottom_envelope_y.push(prev_y);
 
-                        match line_path {
-                            None => {
-                                let new_path = Path2d::new()?;
-                                new_path.move_to(x_mid as f64, y as f64);
-                                line_path = Some(new_path);
-                            }
-                            Some(ref path) => {
-                                path.line_to(x_mid as f64, y as f64);
-                            }
-                        }
+                        line_points.push((x_mid as f64, y as f64));
                     }
 
                     // continue the envelope
                     envelope_x.push(x_mid);
                     top_envelope_y.push(top);
                     bottom_envelope_y.push(bottom);
-                    if let Some(ref path) = line_path {
-                        path.line_to(x_mid as f64, ((top + bottom) / 2.0) as f64);
-                    }
+                    line_points.push((x_mid as f64, ((top + bottom) / 2.0) as f64));
                 } else {
                     // no need to draw envelope
                     if !envelope_x.is_empty() {
@@ -245,23 +233,12 @@ pub fn draw_wav(
                         top_envelope_y.clear();
                         bottom_envelope_y.clear();
 
-                        if let Some(ref path) = line_path {
-                            let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
-                            path.line_to((x_mid - 1.0) as f64, prev_y as f64);
-                        }
+                        let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
+                        line_points.push(((x_mid - 1.0) as f64, prev_y as f64));
                     }
 
                     // continue the line
-                    match line_path {
-                        None => {
-                            let new_path = Path2d::new()?;
-                            new_path.move_to(x_mid as f64, ((top + bottom) / 2.0) as f64);
-                            line_path = Some(new_path);
-                        }
-                        Some(ref path) => {
-                            path.line_to(x_mid as f64, ((top + bottom) / 2.0) as f64);
-                        }
-                    }
+                    line_points.push((x_mid as f64, ((top + bottom) / 2.0) as f64));
                 }
                 i_prev = i;
                 i = i_next;
@@ -277,16 +254,14 @@ pub fn draw_wav(
                 )?;
                 envelope_paths.push(path);
 
-                if let Some(ref path) = line_path {
-                    let last_y = if i_end > 0 && (i_end - 1) < wav_len {
-                        wav_to_y(wav[i_end - 1])
-                    } else {
-                        0.0
-                    };
-                    path.line_to(floor_x(idx_to_x(i_end - 1)) as f64, last_y as f64);
-                }
+                let last_y = if i_end > 0 && (i_end - 1) < wav_len {
+                    wav_to_y(wav[i_end - 1])
+                } else {
+                    0.0
+                };
+                line_points.push((floor_x(idx_to_x(i_end - 1)) as f64, last_y as f64));
             }
-            (line_path, envelope_paths)
+            (line_to_path(&line_points)?, envelope_paths)
         }
     };
 
@@ -297,15 +272,13 @@ pub fn draw_wav(
 
     // Draw borders for line
     if options.need_border_for_line {
-        if let Some(ref path) = line_path {
-            ctx.set_line_cap("round");
-            ctx.set_line_join("round");
-            ctx.set_stroke_style_str(&WAV_BORDER_COLOR);
-            ctx.set_line_width(
-                (stroke_width + 2.0 * WAV_BORDER_WIDTH * options.device_pixel_ratio) as f64,
-            );
-            ctx.stroke_with_path(path);
-        }
+        ctx.set_line_cap("round");
+        ctx.set_line_join("round");
+        ctx.set_stroke_style_str(&WAV_BORDER_COLOR);
+        ctx.set_line_width(
+            (stroke_width + 2.0 * WAV_BORDER_WIDTH * options.device_pixel_ratio) as f64,
+        );
+        ctx.stroke_with_path(&line_path);
     }
 
     // Draw borders for envelopes
@@ -320,13 +293,11 @@ pub fn draw_wav(
     }
 
     // Draw main line
-    if let Some(ref path) = line_path {
-        ctx.set_line_cap("round");
-        ctx.set_line_join("round");
-        ctx.set_stroke_style_str(&options.color);
-        ctx.set_line_width(stroke_width as f64);
-        ctx.stroke_with_path(path);
-    }
+    ctx.set_line_cap("round");
+    ctx.set_line_join("round");
+    ctx.set_stroke_style_str(&options.color);
+    ctx.set_line_width(stroke_width as f64);
+    ctx.stroke_with_path(&line_path);
 
     // Fill envelopes
     for path in &envelope_paths {
@@ -335,6 +306,18 @@ pub fn draw_wav(
     }
 
     Ok(())
+}
+
+fn line_to_path(points: &[(f64, f64)]) -> Result<Path2d, JsValue> {
+    let path = Path2d::new()?;
+    if points.is_empty() {
+        return Ok(path);
+    }
+    path.move_to(points[0].0, points[0].1);
+    for (x, y) in points.into_iter().skip(1) {
+        path.line_to(*x, *y);
+    }
+    Ok(path)
 }
 
 fn envelope_to_path(
