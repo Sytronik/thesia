@@ -111,40 +111,6 @@ pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32) {
     );
 }
 
-fn envelope_to_path(
-    envelope_x: &[f32],
-    top_envelope_y: &mut [f32],
-    bottom_envelope_y: &mut [f32],
-    stroke_width: f32,
-) -> Result<Path2d, JsValue> {
-    let path = Path2d::new()?;
-
-    if envelope_x.is_empty() {
-        return Ok(path);
-    }
-
-    let half_stroke_width = stroke_width / 2.0;
-
-    add_scalar_to_slice(top_envelope_y, -half_stroke_width);
-    add_scalar_to_slice(bottom_envelope_y, half_stroke_width);
-
-    // Move to first point
-    path.move_to(envelope_x[0] as f64, top_envelope_y[0] as f64);
-
-    // Draw top envelope
-    for (x, y) in envelope_x.iter().zip(top_envelope_y.iter()).skip(1) {
-        path.line_to(*x as f64, *y as f64);
-    }
-
-    // Draw bottom envelope (reversed)
-    for (x, y) in envelope_x.iter().zip(bottom_envelope_y.iter()).rev() {
-        path.line_to(*x as f64, *y as f64);
-    }
-
-    path.close_path();
-    Ok(path)
-}
-
 #[wasm_bindgen]
 pub fn draw_wav(
     ctx: &CanvasRenderingContext2d,
@@ -165,14 +131,12 @@ pub fn draw_wav(
         let floor_x = |x: f32| ((x - offset_x) / options.scale).floor() * options.scale + offset_x;
 
         let amp_range_scale = (options.amp_range.1 - options.amp_range.0).max(1e-8);
-        let wav_to_y = match options.clip_values {
-            Some((clip_min, clip_max)) => Box::new(move |v: f32| {
-                ((options.amp_range.1 - (v.max(clip_min).min(clip_max))) / amp_range_scale) * height
-                    + options.offset_y
-            }) as Box<dyn Fn(f32) -> f32>,
-            None => Box::new(|v: f32| {
-                ((options.amp_range.1 - v) / amp_range_scale) * height + options.offset_y
-            }) as Box<dyn Fn(f32) -> f32>,
+        let (clip_min, clip_max) = options
+            .clip_values
+            .unwrap_or((-f32::INFINITY, f32::INFINITY));
+        let wav_to_y = |v: f32| {
+            ((options.amp_range.1 - (v.max(clip_min).min(clip_max))) / amp_range_scale) * height
+                + options.offset_y
         };
 
         let margin_samples = (WAV_MARGIN_PX / px_per_sec) * sr_f32;
@@ -182,21 +146,30 @@ pub fn draw_wav(
         let i_end = (options.start_sec * sr_f32 + width / px_per_sec * sr_f32 + margin_samples)
             .ceil() as usize;
 
-        let mut line_path = None;
-        let mut envelope_x = Vec::new();
-        let mut top_envelope_y = Vec::new();
-        let mut bottom_envelope_y = Vec::new();
-        let mut envelope_paths = Vec::new();
+        if px_per_sec >= sr_f32 {
+            let line_path = Path2d::new()?;
+            line_path.move_to(idx_to_x(i_start) as f64, wav_to_y(wav[i_start]) as f64);
+            for i in (i_start + 1)..i_end {
+                let x = idx_to_x(i);
+                let y = wav_to_y(wav[i]);
+                line_path.line_to(x as f64, y as f64);
+            }
+            (Some(line_path), Vec::new())
+        } else {
+            let mut line_path = None;
+            let mut envelope_x = Vec::new();
+            let mut top_envelope_y = Vec::new();
+            let mut bottom_envelope_y = Vec::new();
+            let mut envelope_paths = Vec::new();
 
-        let wav_len = wav.len();
-        let mut i = i_start;
-        let mut i_prev = i;
+            let wav_len = wav.len();
+            let mut i = i_start;
+            let mut i_prev = i;
 
-        while i < i_end.min(wav_len) {
-            let x = idx_to_x(i);
-            let y = wav_to_y(wav[i]);
+            while i < i_end.min(wav_len) {
+                let x = idx_to_x(i);
+                let y = wav_to_y(wav[i]);
 
-            if px_per_sec < sr_f32 {
                 // downsampling
                 let x_floor = floor_x(x);
                 let x_mid = x_floor + options.scale / 2.0;
@@ -261,12 +234,13 @@ pub fn draw_wav(
                         top_envelope_y.push(y);
                         bottom_envelope_y.push(y);
 
-                        envelope_paths.push(envelope_to_path(
+                        let path = envelope_to_path(
                             &envelope_x,
                             &mut top_envelope_y,
                             &mut bottom_envelope_y,
                             stroke_width,
-                        )?);
+                        )?;
+                        envelope_paths.push(path);
                         envelope_x.clear();
                         top_envelope_y.clear();
                         bottom_envelope_y.clear();
@@ -291,40 +265,29 @@ pub fn draw_wav(
                 }
                 i_prev = i;
                 i = i_next;
-            } else {
-                // no downsampling
-                match line_path {
-                    None => {
-                        let new_path = Path2d::new()?;
-                        new_path.move_to(x as f64, y as f64);
-                        line_path = Some(new_path);
-                    }
-                    Some(ref path) => {
-                        path.line_to(x as f64, y as f64);
-                    }
-                }
-                i += 1;
             }
-        }
 
-        // Handle remaining envelope
-        if !envelope_x.is_empty() {
-            envelope_paths.push(envelope_to_path(
-                &envelope_x,
-                &mut top_envelope_y,
-                &mut bottom_envelope_y,
-                stroke_width,
-            )?);
-            if let Some(ref path) = line_path {
-                let last_y = if i_end > 0 && (i_end - 1) < wav_len {
-                    wav_to_y(wav[i_end - 1])
-                } else {
-                    0.0
-                };
-                path.line_to(floor_x(idx_to_x(i_end - 1)) as f64, last_y as f64);
+            // Handle remaining envelope
+            if !envelope_x.is_empty() {
+                let path = envelope_to_path(
+                    &envelope_x,
+                    &mut top_envelope_y,
+                    &mut bottom_envelope_y,
+                    stroke_width,
+                )?;
+                envelope_paths.push(path);
+
+                if let Some(ref path) = line_path {
+                    let last_y = if i_end > 0 && (i_end - 1) < wav_len {
+                        wav_to_y(wav[i_end - 1])
+                    } else {
+                        0.0
+                    };
+                    path.line_to(floor_x(idx_to_x(i_end - 1)) as f64, last_y as f64);
+                }
             }
+            (line_path, envelope_paths)
         }
-        (line_path, envelope_paths)
     };
 
     // Clear canvas if needed
@@ -372,6 +335,40 @@ pub fn draw_wav(
     }
 
     Ok(())
+}
+
+fn envelope_to_path(
+    envelope_x: &[f32],
+    top_envelope_y: &mut [f32],
+    bottom_envelope_y: &mut [f32],
+    stroke_width: f32,
+) -> Result<Path2d, JsValue> {
+    let path = Path2d::new()?;
+
+    if envelope_x.is_empty() {
+        return Ok(path);
+    }
+
+    let half_stroke_width = stroke_width / 2.0;
+
+    add_scalar_to_slice(top_envelope_y, -half_stroke_width);
+    add_scalar_to_slice(bottom_envelope_y, half_stroke_width);
+
+    // Move to first point
+    path.move_to(envelope_x[0] as f64, top_envelope_y[0] as f64);
+
+    // Draw top envelope
+    for (x, y) in envelope_x.iter().zip(top_envelope_y.iter()).skip(1) {
+        path.line_to(*x as f64, *y as f64);
+    }
+
+    // Draw bottom envelope (reversed)
+    for (x, y) in envelope_x.iter().zip(bottom_envelope_y.iter()).rev() {
+        path.line_to(*x as f64, *y as f64);
+    }
+
+    path.close_path();
+    Ok(path)
 }
 
 #[allow(unused)]
