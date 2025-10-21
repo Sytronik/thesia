@@ -14,7 +14,6 @@ import {debounce, throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 
 import {WAV_CLIPPING_COLOR, WAV_COLOR} from "renderer/prototypes/constants/colors";
-import {WAV_IMAGE_SCALE} from "renderer/prototypes/constants/tracks";
 import {sleep} from "renderer/utils/time";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI, {WasmAPI} from "../api";
@@ -46,6 +45,8 @@ type ImgTooltipInfo = {pos: number[]; lines: string[]};
 
 const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
 
+let WAV_IMG_SCALE = 0.0;
+
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {
     idChStr,
@@ -62,6 +63,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     needRefresh,
     hidden,
   } = props;
+
+  if (WAV_IMG_SCALE === 0.0) {
+    WAV_IMG_SCALE = WasmAPI.getWavImgScale();
+  }
+
   const endSec = startSec + width / (pxPerSec + 1e-8);
 
   const needClearSpec = hidden || startSec >= trackSec || width <= 0;
@@ -291,7 +297,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
     const ctx = wavCtxRef.current;
 
-    ctx.scale(1 / WAV_IMAGE_SCALE, 1 / WAV_IMAGE_SCALE);
+    ctx.scale(1 / WAV_IMG_SCALE, 1 / WAV_IMG_SCALE);
 
     if (!wavInfoRef.current) return;
     const wavInfo = wavInfoRef.current;
@@ -300,7 +306,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       startSec,
       pxPerSec,
       ampRange,
-      scale: WAV_IMAGE_SCALE,
       devicePixelRatio,
     };
     if (wavInfo.isClipped) {
@@ -328,8 +333,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       wavCtxRef.current?.clearRect(
         0,
         0,
-        width * devicePixelRatio * WAV_IMAGE_SCALE,
-        height * devicePixelRatio * WAV_IMAGE_SCALE,
+        width * devicePixelRatio * WAV_IMG_SCALE,
+        height * devicePixelRatio * WAV_IMG_SCALE,
       );
       return () => {};
     }
@@ -351,7 +356,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         const wavInfo = await BackendAPI.getWav(_idChStr);
         if (wavInfo === null) return;
         wavInfoRef.current = wavInfo;
-        WasmAPI.wasmSetWav(_idChStr, wavInfo.wav, wavInfo.sr, WAV_IMAGE_SCALE, devicePixelRatio);
+        WasmAPI.wasmSetWav(_idChStr, wavInfo.wav, wavInfo.sr, devicePixelRatio);
         if (drawWavImageRequestRef.current !== 0)
           cancelAnimationFrame(drawWavImageRequestRef.current);
         drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());

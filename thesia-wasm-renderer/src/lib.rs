@@ -7,8 +7,9 @@ use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, Path2d};
 
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
+const WAV_IMG_SCALE: f32 = 2.0;
 const WAV_BORDER_WIDTH: f32 = 1.5;
-const WAV_LINE_WIDTH_FACTOR: f32 = 1.75;
+const WAV_LINE_WIDTH: f32 = 1.75 * WAV_IMG_SCALE;
 const WAV_MARGIN_PX: f32 = 10.0;
 
 const CACHE_CANVAS_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
@@ -35,7 +36,6 @@ pub struct WavDrawingOptions {
     px_per_sec: f32,       // css pixels per second
     amp_range: (f32, f32), // [min, max]
     color: String,
-    scale: f32,
     device_pixel_ratio: f32,
     offset_y: f32,
     clip_values: Option<(f32, f32)>, // [min, max] or None
@@ -53,7 +53,6 @@ impl WavDrawingOptions {
         amp_range_min: f32,
         amp_range_max: f32,
         color: String,
-        scale: f32,
         device_pixel_ratio: f32,
     ) -> WavDrawingOptions {
         WavDrawingOptions {
@@ -61,7 +60,6 @@ impl WavDrawingOptions {
             px_per_sec,
             amp_range: (amp_range_min as f32, amp_range_max as f32),
             color,
-            scale,
             device_pixel_ratio,
             offset_y: 0.0,
             clip_values: None,
@@ -71,18 +69,13 @@ impl WavDrawingOptions {
         }
     }
 
-    fn new_for_cache(
-        amp_range: (f32, f32),
-        scale: f32,
-        device_pixel_ratio: f32,
-    ) -> WavDrawingOptions {
+    fn new_for_cache(amp_range: (f32, f32), device_pixel_ratio: f32) -> WavDrawingOptions {
         Self::new(
             0.0,
-            CACHE_CANVAS_PX_PER_SEC / scale / device_pixel_ratio,
+            CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / device_pixel_ratio,
             amp_range.0,
             amp_range.1,
             "".into(),
-            scale,
             device_pixel_ratio,
         )
     }
@@ -113,11 +106,11 @@ impl WavDrawingOptions {
     }
 
     pub fn stroke_width(&self) -> f32 {
-        WAV_LINE_WIDTH_FACTOR * self.scale * self.device_pixel_ratio
+        WAV_LINE_WIDTH * self.device_pixel_ratio
     }
 
     pub fn canvas_px_per_sec(&self) -> f32 {
-        self.px_per_sec * self.scale * self.device_pixel_ratio
+        self.px_per_sec * WAV_IMG_SCALE * self.device_pixel_ratio
     }
 }
 
@@ -130,14 +123,19 @@ struct Wav {
 
 static WAVS: LazyLock<RwLock<HashMap<String, Wav>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
+#[wasm_bindgen(js_name = getWavImgScale)]
+pub fn get_wav_img_scale() -> f32 {
+    WAV_IMG_SCALE
+}
+
 #[wasm_bindgen]
-pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32, scale: f32, device_pixel_ratio: f32) {
+pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32, device_pixel_ratio: f32) {
     let wav = wav.to_vec();
     let amp_range = {
         let (min, max) = min_max_f32(&wav);
         (min.min(-1.), max.max(1.))
     };
-    let options = WavDrawingOptions::new_for_cache(amp_range, scale, device_pixel_ratio);
+    let options = WavDrawingOptions::new_for_cache(amp_range, device_pixel_ratio);
     let px_per_samples = (options.canvas_px_per_sec() / sr as f32).min(0.1);
     let width = wav.len() as f32 * px_per_samples;
 
@@ -159,8 +157,8 @@ pub fn draw_wav(
     id_ch_str: &str,
     options: &WavDrawingOptions,
 ) -> Result<(), JsValue> {
-    let width = ctx.canvas().unwrap().width() as f32 * options.scale;
-    let height = ctx.canvas().unwrap().height() as f32 * options.scale;
+    let width = ctx.canvas().unwrap().width() as f32 * WAV_IMG_SCALE;
+    let height = ctx.canvas().unwrap().height() as f32 * WAV_IMG_SCALE;
     let stroke_width = options.stroke_width();
 
     let (line_points, envelopes) = {
@@ -252,7 +250,7 @@ fn calc_line_envelope_points(
 
     let offset_x = -options.start_sec * px_per_sec;
     let idx_to_x = |idx| (idx as f32 * px_per_sec) / sr_f32 + offset_x;
-    let floor_x = |x: f32| ((x - offset_x) / options.scale).floor() * options.scale + offset_x;
+    let floor_x = |x: f32| ((x - offset_x) / WAV_IMG_SCALE).floor() * WAV_IMG_SCALE + offset_x;
 
     let amp_range_scale = (options.amp_range.1 - options.amp_range.0).max(1e-8);
     let (clip_min, clip_max) = options
@@ -296,14 +294,14 @@ fn calc_line_envelope_points(
 
         // downsampling
         let x_floor = floor_x(x);
-        let x_mid = x_floor + options.scale / 2.0;
+        let x_mid = x_floor + WAV_IMG_SCALE / 2.0;
         let mut i2 = i_prev;
         let mut i_next = i_end;
 
         while i2 < i_end.min(wav_len) {
             let x2 = idx_to_x(i2);
             let x2_floor = floor_x(x2);
-            if x2_floor > x_floor + options.scale {
+            if x2_floor > x_floor + WAV_IMG_SCALE {
                 break;
             }
             if x2_floor > x_floor && i_next == i_end {
