@@ -358,20 +358,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       }),
     [],
   );
-  const getWavDrawingInfoIfNotHidden = useCallback(() => {
-    if (needHideWav) return;
+  const getWavDrawingInfo = useCallback(() => {
     throttledGetWavDrawingInfo(idChStr);
-  }, [idChStr, needHideWav, throttledGetWavDrawingInfo]);
+  }, [idChStr, throttledGetWavDrawingInfo]);
 
   // getWavDrawingInfo is called when needRefresh is true ...
-  const prevGetWavDrawingInfoRef = useRef<() => void>(getWavDrawingInfoIfNotHidden);
-  if (prevGetWavDrawingInfoRef.current === getWavDrawingInfoIfNotHidden && needRefresh) {
-    getWavDrawingInfoIfNotHidden();
+  const prevGetWavDrawingInfoRef = useRef<() => void>(getWavDrawingInfo);
+  if (prevGetWavDrawingInfoRef.current === getWavDrawingInfo && needRefresh) {
+    getWavDrawingInfo();
   }
-  prevGetWavDrawingInfoRef.current = getWavDrawingInfoIfNotHidden;
+  prevGetWavDrawingInfoRef.current = getWavDrawingInfo;
 
   // or when deps change
-  useEffect(getWavDrawingInfoIfNotHidden, [getWavDrawingInfoIfNotHidden]);
+  useEffect(getWavDrawingInfo, [getWavDrawingInfo]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
