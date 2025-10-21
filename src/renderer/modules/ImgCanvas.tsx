@@ -356,12 +356,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         const wavInfo = await BackendAPI.getWav(_idChStr);
         if (wavInfo === null) return;
         wavInfoRef.current = wavInfo;
-        WasmAPI.wasmSetWav(_idChStr, wavInfo.wav, wavInfo.sr, devicePixelRatio);
+        WasmAPI.wasmSetWav(_idChStr, wavInfo.wav, wavInfo.sr);
         if (drawWavImageRequestRef.current !== 0)
           cancelAnimationFrame(drawWavImageRequestRef.current);
         drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());
       }),
-    [devicePixelRatio],
+    [],
   );
   const getWavDrawingInfo = useCallback(() => {
     throttledGetWavDrawingInfo(idChStr);

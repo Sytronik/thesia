@@ -17,7 +17,7 @@ napi = {version = "3.3.0", features = [
 napi-derive = {version = "3.2.5"}
 
 approx = "0.5.1"
-atomic_float = "1.1.0"
+atomic_float = {workspace = true}
 cached = "0.56.0"
 chrono = "0.4.42"
 # console-subscriber = "0.4.0"

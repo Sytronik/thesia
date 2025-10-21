@@ -1,4 +1,10 @@
-import init, {WavDrawingOptions, draw_wav, set_wav, getWavImgScale} from "thesia-wasm-renderer";
+import init, {
+  WavDrawingOptions,
+  draw_wav,
+  set_wav,
+  getWavImgScale,
+  setDevicePixelRatio,
+} from "thesia-wasm-renderer";
 
 let wasmInitialized = false;
 
@@ -21,16 +27,11 @@ export function isWasmInitialized(): boolean {
   return wasmInitialized;
 }
 
-export function wasmSetWav(
-  idChStr: string,
-  wav: Float32Array,
-  sr: number,
-  devicePixelRatio: number,
-): void {
+export function wasmSetWav(idChStr: string, wav: Float32Array, sr: number): void {
   if (!wasmInitialized) {
     throw new Error("WASM module has not been initialized. Please call initWasm() first.");
   }
-  set_wav(idChStr, wav, sr, devicePixelRatio);
+  set_wav(idChStr, wav, sr);
 }
 
 /**
@@ -41,7 +42,6 @@ export interface WasmWavDrawingOptions {
   pxPerSec: number;
   ampRange: [number, number];
   color: string;
-  devicePixelRatio: number;
   offsetY?: number;
   clipValues?: [number, number] | null;
   needBorderForEnvelope?: boolean;
@@ -67,7 +67,6 @@ export function wasmDrawWav(
     options.ampRange[0],
     options.ampRange[1],
     options.color,
-    options.devicePixelRatio,
   );
 
   if (options.offsetY !== undefined) {
@@ -106,4 +105,5 @@ export default {
   wasmDrawWav,
   wasmSetWav,
   getWavImgScale,
+  setDevicePixelRatio,
 };

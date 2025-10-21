@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::sync::{LazyLock, RwLock};
 
+use atomic_float::AtomicF32;
 use itertools::multizip;
 use js_sys::Float32Array;
 use wasm_bindgen::prelude::*;
@@ -36,7 +38,6 @@ pub struct WavDrawingOptions {
     px_per_sec: f32,       // css pixels per second
     amp_range: (f32, f32), // [min, max]
     color: String,
-    device_pixel_ratio: f32,
     offset_y: f32,
     clip_values: Option<(f32, f32)>, // [min, max] or None
     need_border_for_envelope: bool,
@@ -53,14 +54,12 @@ impl WavDrawingOptions {
         amp_range_min: f32,
         amp_range_max: f32,
         color: String,
-        device_pixel_ratio: f32,
     ) -> WavDrawingOptions {
         WavDrawingOptions {
             start_sec,
             px_per_sec,
             amp_range: (amp_range_min as f32, amp_range_max as f32),
             color,
-            device_pixel_ratio,
             offset_y: 0.0,
             clip_values: None,
             need_border_for_envelope: true,
@@ -69,14 +68,13 @@ impl WavDrawingOptions {
         }
     }
 
-    fn new_for_cache(amp_range: (f32, f32), device_pixel_ratio: f32) -> WavDrawingOptions {
+    fn new_for_cache(amp_range: (f32, f32)) -> WavDrawingOptions {
         Self::new(
             0.0,
-            CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / device_pixel_ratio,
+            CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire),
             amp_range.0,
             amp_range.1,
             "".into(),
-            device_pixel_ratio,
         )
     }
 
@@ -106,48 +104,70 @@ impl WavDrawingOptions {
     }
 
     pub fn stroke_width(&self) -> f32 {
-        WAV_LINE_WIDTH * self.device_pixel_ratio
+        WAV_LINE_WIDTH * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 
     pub fn canvas_px_per_sec(&self) -> f32 {
-        self.px_per_sec * WAV_IMG_SCALE * self.device_pixel_ratio
+        self.px_per_sec * WAV_IMG_SCALE * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 }
 
 struct Wav {
     wav: Vec<f32>,
     sr: u32,
+    amp_range: (f32, f32),
     line_points: Vec<(f32, f32)>,
     envelopes: Vec<(Vec<f32>, Vec<f32>, Vec<f32>)>,
 }
 
+impl Wav {
+    fn new(wav: Vec<f32>, sr: u32) -> Self {
+        let amp_range = {
+            let (min, max) = min_max_f32(&wav);
+            (min.min(-1.), max.max(1.))
+        };
+        let mut wav = Self {
+            wav,
+            sr,
+            amp_range,
+            line_points: Vec::new(),
+            envelopes: Vec::new(),
+        };
+        wav.update_cache();
+        wav
+    }
+
+    fn update_cache(&mut self) {
+        let options = WavDrawingOptions::new_for_cache(self.amp_range);
+        let px_per_samples = (options.canvas_px_per_sec() / self.sr as f32).min(0.1);
+        let width = self.wav.len() as f32 * px_per_samples;
+
+        let (line_points, envelopes) =
+            calc_line_envelope_points(&self.wav, self.sr, width, CACHE_HEIGHT, &options);
+        self.line_points = line_points;
+        self.envelopes = envelopes.unwrap();
+    }
+}
+
 static WAVS: LazyLock<RwLock<HashMap<String, Wav>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static DEVICE_PIXEL_RATIO: LazyLock<AtomicF32> = LazyLock::new(|| AtomicF32::new(1.0));
 
 #[wasm_bindgen(js_name = getWavImgScale)]
 pub fn get_wav_img_scale() -> f32 {
     WAV_IMG_SCALE
 }
 
-#[wasm_bindgen]
-pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32, device_pixel_ratio: f32) {
-    let wav = wav.to_vec();
-    let amp_range = {
-        let (min, max) = min_max_f32(&wav);
-        (min.min(-1.), max.max(1.))
-    };
-    let options = WavDrawingOptions::new_for_cache(amp_range, device_pixel_ratio);
-    let px_per_samples = (options.canvas_px_per_sec() / sr as f32).min(0.1);
-    let width = wav.len() as f32 * px_per_samples;
+#[wasm_bindgen(js_name = setDevicePixelRatio)]
+pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
+    DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
+    for wav in WAVS.write().unwrap().values_mut() {
+        wav.update_cache();
+    }
+}
 
-    let (line_points, envelopes) =
-        calc_line_envelope_points(&wav, sr, width, CACHE_HEIGHT, &options);
-    let envelopes = envelopes.unwrap();
-    let wav = Wav {
-        wav: wav.to_vec(),
-        sr,
-        line_points,
-        envelopes,
-    };
+#[wasm_bindgen]
+pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32) {
+    let wav = Wav::new(wav.to_vec(), sr);
     WAVS.write().unwrap().insert(id_ch_str.into(), wav);
 }
 
@@ -168,6 +188,7 @@ pub fn draw_wav(
             sr,
             line_points,
             envelopes,
+            ..
         } = wavs.get(id_ch_str).unwrap();
         if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
             calc_line_envelope_points(wav, *sr, width, height, options)
@@ -199,14 +220,14 @@ pub fn draw_wav(
         ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
     }
 
+    let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
+
     // Draw borders for line
     if options.need_border_for_line {
         ctx.set_line_cap("round");
         ctx.set_line_join("round");
         ctx.set_stroke_style_str(&WAV_BORDER_COLOR);
-        ctx.set_line_width(
-            (stroke_width + 2.0 * WAV_BORDER_WIDTH * options.device_pixel_ratio) as f64,
-        );
+        ctx.set_line_width((stroke_width + 2.0 * WAV_BORDER_WIDTH * dpr) as f64);
         ctx.stroke_with_path(&line_path);
     }
 
@@ -216,7 +237,7 @@ pub fn draw_wav(
             ctx.set_line_cap("round");
             ctx.set_line_join("round");
             ctx.set_stroke_style_str(&WAV_BORDER_COLOR);
-            ctx.set_line_width((2.0 * WAV_BORDER_WIDTH * options.device_pixel_ratio) as f64);
+            ctx.set_line_width((2.0 * WAV_BORDER_WIDTH * dpr) as f64);
             ctx.stroke_with_path(path);
         }
     }
