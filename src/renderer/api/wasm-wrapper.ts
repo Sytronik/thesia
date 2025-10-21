@@ -21,11 +21,17 @@ export function isWasmInitialized(): boolean {
   return wasmInitialized;
 }
 
-export function wasmSetWav(idChStr: string, wav: Float32Array, sr: number): void {
+export function wasmSetWav(
+  idChStr: string,
+  wav: Float32Array,
+  sr: number,
+  scale: number,
+  devicePixelRatio: number,
+): void {
   if (!wasmInitialized) {
     throw new Error("WASM module has not been initialized. Please call initWasm() first.");
   }
-  set_wav(idChStr, wav, sr);
+  set_wav(idChStr, wav, sr, scale, devicePixelRatio);
 }
 
 /**
