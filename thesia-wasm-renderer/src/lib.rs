@@ -112,29 +112,29 @@ impl WavDrawingOptions {
     }
 }
 
-struct Wav {
+struct WavCache {
     wav: Vec<f32>,
     sr: u32,
     amp_range: (f32, f32),
-    line_points: Vec<(f32, f32)>,
-    envelopes: Vec<(Vec<f32>, Vec<f32>, Vec<f32>)>,
+    line_points_cache: Vec<(f32, f32)>,
+    envelopes_cache: Vec<(Vec<f32>, Vec<f32>, Vec<f32>)>,
 }
 
-impl Wav {
+impl WavCache {
     fn new(wav: Vec<f32>, sr: u32) -> Self {
         let amp_range = {
             let (min, max) = min_max_f32(&wav);
             (min.min(-1.), max.max(1.))
         };
-        let mut wav = Self {
+        let mut wav_cache = Self {
             wav,
             sr,
             amp_range,
-            line_points: Vec::new(),
-            envelopes: Vec::new(),
+            line_points_cache: Vec::new(),
+            envelopes_cache: Vec::new(),
         };
-        wav.update_cache();
-        wav
+        wav_cache.update_cache();
+        wav_cache
     }
 
     fn update_cache(&mut self) {
@@ -144,12 +144,13 @@ impl Wav {
 
         let (line_points, envelopes) =
             calc_line_envelope_points(&self.wav, self.sr, width, CACHE_HEIGHT, &options);
-        self.line_points = line_points;
-        self.envelopes = envelopes.unwrap();
+        self.line_points_cache = line_points;
+        self.envelopes_cache = envelopes.unwrap();
     }
 }
 
-static WAVS: LazyLock<RwLock<HashMap<String, Wav>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 static DEVICE_PIXEL_RATIO: LazyLock<AtomicF32> = LazyLock::new(|| AtomicF32::new(1.0));
 
 #[wasm_bindgen(js_name = getWavImgScale)]
@@ -160,18 +161,21 @@ pub fn get_wav_img_scale() -> f32 {
 #[wasm_bindgen(js_name = setDevicePixelRatio)]
 pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
     DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
-    for wav in WAVS.write().unwrap().values_mut() {
-        wav.update_cache();
+    for wav_cache in WAV_CACHES.write().unwrap().values_mut() {
+        wav_cache.update_cache();
     }
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = setWav)]
 pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32) {
-    let wav = Wav::new(wav.to_vec(), sr);
-    WAVS.write().unwrap().insert(id_ch_str.into(), wav);
+    let wav_cache = WavCache::new(wav.to_vec(), sr);
+    WAV_CACHES
+        .write()
+        .unwrap()
+        .insert(id_ch_str.into(), wav_cache);
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = drawWav)]
 pub fn draw_wav(
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
@@ -182,18 +186,18 @@ pub fn draw_wav(
     let stroke_width = options.stroke_width();
 
     let (line_points, envelopes) = {
-        let wavs = WAVS.read().unwrap();
-        let Wav {
+        let wav_caches = WAV_CACHES.read().unwrap();
+        let WavCache {
             wav,
             sr,
-            line_points,
-            envelopes,
+            line_points_cache,
+            envelopes_cache,
             ..
-        } = wavs.get(id_ch_str).unwrap();
+        } = wav_caches.get(id_ch_str).unwrap();
         if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
             calc_line_envelope_points(wav, *sr, width, height, options)
         } else {
-            transform_line_envelope_points(line_points, envelopes, width, height, options)
+            transform_line_envelopes(line_points_cache, envelopes_cache, width, height, options)
         }
     };
 
@@ -396,7 +400,7 @@ fn calc_line_envelope_points(
     (line_points, Some(envelopes))
 }
 
-fn transform_line_envelope_points(
+fn transform_line_envelopes(
     line_points: &[(f32, f32)],
     envelopes: &[(Vec<f32>, Vec<f32>, Vec<f32>)],
     width: f32,
@@ -409,7 +413,7 @@ fn transform_line_envelope_points(
     let ratio_y = height / CACHE_HEIGHT;
     let offset_y = options.offset_y;
 
-    let mut transformed_line_points = Vec::with_capacity(
+    let mut xformed_line_points = Vec::with_capacity(
         ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize,
     );
     let start_x = (-WAV_MARGIN_PX - offset_x) / ratio_x;
@@ -421,16 +425,16 @@ fn transform_line_envelope_points(
         if *x >= end_x {
             break;
         }
-        transformed_line_points.push((*x * ratio_x + offset_x, *y * ratio_y + offset_y));
+        xformed_line_points.push((*x * ratio_x + offset_x, *y * ratio_y + offset_y));
     }
-    let mut transformed_envelopes = Vec::new();
+    let mut xformed_envelopes = Vec::new();
     for (envelope_x, top_envelope_y, bottom_envelope_y) in envelopes {
         if envelope_x[0] >= end_x || envelope_x[envelope_x.len() - 1] < start_x {
             continue;
         }
-        let mut transformed_envelope_x = Vec::with_capacity(envelope_x.len());
-        let mut transformed_top_envelope_y = Vec::with_capacity(envelope_x.len());
-        let mut transformed_bottom_envelope_y = Vec::with_capacity(envelope_x.len());
+        let mut xformed_envelope_x = Vec::with_capacity(envelope_x.len());
+        let mut xformed_top_envelope_y = Vec::with_capacity(envelope_x.len());
+        let mut xformed_bottom_envelope_y = Vec::with_capacity(envelope_x.len());
         for (x, top, bottom) in multizip((envelope_x, top_envelope_y, bottom_envelope_y)) {
             if *x < start_x {
                 continue;
@@ -438,18 +442,18 @@ fn transform_line_envelope_points(
             if *x >= end_x {
                 break;
             }
-            transformed_envelope_x.push(*x * ratio_x + offset_x);
-            transformed_top_envelope_y.push(*top * ratio_y + offset_y);
-            transformed_bottom_envelope_y.push(*bottom * ratio_y + offset_y);
+            xformed_envelope_x.push(*x * ratio_x + offset_x);
+            xformed_top_envelope_y.push(*top * ratio_y + offset_y);
+            xformed_bottom_envelope_y.push(*bottom * ratio_y + offset_y);
         }
-        transformed_envelopes.push((
-            transformed_envelope_x,
-            transformed_top_envelope_y,
-            transformed_bottom_envelope_y,
+        xformed_envelopes.push((
+            xformed_envelope_x,
+            xformed_top_envelope_y,
+            xformed_bottom_envelope_y,
         ));
     }
 
-    (transformed_line_points, Some(transformed_envelopes))
+    (xformed_line_points, Some(xformed_envelopes))
 }
 
 fn line_to_path(points: &[(f32, f32)]) -> Result<Path2d, JsValue> {
@@ -533,29 +537,35 @@ unsafe fn min_max_f32_simd(values: &[f32]) -> (f32, f32) {
     let mut v_max = f32x4_splat(f32::NEG_INFINITY);
 
     while i + 4 <= len {
-        let v = v128_load(ptr.add(i) as *const _);
-        v_min = f32x4_min(v_min, v);
-        v_max = f32x4_max(v_max, v);
+        unsafe {
+            let v = v128_load(ptr.add(i) as *const _);
+            v_min = f32x4_min(v_min, v);
+            v_max = f32x4_max(v_max, v);
+        }
         i += 4;
     }
 
     // Reduce lanes to scalars
     let mut tmp_min = [0.0f32; 4];
     let mut tmp_max = [0.0f32; 4];
-    v128_store(tmp_min.as_mut_ptr() as *mut _, v_min);
-    v128_store(tmp_max.as_mut_ptr() as *mut _, v_max);
+    unsafe {
+        v128_store(tmp_min.as_mut_ptr() as *mut _, v_min);
+        v128_store(tmp_max.as_mut_ptr() as *mut _, v_max);
+    }
 
     let mut min_v = tmp_min[0].min(tmp_min[1]).min(tmp_min[2]).min(tmp_min[3]);
     let mut max_v = tmp_max[0].max(tmp_max[1]).max(tmp_max[2]).max(tmp_max[3]);
 
     // Remainder
     while i < len {
-        let v = *ptr.add(i);
-        if v < min_v {
-            min_v = v;
-        }
-        if v > max_v {
-            max_v = v;
+        unsafe {
+            let v = *ptr.add(i);
+            if v < min_v {
+                min_v = v;
+            }
+            if v > max_v {
+                max_v = v;
+            }
         }
         i += 1;
     }
@@ -575,6 +585,7 @@ fn min_max_f32(values: &[f32]) -> (f32, f32) {
     }
 }
 
+#[allow(unused)]
 #[inline]
 fn add_scalar_to_slice_scalar(values: &mut [f32], scalar: f32) {
     for v in values.iter_mut() {
@@ -593,15 +604,19 @@ unsafe fn add_scalar_to_slice_simd(values: &mut [f32], scalar: f32) {
     let splat_scalar = f32x4_splat(scalar);
 
     while i + 4 <= len {
-        let v = v128_load(ptr.add(i) as *const _);
-        let result = f32x4_add(v, splat_scalar);
-        v128_store(ptr.add(i) as *mut _, result);
+        unsafe {
+            let v = v128_load(ptr.add(i) as *const _);
+            let result = f32x4_add(v, splat_scalar);
+            v128_store(ptr.add(i) as *mut _, result);
+        }
         i += 4;
     }
 
     // Remainder
     while i < len {
-        *ptr.add(i) += scalar;
+        unsafe {
+            *ptr.add(i) += scalar;
+        }
         i += 1;
     }
 }

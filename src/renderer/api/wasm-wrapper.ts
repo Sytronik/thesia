@@ -1,7 +1,7 @@
 import init, {
   WavDrawingOptions,
-  draw_wav,
-  set_wav,
+  drawWav as _drawWav,
+  setWav,
   getWavImgScale,
   setDevicePixelRatio,
 } from "thesia-wasm-renderer";
@@ -27,13 +27,6 @@ export function isWasmInitialized(): boolean {
   return wasmInitialized;
 }
 
-export function wasmSetWav(idChStr: string, wav: Float32Array, sr: number): void {
-  if (!wasmInitialized) {
-    throw new Error("WASM module has not been initialized. Please call initWasm() first.");
-  }
-  set_wav(idChStr, wav, sr);
-}
-
 /**
  * Wav drawing options for WASM renderer
  */
@@ -52,7 +45,7 @@ export interface WasmWavDrawingOptions {
 /**
  * Wrapper for the WASM draw_wav function.
  */
-export function wasmDrawWav(
+export function drawWav(
   ctx: CanvasRenderingContext2D,
   idChStr: string,
   options: WasmWavDrawingOptions,
@@ -89,7 +82,7 @@ export function wasmDrawWav(
     wasmOptions.do_clear = options.doClear;
   }
 
-  draw_wav(ctx, idChStr, wasmOptions);
+  _drawWav(ctx, idChStr, wasmOptions);
 }
 
 /**
@@ -102,8 +95,8 @@ export {WavDrawingOptions};
 export default {
   initWasm,
   isWasmInitialized,
-  wasmDrawWav,
-  wasmSetWav,
+  drawWav,
+  setWav,
   getWavImgScale,
   setDevicePixelRatio,
 };
