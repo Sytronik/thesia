@@ -146,6 +146,36 @@ impl WavLinePoints {
         }
         Ok(path)
     }
+
+    fn slice_transform(
+        &self,
+        start_x: f32,
+        end_x: f32,
+        ratio_x: f32,
+        offset_x: f32,
+        ratio_y: f32,
+        offset_y: f32,
+        capacity: Option<usize>,
+    ) -> Self {
+        let mut out = capacity.map_or_else(Self::new, Self::with_capacity);
+        let mut i_start = self.len();
+        let mut i_end = self.len();
+        for (i, x) in self.xs.iter().enumerate() {
+            if *x < start_x {
+                continue;
+            }
+            if i_start == self.len() {
+                i_start = i;
+            }
+            if *x >= end_x {
+                i_end = i;
+                break;
+            }
+        }
+        fused_mul_add(&self.xs[i_start..i_end], ratio_x, offset_x, &mut out.xs);
+        fused_mul_add(&self.ys[i_start..i_end], ratio_y, offset_y, &mut out.ys);
+        out
+    }
 }
 
 impl TryFrom<WavLinePoints> for Path2d {
@@ -220,6 +250,42 @@ impl WavEnvelope {
 
         path.close_path();
         Ok(path)
+    }
+
+    fn slice_transform(
+        &self,
+        start_x: f32,
+        end_x: f32,
+        ratio_x: f32,
+        offset_x: f32,
+        ratio_y: f32,
+        offset_y: f32,
+        capacity: Option<usize>,
+    ) -> Self {
+        let mut out = capacity.map_or_else(Self::new, Self::with_capacity);
+        let mut i_start = self.len();
+        let mut i_end = self.len();
+        for (i, x) in self.xs.iter().enumerate() {
+            if *x < start_x {
+                continue;
+            }
+            if i_start == self.len() {
+                i_start = i;
+            }
+            if *x >= end_x {
+                i_end = i;
+                break;
+            }
+        }
+        fused_mul_add(&self.xs[i_start..i_end], ratio_x, offset_x, &mut out.xs);
+        fused_mul_add(&self.tops[i_start..i_end], ratio_y, offset_y, &mut out.tops);
+        fused_mul_add(
+            &self.bottoms[i_start..i_end],
+            ratio_y,
+            offset_y,
+            &mut out.bottoms,
+        );
+        out
     }
 }
 
@@ -506,61 +572,33 @@ fn transform_line_envelopes(
     let start_x = (-WAV_MARGIN_PX - offset_x) / ratio_x;
     let end_x = (width + WAV_MARGIN_PX - offset_x) / ratio_x;
 
-    let xformed_line_points = {
-        let capacity =
-            ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize;
-        let mut xs = Vec::with_capacity(capacity);
-        let mut ys = Vec::with_capacity(capacity);
-        let mut i_start = line_points.len();
-        let mut i_end = line_points.len();
-        for (i, x) in line_points.xs.iter().enumerate() {
-            if *x < start_x {
-                continue;
-            }
-            if i_start == line_points.len() {
-                i_start = i;
-            }
-            if *x >= end_x {
-                i_end = i;
-                break;
-            }
-        }
-        fused_mul_add(&line_points.xs[i_start..i_end], ratio_x, offset_x, &mut xs);
-        fused_mul_add(&line_points.ys[i_start..i_end], ratio_y, offset_y, &mut ys);
-        WavLinePoints { xs, ys }
-    };
+    let line_capacity =
+        ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize;
+    let xformed_line_points = line_points.slice_transform(
+        start_x,
+        end_x,
+        ratio_x,
+        offset_x,
+        ratio_y,
+        offset_y,
+        Some(line_capacity),
+    );
 
     let mut xformed_envelopes = Vec::new();
     for envelope in envelopes {
         if envelope.xs[0] >= end_x || envelope.xs[envelope.len() - 1] < start_x {
             continue;
         }
-        let mut xs = Vec::with_capacity(envelope.len());
-        let mut tops = Vec::with_capacity(envelope.len());
-        let mut bottoms = Vec::with_capacity(envelope.len());
-        let mut i_start = envelope.len();
-        let mut i_end = envelope.len();
-        for (i, x) in envelope.xs.iter().enumerate() {
-            if *x < start_x {
-                continue;
-            }
-            if i_start == envelope.len() {
-                i_start = i;
-            }
-            if *x >= end_x {
-                i_end = i;
-                break;
-            }
-        }
-        fused_mul_add(&envelope.xs[i_start..i_end], ratio_x, offset_x, &mut xs);
-        fused_mul_add(&envelope.tops[i_start..i_end], ratio_y, offset_y, &mut tops);
-        fused_mul_add(
-            &envelope.bottoms[i_start..i_end],
+        let xformed_envelope = envelope.slice_transform(
+            start_x,
+            end_x,
+            ratio_x,
+            offset_x,
             ratio_y,
             offset_y,
-            &mut bottoms,
+            Some(envelope.len()),
         );
-        xformed_envelopes.push(WavEnvelope { xs, tops, bottoms });
+        xformed_envelopes.push(xformed_envelope);
     }
 
     (xformed_line_points, Some(xformed_envelopes))
