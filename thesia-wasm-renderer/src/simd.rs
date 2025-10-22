@@ -76,11 +76,11 @@ unsafe fn min_max_f32_simd(values: &[f32]) -> (f32, f32) {
 pub(crate) fn min_max_f32(values: &[f32]) -> (f32, f32) {
     #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
     unsafe {
-        return min_max_f32_simd(values);
+        min_max_f32_simd(values)
     }
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
-        return min_max_f32_scalar(values);
+        min_max_f32_scalar(values)
     }
 }
 

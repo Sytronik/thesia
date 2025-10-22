@@ -44,11 +44,11 @@ impl WavDrawingOptions {
         amp_range_min: f32,
         amp_range_max: f32,
         color: String,
-    ) -> WavDrawingOptions {
-        WavDrawingOptions {
+    ) -> Self {
+        Self {
             start_sec,
             px_per_sec,
-            amp_range: (amp_range_min as f32, amp_range_max as f32),
+            amp_range: (amp_range_min, amp_range_max),
             color,
             offset_y: 0.0,
             clip_values: None,
@@ -58,7 +58,7 @@ impl WavDrawingOptions {
         }
     }
 
-    fn new_for_cache(amp_range: (f32, f32)) -> WavDrawingOptions {
+    fn new_for_cache(amp_range: (f32, f32)) -> Self {
         Self::new(
             0.0,
             CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire),
@@ -75,7 +75,7 @@ impl WavDrawingOptions {
 
     #[wasm_bindgen(setter)]
     pub fn set_clip_values(&mut self, clip_values: Option<Box<[f32]>>) {
-        self.clip_values = clip_values.map(|values| (values[0] as f32, values[1] as f32));
+        self.clip_values = clip_values.map(|values| (values[0], values[1]));
     }
 
     #[wasm_bindgen(setter)]
@@ -398,7 +398,7 @@ pub fn draw_wav(
     if options.need_border_for_line {
         ctx.set_line_cap("round");
         ctx.set_line_join("round");
-        ctx.set_stroke_style_str(&WAV_BORDER_COLOR);
+        ctx.set_stroke_style_str(WAV_BORDER_COLOR);
         ctx.set_line_width((stroke_width + 2.0 * WAV_BORDER_WIDTH * dpr) as f64);
         ctx.stroke_with_path(&line_path);
     }
@@ -408,7 +408,7 @@ pub fn draw_wav(
         for path in &envelope_paths {
             ctx.set_line_cap("round");
             ctx.set_line_join("round");
-            ctx.set_stroke_style_str(&WAV_BORDER_COLOR);
+            ctx.set_stroke_style_str(WAV_BORDER_COLOR);
             ctx.set_line_width((2.0 * WAV_BORDER_WIDTH * dpr) as f64);
             ctx.stroke_with_path(path);
         }
