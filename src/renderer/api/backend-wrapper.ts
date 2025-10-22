@@ -1,16 +1,13 @@
-import backend, {
-  Spectrogram,
-  WavInfo as _WavInfo,
-  WavDrawingInfo as _WavDrawingInfo,
-} from "backend";
+import backend, {Spectrogram, WavDrawingInfo as _WavDrawingInfo} from "backend";
 import {
   OVERVIEW_CH_GAP_HEIGHT,
   OVERVIEW_GAIN_HEIGHT_RATIO,
   OVERVIEW_LINE_WIDTH_FACTOR,
   WAV_TOPBOTTOM_CONTEXT_SIZE,
 } from "renderer/prototypes/constants/tracks";
+import {default as WasmAPI, WasmFloat32Array} from "renderer/api/wasm-wrapper";
 
-export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavMetadata} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
@@ -106,18 +103,19 @@ export type Spectrograms = {
 };
 
 export type WavInfo = {
-  wav: Float32Array;
+  wav: WasmFloat32Array;
   sr: number;
   isClipped: boolean;
 };
 
-function convertWavInfo(info: _WavInfo): WavInfo {
-  return {wav: new Float32Array(info.wav), sr: info.sr, isClipped: info.isClipped};
-}
+export function getWav(idChStr: string): WavInfo | null {
+  const metadata = backend.getWavMetadata(idChStr);
+  if (!metadata) return null;
 
-export async function getWav(idChStr: string): Promise<WavInfo | null> {
-  const info = await backend.getWav(idChStr);
-  return convertWavInfo(info);
+  const {length, sr, isClipped} = metadata;
+  const [wav, view] = WasmAPI.createWasmFloat32Array(length);
+  backend.assignWavTo(view, idChStr);
+  return {wav, sr, isClipped};
 }
 
 export type WavDrawingInfo = {

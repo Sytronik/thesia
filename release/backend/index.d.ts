@@ -4,6 +4,8 @@ export declare function addTracks(idList: Array<number>, pathList: Array<string>
 
 export declare function applyTrackListChanges(): Promise<Array<string>>
 
+export declare function assignWavTo(arr: Float32Array, idChStr: string): void
+
 export interface AudioFormatInfo {
   name: string
   sampleRate: number
@@ -74,9 +76,9 @@ export declare function getSpectrogram(idChStr: string, secRange: [number, numbe
 
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
 
-export declare function getWav(idChStr: string): Promise<WavInfo>
-
 export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
+
+export declare function getWavMetadata(idChStr: string): WavMetadata
 
 export declare const enum GuardClippingMode {
   Clip = 'Clip',
@@ -179,8 +181,8 @@ export interface WavDrawingInfo {
   clipValues?: Array<number>
 }
 
-export interface WavInfo {
-  wav: Array<number>
+export interface WavMetadata {
+  length: number
   sr: number
   isClipped: boolean
 }

@@ -4,10 +4,10 @@ use std::sync::{LazyLock, RwLock};
 
 use atomic_float::AtomicF32;
 use itertools::multizip;
-use js_sys::Float32Array;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, Path2d};
 
+use crate::mem::WasmFloat32Array;
 use crate::simd::{add_scalar_to_slice, min_max_f32};
 
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
@@ -154,8 +154,8 @@ pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
 }
 
 #[wasm_bindgen(js_name = setWav)]
-pub fn set_wav(id_ch_str: &str, wav: &Float32Array, sr: u32) {
-    let wav_cache = WavCache::new(wav.to_vec(), sr);
+pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32) {
+    let wav_cache = WavCache::new(wav.into(), sr);
     WAV_CACHES
         .write()
         .unwrap()

@@ -510,6 +510,7 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports.addTracks = nativeBinding.addTracks
 module.exports.applyTrackListChanges = nativeBinding.applyTrackListChanges
+module.exports.assignWavTo = nativeBinding.assignWavTo
 module.exports.findIdByPath = nativeBinding.findIdByPath
 module.exports.freqHzToPos = nativeBinding.freqHzToPos
 module.exports.freqLabelToHz = nativeBinding.freqLabelToHz
@@ -540,8 +541,8 @@ module.exports.getSampleRate = nativeBinding.getSampleRate
 module.exports.getSpecSetting = nativeBinding.getSpecSetting
 module.exports.getSpectrogram = nativeBinding.getSpectrogram
 module.exports.getTimeAxisMarkers = nativeBinding.getTimeAxisMarkers
-module.exports.getWav = nativeBinding.getWav
 module.exports.getWavDrawingInfo = nativeBinding.getWavDrawingInfo
+module.exports.getWavMetadata = nativeBinding.getWavMetadata
 module.exports.GuardClippingMode = nativeBinding.GuardClippingMode
 module.exports.hzToLabel = nativeBinding.hzToLabel
 module.exports.init = nativeBinding.init

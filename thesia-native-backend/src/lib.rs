@@ -349,20 +349,32 @@ async fn get_wav_drawing_info(
 }
 
 #[napi]
-async fn get_wav(id_ch_str: String) -> Result<WavInfo> {
+fn get_wav_metadata(id_ch_str: String) -> Result<WavMetadata> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     match TRACK_LIST.read().get(id) {
         Some(track) => {
             let (wav, is_clipped) = track.channel_for_drawing(ch);
-            let wav = wav.iter().map(|x| *x as f64).collect();
-            Ok(WavInfo {
-                wav,
+            Ok(WavMetadata {
+                length: wav.len() as u32,
                 sr: track.sr(),
                 is_clipped,
             })
         }
         None => Ok(Default::default()),
     }
+}
+
+#[napi]
+fn assign_wav_to(mut arr: Float32Array, id_ch_str: String) -> Result<()> {
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
+    if let Some(track) = TRACK_LIST.read().get(id) {
+        let (wav, _) = track.channel_for_drawing(ch);
+        let arr_mut = unsafe { arr.as_mut() };
+        for (&x, y) in wav.iter().zip(arr_mut.iter_mut()) {
+            *y = x;
+        }
+    }
+    Ok(())
 }
 
 #[napi]

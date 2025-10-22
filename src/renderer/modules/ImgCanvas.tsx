@@ -77,7 +77,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
   const spectrogramRef = useRef<Spectrogram | null>(null);
-  const wavInfoRef = useRef<WavInfo | null>(null);
+  const wavMetadataRef = useRef<WavMetadata | null>(null);
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
@@ -299,8 +299,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
     ctx.scale(1 / WAV_IMG_SCALE, 1 / WAV_IMG_SCALE);
 
-    if (!wavInfoRef.current) return;
-    const wavInfo = wavInfoRef.current;
+    if (!wavMetadataRef.current) return;
+    const wavMetadata = wavMetadataRef.current;
 
     const options = {
       startSec,
@@ -308,15 +308,15 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       ampRange,
       devicePixelRatio,
     };
-    if (wavInfo.isClipped) {
+    if (wavMetadata.isClipped) {
       WasmAPI.drawWav(ctx, idChStr, {...options, color: WAV_CLIPPING_COLOR});
     }
     WasmAPI.drawWav(ctx, idChStr, {
       ...options,
       color: WAV_COLOR,
-      clipValues: wavInfo.isClipped ? [-1, 1] : undefined,
-      needBorderForEnvelope: !wavInfo.isClipped,
-      doClear: !wavInfo.isClipped,
+      clipValues: wavMetadata.isClipped ? [-1, 1] : undefined,
+      needBorderForEnvelope: !wavMetadata.isClipped,
+      doClear: !wavMetadata.isClipped,
     });
   }, [width, devicePixelRatio, height, blend, startSec, pxPerSec, ampRange, idChStr]);
 
@@ -352,11 +352,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawWavImageRequestRef = useRef<number>(0);
   const throttledGetWavDrawingInfo = useMemo(
     () =>
-      throttle(1000 / 60, async (_idChStr) => {
-        const wavInfo = await BackendAPI.getWav(_idChStr);
+      throttle(1000 / 60, (_idChStr) => {
+        const wavInfo = BackendAPI.getWav(_idChStr);
         if (wavInfo === null) return;
-        wavInfoRef.current = wavInfo;
-        WasmAPI.setWav(_idChStr, wavInfo.wav, wavInfo.sr);
+        const {wav, sr, isClipped} = wavInfo;
+        wavMetadataRef.current = {length: wav.length, sr, isClipped};
+        WasmAPI.setWav(_idChStr, wav, sr);
         if (drawWavImageRequestRef.current !== 0)
           cancelAnimationFrame(drawWavImageRequestRef.current);
         drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());

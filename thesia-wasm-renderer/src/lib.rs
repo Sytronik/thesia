@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 
+mod mem;
 mod simd;
 mod wav;
 
