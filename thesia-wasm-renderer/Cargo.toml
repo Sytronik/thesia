@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 atomic_float = {workspace = true}
-itertools = {workspace = true}
 js-sys = "0.3"
 wasm-bindgen = "0.2"
 

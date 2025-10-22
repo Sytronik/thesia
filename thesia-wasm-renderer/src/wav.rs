@@ -3,12 +3,11 @@ use std::sync::atomic::Ordering;
 use std::sync::{LazyLock, RwLock};
 
 use atomic_float::AtomicF32;
-use itertools::multizip;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, Path2d};
 
 use crate::mem::WasmFloat32Array;
-use crate::simd::{add_scalar_to_slice, min_max_f32};
+use crate::simd::{add_scalar_to_slice, fused_mul_add, min_max_f32};
 
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
 const WAV_IMG_SCALE: f32 = 2.0;
@@ -104,32 +103,36 @@ impl WavDrawingOptions {
 }
 
 struct WavLinePoints {
-    x: Vec<f32>,
-    y: Vec<f32>,
+    xs: Vec<f32>,
+    ys: Vec<f32>,
 }
 
 impl WavLinePoints {
     fn new() -> Self {
         Self {
-            x: Vec::new(),
-            y: Vec::new(),
+            xs: Vec::new(),
+            ys: Vec::new(),
         }
     }
 
     fn with_capacity(capacity: usize) -> Self {
         Self {
-            x: Vec::with_capacity(capacity),
-            y: Vec::with_capacity(capacity),
+            xs: Vec::with_capacity(capacity),
+            ys: Vec::with_capacity(capacity),
         }
     }
 
     fn push(&mut self, x: f32, y: f32) {
-        self.x.push(x);
-        self.y.push(y);
+        self.xs.push(x);
+        self.ys.push(y);
     }
 
     fn is_empty(&self) -> bool {
-        self.x.is_empty()
+        self.xs.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.xs.len()
     }
 
     fn try_into_path(self) -> Result<Path2d, JsValue> {
@@ -137,8 +140,8 @@ impl WavLinePoints {
         if self.is_empty() {
             return Ok(path);
         }
-        path.move_to(self.x[0] as f64, self.y[0] as f64);
-        for (x, y) in self.x.into_iter().zip(self.y.into_iter()).skip(1) {
+        path.move_to(self.xs[0] as f64, self.ys[0] as f64);
+        for (x, y) in self.xs.into_iter().zip(self.ys.into_iter()).skip(1) {
             path.line_to(x as f64, y as f64);
         }
         Ok(path)
@@ -154,40 +157,40 @@ impl TryFrom<WavLinePoints> for Path2d {
 }
 
 struct WavEnvelope {
-    x: Vec<f32>,
-    top: Vec<f32>,
-    bottom: Vec<f32>,
+    xs: Vec<f32>,
+    tops: Vec<f32>,
+    bottoms: Vec<f32>,
 }
 
 impl WavEnvelope {
     fn new() -> Self {
         Self {
-            x: Vec::new(),
-            top: Vec::new(),
-            bottom: Vec::new(),
+            xs: Vec::new(),
+            tops: Vec::new(),
+            bottoms: Vec::new(),
         }
     }
 
     fn with_capacity(capacity: usize) -> Self {
         Self {
-            x: Vec::with_capacity(capacity),
-            top: Vec::with_capacity(capacity),
-            bottom: Vec::with_capacity(capacity),
+            xs: Vec::with_capacity(capacity),
+            tops: Vec::with_capacity(capacity),
+            bottoms: Vec::with_capacity(capacity),
         }
     }
 
     fn push(&mut self, x: f32, top: f32, bottom: f32) {
-        self.x.push(x);
-        self.top.push(top);
-        self.bottom.push(bottom);
+        self.xs.push(x);
+        self.tops.push(top);
+        self.bottoms.push(bottom);
     }
 
     fn is_empty(&self) -> bool {
-        self.x.is_empty()
+        self.xs.is_empty()
     }
 
     fn len(&self) -> usize {
-        self.x.len()
+        self.xs.len()
     }
 
     fn try_into_path(mut self, stroke_width: f32) -> Result<Path2d, JsValue> {
@@ -199,19 +202,19 @@ impl WavEnvelope {
 
         let half_stroke_width = stroke_width / 2.0;
 
-        add_scalar_to_slice(&mut self.top, -half_stroke_width);
-        add_scalar_to_slice(&mut self.bottom, half_stroke_width);
+        add_scalar_to_slice(&mut self.tops, -half_stroke_width);
+        add_scalar_to_slice(&mut self.bottoms, half_stroke_width);
 
         // Move to first point
-        path.move_to(self.x[0] as f64, self.top[0] as f64);
+        path.move_to(self.xs[0] as f64, self.tops[0] as f64);
 
         // Draw top envelope
-        for (x, y) in self.x.iter().zip(self.top.iter()).skip(1) {
+        for (x, y) in self.xs.iter().zip(self.tops.iter()).skip(1) {
             path.line_to(*x as f64, *y as f64);
         }
 
         // Draw bottom envelope (reversed)
-        for (x, y) in self.x.iter().zip(self.bottom.iter()).rev() {
+        for (x, y) in self.xs.iter().zip(self.bottoms.iter()).rev() {
             path.line_to(*x as f64, *y as f64);
         }
 
@@ -500,40 +503,64 @@ fn transform_line_envelopes(
     let ratio_y = height / CACHE_HEIGHT;
     let offset_y = options.offset_y;
 
-    let mut xformed_line_points = WavLinePoints::with_capacity(
-        ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize,
-    );
     let start_x = (-WAV_MARGIN_PX - offset_x) / ratio_x;
     let end_x = (width + WAV_MARGIN_PX - offset_x) / ratio_x;
-    for (x, y) in line_points.x.iter().zip(line_points.y.iter()) {
-        if *x < start_x {
-            continue;
-        }
-        if *x >= end_x {
-            break;
-        }
-        xformed_line_points.push(*x * ratio_x + offset_x, *y * ratio_y + offset_y);
-    }
-    let mut xformed_envelopes = Vec::new();
-    for envelope in envelopes {
-        if envelope.x[0] >= end_x || envelope.x[envelope.len() - 1] < start_x {
-            continue;
-        }
-        let mut xformed_envelope = WavEnvelope::with_capacity(envelope.len());
-        for (x, top, bottom) in multizip((&envelope.x, &envelope.top, &envelope.bottom)) {
+
+    let xformed_line_points = {
+        let capacity =
+            ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize;
+        let mut xs = Vec::with_capacity(capacity);
+        let mut ys = Vec::with_capacity(capacity);
+        let mut i_start = line_points.len();
+        let mut i_end = line_points.len();
+        for (i, x) in line_points.xs.iter().enumerate() {
             if *x < start_x {
                 continue;
             }
+            if i_start == line_points.len() {
+                i_start = i;
+            }
             if *x >= end_x {
+                i_end = i;
                 break;
             }
-            xformed_envelope.push(
-                *x * ratio_x + offset_x,
-                *top * ratio_y + offset_y,
-                *bottom * ratio_y + offset_y,
-            );
         }
-        xformed_envelopes.push(xformed_envelope);
+        fused_mul_add(&line_points.xs[i_start..i_end], ratio_x, offset_x, &mut xs);
+        fused_mul_add(&line_points.ys[i_start..i_end], ratio_y, offset_y, &mut ys);
+        WavLinePoints { xs, ys }
+    };
+
+    let mut xformed_envelopes = Vec::new();
+    for envelope in envelopes {
+        if envelope.xs[0] >= end_x || envelope.xs[envelope.len() - 1] < start_x {
+            continue;
+        }
+        let mut xs = Vec::with_capacity(envelope.len());
+        let mut tops = Vec::with_capacity(envelope.len());
+        let mut bottoms = Vec::with_capacity(envelope.len());
+        let mut i_start = envelope.len();
+        let mut i_end = envelope.len();
+        for (i, x) in envelope.xs.iter().enumerate() {
+            if *x < start_x {
+                continue;
+            }
+            if i_start == envelope.len() {
+                i_start = i;
+            }
+            if *x >= end_x {
+                i_end = i;
+                break;
+            }
+        }
+        fused_mul_add(&envelope.xs[i_start..i_end], ratio_x, offset_x, &mut xs);
+        fused_mul_add(&envelope.tops[i_start..i_end], ratio_y, offset_y, &mut tops);
+        fused_mul_add(
+            &envelope.bottoms[i_start..i_end],
+            ratio_y,
+            offset_y,
+            &mut bottoms,
+        );
+        xformed_envelopes.push(WavEnvelope { xs, tops, bottoms });
     }
 
     (xformed_line_points, Some(xformed_envelopes))

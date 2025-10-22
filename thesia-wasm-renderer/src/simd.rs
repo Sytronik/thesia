@@ -1,5 +1,7 @@
 #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
-use core::arch::wasm32::{f32x4_add, f32x4_max, f32x4_min, f32x4_splat, v128_load, v128_store};
+use core::arch::wasm32::{
+    f32x4_add, f32x4_max, f32x4_min, f32x4_mul, f32x4_splat, v128_load, v128_store,
+};
 
 #[allow(unused)]
 #[inline]
@@ -125,5 +127,67 @@ pub(crate) fn add_scalar_to_slice(values: &mut [f32], scalar: f32) {
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
         add_scalar_to_slice_scalar(values, scalar);
+    }
+}
+
+/// Apply affine transformation: out[i] = values[i] * scale + offset
+#[allow(unused)]
+#[inline]
+fn fused_mul_add_scalar(values: &[f32], scale: f32, offset: f32, out: &mut Vec<f32>) {
+    for &v in values {
+        out.push(v * scale + offset);
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+#[inline]
+unsafe fn fused_mul_add_simd(values: &[f32], scale: f32, offset: f32, out: &mut Vec<f32>) {
+    let len = values.len();
+    let mut i = 0;
+    let ptr = values.as_ptr();
+    let splat_scale = f32x4_splat(scale);
+    let splat_offset = f32x4_splat(offset);
+
+    // Reserve capacity for the output
+    out.reserve(len);
+    let out_ptr = out.as_mut_ptr();
+    let old_len = out.len();
+
+    // Process 4 elements at a time
+    while i + 4 <= len {
+        unsafe {
+            let v = v128_load(ptr.add(i) as *const _);
+            let scaled = f32x4_mul(v, splat_scale);
+            let result = f32x4_add(scaled, splat_offset);
+
+            // Write directly to Vec's memory
+            v128_store(out_ptr.add(old_len + i) as *mut _, result);
+        }
+        i += 4;
+    }
+
+    // Update length
+    unsafe {
+        out.set_len(old_len + i);
+    }
+
+    // Process remainder
+    while i < len {
+        unsafe {
+            out.push(*ptr.add(i) * scale + offset);
+        }
+        i += 1;
+    }
+}
+
+#[inline]
+pub(crate) fn fused_mul_add(values: &[f32], scale: f32, offset: f32, out: &mut Vec<f32>) {
+    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    unsafe {
+        fused_mul_add_simd(values, scale, offset, out);
+    }
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
+    {
+        fused_mul_add_scalar(values, scale, offset, out);
     }
 }
