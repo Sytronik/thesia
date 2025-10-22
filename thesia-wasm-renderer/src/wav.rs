@@ -103,12 +103,129 @@ impl WavDrawingOptions {
     }
 }
 
+struct WavLinePoints {
+    x: Vec<f32>,
+    y: Vec<f32>,
+}
+
+impl WavLinePoints {
+    fn new() -> Self {
+        Self {
+            x: Vec::new(),
+            y: Vec::new(),
+        }
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            x: Vec::with_capacity(capacity),
+            y: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn push(&mut self, x: f32, y: f32) {
+        self.x.push(x);
+        self.y.push(y);
+    }
+
+    fn is_empty(&self) -> bool {
+        self.x.is_empty()
+    }
+
+    fn try_into_path(self) -> Result<Path2d, JsValue> {
+        let path = Path2d::new()?;
+        if self.is_empty() {
+            return Ok(path);
+        }
+        path.move_to(self.x[0] as f64, self.y[0] as f64);
+        for (x, y) in self.x.into_iter().zip(self.y.into_iter()).skip(1) {
+            path.line_to(x as f64, y as f64);
+        }
+        Ok(path)
+    }
+}
+
+impl TryFrom<WavLinePoints> for Path2d {
+    type Error = JsValue;
+
+    fn try_from(value: WavLinePoints) -> Result<Self, Self::Error> {
+        value.try_into_path()
+    }
+}
+
+struct WavEnvelope {
+    x: Vec<f32>,
+    top: Vec<f32>,
+    bottom: Vec<f32>,
+}
+
+impl WavEnvelope {
+    fn new() -> Self {
+        Self {
+            x: Vec::new(),
+            top: Vec::new(),
+            bottom: Vec::new(),
+        }
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            x: Vec::with_capacity(capacity),
+            top: Vec::with_capacity(capacity),
+            bottom: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn push(&mut self, x: f32, top: f32, bottom: f32) {
+        self.x.push(x);
+        self.top.push(top);
+        self.bottom.push(bottom);
+    }
+
+    fn is_empty(&self) -> bool {
+        self.x.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.x.len()
+    }
+
+    fn try_into_path(mut self, stroke_width: f32) -> Result<Path2d, JsValue> {
+        let path = Path2d::new()?;
+
+        if self.is_empty() {
+            return Ok(path);
+        }
+
+        let half_stroke_width = stroke_width / 2.0;
+
+        add_scalar_to_slice(&mut self.top, -half_stroke_width);
+        add_scalar_to_slice(&mut self.bottom, half_stroke_width);
+
+        // Move to first point
+        path.move_to(self.x[0] as f64, self.top[0] as f64);
+
+        // Draw top envelope
+        for (x, y) in self.x.iter().zip(self.top.iter()).skip(1) {
+            path.line_to(*x as f64, *y as f64);
+        }
+
+        // Draw bottom envelope (reversed)
+        for (x, y) in self.x.iter().zip(self.bottom.iter()).rev() {
+            path.line_to(*x as f64, *y as f64);
+        }
+
+        path.close_path();
+        Ok(path)
+    }
+}
+
 struct WavCache {
     wav: Vec<f32>,
     sr: u32,
     amp_range: (f32, f32),
-    line_points_cache: Vec<(f32, f32)>,
-    envelopes_cache: Vec<(Vec<f32>, Vec<f32>, Vec<f32>)>,
+    line_points_cache: WavLinePoints,
+    envelopes_cache: Vec<WavEnvelope>,
 }
 
 impl WavCache {
@@ -121,7 +238,7 @@ impl WavCache {
             wav,
             sr,
             amp_range,
-            line_points_cache: Vec::new(),
+            line_points_cache: WavLinePoints::new(),
             envelopes_cache: Vec::new(),
         };
         wav_cache.update_cache();
@@ -188,17 +305,12 @@ pub fn draw_wav(
         }
     };
 
-    let line_path = line_to_path(&line_points)?;
+    let line_path = line_points.try_into_path()?;
     let envelope_paths = match envelopes {
         Some(envelopes) => {
             let mut envelope_paths = Vec::with_capacity(envelopes.len());
-            for (envelope_x, mut top_envelope_y, mut bottom_envelope_y) in envelopes {
-                let path = envelope_to_path(
-                    &envelope_x,
-                    &mut top_envelope_y,
-                    &mut bottom_envelope_y,
-                    stroke_width,
-                )?;
+            for envelope in envelopes {
+                let path = envelope.try_into_path(stroke_width)?;
                 envelope_paths.push(path);
             }
             envelope_paths
@@ -255,7 +367,7 @@ fn calc_line_envelope_points(
     width: f32,
     height: f32,
     options: &WavDrawingOptions,
-) -> (Vec<(f32, f32)>, Option<Vec<(Vec<f32>, Vec<f32>, Vec<f32>)>>) {
+) -> (WavLinePoints, Option<Vec<WavEnvelope>>) {
     let px_per_sec = options.canvas_px_per_sec();
     let stroke_width = options.stroke_width();
     let sr_f32 = sr as f32;
@@ -281,19 +393,17 @@ fn calc_line_envelope_points(
         (options.start_sec * sr_f32 + width / px_per_sec * sr_f32 + margin_samples).ceil() as usize;
 
     if px_per_sec >= sr_f32 {
-        let mut line_points = Vec::new();
-        for i in i_start..i_end {
+        let mut line_points = WavLinePoints::new();
+        for (i, v) in wav.iter().enumerate().take(i_end).skip(i_start) {
             let x = idx_to_x(i);
-            let y = wav_to_y(wav[i]);
-            line_points.push((x, y));
+            let y = wav_to_y(*v);
+            line_points.push(x, y);
         }
         return (line_points, None);
     }
 
-    let mut line_points = Vec::new();
-    let mut envelope_x = Vec::new();
-    let mut top_envelope_y = Vec::new();
-    let mut bottom_envelope_y = Vec::new();
+    let mut line_points = WavLinePoints::new();
+    let mut current_envlp = WavEnvelope::new();
     let mut envelopes = Vec::new();
 
     let wav_len = wav.len();
@@ -332,159 +442,99 @@ fn calc_line_envelope_points(
 
         if bottom - top > stroke_width / 2.0 {
             // need to draw envelope
-            if envelope_x.is_empty() {
+            if current_envlp.is_empty() {
                 // new envelope starts
                 let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
-                envelope_x.push(x_floor);
-                top_envelope_y.clear(); // defensive code
-                top_envelope_y.push(prev_y);
-                bottom_envelope_y.clear(); // defensive code
-                bottom_envelope_y.push(prev_y);
+                current_envlp.push(x_floor, prev_y, prev_y);
 
-                line_points.push((x_mid, y));
+                line_points.push(x_mid, y);
             }
 
             // continue the envelope
-            envelope_x.push(x_mid);
-            top_envelope_y.push(top);
-            bottom_envelope_y.push(bottom);
-            line_points.push((x_mid, ((top + bottom) / 2.0)));
+            current_envlp.push(x_mid, top, bottom);
+            line_points.push(x_mid, (top + bottom) / 2.0);
         } else {
             // no need to draw envelope
-            if !envelope_x.is_empty() {
+            if !current_envlp.is_empty() {
                 // finish the recent envelope
-                envelope_x.push(x_floor);
-                top_envelope_y.push(y);
-                bottom_envelope_y.push(y);
+                current_envlp.push(x_floor, y, y);
 
-                envelopes.push((envelope_x, top_envelope_y, bottom_envelope_y));
-                envelope_x = Vec::new();
-                top_envelope_y = Vec::new();
-                bottom_envelope_y = Vec::new();
+                envelopes.push(current_envlp);
+                current_envlp = WavEnvelope::new();
 
                 let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
-                line_points.push(((x_mid - 1.0), prev_y));
+                line_points.push(x_mid - 1.0, prev_y);
             }
 
             // continue the line
-            line_points.push((x_mid, ((top + bottom) / 2.0)));
+            line_points.push(x_mid, (top + bottom) / 2.0);
         }
         i_prev = i;
         i = i_next;
     }
 
     // Handle remaining envelope
-    if !envelope_x.is_empty() {
-        envelopes.push((envelope_x, top_envelope_y, bottom_envelope_y));
+    if !current_envlp.is_empty() {
+        envelopes.push(current_envlp);
 
         let last_y = if i_end > 0 && (i_end - 1) < wav_len {
             wav_to_y(wav[i_end - 1])
         } else {
             0.0
         };
-        line_points.push((floor_x(idx_to_x(i_end - 1)), last_y));
+        line_points.push(floor_x(idx_to_x(i_end - 1)), last_y);
     }
     (line_points, Some(envelopes))
 }
 
 fn transform_line_envelopes(
-    line_points: &[(f32, f32)],
-    envelopes: &[(Vec<f32>, Vec<f32>, Vec<f32>)],
+    line_points: &WavLinePoints,
+    envelopes: &[WavEnvelope],
     width: f32,
     height: f32,
     options: &WavDrawingOptions,
-) -> (Vec<(f32, f32)>, Option<Vec<(Vec<f32>, Vec<f32>, Vec<f32>)>>) {
+) -> (WavLinePoints, Option<Vec<WavEnvelope>>) {
     let px_per_sec = options.canvas_px_per_sec();
     let ratio_x = px_per_sec / CACHE_CANVAS_PX_PER_SEC;
     let offset_x = -options.start_sec * px_per_sec;
     let ratio_y = height / CACHE_HEIGHT;
     let offset_y = options.offset_y;
 
-    let mut xformed_line_points = Vec::with_capacity(
+    let mut xformed_line_points = WavLinePoints::with_capacity(
         ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize,
     );
     let start_x = (-WAV_MARGIN_PX - offset_x) / ratio_x;
     let end_x = (width + WAV_MARGIN_PX - offset_x) / ratio_x;
-    for (x, y) in line_points {
+    for (x, y) in line_points.x.iter().zip(line_points.y.iter()) {
         if *x < start_x {
             continue;
         }
         if *x >= end_x {
             break;
         }
-        xformed_line_points.push((*x * ratio_x + offset_x, *y * ratio_y + offset_y));
+        xformed_line_points.push(*x * ratio_x + offset_x, *y * ratio_y + offset_y);
     }
     let mut xformed_envelopes = Vec::new();
-    for (envelope_x, top_envelope_y, bottom_envelope_y) in envelopes {
-        if envelope_x[0] >= end_x || envelope_x[envelope_x.len() - 1] < start_x {
+    for envelope in envelopes {
+        if envelope.x[0] >= end_x || envelope.x[envelope.len() - 1] < start_x {
             continue;
         }
-        let mut xformed_envelope_x = Vec::with_capacity(envelope_x.len());
-        let mut xformed_top_envelope_y = Vec::with_capacity(envelope_x.len());
-        let mut xformed_bottom_envelope_y = Vec::with_capacity(envelope_x.len());
-        for (x, top, bottom) in multizip((envelope_x, top_envelope_y, bottom_envelope_y)) {
+        let mut xformed_envelope = WavEnvelope::with_capacity(envelope.len());
+        for (x, top, bottom) in multizip((&envelope.x, &envelope.top, &envelope.bottom)) {
             if *x < start_x {
                 continue;
             }
             if *x >= end_x {
                 break;
             }
-            xformed_envelope_x.push(*x * ratio_x + offset_x);
-            xformed_top_envelope_y.push(*top * ratio_y + offset_y);
-            xformed_bottom_envelope_y.push(*bottom * ratio_y + offset_y);
+            xformed_envelope.push(
+                *x * ratio_x + offset_x,
+                *top * ratio_y + offset_y,
+                *bottom * ratio_y + offset_y,
+            );
         }
-        xformed_envelopes.push((
-            xformed_envelope_x,
-            xformed_top_envelope_y,
-            xformed_bottom_envelope_y,
-        ));
+        xformed_envelopes.push(xformed_envelope);
     }
 
     (xformed_line_points, Some(xformed_envelopes))
-}
-
-fn line_to_path(points: &[(f32, f32)]) -> Result<Path2d, JsValue> {
-    let path = Path2d::new()?;
-    if points.is_empty() {
-        return Ok(path);
-    }
-    path.move_to(points[0].0 as f64, points[0].1 as f64);
-    for (x, y) in points.into_iter().skip(1) {
-        path.line_to(*x as f64, *y as f64);
-    }
-    Ok(path)
-}
-
-fn envelope_to_path(
-    envelope_x: &[f32],
-    top_envelope_y: &mut [f32],
-    bottom_envelope_y: &mut [f32],
-    stroke_width: f32,
-) -> Result<Path2d, JsValue> {
-    let path = Path2d::new()?;
-
-    if envelope_x.is_empty() {
-        return Ok(path);
-    }
-
-    let half_stroke_width = stroke_width / 2.0;
-
-    add_scalar_to_slice(top_envelope_y, -half_stroke_width);
-    add_scalar_to_slice(bottom_envelope_y, half_stroke_width);
-
-    // Move to first point
-    path.move_to(envelope_x[0] as f64, top_envelope_y[0] as f64);
-
-    // Draw top envelope
-    for (x, y) in envelope_x.iter().zip(top_envelope_y.iter()).skip(1) {
-        path.line_to(*x as f64, *y as f64);
-    }
-
-    // Draw bottom envelope (reversed)
-    for (x, y) in envelope_x.iter().zip(bottom_envelope_y.iter()).rev() {
-        path.line_to(*x as f64, *y as f64);
-    }
-
-    path.close_path();
-    Ok(path)
 }
