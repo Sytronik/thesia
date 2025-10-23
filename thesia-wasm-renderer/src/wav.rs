@@ -465,18 +465,17 @@ fn calc_line_envelope_points(
     let stroke_width = options.stroke_width();
     let sr_f32 = sr as f32;
 
-    let offset_x = -options.start_sec * px_per_sec;
-    let idx_to_x = |idx| (idx as f32 * px_per_sec) / sr_f32 + offset_x;
-    let floor_x = |x: f32| ((x - offset_x) / WAV_IMG_SCALE).floor() * WAV_IMG_SCALE + offset_x;
+    let x_scale = px_per_sec / sr_f32;
+    let x_offset = -options.start_sec * px_per_sec;
+    let idx_to_x = |idx| (idx as f32).mul_add(x_scale, x_offset);
+    let floor_x = |x: f32| ((x - x_offset) / WAV_IMG_SCALE).floor() * WAV_IMG_SCALE + x_offset;
 
-    let amp_range_scale = (options.amp_range.1 - options.amp_range.0).max(1e-8);
     let (clip_min, clip_max) = options
         .clip_values
         .unwrap_or((-f32::INFINITY, f32::INFINITY));
-    let wav_to_y = |v: f32| {
-        ((options.amp_range.1 - (v.max(clip_min).min(clip_max))) / amp_range_scale) * height
-            + options.offset_y
-    };
+    let y_scale = -height / (options.amp_range.1 - options.amp_range.0).max(1e-8);
+    let y_offset = options.offset_y - options.amp_range.1 * y_scale;
+    let wav_to_y = |v: f32| v.max(clip_min).min(clip_max).mul_add(y_scale, y_offset);
 
     let margin_samples = (WAV_MARGIN_PX / px_per_sec) * sr_f32;
     let i_start = (options.start_sec * sr_f32 - margin_samples)
