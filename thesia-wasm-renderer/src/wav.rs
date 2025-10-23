@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, Path2d};
 
 use crate::mem::WasmFloat32Array;
-use crate::simd::{add_scalar_to_slice, clamp_f32, fused_mul_add, min_max_f32};
+use crate::simd::{add_scalar_inplace, clamp_inplace, find_min_max, fused_mul_add};
 
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
 const WAV_IMG_SCALE: f32 = 2.0;
@@ -192,7 +192,7 @@ impl WavLinePoints {
             params.y2v_offset,
             &mut tmp,
         );
-        clamp_f32(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
+        clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
         fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.ys);
         tmp.clear();
         out
@@ -253,8 +253,8 @@ impl WavEnvelope {
 
         let half_stroke_width = stroke_width / 2.0;
 
-        add_scalar_to_slice(&mut self.tops, -half_stroke_width);
-        add_scalar_to_slice(&mut self.bottoms, half_stroke_width);
+        add_scalar_inplace(&mut self.tops, -half_stroke_width);
+        add_scalar_inplace(&mut self.bottoms, half_stroke_width);
 
         // Move to first point
         path.move_to(self.xs[0] as f64, self.tops[0] as f64);
@@ -308,7 +308,7 @@ impl WavEnvelope {
             params.y2v_offset,
             &mut tmp,
         );
-        clamp_f32(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
+        clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
         fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.tops);
         tmp.clear();
         fused_mul_add(
@@ -317,7 +317,7 @@ impl WavEnvelope {
             params.y2v_offset,
             &mut tmp,
         );
-        clamp_f32(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
+        clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
         fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.bottoms);
         tmp.clear();
         out
@@ -335,7 +335,7 @@ struct WavCache {
 impl WavCache {
     fn new(wav: Vec<f32>, sr: u32) -> Self {
         let amp_range = {
-            let (min, max) = min_max_f32(&wav);
+            let (min, max) = find_min_max(&wav);
             (min.min(-1.), max.max(1.))
         };
         let mut wav_cache = Self {
@@ -546,7 +546,7 @@ fn calc_line_envelope_points(
             i2 = (i_prev + 1).min(i_end.min(wav_len));
         }
 
-        let (min_v, max_v) = min_max_f32(&wav[i_prev..i2]);
+        let (min_v, max_v) = find_min_max(&wav[i_prev..i2]);
         let top = wav_to_y(max_v);
         let bottom = wav_to_y(min_v);
 

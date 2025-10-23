@@ -5,7 +5,7 @@ use core::arch::wasm32::{
 
 #[allow(unused)]
 #[inline]
-fn min_max_f32_scalar(values: &[f32]) -> (f32, f32) {
+fn find_min_max_scalar(values: &[f32]) -> (f32, f32) {
     let mut min_v = f32::INFINITY;
     let mut max_v = f32::NEG_INFINITY;
     for &v in values {
@@ -22,7 +22,7 @@ fn min_max_f32_scalar(values: &[f32]) -> (f32, f32) {
 #[allow(unused)]
 #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
 #[inline]
-unsafe fn min_max_f32_simd(values: &[f32]) -> (f32, f32) {
+unsafe fn find_min_max_simd(values: &[f32]) -> (f32, f32) {
     let len = values.len();
     if len == 0 {
         return (0.0, 0.0);
@@ -73,20 +73,20 @@ unsafe fn min_max_f32_simd(values: &[f32]) -> (f32, f32) {
 }
 
 #[inline]
-pub(crate) fn min_max_f32(values: &[f32]) -> (f32, f32) {
+pub(crate) fn find_min_max(values: &[f32]) -> (f32, f32) {
     #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
     unsafe {
-        min_max_f32_simd(values)
+        find_min_max_simd(values)
     }
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
-        min_max_f32_scalar(values)
+        find_min_max_scalar(values)
     }
 }
 
 #[allow(unused)]
 #[inline]
-fn add_scalar_to_slice_scalar(values: &mut [f32], scalar: f32) {
+fn add_scalar_inplace_scalar(values: &mut [f32], scalar: f32) {
     for v in values.iter_mut() {
         *v += scalar;
     }
@@ -94,7 +94,7 @@ fn add_scalar_to_slice_scalar(values: &mut [f32], scalar: f32) {
 
 #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
 #[inline]
-unsafe fn add_scalar_to_slice_simd(values: &mut [f32], scalar: f32) {
+unsafe fn add_scalar_inplace_simd(values: &mut [f32], scalar: f32) {
     let len = values.len();
     let mut i = 0;
     let ptr = values.as_mut_ptr();
@@ -119,14 +119,14 @@ unsafe fn add_scalar_to_slice_simd(values: &mut [f32], scalar: f32) {
 }
 
 #[inline]
-pub(crate) fn add_scalar_to_slice(values: &mut [f32], scalar: f32) {
+pub(crate) fn add_scalar_inplace(values: &mut [f32], scalar: f32) {
     #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
     unsafe {
-        add_scalar_to_slice_simd(values, scalar);
+        add_scalar_inplace_simd(values, scalar);
     }
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
-        add_scalar_to_slice_scalar(values, scalar);
+        add_scalar_inplace_scalar(values, scalar);
     }
 }
 
@@ -195,7 +195,7 @@ pub(crate) fn fused_mul_add(values: &[f32], scale: f32, offset: f32, out: &mut V
 /// Clamp values in-place: values[i] = values[i].max(min).min(max)
 #[allow(unused)]
 #[inline]
-fn clamp_f32_scalar(values: &mut [f32], min: f32, max: f32) {
+fn clamp_inplace_scalar(values: &mut [f32], min: f32, max: f32) {
     for v in values.iter_mut() {
         *v = v.max(min).min(max);
     }
@@ -203,7 +203,7 @@ fn clamp_f32_scalar(values: &mut [f32], min: f32, max: f32) {
 
 #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
 #[inline]
-unsafe fn clamp_f32_simd(values: &mut [f32], min: f32, max: f32) {
+unsafe fn clamp_inplace_simd(values: &mut [f32], min: f32, max: f32) {
     let len = values.len();
     let mut i = 0;
     let ptr = values.as_mut_ptr();
@@ -231,13 +231,13 @@ unsafe fn clamp_f32_simd(values: &mut [f32], min: f32, max: f32) {
 }
 
 #[inline]
-pub(crate) fn clamp_f32(values: &mut [f32], min: f32, max: f32) {
+pub(crate) fn clamp_inplace(values: &mut [f32], min: f32, max: f32) {
     #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
     unsafe {
-        clamp_f32_simd(values, min, max);
+        clamp_inplace_simd(values, min, max);
     }
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
-        clamp_f32_scalar(values, min, max);
+        clamp_inplace_scalar(values, min, max);
     }
 }
