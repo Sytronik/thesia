@@ -191,3 +191,53 @@ pub(crate) fn fused_mul_add(values: &[f32], scale: f32, offset: f32, out: &mut V
         fused_mul_add_scalar(values, scale, offset, out);
     }
 }
+
+/// Clamp values in-place: values[i] = values[i].max(min).min(max)
+#[allow(unused)]
+#[inline]
+fn clamp_f32_scalar(values: &mut [f32], min: f32, max: f32) {
+    for v in values.iter_mut() {
+        *v = v.max(min).min(max);
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+#[inline]
+unsafe fn clamp_f32_simd(values: &mut [f32], min: f32, max: f32) {
+    let len = values.len();
+    let mut i = 0;
+    let ptr = values.as_mut_ptr();
+    let splat_min = f32x4_splat(min);
+    let splat_max = f32x4_splat(max);
+
+    // Process 4 elements at a time
+    while i + 4 <= len {
+        unsafe {
+            let v = v128_load(ptr.add(i) as *const _);
+            let clamped = f32x4_min(f32x4_max(v, splat_min), splat_max);
+            v128_store(ptr.add(i) as *mut _, clamped);
+        }
+        i += 4;
+    }
+
+    // Process remainder
+    while i < len {
+        unsafe {
+            let v = ptr.add(i);
+            *v = (*v).max(min).min(max);
+        }
+        i += 1;
+    }
+}
+
+#[inline]
+pub(crate) fn clamp_f32(values: &mut [f32], min: f32, max: f32) {
+    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    unsafe {
+        clamp_f32_simd(values, min, max);
+    }
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
+    {
+        clamp_f32_scalar(values, min, max);
+    }
+}

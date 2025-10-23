@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, Path2d};
 
 use crate::mem::WasmFloat32Array;
-use crate::simd::{add_scalar_to_slice, fused_mul_add, min_max_f32};
+use crate::simd::{add_scalar_to_slice, clamp_f32, fused_mul_add, min_max_f32};
 
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
 const WAV_IMG_SCALE: f32 = 2.0;
@@ -178,8 +178,7 @@ impl WavLinePoints {
         }
         fused_mul_add(&self.xs[i_start..i_end], x_scale, x_offset, &mut out.xs);
         fused_mul_add(&self.ys[i_start..i_end], y2v_scale, y2v_offset, &mut tmp);
-        tmp.iter_mut()
-            .for_each(|v| *v = v.max(clip_values.0).min(clip_values.1));
+        clamp_f32(&mut tmp, clip_values.0, clip_values.1);
         fused_mul_add(&tmp, v2y_scale, v2y_offset, &mut out.ys);
         tmp.clear();
         out
@@ -291,8 +290,7 @@ impl WavEnvelope {
         }
         fused_mul_add(&self.xs[i_start..i_end], x_scale, x_offset, &mut out.xs);
         fused_mul_add(&self.tops[i_start..i_end], y2v_scale, y2v_offset, &mut tmp);
-        tmp.iter_mut()
-            .for_each(|v| *v = v.max(clip_values.0).min(clip_values.1));
+        clamp_f32(&mut tmp, clip_values.0, clip_values.1);
         fused_mul_add(&tmp, v2y_scale, v2y_offset, &mut out.tops);
         tmp.clear();
         fused_mul_add(
@@ -301,8 +299,7 @@ impl WavEnvelope {
             y2v_offset,
             &mut tmp,
         );
-        tmp.iter_mut()
-            .for_each(|v| *v = v.max(clip_values.0).min(clip_values.1));
+        clamp_f32(&mut tmp, clip_values.0, clip_values.1);
         fused_mul_add(&tmp, v2y_scale, v2y_offset, &mut out.bottoms);
         tmp.clear();
         out
