@@ -12,13 +12,14 @@ pub use crate::wav::{
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
+    pub(crate) fn log(s: &str);
 }
 
 // Define a macro to provide `println!(..)`-style syntax for `console.log` logging.
 #[allow(unused_macros)]
+#[macro_export]
 macro_rules! console_log {
     ( $( $t:tt )* ) => {
-        log(&format!( $( $t )* ))
+        crate::log(&format!( $( $t )* ))
     }
 }
