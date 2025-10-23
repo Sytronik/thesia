@@ -151,13 +151,17 @@ impl WavLinePoints {
         &self,
         start_x: f32,
         end_x: f32,
-        ratio_x: f32,
-        offset_x: f32,
-        ratio_y: f32,
-        offset_y: f32,
+        x_scale: f32,
+        x_offset: f32,
+        y2v_scale: f32,
+        y2v_offset: f32,
+        v2y_scale: f32,
+        v2y_offset: f32,
+        clip_values: (f32, f32),
         capacity: Option<usize>,
     ) -> Self {
         let mut out = capacity.map_or_else(Self::new, Self::with_capacity);
+        let mut tmp = Vec::with_capacity(self.len());
         let mut i_start = self.len();
         let mut i_end = self.len();
         for (i, x) in self.xs.iter().enumerate() {
@@ -172,8 +176,12 @@ impl WavLinePoints {
                 break;
             }
         }
-        fused_mul_add(&self.xs[i_start..i_end], ratio_x, offset_x, &mut out.xs);
-        fused_mul_add(&self.ys[i_start..i_end], ratio_y, offset_y, &mut out.ys);
+        fused_mul_add(&self.xs[i_start..i_end], x_scale, x_offset, &mut out.xs);
+        fused_mul_add(&self.ys[i_start..i_end], y2v_scale, y2v_offset, &mut tmp);
+        tmp.iter_mut()
+            .for_each(|v| *v = v.max(clip_values.0).min(clip_values.1));
+        fused_mul_add(&tmp, v2y_scale, v2y_offset, &mut out.ys);
+        tmp.clear();
         out
     }
 }
@@ -256,15 +264,19 @@ impl WavEnvelope {
         &self,
         start_x: f32,
         end_x: f32,
-        ratio_x: f32,
-        offset_x: f32,
-        ratio_y: f32,
-        offset_y: f32,
+        x_scale: f32,
+        x_offset: f32,
+        y2v_scale: f32,
+        y2v_offset: f32,
+        v2y_scale: f32,
+        v2y_offset: f32,
+        clip_values: (f32, f32),
         capacity: Option<usize>,
     ) -> Self {
         let mut out = capacity.map_or_else(Self::new, Self::with_capacity);
         let mut i_start = self.len();
         let mut i_end = self.len();
+        let mut tmp = Vec::with_capacity(self.len());
         for (i, x) in self.xs.iter().enumerate() {
             if *x < start_x {
                 continue;
@@ -277,14 +289,22 @@ impl WavEnvelope {
                 break;
             }
         }
-        fused_mul_add(&self.xs[i_start..i_end], ratio_x, offset_x, &mut out.xs);
-        fused_mul_add(&self.tops[i_start..i_end], ratio_y, offset_y, &mut out.tops);
+        fused_mul_add(&self.xs[i_start..i_end], x_scale, x_offset, &mut out.xs);
+        fused_mul_add(&self.tops[i_start..i_end], y2v_scale, y2v_offset, &mut tmp);
+        tmp.iter_mut()
+            .for_each(|v| *v = v.max(clip_values.0).min(clip_values.1));
+        fused_mul_add(&tmp, v2y_scale, v2y_offset, &mut out.tops);
+        tmp.clear();
         fused_mul_add(
             &self.bottoms[i_start..i_end],
-            ratio_y,
-            offset_y,
-            &mut out.bottoms,
+            y2v_scale,
+            y2v_offset,
+            &mut tmp,
         );
+        tmp.iter_mut()
+            .for_each(|v| *v = v.max(clip_values.0).min(clip_values.1));
+        fused_mul_add(&tmp, v2y_scale, v2y_offset, &mut out.bottoms);
+        tmp.clear();
         out
     }
 }
@@ -363,14 +383,21 @@ pub fn draw_wav(
         let WavCache {
             wav,
             sr,
+            amp_range,
             line_points_cache,
             envelopes_cache,
-            ..
         } = wav_caches.get(id_ch_str).unwrap();
         if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
             calc_line_envelope_points(wav, *sr, width, height, options)
         } else {
-            transform_line_envelopes(line_points_cache, envelopes_cache, width, height, options)
+            transform_line_envelopes(
+                line_points_cache,
+                envelopes_cache,
+                *amp_range,
+                width,
+                height,
+                options,
+            )
         }
     };
 
@@ -559,28 +586,38 @@ fn calc_line_envelope_points(
 fn transform_line_envelopes(
     line_points: &WavLinePoints,
     envelopes: &[WavEnvelope],
+    amp_range: (f32, f32),
     width: f32,
     height: f32,
     options: &WavDrawingOptions,
 ) -> (WavLinePoints, Option<Vec<WavEnvelope>>) {
     let px_per_sec = options.canvas_px_per_sec();
-    let ratio_x = px_per_sec / CACHE_CANVAS_PX_PER_SEC;
-    let offset_x = -options.start_sec * px_per_sec;
-    let ratio_y = height / CACHE_HEIGHT;
-    let offset_y = options.offset_y;
+    let x_scale = px_per_sec / CACHE_CANVAS_PX_PER_SEC;
+    let x_offset = -options.start_sec * px_per_sec;
 
-    let start_x = (-WAV_MARGIN_PX - offset_x) / ratio_x;
-    let end_x = (width + WAV_MARGIN_PX - offset_x) / ratio_x;
+    let y2v_scale = -(amp_range.1 - amp_range.0) / CACHE_HEIGHT;
+    let y2v_offset = amp_range.1;
+    let clip_values = options
+        .clip_values
+        .unwrap_or((-f32::INFINITY, f32::INFINITY));
+    let v2y_scale = -height / (options.amp_range.1 - options.amp_range.0).max(1e-8);
+    let v2y_offset = options.offset_y - options.amp_range.1 * v2y_scale;
+
+    let start_x = (-WAV_MARGIN_PX - x_offset) / x_scale;
+    let end_x = (width + WAV_MARGIN_PX - x_offset) / x_scale;
 
     let line_capacity =
         ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize;
     let xformed_line_points = line_points.slice_transform(
         start_x,
         end_x,
-        ratio_x,
-        offset_x,
-        ratio_y,
-        offset_y,
+        x_scale,
+        x_offset,
+        y2v_scale,
+        y2v_offset,
+        v2y_scale,
+        v2y_offset,
+        clip_values,
         Some(line_capacity),
     );
 
@@ -592,10 +629,13 @@ fn transform_line_envelopes(
         let xformed_envelope = envelope.slice_transform(
             start_x,
             end_x,
-            ratio_x,
-            offset_x,
-            ratio_y,
-            offset_y,
+            x_scale,
+            x_offset,
+            y2v_scale,
+            y2v_offset,
+            v2y_scale,
+            v2y_offset,
+            clip_values,
             Some(envelope.len()),
         );
         xformed_envelopes.push(xformed_envelope);
