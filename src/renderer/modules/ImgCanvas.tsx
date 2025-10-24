@@ -13,7 +13,6 @@ import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 
-import {WAV_CLIPPING_COLOR, WAV_COLOR} from "renderer/prototypes/constants/colors";
 import {sleep} from "renderer/utils/time";
 import styles from "./ImgCanvas.module.scss";
 import BackendAPI, {WasmAPI} from "../api";
@@ -289,36 +288,22 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawWavImage = useCallback(() => {
     if (!wavCanvasElem.current || !wavCtxRef.current) return;
 
-    wavCanvasElem.current.width = width * devicePixelRatio;
-    wavCanvasElem.current.height = height * devicePixelRatio;
-
     // set opacity by blend
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.max(2 - 2 * blend, 0)}`;
 
-    const ctx = wavCtxRef.current;
-
-    ctx.scale(1 / WAV_IMG_SCALE, 1 / WAV_IMG_SCALE);
-
-    if (!wavMetadataRef.current) return;
-    const wavMetadata = wavMetadataRef.current;
-
-    const options = {
+    WasmAPI.drawWav(
+      wavCanvasElem.current,
+      wavCtxRef.current,
+      wavMetadataRef.current !== null ? idChStr : "",
+      wavMetadataRef.current?.isClipped ?? false,
+      width,
+      height,
       startSec,
       pxPerSec,
-      ampRange,
-      devicePixelRatio,
-    };
-    if (wavMetadata.isClipped) {
-      WasmAPI.drawWav(ctx, idChStr, {...options, color: WAV_CLIPPING_COLOR});
-    }
-    WasmAPI.drawWav(ctx, idChStr, {
-      ...options,
-      color: WAV_COLOR,
-      clipValues: wavMetadata.isClipped ? [-1, 1] : undefined,
-      needBorderForEnvelope: !wavMetadata.isClipped,
-      doClear: !wavMetadata.isClipped,
-    });
-  }, [width, devicePixelRatio, height, blend, startSec, pxPerSec, ampRange, idChStr]);
+      ampRange[0],
+      ampRange[1],
+    );
+  }, [width, height, blend, startSec, pxPerSec, ampRange, idChStr]);
 
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function

@@ -4,12 +4,14 @@ use std::sync::{LazyLock, RwLock};
 
 use atomic_float::AtomicF32;
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, Path2d};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
 
 use crate::mem::WasmFloat32Array;
 use crate::simd::{add_scalar_inplace, clamp_inplace, find_min_max, fused_mul_add};
 
+const WAV_COLOR: &str = "rgb(19, 137, 235)";
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
+const WAV_CLIPPING_COLOR: &str = "rgb(196, 34, 50)";
 const WAV_IMG_SCALE: f32 = 2.0;
 const WAV_BORDER_WIDTH: f32 = 1.5;
 const WAV_LINE_WIDTH: f32 = 1.75 * WAV_IMG_SCALE;
@@ -27,7 +29,6 @@ pub struct WavDrawingOptions {
     start_sec: f32,
     px_per_sec: f32,       // css pixels per second
     amp_range: (f32, f32), // [min, max]
-    color: String,
     offset_y: f32,
     clip_values: Option<(f32, f32)>, // [min, max] or None
     need_border_for_envelope: bool,
@@ -38,18 +39,11 @@ pub struct WavDrawingOptions {
 #[wasm_bindgen]
 impl WavDrawingOptions {
     #[wasm_bindgen(constructor)]
-    pub fn new(
-        start_sec: f32,
-        px_per_sec: f32,
-        amp_range_min: f32,
-        amp_range_max: f32,
-        color: String,
-    ) -> Self {
+    pub fn new(start_sec: f32, px_per_sec: f32, amp_range_min: f32, amp_range_max: f32) -> Self {
         Self {
             start_sec,
             px_per_sec,
             amp_range: (amp_range_min, amp_range_max),
-            color,
             offset_y: 0.0,
             clip_values: None,
             need_border_for_envelope: true,
@@ -64,7 +58,6 @@ impl WavDrawingOptions {
             CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire),
             amp_range.0,
             amp_range.1,
-            "".into(),
         )
     }
 
@@ -383,11 +376,11 @@ pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32) {
         .insert(id_ch_str.into(), wav_cache);
 }
 
-#[wasm_bindgen(js_name = drawWav)]
-pub fn draw_wav(
+fn draw_wav_internal(
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
     options: &WavDrawingOptions,
+    color: &str,
 ) -> Result<(), JsValue> {
     let width = ctx.canvas().unwrap().width() as f32 * WAV_IMG_SCALE;
     let height = ctx.canvas().unwrap().height() as f32 * WAV_IMG_SCALE;
@@ -459,15 +452,58 @@ pub fn draw_wav(
     // Draw main line
     ctx.set_line_cap("round");
     ctx.set_line_join("round");
-    ctx.set_stroke_style_str(&options.color);
+    ctx.set_stroke_style_str(color);
     ctx.set_line_width(stroke_width as f64);
     ctx.stroke_with_path(&line_path);
 
     // Fill envelopes
     for path in &envelope_paths {
-        ctx.set_fill_style_str(&options.color);
+        ctx.set_fill_style_str(color);
         ctx.fill_with_path_2d(path);
     }
+
+    Ok(())
+}
+
+#[wasm_bindgen(js_name = drawWav)]
+pub fn draw_wav(
+    canvas: &HtmlCanvasElement,
+    ctx: &CanvasRenderingContext2d,
+    id_ch_str: &str,
+    is_clipped: bool,
+    width: u32,
+    height: u32,
+    start_sec: f32,
+    px_per_sec: f32,
+    amp_range_min: f32,
+    amp_range_max: f32,
+) -> Result<(), JsValue> {
+    let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
+    canvas.set_width((width as f64 * dpr as f64).round() as u32);
+    canvas.set_height((height as f64 * dpr as f64).round() as u32);
+
+    ctx.scale(1. / WAV_IMG_SCALE as f64, 1. / WAV_IMG_SCALE as f64)?;
+
+    if WAV_CACHES.read().unwrap().get(id_ch_str).is_none() {
+        return Ok(());
+    }
+
+    if is_clipped {
+        let options = WavDrawingOptions::new(start_sec, px_per_sec, amp_range_min, amp_range_max);
+        draw_wav_internal(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR)?;
+    }
+
+    let options = WavDrawingOptions {
+        start_sec,
+        px_per_sec,
+        amp_range: (amp_range_min, amp_range_max),
+        offset_y: 0.0,
+        clip_values: if is_clipped { Some((-1., 1.)) } else { None },
+        need_border_for_envelope: !is_clipped,
+        need_border_for_line: true,
+        do_clear: !is_clipped,
+    };
+    draw_wav_internal(ctx, id_ch_str, &options, WAV_COLOR)?;
 
     Ok(())
 }
