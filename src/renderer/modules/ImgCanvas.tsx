@@ -350,7 +350,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame
   const drawWavImageRequestRef = useRef<number>(0);
-  const throttledGetWavDrawingInfo = useMemo(
+  const throttledGetWav = useMemo(
     () =>
       throttle(1000 / 60, (_idChStr) => {
         const wavInfo = BackendAPI.getWav(_idChStr);
@@ -364,19 +364,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       }),
     [],
   );
-  const getWavDrawingInfo = useCallback(() => {
-    throttledGetWavDrawingInfo(idChStr);
-  }, [idChStr, throttledGetWavDrawingInfo]);
+  const getWav = useCallback(() => throttledGetWav(idChStr), [idChStr, throttledGetWav]);
 
-  // getWavDrawingInfo is called when needRefresh is true ...
-  const prevGetWavDrawingInfoRef = useRef<() => void>(getWavDrawingInfo);
-  if (prevGetWavDrawingInfoRef.current === getWavDrawingInfo && needRefresh) {
-    getWavDrawingInfo();
+  // getWav is called when needRefresh is true ...
+  const prevGetWavRef = useRef<() => void>(getWav);
+  if (prevGetWavRef.current === getWav && needRefresh) {
+    getWav();
   }
-  prevGetWavDrawingInfoRef.current = getWavDrawingInfo;
+  prevGetWavRef.current = getWav;
 
   // or when deps change
-  useEffect(getWavDrawingInfo, [getWavDrawingInfo]);
+  useEffect(getWav, [getWav]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
