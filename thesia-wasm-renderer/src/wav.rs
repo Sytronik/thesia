@@ -295,13 +295,14 @@ impl WavEnvelope {
 struct WavCache {
     wav: Vec<f32>,
     sr: u32,
+    is_clipped: bool,
     amp_range: (f32, f32),
     line_points_cache: WavLinePoints,
     envelopes_cache: Vec<WavEnvelope>,
 }
 
 impl WavCache {
-    fn new(wav: Vec<f32>, sr: u32) -> Self {
+    fn new(wav: Vec<f32>, sr: u32, is_clipped: bool) -> Self {
         let amp_range = {
             let (min, max) = find_min_max(&wav);
             (min.min(-1.), max.max(1.))
@@ -309,6 +310,7 @@ impl WavCache {
         let mut wav_cache = Self {
             wav,
             sr,
+            is_clipped,
             amp_range,
             line_points_cache: WavLinePoints::new(),
             envelopes_cache: Vec::new(),
@@ -343,8 +345,8 @@ pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
 }
 
 #[wasm_bindgen(js_name = setWav)]
-pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32) {
-    let wav_cache = WavCache::new(wav.into(), sr);
+pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool) {
+    let wav_cache = WavCache::new(wav.into(), sr, is_clipped);
     WAV_CACHES
         .write()
         .unwrap()
@@ -369,6 +371,7 @@ fn draw_wav_internal(
             amp_range,
             line_points_cache,
             envelopes_cache,
+            ..
         } = wav_caches.get(id_ch_str).unwrap();
         if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
             calc_line_envelope_points(wav, *sr, width, height, options)
@@ -445,7 +448,6 @@ pub fn draw_wav(
     canvas: &HtmlCanvasElement,
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
-    is_clipped: bool,
     width: u32,
     height: u32,
     start_sec: f32,
@@ -459,9 +461,15 @@ pub fn draw_wav(
 
     ctx.scale(1. / WAV_IMG_SCALE as f64, 1. / WAV_IMG_SCALE as f64)?;
 
-    if WAV_CACHES.read().unwrap().get(id_ch_str).is_none() {
-        return Ok(());
-    }
+    let is_clipped = {
+        let wav_caches = WAV_CACHES.read().unwrap();
+        match wav_caches.get(id_ch_str) {
+            Some(wav_cache) => wav_cache.is_clipped,
+            None => {
+                return Ok(());
+            }
+        }
+    };
 
     if is_clipped {
         let options = WavDrawingOptions {

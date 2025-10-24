@@ -295,7 +295,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       wavCanvasElem.current,
       wavCtxRef.current,
       wavMetadataRef.current !== null ? idChStr : "",
-      wavMetadataRef.current?.isClipped ?? false,
       width,
       height,
       startSec,
@@ -342,7 +341,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         if (wavInfo === null) return;
         const {wav, sr, isClipped} = wavInfo;
         wavMetadataRef.current = {length: wav.length, sr, isClipped};
-        WasmAPI.setWav(_idChStr, wav, sr);
+        WasmAPI.setWav(_idChStr, wav, sr, isClipped);
         if (drawWavImageRequestRef.current !== 0)
           cancelAnimationFrame(drawWavImageRequestRef.current);
         drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());
