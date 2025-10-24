@@ -9,29 +9,31 @@ use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
 use crate::mem::WasmFloat32Array;
 use crate::simd::{add_scalar_inplace, clamp_inplace, find_min_max, fused_mul_add};
 
-const WAV_COLOR: &str = "rgb(19, 137, 235)";
+pub(crate) const WAV_COLOR: &str = "rgb(19, 137, 235)";
+pub(crate) const WAV_CLIPPING_COLOR: &str = "rgb(196, 34, 50)";
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
-const WAV_CLIPPING_COLOR: &str = "rgb(196, 34, 50)";
 const WAV_IMG_SCALE: f32 = 2.0;
 const WAV_BORDER_WIDTH: f32 = 1.5;
-const WAV_LINE_WIDTH: f32 = 1.75 * WAV_IMG_SCALE;
+const WAV_LINE_WIDTH: f32 = 1.75;
 const WAV_MARGIN_PX: f32 = 10.0;
 
 const CACHE_CANVAS_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 const CACHE_HEIGHT: f32 = 10000.0;
 
-static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
+pub(crate) static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
-static DEVICE_PIXEL_RATIO: LazyLock<AtomicF32> = LazyLock::new(|| AtomicF32::new(1.0));
+pub(crate) static DEVICE_PIXEL_RATIO: LazyLock<AtomicF32> = LazyLock::new(|| AtomicF32::new(1.0));
 
-struct WavDrawingOptions {
-    start_sec: f32,
-    px_per_sec: f32,       // css pixels per second
-    amp_range: (f32, f32), // [min, max]
-    offset_y: f32,
-    clip_values: Option<(f32, f32)>, // [min, max] or None
-    need_border_for_envelope: bool,
-    need_border_for_line: bool,
+pub(crate) struct WavDrawingOptions {
+    pub(crate) start_sec: f32,
+    pub(crate) px_per_sec: f32,       // css pixels per second
+    pub(crate) amp_range: (f32, f32), // [min, max]
+    pub(crate) offset_y: f32,
+    pub(crate) clip_values: Option<(f32, f32)>, // [min, max] or None
+    pub(crate) scale: f32,
+    pub(crate) line_width: f32,
+    pub(crate) need_border_for_envelope: bool,
+    pub(crate) need_border_for_line: bool,
 }
 
 impl Default for WavDrawingOptions {
@@ -42,6 +44,8 @@ impl Default for WavDrawingOptions {
             amp_range: (0.0, 0.0),
             offset_y: 0.0,
             clip_values: None,
+            scale: WAV_IMG_SCALE,
+            line_width: WAV_LINE_WIDTH,
             need_border_for_envelope: true,
             need_border_for_line: true,
         }
@@ -60,11 +64,11 @@ impl WavDrawingOptions {
     }
 
     fn stroke_width(&self) -> f32 {
-        WAV_LINE_WIDTH * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
+        self.line_width * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 
     fn canvas_px_per_sec(&self) -> f32 {
-        self.px_per_sec * WAV_IMG_SCALE * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
+        self.px_per_sec * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 }
 
@@ -290,7 +294,7 @@ impl WavEnvelope {
     }
 }
 
-struct WavCache {
+pub(crate) struct WavCache {
     wav: Vec<f32>,
     sr: u32,
     is_clipped: bool,
@@ -351,7 +355,7 @@ pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool
         .insert(id_ch_str.into(), wav_cache);
 }
 
-fn draw_wav_internal(
+pub(crate) fn draw_wav_internal(
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
     width: f32,
@@ -483,10 +487,9 @@ pub fn draw_wav(
         start_sec,
         px_per_sec,
         amp_range: (amp_range_min, amp_range_max),
-        offset_y: 0.0,
         clip_values: if is_clipped { Some((-1., 1.)) } else { None },
         need_border_for_envelope: !is_clipped,
-        need_border_for_line: true,
+        ..Default::default()
     };
     draw_wav_internal(ctx, id_ch_str, width, height, &options, WAV_COLOR)?;
 
@@ -507,7 +510,7 @@ fn calc_line_envelope_points(
     let x_scale = px_per_sec / sr_f32;
     let x_offset = -options.start_sec * px_per_sec;
     let idx_to_x = |idx| (idx as f32).mul_add(x_scale, x_offset);
-    let floor_x = |x: f32| ((x - x_offset) / WAV_IMG_SCALE).floor() * WAV_IMG_SCALE + x_offset;
+    let floor_x = |x: f32| ((x - x_offset) / options.scale).floor() * options.scale + x_offset;
 
     let (clip_min, clip_max) = options
         .clip_values
@@ -547,7 +550,7 @@ fn calc_line_envelope_points(
 
         // downsampling
         let x_floor = floor_x(x);
-        let x_mid = x_floor + WAV_IMG_SCALE / 2.0;
+        let x_mid = x_floor + options.scale / 2.0;
         let mut i2 = i_prev;
         let mut i_next = i_end;
 
@@ -557,7 +560,7 @@ fn calc_line_envelope_points(
             if x2_floor > x_floor && i_next == i_end {
                 i_next = i2;
             }
-            if x2_floor > x_floor + WAV_IMG_SCALE {
+            if x2_floor > x_floor + options.scale {
                 break;
             }
             i2 += 1;

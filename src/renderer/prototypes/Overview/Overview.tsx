@@ -3,11 +3,9 @@ import useEvent from "react-use-event-hook";
 
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.module.scss";
-import BackendAPI from "../../api";
-import {OVERVIEW_LENS_STYLE} from "../constants/tracks";
+import BackendAPI, {WasmAPI} from "../../api";
+import {OVERVIEW_LENS_STYLE, OVERVIEW_MAX_CH} from "../constants/tracks";
 import Draggable, {CursorStateInfo} from "../../modules/Draggable";
-import {WAV_COLOR, WAV_CLIPPING_COLOR, LIMITER_GAIN_COLOR} from "../constants/colors";
-import {drawWavLine, drawWavEnvelope} from "../../lib/drawing-wav";
 
 const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
   OVERVIEW_LENS_STYLE;
@@ -16,6 +14,7 @@ const THICKNESS = 3;
 
 type OverviewProps = {
   trackId: number | null;
+  idChArr: IdChArr;
   maxTrackSec: number;
   startSec: number;
   lensDurationSec: number;
@@ -31,6 +30,7 @@ type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 function Overview(props: OverviewProps) {
   const {
     trackId,
+    idChArr: _idChArr,
     maxTrackSec,
     startSec,
     lensDurationSec,
@@ -40,6 +40,7 @@ function Overview(props: OverviewProps) {
     resetLens,
     needRefresh,
   } = props;
+  const idChArr = _idChArr.slice(0, OVERVIEW_MAX_CH);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSec = useMemo(
     () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : 0),
@@ -52,7 +53,7 @@ function Overview(props: OverviewProps) {
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const lensCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
-  const getWavDrawingOptionsBase = useCallback(
+  /* const getWavDrawingOptionsBase = useCallback(
     (scaledWidth: number, scaledHeight: number, offsetY: number, pointsPerSec: number) => {
       const pxPerPoints = scaledWidth / maxTrackSec / pointsPerSec;
       // line case
@@ -67,9 +68,9 @@ function Overview(props: OverviewProps) {
       };
     },
     [devicePixelRatio, maxTrackSec],
-  );
+  ); */
 
-  const drawChannel = useCallback(
+  /* const drawChannel = useCallback(
     (
       ctx: CanvasRenderingContext2D,
       wavDrawingInfo: WavDrawingInfo,
@@ -116,9 +117,9 @@ function Overview(props: OverviewProps) {
       }
     },
     [getWavDrawingOptionsBase],
-  );
+  ); */
 
-  const drawLimiterGain = useCallback(
+  /* const drawLimiterGain = useCallback(
     (
       ctx: CanvasRenderingContext2D,
       gainTopDrawingInfo: WavDrawingInfo,
@@ -172,7 +173,7 @@ function Overview(props: OverviewProps) {
       );
     },
     [getWavDrawingOptionsBase],
-  );
+  ); */
 
   const draw = useCallback(async () => {
     if (!backgroundElem.current || !lensElem.current) return;
@@ -195,6 +196,9 @@ function Overview(props: OverviewProps) {
 
     if (!ctx) return;
 
+    WasmAPI.drawOverview(backgroundElem.current, ctx, idChArr, width, height, maxTrackSec);
+
+    /*
     const drawingInfo = await BackendAPI.getOverviewDrawingInfo(
       trackId,
       width,
@@ -242,15 +246,15 @@ function Overview(props: OverviewProps) {
           chIdx * (chHeight + gapHeight),
         );
       }
+    }); */
 
-      // fill out of track area
-      if (durationSec < maxTrackSec) {
-        ctx.fillStyle = OUT_TRACK_FILL_STYLE;
-        const x = width * devicePixelRatio * (durationSec / maxTrackSec);
-        ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
-      }
-    });
-  }, [devicePixelRatio, drawChannel, drawLimiterGain, durationSec, maxTrackSec, trackId]);
+    // fill out of track area
+    if (durationSec < maxTrackSec) {
+      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
+      const x = width * devicePixelRatio * (durationSec / maxTrackSec);
+      ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
+    }
+  }, [devicePixelRatio, durationSec, idChArr, maxTrackSec, trackId]);
 
   const prevDrawRef = useRef(draw);
   if (prevDrawRef.current === draw && needRefresh) draw();

@@ -1,4 +1,5 @@
 import init, {
+  drawOverview,
   drawWav,
   setWav,
   getWavImgScale,
@@ -47,6 +48,7 @@ export default {
   isWasmInitialized,
   drawWav,
   setWav,
+  drawOverview,
   getWavImgScale,
   setDevicePixelRatio,
   createWasmFloat32Array,
