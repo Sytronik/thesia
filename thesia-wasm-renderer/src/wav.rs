@@ -549,11 +549,11 @@ fn calc_line_envelope_points(
         while i2 < i_end.min(wav_len) {
             let x2 = idx_to_x(i2);
             let x2_floor = floor_x(x2);
-            if x2_floor > x_floor + WAV_IMG_SCALE {
-                break;
-            }
             if x2_floor > x_floor && i_next == i_end {
                 i_next = i2;
+            }
+            if x2_floor > x_floor + WAV_IMG_SCALE {
+                break;
             }
             i2 += 1;
         }
@@ -603,10 +603,10 @@ fn calc_line_envelope_points(
     if !current_envlp.is_empty() {
         envelopes.push(current_envlp);
 
-        let last_y = if i_end > 0 && (i_end - 1) < wav_len {
+        let last_y = if i_end > 0 && i_end <= wav_len {
             wav_to_y(wav[i_end - 1])
         } else {
-            0.0
+            wav_to_y(0.0)
         };
         line_points.push(floor_x(idx_to_x(i_end - 1)), last_y);
     }
