@@ -296,14 +296,14 @@ struct WavCache {
     wav: Vec<f32>,
     sr: u32,
     is_clipped: bool,
-    amp_range: (f32, f32),
+    cache_amp_range: (f32, f32),
     line_points_cache: WavLinePoints,
     envelopes_cache: Vec<WavEnvelope>,
 }
 
 impl WavCache {
     fn new(wav: Vec<f32>, sr: u32, is_clipped: bool) -> Self {
-        let amp_range = {
+        let cache_amp_range = {
             let (min, max) = find_min_max(&wav);
             (min.min(-1.), max.max(1.))
         };
@@ -311,7 +311,7 @@ impl WavCache {
             wav,
             sr,
             is_clipped,
-            amp_range,
+            cache_amp_range,
             line_points_cache: WavLinePoints::new(),
             envelopes_cache: Vec::new(),
         };
@@ -320,7 +320,7 @@ impl WavCache {
     }
 
     fn update_cache(&mut self) {
-        let options = WavDrawingOptions::new_for_cache(self.amp_range);
+        let options = WavDrawingOptions::new_for_cache(self.cache_amp_range);
         let px_per_samples = (options.canvas_px_per_sec() / self.sr as f32).min(0.1);
         let width = self.wav.len() as f32 * px_per_samples;
 
@@ -368,7 +368,7 @@ fn draw_wav_internal(
         let WavCache {
             wav,
             sr,
-            amp_range,
+            cache_amp_range: amp_range,
             line_points_cache,
             envelopes_cache,
             ..
@@ -448,16 +448,16 @@ pub fn draw_wav(
     canvas: &HtmlCanvasElement,
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
-    width: u32,
-    height: u32,
+    css_width: u32,
+    css_height: u32,
     start_sec: f32,
     px_per_sec: f32,
     amp_range_min: f32,
     amp_range_max: f32,
 ) -> Result<(), JsValue> {
     let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
-    canvas.set_width((width as f64 * dpr as f64).round() as u32);
-    canvas.set_height((height as f64 * dpr as f64).round() as u32);
+    canvas.set_width((css_width as f64 * dpr as f64).round() as u32);
+    canvas.set_height((css_height as f64 * dpr as f64).round() as u32);
 
     ctx.scale(1. / WAV_IMG_SCALE as f64, 1. / WAV_IMG_SCALE as f64)?;
 
