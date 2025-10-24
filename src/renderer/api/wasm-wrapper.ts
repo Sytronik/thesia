@@ -1,5 +1,4 @@
 import init, {
-  WavDrawingOptions,
   drawWav,
   setWav,
   getWavImgScale,
@@ -41,23 +40,8 @@ export function createWasmFloat32Array(length: number): [WasmFloat32Array, Float
   return [wasmWav, view];
 }
 
-/**
- * Wav drawing options for WASM renderer
- */
-export interface WasmWavDrawingOptions {
-  startSec: number;
-  pxPerSec: number;
-  ampRange: [number, number];
-  color: string;
-  offsetY?: number;
-  clipValues?: [number, number] | null;
-  needBorderForEnvelope?: boolean;
-  needBorderForLine?: boolean;
-  doClear?: boolean;
-}
-
 // Named exports
-export {WavDrawingOptions, WasmFloat32Array};
+export {WasmFloat32Array};
 export default {
   initWasm,
   isWasmInitialized,

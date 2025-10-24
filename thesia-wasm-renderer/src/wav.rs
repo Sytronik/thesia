@@ -24,8 +24,7 @@ static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 static DEVICE_PIXEL_RATIO: LazyLock<AtomicF32> = LazyLock::new(|| AtomicF32::new(1.0));
 
-#[wasm_bindgen]
-pub struct WavDrawingOptions {
+struct WavDrawingOptions {
     start_sec: f32,
     px_per_sec: f32,       // css pixels per second
     amp_range: (f32, f32), // [min, max]
@@ -36,14 +35,12 @@ pub struct WavDrawingOptions {
     do_clear: bool,
 }
 
-#[wasm_bindgen]
-impl WavDrawingOptions {
-    #[wasm_bindgen(constructor)]
-    pub fn new(start_sec: f32, px_per_sec: f32, amp_range_min: f32, amp_range_max: f32) -> Self {
+impl Default for WavDrawingOptions {
+    fn default() -> Self {
         Self {
-            start_sec,
-            px_per_sec,
-            amp_range: (amp_range_min, amp_range_max),
+            start_sec: 0.0,
+            px_per_sec: 0.0,
+            amp_range: (0.0, 0.0),
             offset_y: 0.0,
             clip_values: None,
             need_border_for_envelope: true,
@@ -51,46 +48,24 @@ impl WavDrawingOptions {
             do_clear: true,
         }
     }
+}
 
+impl WavDrawingOptions {
     fn new_for_cache(amp_range: (f32, f32)) -> Self {
-        Self::new(
-            0.0,
-            CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire),
-            amp_range.0,
-            amp_range.1,
-        )
+        let px_per_sec =
+            CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
+        Self {
+            px_per_sec,
+            amp_range,
+            ..Default::default()
+        }
     }
 
-    #[wasm_bindgen(setter)]
-    pub fn set_offset_y(&mut self, offset_y: f32) {
-        self.offset_y = offset_y;
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_clip_values(&mut self, clip_values: Option<Box<[f32]>>) {
-        self.clip_values = clip_values.map(|values| (values[0], values[1]));
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_need_border_for_envelope(&mut self, need_border: bool) {
-        self.need_border_for_envelope = need_border;
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_need_border_for_line(&mut self, need_border: bool) {
-        self.need_border_for_line = need_border;
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_do_clear(&mut self, do_clear: bool) {
-        self.do_clear = do_clear;
-    }
-
-    pub fn stroke_width(&self) -> f32 {
+    fn stroke_width(&self) -> f32 {
         WAV_LINE_WIDTH * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 
-    pub fn canvas_px_per_sec(&self) -> f32 {
+    fn canvas_px_per_sec(&self) -> f32 {
         self.px_per_sec * WAV_IMG_SCALE * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 }
@@ -489,7 +464,12 @@ pub fn draw_wav(
     }
 
     if is_clipped {
-        let options = WavDrawingOptions::new(start_sec, px_per_sec, amp_range_min, amp_range_max);
+        let options = WavDrawingOptions {
+            start_sec,
+            px_per_sec,
+            amp_range: (amp_range_min, amp_range_max),
+            ..Default::default()
+        };
         draw_wav_internal(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR)?;
     }
 
