@@ -32,7 +32,6 @@ struct WavDrawingOptions {
     clip_values: Option<(f32, f32)>, // [min, max] or None
     need_border_for_envelope: bool,
     need_border_for_line: bool,
-    do_clear: bool,
 }
 
 impl Default for WavDrawingOptions {
@@ -45,7 +44,6 @@ impl Default for WavDrawingOptions {
             clip_values: None,
             need_border_for_envelope: true,
             need_border_for_line: true,
-            do_clear: true,
         }
     }
 }
@@ -356,11 +354,11 @@ pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool
 fn draw_wav_internal(
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
+    width: f32,
+    height: f32,
     options: &WavDrawingOptions,
     color: &str,
 ) -> Result<(), JsValue> {
-    let width = ctx.canvas().unwrap().width() as f32 * WAV_IMG_SCALE;
-    let height = ctx.canvas().unwrap().height() as f32 * WAV_IMG_SCALE;
     let stroke_width = options.stroke_width();
 
     let (line_points, envelopes) = {
@@ -399,11 +397,6 @@ fn draw_wav_internal(
         }
         None => Vec::new(),
     };
-
-    // Clear canvas if needed
-    if options.do_clear {
-        ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
-    }
 
     let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
 
@@ -461,6 +454,9 @@ pub fn draw_wav(
 
     ctx.scale(1. / WAV_IMG_SCALE as f64, 1. / WAV_IMG_SCALE as f64)?;
 
+    let width = canvas.width() as f32 * WAV_IMG_SCALE;
+    let height = canvas.height() as f32 * WAV_IMG_SCALE;
+
     let is_clipped = {
         let wav_caches = WAV_CACHES.read().unwrap();
         match wav_caches.get(id_ch_str) {
@@ -478,7 +474,9 @@ pub fn draw_wav(
             amp_range: (amp_range_min, amp_range_max),
             ..Default::default()
         };
-        draw_wav_internal(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR)?;
+        draw_wav_internal(ctx, id_ch_str, width, height, &options, WAV_CLIPPING_COLOR)?;
+    } else {
+        ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
     }
 
     let options = WavDrawingOptions {
@@ -489,9 +487,8 @@ pub fn draw_wav(
         clip_values: if is_clipped { Some((-1., 1.)) } else { None },
         need_border_for_envelope: !is_clipped,
         need_border_for_line: true,
-        do_clear: !is_clipped,
     };
-    draw_wav_internal(ctx, id_ch_str, &options, WAV_COLOR)?;
+    draw_wav_internal(ctx, id_ch_str, width, height, &options, WAV_COLOR)?;
 
     Ok(())
 }
