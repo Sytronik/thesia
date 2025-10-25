@@ -298,57 +298,6 @@ async fn get_spectrogram(
 }
 
 #[napi]
-async fn get_wav_drawing_info(
-    id_ch_str: String,
-    sec_range: (f64, f64),
-    width: u32,
-    height: u32,
-    amp_range: (f64, f64),
-    wav_stroke_width: f64,
-    topbottom_context_size: f64,
-    margin_ratio: f64,
-) -> Result<Option<WavDrawingInfo>> {
-    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    let sec_range = (sec_range.0.max(0.), sec_range.1);
-    if sec_range.0 >= sec_range.1 {
-        return Ok(None);
-    }
-
-    let task_id = {
-        let mut entry = DRAW_WAV_TASK_ID_MAP
-            .entry(id_ch_str.clone())
-            .or_insert(Wrapping(0));
-        *entry.value_mut() += 1;
-        *entry.value()
-    };
-
-    let out = tokio_rayon::spawn(move || {
-        let tracklist = TRACK_LIST.read();
-        let track = tracklist.get(id)?;
-        let internal = track.get_wav_drawing_info(
-            ch,
-            sec_range,
-            width as f64,
-            height as f64,
-            (amp_range.0 as f32, amp_range.1 as f32),
-            wav_stroke_width,
-            topbottom_context_size,
-            margin_ratio,
-        );
-        Some(WavDrawingInfo::new(internal, sec_range.0))
-    })
-    .await;
-
-    if DRAW_WAV_TASK_ID_MAP
-        .get(&id_ch_str)
-        .is_none_or(|id| *id != task_id)
-    {
-        return Ok(None); // if new task has been started, return None
-    }
-    Ok(out)
-}
-
-#[napi]
 fn get_wav_metadata(id_ch_str: String) -> Result<WavMetadata> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     match TRACK_LIST.read().get(id) {
@@ -381,38 +330,6 @@ fn find_id_by_path(path: String) -> i32 {
         .read()
         .find_id_by_path(&path)
         .map_or(-1, |id| id as i32)
-}
-
-#[napi]
-async fn get_overview_drawing_info(
-    track_id: u32,
-    width: u32,
-    height: u32,
-    gap_height: f64,
-    limiter_gain_height_ratio: f64,
-    wav_stroke_width: f64,
-    topbottom_context_size: f64,
-) -> Option<OverviewDrawingInfo> {
-    assert!(width >= 1 && height >= 1);
-
-    let (internal, track_sec) = tokio_rayon::spawn(move || {
-        let tracklist = TRACK_LIST.read();
-        let track = tracklist.get(track_id as usize)?;
-        let internal = OverviewDrawingInfoInternal::new(
-            track,
-            width as f64,
-            tracklist.max_sec,
-            height as f64,
-            gap_height,
-            limiter_gain_height_ratio,
-            wav_stroke_width,
-            topbottom_context_size,
-        );
-        Some((internal, track.sec()))
-    })
-    .await?;
-
-    Some(OverviewDrawingInfo::new(internal, track_sec))
 }
 
 #[napi]

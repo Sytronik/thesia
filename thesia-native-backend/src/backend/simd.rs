@@ -87,6 +87,7 @@ where
     }
 }
 
+#[allow(unused)]
 pub fn find_max(slice: &[f32]) -> f32 {
     // Use SIMD if available, otherwise fall back to scalar
     #[cfg(target_arch = "aarch64")]

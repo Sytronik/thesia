@@ -1,31 +1,5 @@
 use super::super::spectrogram::SpecSetting;
 
-/// Heights of the overview
-/// height (total) = ch + gap + ... + ch
-/// ch = gain + ch_wo_gain + gain
-#[readonly::make]
-pub struct OverviewHeights {
-    pub ch: f64,
-    pub gap: f64,
-    pub gain: f64,
-    pub ch_wo_gain: f64,
-}
-
-impl OverviewHeights {
-    pub fn new(height: f64, gap: f64, n_ch: usize, gain_height_ratio: f64) -> Self {
-        let height_without_gap = height - gap * ((n_ch - 1) as f64);
-        let ch = height_without_gap / n_ch as f64;
-        let gain = ch * gain_height_ratio;
-        let ch_wo_gain = ch - 2. * gain;
-        OverviewHeights {
-            ch,
-            gap,
-            gain,
-            ch_wo_gain,
-        }
-    }
-}
-
 fn add_pre_post_margin(
     start: f64,
     length: f64,
@@ -106,89 +80,6 @@ impl SpectrogramSliceArgs {
             right_margin,
             top_margin,
             bottom_margin,
-        }
-    }
-}
-
-pub struct WavSliceArgs {
-    pub start_w_margin: usize,
-    pub length_w_margin: usize,
-    pub start_w_margin_f64: f64,
-    pub drawing_sec: f64,
-    pub pre_margin_sec: f64,
-    pub post_margin_sec: f64,
-    pub total_len: usize,
-}
-
-impl WavSliceArgs {
-    pub fn new(
-        sr: u32,
-        sec_range: (f64, f64),
-        px_per_samples: f64,
-        wav_len: usize,
-        margin_ratio: f64,
-    ) -> Self {
-        let px_per_sec = px_per_samples * sr as f64;
-        let start_px_f64 = sec_range.0 * px_per_sec;
-        let end_px_f64 = sec_range.1 * px_per_sec;
-        let length_px_f64 = end_px_f64 - start_px_f64;
-        let margin = (length_px_f64 * margin_ratio).round() as usize;
-        let (start_px_w_margin, length_px_w_margin, pre_margin_px, post_margin_px) =
-            add_pre_post_margin(
-                start_px_f64,
-                length_px_f64,
-                (wav_len as f64 * px_per_samples) as usize,
-                margin,
-            );
-
-        let (start_w_margin, length_w_margin) = (
-            (start_px_w_margin as f64 / px_per_samples).round() as usize,
-            (length_px_w_margin as f64 / px_per_samples).round() as usize,
-        ); // this rounding makes pre_margin_sec and post_margin_sec not accurate, but it's okay for human eyes
-        let start_w_margin_f64 = start_px_w_margin as f64 / px_per_samples;
-        let drawing_sec = length_px_w_margin as f64 / px_per_sec;
-        let (pre_margin_sec, post_margin_sec) =
-            (pre_margin_px / px_per_sec, post_margin_px / px_per_sec);
-        Self {
-            start_w_margin,
-            length_w_margin,
-            start_w_margin_f64,
-            drawing_sec,
-            pre_margin_sec,
-            post_margin_sec,
-            total_len: length_px_w_margin,
-        }
-    }
-}
-
-pub struct WavDrawingInfoSliceArgs {
-    pub start_w_margin: usize,
-    pub length_w_margin: usize,
-    pub drawing_sec: f64,
-    pub pre_margin_sec: f64,
-    pub post_margin_sec: f64,
-}
-
-impl WavDrawingInfoSliceArgs {
-    pub fn new(cache_len: usize, sec_range: (f64, f64), track_sec: f64, margin_ratio: f64) -> Self {
-        let cache_len_f64 = cache_len as f64;
-
-        let i_start = sec_range.0 / track_sec * cache_len_f64;
-        let i_end = sec_range.1 / track_sec * cache_len_f64;
-        let length_f64 = i_end - i_start;
-        let margin = (length_f64 * margin_ratio).round() as usize;
-        let (start_w_margin, length_w_margin, pre_margin, post_margin) =
-            add_pre_post_margin(i_start, length_f64, cache_len, margin);
-
-        let len_to_sec = track_sec / cache_len_f64;
-        let drawing_sec = length_w_margin as f64 * len_to_sec;
-        let (pre_margin_sec, post_margin_sec) = (pre_margin * len_to_sec, post_margin * len_to_sec);
-        Self {
-            start_w_margin,
-            length_w_margin,
-            drawing_sec,
-            pre_margin_sec,
-            post_margin_sec,
         }
     }
 }

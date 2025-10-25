@@ -7,10 +7,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ndarray::Array2;
 
-use crate::{
-    GuardClippingMode, OverviewDrawingInfoInternal, SpecSetting, SpectrogramSliceArgs,
-    WavDrawingInfoInternal, WavDrawingInfoKind,
-};
+use crate::{GuardClippingMode, SpecSetting, SpectrogramSliceArgs};
 
 #[napi(object)]
 pub struct UserSettingsOptionals {
@@ -88,106 +85,6 @@ pub struct WavMetadata {
     pub length: u32,
     pub sr: u32,
     pub is_clipped: bool,
-}
-
-#[napi(object)]
-#[derive(Default)]
-pub struct WavDrawingInfo {
-    pub line: Option<Buffer>,
-    pub top_envelope: Option<Buffer>,
-    pub bottom_envelope: Option<Buffer>,
-    pub start_sec: f64,
-    pub points_per_sec: f64,
-    pub pre_margin: f64,
-    pub post_margin: f64,
-    pub clip_values: Option<Vec<f64>>,
-}
-
-impl WavDrawingInfo {
-    pub fn new(internal: WavDrawingInfoInternal, start_sec: f64) -> Self {
-        if internal.drawing_sec == 0. {
-            return Self {
-                line: Some(Default::default()),
-                start_sec,
-                ..Default::default()
-            };
-        }
-        let base = Self {
-            start_sec,
-            ..Default::default()
-        };
-        match &internal.kind {
-            WavDrawingInfoKind::FillRect => base,
-            WavDrawingInfoKind::Line(line, clip_values) => {
-                let buf: &[u8] = bytemuck::cast_slice(line);
-
-                let points_per_sec = line.len() as f64 / internal.drawing_sec; // Internal에서 애초에 수정
-                Self {
-                    line: Some(buf.into()),
-                    points_per_sec,
-                    pre_margin: internal.pre_margin_sec * points_per_sec,
-                    post_margin: internal.post_margin_sec * points_per_sec,
-                    clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
-                    ..base
-                }
-            }
-            WavDrawingInfoKind::TopBottomEnvelope(top_envelope, bottom_envelope, clip_values) => {
-                let top_buf: &[u8] = bytemuck::cast_slice(top_envelope);
-                let bottom_buf: &[u8] = bytemuck::cast_slice(bottom_envelope);
-
-                let points_per_sec = top_envelope.len() as f64 / internal.drawing_sec;
-                Self {
-                    top_envelope: Some(top_buf.into()),
-                    bottom_envelope: Some(bottom_buf.into()),
-                    points_per_sec,
-                    pre_margin: internal.pre_margin_sec * points_per_sec,
-                    post_margin: internal.post_margin_sec * points_per_sec,
-                    clip_values: clip_values.map(|(x, y)| vec![x as f64, y as f64]),
-                    ..base
-                }
-            }
-        }
-    }
-}
-
-#[napi(object)]
-pub struct OverviewDrawingInfo {
-    pub ch_drawing_infos: Vec<WavDrawingInfo>,
-    pub limiter_gain_top_info: Option<WavDrawingInfo>,
-    pub limiter_gain_bottom_info: Option<WavDrawingInfo>,
-    pub ch_height: f64,
-    pub gap_height: f64,
-    pub limiter_gain_height: f64,
-    pub ch_wo_gain_height: f64,
-}
-
-impl OverviewDrawingInfo {
-    pub fn new(internal: OverviewDrawingInfoInternal, track_sec: f64) -> Self {
-        let OverviewDrawingInfoInternal {
-            ch_drawing_infos,
-            limiter_gain_infos,
-            heights,
-        } = internal;
-        let convert = |drawing_info_kind| {
-            WavDrawingInfo::new(
-                WavDrawingInfoInternal::new(drawing_info_kind, track_sec, 0., 0.),
-                0.,
-            )
-        };
-        let ch_drawing_infos = ch_drawing_infos.into_iter().map(convert).collect();
-        let (top, bottom) = limiter_gain_infos.map_or((None, None), |(top, bottom)| {
-            (Some(convert(top)), Some(convert(bottom)))
-        });
-        Self {
-            ch_drawing_infos,
-            limiter_gain_top_info: top,
-            limiter_gain_bottom_info: bottom,
-            ch_height: heights.ch,
-            gap_height: heights.gap,
-            limiter_gain_height: heights.gain,
-            ch_wo_gain_height: heights.ch_wo_gain,
-        }
-    }
 }
 
 #[inline]

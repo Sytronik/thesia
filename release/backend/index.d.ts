@@ -64,8 +64,6 @@ export declare function getMaxTrackHz(): number
 
 export declare function getMindB(): number
 
-export declare function getOverviewDrawingInfo(trackId: number, width: number, height: number, gapHeight: number, limiterGainHeightRatio: number, wavStrokeWidth: number, topbottomContextSize: number): Promise<OverviewDrawingInfo | null>
-
 export declare function getPath(trackId: number): string
 
 export declare function getPlayerState(): PlayerState
@@ -80,8 +78,6 @@ export declare function getSpectrogram(idChStr: string, secRange: [number, numbe
 
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
 
-export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
-
 export declare function getWavMetadata(idChStr: string): WavMetadata
 
 export declare const enum GuardClippingMode {
@@ -93,16 +89,6 @@ export declare const enum GuardClippingMode {
 export declare function hzToLabel(hz: number): string
 
 export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number): UserSettings
-
-export interface OverviewDrawingInfo {
-  chDrawingInfos: Array<WavDrawingInfo>
-  limiterGainTopInfo?: WavDrawingInfo
-  limiterGainBottomInfo?: WavDrawingInfo
-  chHeight: number
-  gapHeight: number
-  limiterGainHeight: number
-  chWoGainHeight: number
-}
 
 export declare function pausePlayer(): Promise<void>
 
@@ -172,17 +158,6 @@ export interface UserSettingsOptionals {
   dBRange?: number
   commonGuardClipping?: GuardClippingMode
   commonNormalize?: any
-}
-
-export interface WavDrawingInfo {
-  line?: Buffer
-  topEnvelope?: Buffer
-  bottomEnvelope?: Buffer
-  startSec: number
-  pointsPerSec: number
-  preMargin: number
-  postMargin: number
-  clipValues?: Array<number>
 }
 
 export interface WavMetadata {
