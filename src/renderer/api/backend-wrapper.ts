@@ -118,6 +118,14 @@ export function getWav(idChStr: string): WavInfo | null {
   return {wav, sr, isClipped};
 }
 
+export function getLimiterGainSeq(trackId: number, numCh: number): WasmFloat32Array | null {
+  const length = backend.getLimiterGainLength(trackId);
+  if (length === 0) return null;
+  const [wav, view] = WasmAPI.createWasmFloat32Array(length * numCh);
+  backend.assignLimiterGainTo(view, trackId);
+  return wav;
+}
+
 export type WavDrawingInfo = {
   line: Float32Array | null;
   topEnvelope: Float32Array | null;

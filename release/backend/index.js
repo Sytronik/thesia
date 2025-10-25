@@ -510,6 +510,7 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports.addTracks = nativeBinding.addTracks
 module.exports.applyTrackListChanges = nativeBinding.applyTrackListChanges
+module.exports.assignLimiterGainTo = nativeBinding.assignLimiterGainTo
 module.exports.assignWavTo = nativeBinding.assignWavTo
 module.exports.findIdByPath = nativeBinding.findIdByPath
 module.exports.freqHzToPos = nativeBinding.freqHzToPos
@@ -528,6 +529,7 @@ module.exports.getFreqAxisMarkers = nativeBinding.getFreqAxisMarkers
 module.exports.getGlobalLUFS = nativeBinding.getGlobalLUFS
 module.exports.getGuardClipStats = nativeBinding.getGuardClipStats
 module.exports.getLengthSec = nativeBinding.getLengthSec
+module.exports.getLimiterGainLength = nativeBinding.getLimiterGainLength
 module.exports.getLongestTrackLengthSec = nativeBinding.getLongestTrackLengthSec
 module.exports.getMaxdB = nativeBinding.getMaxdB
 module.exports.getMaxPeakdB = nativeBinding.getMaxPeakdB

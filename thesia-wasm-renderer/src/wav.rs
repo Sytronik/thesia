@@ -82,40 +82,48 @@ struct TransformParams {
     v2y_offset: f32,
 }
 
-struct WavLinePoints {
+pub(crate) struct WavLinePoints {
     xs: Vec<f32>,
     ys: Vec<f32>,
 }
 
 impl WavLinePoints {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             xs: Vec::new(),
             ys: Vec::new(),
         }
     }
 
-    fn with_capacity(capacity: usize) -> Self {
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             xs: Vec::with_capacity(capacity),
             ys: Vec::with_capacity(capacity),
         }
     }
 
-    fn push(&mut self, x: f32, y: f32) {
+    pub(crate) fn upside_down(&self) -> Self {
+        let mut out = Self::new();
+        for (x, y) in self.xs.iter().zip(self.ys.iter()) {
+            out.push(*x, -*y);
+        }
+        out
+    }
+
+    pub(crate) fn push(&mut self, x: f32, y: f32) {
         self.xs.push(x);
         self.ys.push(y);
     }
 
-    fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.xs.is_empty()
     }
 
-    fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.xs.len()
     }
 
-    fn try_into_path(self) -> Result<Path2d, JsValue> {
+    pub(crate) fn try_into_path(self) -> Result<Path2d, JsValue> {
         let path = Path2d::new()?;
         if self.is_empty() {
             return Ok(path);
@@ -125,6 +133,12 @@ impl WavLinePoints {
             path.line_to(x as f64, y as f64);
         }
         Ok(path)
+    }
+
+    pub(crate) fn shift_y_inplace(&mut self, offset_y: f32) {
+        for y in &mut self.ys {
+            *y += offset_y;
+        }
     }
 
     fn slice_transform(

@@ -418,6 +418,42 @@ async fn get_overview_drawing_info(
 }
 
 #[napi]
+fn get_limiter_gain_length(track_id: u32) -> u32 {
+    let tracklist = TRACK_LIST.read();
+    tracklist.get(track_id as usize).map_or(0, |track| {
+        if let GuardClippingResult::GainSequence(gain_seq) = track.guard_clip_result()
+            && gain_seq.iter().any(|&x| x < 1.)
+        {
+            gain_seq.shape()[1] as u32
+        } else {
+            0
+        }
+    })
+}
+
+#[napi]
+fn assign_limiter_gain_to(mut arr: Float32Array, track_id: u32) -> Result<()> {
+    let tracklist = TRACK_LIST.read();
+    match tracklist.get(track_id as usize) {
+        Some(track) => {
+            if let GuardClippingResult::GainSequence(gain_seq) = track.guard_clip_result() {
+                let arr_mut = unsafe { arr.as_mut() };
+                for (&x, y) in gain_seq.iter().zip(arr_mut.iter_mut()) {
+                    *y = x;
+                }
+                Ok(())
+            } else {
+                Err(napi::Error::new(
+                    Status::InvalidArg,
+                    "Guard clipping result is not a gain sequence",
+                ))
+            }
+        }
+        None => Ok(()),
+    }
+}
+
+#[napi]
 fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, f64)) -> f64 {
     assert!(height >= 1);
 

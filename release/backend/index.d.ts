@@ -4,6 +4,8 @@ export declare function addTracks(idList: Array<number>, pathList: Array<string>
 
 export declare function applyTrackListChanges(): Promise<Array<string>>
 
+export declare function assignLimiterGainTo(arr: Float32Array, trackId: number): void
+
 export declare function assignWavTo(arr: Float32Array, idChStr: string): void
 
 export interface AudioFormatInfo {
@@ -49,6 +51,8 @@ export declare function getGlobalLUFS(trackId: number): number
 export declare function getGuardClipStats(trackId: number): any
 
 export declare function getLengthSec(trackId: number): number
+
+export declare function getLimiterGainLength(trackId: number): number
 
 export declare function getLongestTrackLengthSec(): number
 
