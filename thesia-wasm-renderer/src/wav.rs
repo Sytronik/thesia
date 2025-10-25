@@ -548,7 +548,7 @@ fn calc_line_envelope_points(
 
     let x_scale = px_per_sec / sr_f32;
     let x_offset = -options.start_sec * px_per_sec;
-    let idx_to_x = |idx| (idx as f32).mul_add(x_scale, x_offset);
+    let idx_to_x = |i| (i as f32).mul_add(x_scale, x_offset);
     let floor_x = |x: f32| ((x - x_offset) / options.scale).floor() * options.scale + x_offset;
 
     let (clip_min, clip_max) = options
@@ -648,14 +648,19 @@ fn calc_line_envelope_points(
 
     // Handle remaining envelope
     if !current_envlp.is_empty() {
-        envelopes.push(current_envlp);
-
+        let last_x = idx_to_x(i_end - 1);
+        let last_x_floor = floor_x(last_x);
+        let last_x_mid = last_x_floor + options.scale / 2.0;
+        let last_x_ceil = last_x_floor + options.scale;
         let last_y = if i_end > 0 && i_end <= wav_len {
             wav_to_y(wav[i_end - 1])
         } else {
             wav_to_y(0.0)
         };
-        line_points.push(floor_x(idx_to_x(i_end - 1)), last_y);
+
+        current_envlp.push(last_x_ceil, last_y, last_y);
+        envelopes.push(current_envlp);
+        line_points.push(last_x_mid, last_y);
     }
     (line_points, Some(envelopes))
 }
