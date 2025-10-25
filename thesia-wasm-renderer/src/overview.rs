@@ -45,7 +45,7 @@ pub fn draw_overview(
 
     let amp_range = id_ch_arr
         .iter()
-        .map(|id_ch| wav_caches.get(id_ch).unwrap().cache_amp_range)
+        .map(|id_ch| wav_caches.get(id_ch).unwrap().cache_amp_range())
         .fold((-1.0f32, 1.0f32), |acc_amp_range, amp_range| {
             (
                 acc_amp_range.0.min(amp_range.0),
@@ -88,7 +88,7 @@ pub fn draw_overview(
             options.offset_y += overview_heights.gain;
         }
 
-        if wav_caches.get(id_ch).unwrap().is_clipped {
+        if wav_caches.get(id_ch).unwrap().is_clipped() {
             draw_wav_internal(ctx, id_ch, width, height_ch, &options, WAV_CLIPPING_COLOR)?;
             options.clip_values = Some((-1., 1.));
         }

@@ -254,8 +254,8 @@ impl WavDrawingOptions {
 pub(crate) struct WavCache {
     wav: Vec<f32>,
     sr: u32,
-    pub(crate) is_clipped: bool,
-    pub(crate) cache_amp_range: (f32, f32),
+    is_clipped: bool,
+    cache_amp_range: (f32, f32),
     line_points_cache: WavLinePoints,
     envelopes_cache: Vec<WavEnvelope>,
 }
@@ -340,6 +340,14 @@ impl WavCache {
         }
 
         (xformed_line_points, Some(xformed_envelopes))
+    }
+
+    pub fn is_clipped(&self) -> bool {
+        self.is_clipped
+    }
+
+    pub fn cache_amp_range(&self) -> (f32, f32) {
+        self.cache_amp_range
     }
 }
 
