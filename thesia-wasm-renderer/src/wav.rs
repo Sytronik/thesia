@@ -297,8 +297,8 @@ impl WavEnvelope {
 pub(crate) struct WavCache {
     wav: Vec<f32>,
     sr: u32,
-    is_clipped: bool,
-    cache_amp_range: (f32, f32),
+    pub(crate) is_clipped: bool,
+    pub(crate) cache_amp_range: (f32, f32),
     line_points_cache: WavLinePoints,
     envelopes_cache: Vec<WavEnvelope>,
 }
@@ -348,7 +348,16 @@ pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
 
 #[wasm_bindgen(js_name = setWav)]
 pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool) {
-    let wav_cache = WavCache::new(wav.into(), sr, is_clipped);
+    let wav: Vec<_> = wav.into();
+    if let Some(wav_cache) = WAV_CACHES.read().unwrap().get(id_ch_str)
+        && wav_cache.wav.len() == wav.len()
+        && wav_cache.sr == sr
+        && wav_cache.is_clipped == is_clipped
+        && wav_cache.wav.iter().zip(wav.iter()).all(|(a, b)| a == b)
+    {
+        return; // TODO: remove duplicated calls at the first place
+    }
+    let wav_cache = WavCache::new(wav, sr, is_clipped);
     WAV_CACHES
         .write()
         .unwrap()

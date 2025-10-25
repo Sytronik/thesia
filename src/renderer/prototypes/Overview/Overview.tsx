@@ -196,6 +196,12 @@ function Overview(props: OverviewProps) {
 
     if (!ctx) return;
 
+    idChArr.forEach((idCh) => {
+      const wavInfo = BackendAPI.getWav(idCh);
+      if (wavInfo === null) return;
+      const {wav, sr, isClipped} = wavInfo;
+      WasmAPI.setWav(idCh, wav, sr, isClipped);
+    }); // TODO: this is duplicated with ImgCanvas.tsx
     WasmAPI.drawOverview(backgroundElem.current, ctx, idChArr, width, height, maxTrackSec);
 
     /*

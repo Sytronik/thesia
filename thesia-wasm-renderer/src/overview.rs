@@ -3,7 +3,10 @@ use std::sync::atomic::Ordering;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
-use crate::wav::{DEVICE_PIXEL_RATIO, WAV_CACHES, WAV_COLOR, WavDrawingOptions, draw_wav_internal};
+use crate::wav::{
+    DEVICE_PIXEL_RATIO, WAV_CACHES, WAV_CLIPPING_COLOR, WAV_COLOR, WavDrawingOptions,
+    draw_wav_internal,
+};
 
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
 const OVERVIEW_GAIN_HEIGHT_RATIO: f32 = 0.2;
@@ -31,22 +34,47 @@ pub fn draw_overview(
     ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
 
     let wav_caches = WAV_CACHES.read().unwrap();
+    if id_ch_arr
+        .iter()
+        .any(|id_ch| wav_caches.get(id_ch).is_none())
+    {
+        return Ok(());
+    }
+
+    let amp_range = id_ch_arr
+        .iter()
+        .map(|id_ch| wav_caches.get(id_ch).unwrap().cache_amp_range)
+        .fold((-1.0f32, 1.0f32), |acc_amp_range, amp_range| {
+            (
+                acc_amp_range.0.min(amp_range.0),
+                acc_amp_range.1.max(amp_range.1),
+            )
+        });
+    let mut options = WavDrawingOptions {
+        px_per_sec: css_width as f32 / max_track_sec,
+        amp_range,
+        scale: 1.0,
+        line_width: OVERVIEW_LINE_WIDTH,
+        need_border_for_envelope: false,
+        need_border_for_line: false,
+        ..Default::default()
+    };
     for (i, id_ch) in id_ch_arr.iter().enumerate() {
-        if wav_caches.get(id_ch).is_none() {
-            return Ok(());
+        options.offset_y = i as f32 * (overview_heights.ch + overview_heights.gap);
+        options.clip_values = None;
+
+        if wav_caches.get(id_ch).unwrap().is_clipped {
+            draw_wav_internal(
+                ctx,
+                id_ch,
+                width,
+                overview_heights.ch,
+                &options,
+                WAV_CLIPPING_COLOR,
+            )?;
+            options.clip_values = Some((-1., 1.));
         }
 
-        let options = WavDrawingOptions {
-            start_sec: 0.0,
-            px_per_sec: css_width as f32 / max_track_sec,
-            amp_range: (-1.0, 1.0),
-            offset_y: i as f32 * (overview_heights.ch + overview_heights.gap),
-            clip_values: None,
-            scale: 1.0,
-            line_width: OVERVIEW_LINE_WIDTH,
-            need_border_for_envelope: false,
-            need_border_for_line: false,
-        };
         draw_wav_internal(ctx, id_ch, width, overview_heights.ch, &options, WAV_COLOR)?;
     }
     Ok(())
