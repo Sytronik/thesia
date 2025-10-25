@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
 
 use crate::mem::WasmFloat32Array;
-use crate::simd::{add_scalar_inplace, clamp_inplace, find_min_max, fused_mul_add};
+use crate::simd::{add_scalar_inplace, clamp_inplace, find_min_max, fused_mul_add, negate};
 
 pub(crate) const WAV_COLOR: &str = "rgb(19, 137, 235)";
 pub(crate) const WAV_CLIPPING_COLOR: &str = "rgb(196, 34, 50)";
@@ -102,14 +102,6 @@ impl WavLinePoints {
         }
     }
 
-    pub(crate) fn upside_down(&self) -> Self {
-        let mut out = Self::new();
-        for (x, y) in self.xs.iter().zip(self.ys.iter()) {
-            out.push(*x, -*y);
-        }
-        out
-    }
-
     pub(crate) fn push(&mut self, x: f32, y: f32) {
         self.xs.push(x);
         self.ys.push(y);
@@ -136,9 +128,14 @@ impl WavLinePoints {
     }
 
     pub(crate) fn shift_y_inplace(&mut self, offset_y: f32) {
-        for y in &mut self.ys {
-            *y += offset_y;
-        }
+        add_scalar_inplace(&mut self.ys, offset_y);
+    }
+
+    pub(crate) fn upside_down(&self) -> Self {
+        let mut out = Self::with_capacity(self.len());
+        out.xs = self.xs.clone();
+        negate(&self.ys, &mut out.ys);
+        out
     }
 
     fn slice_transform(

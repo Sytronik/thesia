@@ -241,3 +241,63 @@ pub(crate) fn clamp_inplace(values: &mut [f32], min: f32, max: f32) {
         clamp_inplace_scalar(values, min, max);
     }
 }
+
+/// Negate values: out[i] = -values[i]
+#[allow(unused)]
+#[inline]
+fn negate_scalar(values: &[f32], out: &mut Vec<f32>) {
+    for &v in values {
+        out.push(-v);
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+#[inline]
+unsafe fn negate_simd(values: &[f32], out: &mut Vec<f32>) {
+    let len = values.len();
+    let mut i = 0;
+    let ptr = values.as_ptr();
+    let neg_one = f32x4_splat(-1.0);
+
+    // Reserve capacity for the output
+    out.reserve(len);
+    let out_ptr = out.as_mut_ptr();
+    let old_len = out.len();
+
+    // Process 4 elements at a time
+    while i + 4 <= len {
+        unsafe {
+            let v = v128_load(ptr.add(i) as *const _);
+            let result = f32x4_mul(v, neg_one);
+
+            // Write directly to Vec's memory
+            v128_store(out_ptr.add(old_len + i) as *mut _, result);
+        }
+        i += 4;
+    }
+
+    // Update length
+    unsafe {
+        out.set_len(old_len + i);
+    }
+
+    // Process remainder
+    while i < len {
+        unsafe {
+            out.push(-*ptr.add(i));
+        }
+        i += 1;
+    }
+}
+
+#[inline]
+pub(crate) fn negate(values: &[f32], out: &mut Vec<f32>) {
+    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    unsafe {
+        negate_simd(values, out);
+    }
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
+    {
+        negate_scalar(values, out);
+    }
+}
