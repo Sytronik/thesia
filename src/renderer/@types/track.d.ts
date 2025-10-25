@@ -8,7 +8,6 @@ type IdChMap = Map<number, IdChArr>;
 type Spectrogram = import("../api").Spectrogram;
 type Spectrograms = import("../api").Spectrograms;
 type WavMetadata = import("../api").WavMetadata;
-type WavDrawingInfo = import("../api").WavDrawingInfo;
 
 type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | React.KeyboardEvent;
 
