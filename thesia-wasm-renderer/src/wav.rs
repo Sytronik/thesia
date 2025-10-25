@@ -344,11 +344,6 @@ impl WavCache {
     }
 }
 
-#[wasm_bindgen(js_name = getWavImgScale)]
-pub fn get_wav_img_scale() -> f32 {
-    WAV_IMG_SCALE
-}
-
 #[wasm_bindgen(js_name = setDevicePixelRatio)]
 pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
     DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
@@ -514,6 +509,30 @@ pub fn draw_wav(
     draw_wav_internal(ctx, id_ch_str, width, height, &options, WAV_COLOR)?;
 
     Ok(())
+}
+
+#[wasm_bindgen(js_name = clearWav)]
+pub fn clear_wav(
+    canvas: Option<HtmlCanvasElement>,
+    ctx: Option<CanvasRenderingContext2d>,
+    css_width: u32,
+    css_height: u32,
+) {
+    let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
+    let width = css_width as f32 * dpr;
+    let height = css_height as f32 * dpr;
+    if let Some(canvas) = canvas {
+        canvas.set_width(width.round() as u32);
+        canvas.set_height(height.round() as u32);
+    }
+    if let Some(ctx) = ctx {
+        ctx.clear_rect(
+            0.,
+            0.,
+            (width * WAV_IMG_SCALE) as f64,
+            (height * WAV_IMG_SCALE) as f64,
+        );
+    }
 }
 
 fn calc_line_envelope_points(

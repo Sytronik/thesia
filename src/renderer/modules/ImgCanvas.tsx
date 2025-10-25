@@ -44,8 +44,6 @@ type ImgTooltipInfo = {pos: number[]; lines: string[]};
 
 const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
 
-let WAV_IMG_SCALE = 0.0;
-
 const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const {
     idChStr,
@@ -62,10 +60,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     needRefresh,
     hidden,
   } = props;
-
-  if (WAV_IMG_SCALE === 0.0) {
-    WAV_IMG_SCALE = WasmAPI.getWavImgScale();
-  }
 
   const endSec = startSec + width / (pxPerSec + 1e-8);
 
@@ -310,16 +304,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   useEffect(() => {
     if (needHideWav) {
       if (wavCanvasElem.current) {
-        wavCanvasElem.current.width = width * devicePixelRatio;
-        wavCanvasElem.current.height = height * devicePixelRatio;
         wavCanvasElem.current.style.opacity = "0";
       }
-      wavCtxRef.current?.clearRect(
-        0,
-        0,
-        width * devicePixelRatio * WAV_IMG_SCALE,
-        height * devicePixelRatio * WAV_IMG_SCALE,
-      );
+      WasmAPI.clearWav(wavCanvasElem.current, wavCtxRef.current, width, height);
       return () => {};
     }
     drawWavImageRef.current = drawWavImage;

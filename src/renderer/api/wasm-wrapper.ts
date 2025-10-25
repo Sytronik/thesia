@@ -1,10 +1,10 @@
 import init, {
-  drawOverview,
-  drawWav,
-  setWav,
-  getWavImgScale,
-  setDevicePixelRatio,
   WasmFloat32Array,
+  setDevicePixelRatio,
+  setWav,
+  drawWav,
+  clearWav,
+  drawOverview,
 } from "thesia-wasm-renderer";
 
 let wasmInitialized = false;
@@ -46,10 +46,10 @@ export {WasmFloat32Array};
 export default {
   initWasm,
   isWasmInitialized,
-  drawWav,
-  setWav,
-  drawOverview,
-  getWavImgScale,
-  setDevicePixelRatio,
   createWasmFloat32Array,
+  setDevicePixelRatio,
+  setWav,
+  drawWav,
+  clearWav,
+  drawOverview,
 };
