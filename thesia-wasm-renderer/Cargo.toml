@@ -10,20 +10,17 @@ crate-type = ["cdylib"]
 
 [dependencies]
 atomic_float = {workspace = true}
-js-sys = "0.3"
-wasm-bindgen = "0.2"
+js-sys = "0.3.81"
+wasm-bindgen = "0.2.104"
 
 [dependencies.web-sys]
 features = [
   "CanvasRenderingContext2d",
-  "Document",
-  "Element",
   "HtmlCanvasElement",
   "Path2d",
-  "Window",
   "console",
 ]
-version = "0.3"
+version = "0.3.81"
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-simd", "-O"]
