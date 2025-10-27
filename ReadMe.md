@@ -27,8 +27,9 @@ This project is in a very early stage.
 2. Install npm packages & build
    ```bash
    # clone thesia repo & cd to the directory
-   npm install -g @napi-rs/cli
+   npm install -g @napi-rs/cli wasm-pack
    npm run build:backend
+   npm run build:wasm
    npm install
    ```
 
