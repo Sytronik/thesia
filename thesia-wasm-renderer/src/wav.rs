@@ -351,6 +351,7 @@ impl WavCache {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct WavLinePoints {
     xs: Vec<f32>,
     ys: Vec<f32>,
@@ -457,6 +458,7 @@ impl TryFrom<WavLinePoints> for Path2d {
     }
 }
 
+#[derive(Debug)]
 struct WavEnvelope {
     xs: Vec<f32>,
     tops: Vec<f32>,
@@ -611,8 +613,9 @@ fn calc_line_envelope_points(
     let i_start = (options.start_sec * sr_f32 - margin_samples)
         .floor()
         .max(0.0) as usize;
-    let i_end =
-        (options.start_sec * sr_f32 + width / px_per_sec * sr_f32 + margin_samples).ceil() as usize;
+    let i_end = wav.len().min(
+        (options.start_sec * sr_f32 + width / px_per_sec * sr_f32 + margin_samples).ceil() as usize,
+    );
 
     if px_per_sec >= sr_f32 {
         let mut line_points = WavLinePoints::new();
@@ -628,11 +631,10 @@ fn calc_line_envelope_points(
     let mut current_envlp = WavEnvelope::new();
     let mut envelopes = Vec::new();
 
-    let wav_len = wav.len();
     let mut i = i_start;
     let mut i_prev = i;
 
-    while i < i_end.min(wav_len) {
+    while i < i_end {
         let x = idx_to_x(i);
         let y = wav_to_y(wav[i]);
 
@@ -642,7 +644,7 @@ fn calc_line_envelope_points(
         let mut i2 = i_prev;
         let mut i_next = i_end;
 
-        while i2 < i_end.min(wav_len) {
+        while i2 < i_end {
             let x2 = idx_to_x(i2);
             let x2_floor = floor_x(x2);
             if x2_floor > x_floor && i_next == i_end {
@@ -655,7 +657,7 @@ fn calc_line_envelope_points(
         }
 
         if i2 == i_prev {
-            i2 = (i_prev + 1).min(i_end.min(wav_len));
+            i2 = (i_prev + 1).min(i_end);
         }
 
         let (min_v, max_v) = find_min_max(&wav[i_prev..i2]);
@@ -701,11 +703,7 @@ fn calc_line_envelope_points(
         let last_x_floor = floor_x(last_x);
         let last_x_mid = last_x_floor + options.scale / 2.0;
         let last_x_ceil = last_x_floor + options.scale;
-        let last_y = if i_end > 0 && i_end <= wav_len {
-            wav_to_y(wav[i_end - 1])
-        } else {
-            wav_to_y(0.0)
-        };
+        let last_y = wav_to_y(if i_end > 0 { wav[i_end - 1] } else { 0.0 });
 
         current_envlp.push(last_x_ceil, last_y, last_y);
         envelopes.push(current_envlp);
