@@ -1,7 +1,9 @@
 use std::cell::RefCell;
+use std::fs;
 use std::io;
 use std::path::Path;
 
+use anyhow;
 use kittyaudio::Frame;
 use napi_derive::napi;
 use ndarray::prelude::*;
@@ -23,8 +25,8 @@ pub struct Audio {
     wavs: Array2<f32>,
     pub sr: u32,
     pub stats: AudioStats,
-    pub guard_clip_result: GuardClippingResult<Ix2>,
-    pub guard_clip_stats: Array1<GuardClippingStats>,
+    guard_clip_result: GuardClippingResult<Ix2>,
+    guard_clip_stats: Array1<GuardClippingStats>,
 }
 
 impl Audio {
@@ -63,6 +65,57 @@ impl Audio {
     #[inline]
     pub fn channel(&'_ self, ch: usize) -> ArrayView1<'_, f32> {
         self.wavs.slice(s![ch, ..])
+    }
+
+    #[inline]
+    pub fn channel_for_drawing(&'_ self, ch: usize) -> (ArrayView1<'_, f32>, bool) {
+        match &self.guard_clip_result {
+            GuardClippingResult::WavBeforeClip(before_clip) => {
+                (before_clip.slice(s![ch, ..]), true)
+            }
+            _ => (self.wavs.slice(s![ch, ..]), false),
+        }
+    }
+
+    #[inline]
+    pub fn guard_clipping_gain_info(&self) -> Option<(bool, usize)> {
+        match &self.guard_clip_result {
+            GuardClippingResult::GainSequence(gain_seq) => {
+                Some((gain_seq.iter().any(|&x| x < 1.), gain_seq.shape()[1]))
+            }
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn assign_guard_clipping_gain_to(&self, arr: &mut [f32]) -> anyhow::Result<()> {
+        if let GuardClippingResult::GainSequence(gain_seq) = &self.guard_clip_result {
+            arr.copy_from_slice(gain_seq.as_slice().unwrap());
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Guard clipping result is not a gain sequence"
+            ))
+        }
+    }
+
+    #[inline]
+    pub fn format_guard_clip_stats(
+        &self,
+        mode: GuardClippingMode,
+        format_ch_stat: impl Fn((isize, &GuardClippingStats)) -> Option<(isize, String)>,
+    ) -> Vec<(isize, String)> {
+        match mode {
+            GuardClippingMode::Clip => self
+                .guard_clip_stats
+                .indexed_iter()
+                .map(|(ch, stat)| (ch as isize, stat))
+                .filter_map(format_ch_stat)
+                .collect(),
+            _ => std::iter::once((-1, &self.guard_clip_stats[0]))
+                .filter_map(format_ch_stat)
+                .collect(),
+        }
     }
 
     #[inline]
@@ -218,7 +271,7 @@ impl AudioFormatInfo {
 }
 
 pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), SymphoniaError> {
-    let src = std::fs::File::open(path)?;
+    let src = fs::File::open(path)?;
 
     // Create the media source stream.
     let mss = MediaSourceStream::new(Box::new(src), Default::default());

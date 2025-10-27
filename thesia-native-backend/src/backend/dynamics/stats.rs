@@ -95,8 +95,8 @@ where
 #[derive(Clone, Default, PartialEq)]
 #[allow(non_snake_case)]
 pub struct GuardClippingStats {
-    pub max_reduction_gain_dB: f32,
-    pub reduction_cnt: usize,
+    max_reduction_gain_dB: f32,
+    reduction_cnt: usize,
 }
 
 impl Display for GuardClippingStats {

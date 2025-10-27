@@ -11,8 +11,7 @@ use symphonia::core::errors::Error as SymphoniaError;
 use super::IdChVec;
 use super::audio::{Audio, AudioFormatInfo, open_audio_file};
 use super::dynamics::{
-    AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
-    NormalizeTarget, StatCalculator,
+    AudioStats, GuardClippingMode, GuardClippingStats, Normalize, NormalizeTarget, StatCalculator,
 };
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
@@ -104,12 +103,7 @@ impl AudioTrack {
 
     #[inline]
     pub fn channel_for_drawing(&'_ self, ch: usize) -> (ArrayView1<'_, f32>, bool) {
-        match self.guard_clip_result() {
-            GuardClippingResult::WavBeforeClip(before_clip) => {
-                (before_clip.slice(s![ch, ..]), true)
-            }
-            _ => (self.channel(ch), false),
-        }
+        self.audio.channel_for_drawing(ch)
     }
 
     #[inline]
@@ -145,13 +139,22 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn guard_clip_result(&self) -> &GuardClippingResult<Ix2> {
-        &self.audio.guard_clip_result
+    pub fn guard_clipping_gain_info(&self) -> Option<(bool, usize)> {
+        self.audio.guard_clipping_gain_info()
     }
 
     #[inline]
-    pub fn guard_clip_stats(&'_ self) -> ArrayView1<'_, GuardClippingStats> {
-        self.audio.guard_clip_stats.view()
+    pub fn assign_guard_clipping_gain_to(&self, arr: &mut [f32]) -> anyhow::Result<()> {
+        self.audio.assign_guard_clipping_gain_to(arr)
+    }
+
+    #[inline]
+    pub fn format_guard_clip_stats(
+        &self,
+        mode: GuardClippingMode,
+        format_ch_stat: impl Fn((isize, &GuardClippingStats)) -> Option<(isize, String)>,
+    ) -> Vec<(isize, String)> {
+        self.audio.format_guard_clip_stats(mode, format_ch_stat)
     }
 }
 

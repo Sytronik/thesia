@@ -335,35 +335,22 @@ fn find_id_by_path(path: String) -> i32 {
 #[napi]
 fn get_limiter_gain_length(track_id: u32) -> u32 {
     let tracklist = TRACK_LIST.read();
-    tracklist.get(track_id as usize).map_or(0, |track| {
-        if let GuardClippingResult::GainSequence(gain_seq) = track.guard_clip_result()
-            && gain_seq.iter().any(|&x| x < 1.)
-        {
-            gain_seq.shape()[1] as u32
-        } else {
-            0
-        }
-    })
+    tracklist
+        .get(track_id as usize)
+        .and_then(|track| track.guard_clipping_gain_info())
+        .map_or(
+            0,
+            |(reduced, length)| if reduced { length as u32 } else { 0 },
+        )
 }
 
 #[napi]
 fn assign_limiter_gain_to(mut arr: Float32Array, track_id: u32) -> Result<()> {
     let tracklist = TRACK_LIST.read();
     match tracklist.get(track_id as usize) {
-        Some(track) => {
-            if let GuardClippingResult::GainSequence(gain_seq) = track.guard_clip_result() {
-                let arr_mut = unsafe { arr.as_mut() };
-                for (&x, y) in gain_seq.iter().zip(arr_mut.iter_mut()) {
-                    *y = x;
-                }
-                Ok(())
-            } else {
-                Err(napi::Error::new(
-                    Status::InvalidArg,
-                    "Guard clipping result is not a gain sequence",
-                ))
-            }
-        }
+        Some(track) => track
+            .assign_guard_clipping_gain_to(unsafe { arr.as_mut() })
+            .map_err(|e| napi::Error::new(Status::InvalidArg, e.to_string())),
         None => Ok(()),
     }
 }
@@ -560,20 +547,12 @@ fn get_guard_clip_stats(track_id: u32) -> serde_json::Value {
     let prefix = mode.to_string();
     match tracklist.get(track_id as usize) {
         Some(track) => {
-            let format_ch_stat = |(ch, stat): (isize, String)| {
-                (!stat.is_empty()).then_some((ch, format!("{} by {}", &prefix, stat)))
+            let format_ch_stat = move |(ch, stat): (isize, &GuardClippingStats)| {
+                let stat_str = stat.to_string();
+                (!stat_str.is_empty())
+                    .then_some((ch as isize, format!("{} by {}", &prefix, stat_str)))
             };
-            let vec: Vec<_> = match mode {
-                GuardClippingMode::Clip => track
-                    .guard_clip_stats()
-                    .indexed_iter()
-                    .map(|(ch, stat)| (ch as isize, stat.to_string()))
-                    .filter_map(format_ch_stat)
-                    .collect(),
-                _ => std::iter::once((-1, track.guard_clip_stats()[0].to_string()))
-                    .filter_map(format_ch_stat)
-                    .collect(),
-            };
+            let vec = track.format_guard_clip_stats(mode, format_ch_stat);
             json!(vec)
         }
         None => json!([]),
