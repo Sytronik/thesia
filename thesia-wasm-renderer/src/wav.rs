@@ -320,13 +320,13 @@ impl WavCache {
         let start_x = (-WAV_MARGIN_PX - x_offset) / x_scale;
         let end_x = (width + WAV_MARGIN_PX - x_offset) / x_scale;
 
-        let line_capacity =
+        let line_len_hint =
             ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize;
         let xformed_line_points = self.line_points_cache.slice_transform(
             start_x,
             end_x,
             &transform_params,
-            Some(line_capacity),
+            Some(line_len_hint),
         );
 
         let mut xformed_envelopes = Vec::new();
@@ -413,10 +413,10 @@ impl WavLinePoints {
         start_x: f32,
         end_x: f32,
         params: &TransformParams,
-        capacity: Option<usize>,
+        len_hint: Option<usize>,
     ) -> Self {
-        let mut out = capacity.map_or_else(Self::new, Self::with_capacity);
-        let mut tmp = Vec::with_capacity(self.len());
+        let mut out = len_hint.map_or_else(Self::new, Self::with_capacity);
+        let mut tmp = len_hint.map_or_else(Vec::new, Vec::with_capacity);
         let mut i_start = self.len();
         let mut i_end = self.len();
         for (i, x) in self.xs.iter().enumerate() {
@@ -530,12 +530,12 @@ impl WavEnvelope {
         start_x: f32,
         end_x: f32,
         params: &TransformParams,
-        capacity: Option<usize>,
+        len_hint: Option<usize>,
     ) -> Self {
-        let mut out = capacity.map_or_else(Self::new, Self::with_capacity);
+        let mut out = len_hint.map_or_else(Self::new, Self::with_capacity);
+        let mut tmp = len_hint.map_or_else(Vec::new, Vec::with_capacity);
         let mut i_start = self.len();
         let mut i_end = self.len();
-        let mut tmp = Vec::with_capacity(self.len());
         for (i, x) in self.xs.iter().enumerate() {
             if *x < start_x {
                 continue;
