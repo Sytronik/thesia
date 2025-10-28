@@ -86,17 +86,26 @@ pub fn draw_wav(
         }
     };
 
-    if is_clipped {
+    let upsampled_wav_sr = if is_clipped {
         let options = WavDrawingOptions {
             start_sec,
             px_per_sec,
             amp_range: (amp_range_min, amp_range_max),
             ..Default::default()
         };
-        draw_wav_internal(ctx, id_ch_str, width, height, &options, WAV_CLIPPING_COLOR)?;
+        draw_wav_internal(
+            ctx,
+            id_ch_str,
+            width,
+            height,
+            &options,
+            WAV_CLIPPING_COLOR,
+            None,
+        )?
     } else {
         ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
-    }
+        None
+    };
 
     let options = WavDrawingOptions {
         start_sec,
@@ -106,7 +115,15 @@ pub fn draw_wav(
         need_border_for_envelope: !is_clipped,
         ..Default::default()
     };
-    draw_wav_internal(ctx, id_ch_str, width, height, &options, WAV_COLOR)?;
+    draw_wav_internal(
+        ctx,
+        id_ch_str,
+        width,
+        height,
+        &options,
+        WAV_COLOR,
+        upsampled_wav_sr,
+    )?;
 
     Ok(())
 }
@@ -142,22 +159,29 @@ pub(crate) fn draw_wav_internal(
     height: f32,
     options: &WavDrawingOptions,
     color: &str,
-) -> Result<(), JsValue> {
+    upsampled_wav_sr: Option<(Vec<f32>, u32)>,
+) -> Result<Option<(Vec<f32>, u32)>, JsValue> {
     let stroke_width = options.stroke_width();
 
-    let (line_points, envelopes) = {
+    let result = {
         let wav_caches = WAV_CACHES.read().unwrap();
         let wav_cache = wav_caches.get(id_ch_str).unwrap();
         if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
             let WavCache { wav, sr, .. } = wav_cache;
-            calc_line_envelope_points(wav, *sr, width, height, options)
+            calc_line_envelope_points(wav, *sr, width, height, options, upsampled_wav_sr)
         } else {
-            wav_cache.transform_line_envelopes(width, height, options)
+            let (line_points, envelopes) =
+                wav_cache.transform_line_envelopes(width, height, options);
+            CalcLineEnvelopePointsResult {
+                line_points,
+                envelopes,
+                upsampled_wav_sr: None,
+            }
         }
     };
 
-    let line_path = line_points.try_into_path()?;
-    let envelope_paths = match envelopes {
+    let line_path = result.line_points.try_into_path()?;
+    let envelope_paths = match result.envelopes {
         Some(envelopes) => {
             let mut envelope_paths = Vec::with_capacity(envelopes.len());
             for envelope in envelopes {
@@ -204,7 +228,7 @@ pub(crate) fn draw_wav_internal(
         ctx.fill_with_path_2d(path);
     }
 
-    Ok(())
+    Ok(result.upsampled_wav_sr)
 }
 
 pub(crate) struct WavDrawingOptions {
@@ -287,10 +311,10 @@ impl WavCache {
         let px_per_samples = (options.canvas_px_per_sec() / self.sr as f32).min(0.1);
         let width = self.wav.len() as f32 * px_per_samples;
 
-        let (line_points, envelopes) =
-            calc_line_envelope_points(&self.wav, self.sr, width, CACHE_HEIGHT, &options);
-        self.line_points_cache = line_points;
-        self.envelopes_cache = envelopes.unwrap();
+        let result =
+            calc_line_envelope_points(&self.wav, self.sr, width, CACHE_HEIGHT, &options, None);
+        self.line_points_cache = result.line_points;
+        self.envelopes_cache = result.envelopes.unwrap();
     }
 
     fn transform_line_envelopes(
@@ -590,13 +614,20 @@ struct TransformParams {
     v2y_offset: f32,
 }
 
+struct CalcLineEnvelopePointsResult {
+    line_points: WavLinePoints,
+    envelopes: Option<Vec<WavEnvelope>>,
+    upsampled_wav_sr: Option<(Vec<f32>, u32)>,
+}
+
 fn calc_line_envelope_points(
     wav: &[f32],
     sr: u32,
     width: f32,
     height: f32,
     options: &WavDrawingOptions,
-) -> (WavLinePoints, Option<Vec<WavEnvelope>>) {
+    upsampled_wav_sr: Option<(Vec<f32>, u32)>,
+) -> CalcLineEnvelopePointsResult {
     let px_per_sec = options.canvas_px_per_sec();
     let stroke_width = options.stroke_width();
     let sr_f32 = sr as f32;
@@ -622,30 +653,39 @@ fn calc_line_envelope_points(
     );
 
     if px_per_sec > sr_f32 / 2. {
-        let factor = 2usize.pow((px_per_sec / sr_f32).log2().ceil() as u32);
-        let upsample_sr = sr * factor as u32;
-        let (upsampled_wav, i_start, i_end, factor_f32) = if upsample_sr > sr {
-            let upsampled_wav = resample(&wav[i_start..i_end], sr, upsample_sr);
-            (
-                Some(upsampled_wav),
-                i_start * factor,
-                i_end * factor,
-                factor as f32,
-            )
-        } else {
-            (None, i_start, i_end, 1.0)
+        let (upsampled_wav, upsampled_sr, factor) = match upsampled_wav_sr {
+            Some((upsampled_wav, upsampled_sr)) => {
+                let factor = (upsampled_sr / sr) as usize;
+                (Some(upsampled_wav), upsampled_sr, factor)
+            }
+            None => {
+                let factor = 2usize.pow((px_per_sec / sr_f32).log2().ceil().max(0.) as u32);
+                let upsample_sr = sr * factor as u32;
+                if upsample_sr > sr {
+                    let upsampled_wav = resample(&wav[i_start..i_end], sr, upsample_sr);
+                    (Some(upsampled_wav), upsample_sr, factor)
+                } else {
+                    (None, sr, 1)
+                }
+            }
         };
+        let factor_f32 = factor as f32;
         let mut line_points = WavLinePoints::new();
-        for (i, v) in (i_start..i_end).zip(
-            upsampled_wav
-                .as_ref()
-                .map_or_else(|| &wav[i_start..i_end], Vec::as_slice),
-        ) {
+        let wav_slice = upsampled_wav
+            .as_ref()
+            .map_or_else(|| &wav[i_start..i_end], Vec::as_slice);
+        for (i, v) in ((i_start * factor)..(i_end * factor)).zip(wav_slice) {
             let x = idx_to_x(i as f32 / factor_f32);
             let y = wav_to_y(*v);
             line_points.push(x, y);
         }
-        return (line_points, None);
+
+        let upsampled_wav_sr = upsampled_wav.map(|wav| (wav, upsampled_sr));
+        return CalcLineEnvelopePointsResult {
+            line_points,
+            envelopes: None,
+            upsampled_wav_sr,
+        };
     }
 
     let mut line_points = WavLinePoints::new();
@@ -730,7 +770,11 @@ fn calc_line_envelope_points(
         envelopes.push(current_envlp);
         line_points.push(last_x_mid, last_y);
     }
-    (line_points, Some(envelopes))
+    CalcLineEnvelopePointsResult {
+        line_points,
+        envelopes: Some(envelopes),
+        upsampled_wav_sr: None,
+    }
 }
 
 type ResamplerWithBuffers = (FftFixedInOut<f32>, Vec<f32>, Vec<f32>);

@@ -88,12 +88,31 @@ pub fn draw_overview(
             options.offset_y += overview_heights.gain;
         }
 
-        if wav_caches.get(id_ch).unwrap().is_clipped() {
-            draw_wav_internal(ctx, id_ch, width, height_ch, &options, WAV_CLIPPING_COLOR)?;
+        let upsampled_wav_sr = if wav_caches.get(id_ch).unwrap().is_clipped() {
+            let upsampled_wav_sr = draw_wav_internal(
+                ctx,
+                id_ch,
+                width,
+                height_ch,
+                &options,
+                WAV_CLIPPING_COLOR,
+                None,
+            )?;
             options.clip_values = Some((-1., 1.));
-        }
+            upsampled_wav_sr
+        } else {
+            None
+        };
 
-        draw_wav_internal(ctx, id_ch, width, height_ch, &options, WAV_COLOR)?;
+        draw_wav_internal(
+            ctx,
+            id_ch,
+            width,
+            height_ch,
+            &options,
+            WAV_COLOR,
+            upsampled_wav_sr,
+        )?;
     }
     Ok(())
 }
