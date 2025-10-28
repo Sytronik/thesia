@@ -396,8 +396,8 @@ mod tests {
     #[test]
     fn open_audio_works() {
         let paths = [
-            "samples/sample_48k.wav",
-            "samples/sample_48k_wav_no_extension",
+            "../samples/sample_48k.wav",
+            "../samples/sample_48k_wav_no_extension",
         ];
         let format_infos = [
             AudioFormatInfo {

@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn limiter_works() {
-        let path = "samples/sample_48k.wav";
+        let path = "../samples/sample_48k.wav";
         let (mut wavs, format_info) = open_audio_file(path).unwrap();
         let mut limiter = PerfectLimiter::new(format_info.sr, 1., 5., 15., 40.);
         wavs *= 8.;
@@ -283,7 +283,7 @@ mod tests {
             sample_format: hound::SampleFormat::Float,
         };
         let mut writer =
-            hound::WavWriter::create("samples/sample_48k_plus18dB_limit.wav", spec).unwrap();
+            hound::WavWriter::create("../samples/sample_48k_plus18dB_limit.wav", spec).unwrap();
         for sample in wavs.into_iter() {
             writer.write_sample(sample).unwrap();
         }

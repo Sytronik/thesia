@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn calc_loudness_works() {
-        let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
+        let track = AudioTrack::new("../samples/sample_48k.wav".into()).unwrap();
         assert_abs_diff_eq!(track.stats().global_lufs, -26.20331705029079);
     }
 }
