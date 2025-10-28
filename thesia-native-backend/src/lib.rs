@@ -370,9 +370,7 @@ fn assign_wav_to(mut arr: Float32Array, id_ch_str: String) -> Result<()> {
     if let Some(track) = TRACK_LIST.read().get(id) {
         let (wav, _) = track.channel_for_drawing(ch);
         let arr_mut = unsafe { arr.as_mut() };
-        for (&x, y) in wav.iter().zip(arr_mut.iter_mut()) {
-            *y = x;
-        }
+        arr_mut.copy_from_slice(wav.as_slice().unwrap());
     }
     Ok(())
 }
