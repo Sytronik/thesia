@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 atomic_float = {workspace = true}
 js-sys = "0.3.81"
+rubato = "0.16.2"
 wasm-bindgen = "0.2.104"
 
 [dependencies.web-sys]

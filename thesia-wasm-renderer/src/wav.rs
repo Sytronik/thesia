@@ -1,8 +1,10 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::{LazyLock, RwLock};
 
 use atomic_float::AtomicF32;
+use rubato::{FftFixedInOut, Resampler};
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
 
@@ -17,6 +19,8 @@ const WAV_IMG_SCALE: f32 = 2.0;
 const WAV_BORDER_WIDTH: f32 = 1.5;
 const WAV_LINE_WIDTH: f32 = 1.75;
 const WAV_MARGIN_PX: f32 = 10.0;
+
+const UPSAMPLE_CHUNK_SIZE: usize = 1024;
 
 const CACHE_CANVAS_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 const CACHE_HEIGHT: f32 = 10000.0;
@@ -599,7 +603,7 @@ fn calc_line_envelope_points(
 
     let x_scale = px_per_sec / sr_f32;
     let x_offset = -options.start_sec * px_per_sec;
-    let idx_to_x = |i| (i as f32).mul_add(x_scale, x_offset);
+    let idx_to_x = |i: f32| i.mul_add(x_scale, x_offset);
     let floor_x = |x: f32| ((x - x_offset) / options.scale).floor() * options.scale + x_offset;
 
     let (clip_min, clip_max) = options
@@ -617,10 +621,27 @@ fn calc_line_envelope_points(
         (options.start_sec * sr_f32 + width / px_per_sec * sr_f32 + margin_samples).ceil() as usize,
     );
 
-    if px_per_sec >= sr_f32 {
+    if px_per_sec > sr_f32 / 2. {
+        let factor = 2usize.pow((px_per_sec / sr_f32).log2().ceil() as u32);
+        let upsample_sr = sr * factor as u32;
+        let (upsampled_wav, i_start, i_end, factor_f32) = if upsample_sr > sr {
+            let upsampled_wav = resample(&wav[i_start..i_end], sr, upsample_sr);
+            (
+                Some(upsampled_wav),
+                i_start * factor,
+                i_end * factor,
+                factor as f32,
+            )
+        } else {
+            (None, i_start, i_end, 1.0)
+        };
         let mut line_points = WavLinePoints::new();
-        for (i, v) in wav.iter().enumerate().take(i_end).skip(i_start) {
-            let x = idx_to_x(i);
+        for (i, v) in (i_start..i_end).zip(
+            upsampled_wav
+                .as_ref()
+                .map_or_else(|| &wav[i_start..i_end], Vec::as_slice),
+        ) {
+            let x = idx_to_x(i as f32 / factor_f32);
             let y = wav_to_y(*v);
             line_points.push(x, y);
         }
@@ -635,7 +656,7 @@ fn calc_line_envelope_points(
     let mut i_prev = i;
 
     while i < i_end {
-        let x = idx_to_x(i);
+        let x = idx_to_x(i as f32);
         let y = wav_to_y(wav[i]);
 
         // downsampling
@@ -645,7 +666,7 @@ fn calc_line_envelope_points(
         let mut i_next = i_end;
 
         while i2 < i_end {
-            let x2 = idx_to_x(i2);
+            let x2 = idx_to_x(i2 as f32);
             let x2_floor = floor_x(x2);
             if x2_floor > x_floor && i_next == i_end {
                 i_next = i2;
@@ -699,7 +720,7 @@ fn calc_line_envelope_points(
 
     // Handle remaining envelope
     if !current_envlp.is_empty() {
-        let last_x = idx_to_x(i_end - 1);
+        let last_x = idx_to_x((i_end - 1) as f32);
         let last_x_floor = floor_x(last_x);
         let last_x_mid = last_x_floor + options.scale / 2.0;
         let last_x_ceil = last_x_floor + options.scale;
@@ -710,4 +731,73 @@ fn calc_line_envelope_points(
         line_points.push(last_x_mid, last_y);
     }
     (line_points, Some(envelopes))
+}
+
+type ResamplerWithBuffers = (FftFixedInOut<f32>, Vec<f32>, Vec<f32>);
+
+fn resample(wav: &[f32], sr: u32, output_sr: u32) -> Vec<f32> {
+    thread_local! {
+        static RESAMPLERS: RefCell<HashMap<(u32, u32), ResamplerWithBuffers>> =
+            RefCell::new(HashMap::new());
+    }
+    let output_len = (wav.len() as f64 * output_sr as f64 / sr as f64).round() as usize;
+    RESAMPLERS.with_borrow_mut(|resamplers| {
+        let (resampler, in_buffer, out_buffer) =
+            resamplers.entry((sr, output_sr)).or_insert_with(|| {
+                let resampler = FftFixedInOut::<f32>::new(
+                    sr as usize,
+                    output_sr as usize,
+                    UPSAMPLE_CHUNK_SIZE,
+                    1,
+                )
+                .unwrap();
+                let in_buffer = Vec::with_capacity(resampler.input_frames_max());
+                let out_buffer = vec![0.; resampler.output_frames_max()];
+                (resampler, in_buffer, out_buffer)
+            });
+        let delay = resampler.output_delay();
+        let mut resampled = Vec::with_capacity(delay + output_len + output_sr as usize / 100);
+
+        {
+            let mut wave_out = [out_buffer.as_mut_slice()];
+
+            // process frames in chunks
+            let mut i = 0;
+            while i + resampler.input_frames_next() <= wav.len() {
+                let wave_in = [&wav[i..i + resampler.input_frames_next()]];
+                let (in_frame_len, out_frame_len) = resampler
+                    .process_into_buffer(&wave_in, &mut wave_out, None)
+                    .unwrap();
+                resampled.extend_from_slice(&wave_out[0][..out_frame_len]);
+                i += in_frame_len;
+            }
+
+            // process remaining frames
+            if i < wav.len() {
+                in_buffer.extend_from_slice(&wav[i..]);
+                in_buffer.resize(resampler.input_frames_next(), 0.0);
+                let wave_in = [in_buffer.as_slice()];
+                let (_, out_frame_len) = resampler
+                    .process_into_buffer(&wave_in, &mut wave_out, None)
+                    .unwrap();
+                resampled.extend_from_slice(&wave_out[0][..out_frame_len]);
+            }
+
+            // flush the last frame
+            in_buffer.resize(resampler.input_frames_next(), 0.0);
+            let wave_in = [in_buffer.as_slice()];
+            let (_, out_frame_len) = resampler
+                .process_into_buffer(&wave_in, &mut wave_out, None)
+                .unwrap();
+            resampled.extend_from_slice(&wave_out[0][..out_frame_len]);
+        }
+
+        resampler.reset();
+        in_buffer.clear();
+        out_buffer.fill(0.0);
+
+        resampled.drain(..delay);
+        resampled.truncate(output_len);
+        resampled
+    })
 }
