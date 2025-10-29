@@ -346,27 +346,17 @@ impl WavCache {
         let start_x = (-WAV_MARGIN_PX - x_offset) / x_scale;
         let end_x = (width + WAV_MARGIN_PX - x_offset) / x_scale;
 
-        let line_len_hint =
-            ((width / px_per_sec - options.start_sec) * CACHE_PX_PER_SEC).ceil() as usize;
-        let xformed_line_points = self.line_points_cache.slice_transform(
-            start_x,
-            end_x,
-            &transform_params,
-            Some(line_len_hint),
-        );
+        let xformed_line_points =
+            self.line_points_cache
+                .slice_transform(start_x, end_x, &transform_params);
 
         let mut xformed_envelopes = Vec::new();
         for envelope in self.envelopes_cache.iter() {
             if envelope.out_of_range(start_x, end_x) {
                 continue;
             }
-            let xformed_envelope = envelope.slice_transform(
-                start_x,
-                end_x,
-                &transform_params,
-                options.scale,
-                Some(envelope.len()),
-            );
+            let xformed_envelope =
+                envelope.slice_transform(start_x, end_x, &transform_params, options.scale);
             xformed_envelopes.push(xformed_envelope);
         }
 

@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use wasm_bindgen::prelude::*;
 use web_sys::Path2d;
 
@@ -52,10 +54,10 @@ impl WavLinePoints {
         start_x: f32,
         end_x: f32,
         params: &TransformParams,
-        len_hint: Option<usize>,
     ) -> Self {
-        let mut out = len_hint.map_or_else(Self::new, Self::with_capacity);
-        let mut tmp = len_hint.map_or_else(Vec::new, Vec::with_capacity);
+        thread_local! {
+            static TMP_BUFFER: RefCell<Vec<f32>> = RefCell::new(Vec::new());
+        }
         let mut i_start = self.len();
         let mut i_end = self.len();
         for (i, x) in self.xs.iter().enumerate() {
@@ -70,21 +72,25 @@ impl WavLinePoints {
                 break;
             }
         }
+        let mut out = Self::with_capacity(i_end - i_start);
         fused_mul_add(
             &self.xs[i_start..i_end],
             params.x_scale,
             params.x_offset,
             &mut out.xs,
         );
-        fused_mul_add(
-            &self.ys[i_start..i_end],
-            params.y2v_scale,
-            params.y2v_offset,
-            &mut tmp,
-        );
-        clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
-        fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.ys);
-        tmp.clear();
+        TMP_BUFFER.with_borrow_mut(|buf| {
+            buf.clear();
+            fused_mul_add(
+                &self.ys[i_start..i_end],
+                params.y2v_scale,
+                params.y2v_offset,
+                buf,
+            );
+            clamp_inplace(buf, params.v_clip_values.0, params.v_clip_values.1);
+            fused_mul_add(&buf, params.v2y_scale, params.v2y_offset, &mut out.ys);
+            buf.clear();
+        });
         out
     }
 
@@ -181,10 +187,10 @@ impl WavEnvelope {
         end_x: f32,
         params: &TransformParams,
         scale: f32,
-        len_hint: Option<usize>,
     ) -> Self {
-        let mut out = len_hint.map_or_else(Self::new, Self::with_capacity);
-        let mut tmp = len_hint.map_or_else(Vec::new, Vec::with_capacity);
+        thread_local! {
+            static TMP_BUFFER: RefCell<Vec<f32>> = RefCell::new(Vec::new());
+        }
         let mut i_start = self.len();
         let mut i_end = self.len();
         for (i, x) in self.xs.iter().enumerate() {
@@ -200,60 +206,64 @@ impl WavEnvelope {
             }
         }
 
-        fused_mul_add(
-            &self.xs[i_start..i_end],
-            params.x_scale,
-            params.x_offset,
-            &mut tmp,
-        );
+        let mut out = Self::with_capacity(i_end - i_start);
+        TMP_BUFFER.with_borrow_mut(|buf| {
+            buf.clear();
+            fused_mul_add(
+                &self.xs[i_start..i_end],
+                params.x_scale,
+                params.x_offset,
+                buf,
+            );
 
-        // downsampling
-        let floor_x = |x: f32| (x / scale).floor() * scale;
-        if i_start == 0 {
-            out.xs.push(floor_x(tmp[0]) + scale / 2.0);
-            out.tops.push(self.tops[0]);
-            out.bottoms.push(self.bottoms[0]);
-        }
-        let mut i = i_start.max(1);
-        while i < i_end.min(self.len() - 1) {
-            let x = tmp[i - i_start];
-            let x_floor = floor_x(x);
-            let x_mid = x_floor + scale / 2.0;
-            let mut i2 = i;
-            while i2 < i_end.min(self.len() - 1) {
-                let x2 = tmp[i2 - i_start];
-                let x2_floor = floor_x(x2);
-                if x2_floor > x_floor {
-                    break;
+            // downsampling
+            let floor_x = |x: f32| (x / scale).floor() * scale;
+            if i_start == 0 {
+                out.xs.push(floor_x(buf[0]) + scale / 2.0);
+                out.tops.push(self.tops[0]);
+                out.bottoms.push(self.bottoms[0]);
+            }
+            let mut i = i_start.max(1);
+            while i < i_end.min(self.len() - 1) {
+                let x = buf[i - i_start];
+                let x_floor = floor_x(x);
+                let x_mid = x_floor + scale / 2.0;
+                let mut i2 = i;
+                while i2 < i_end.min(self.len() - 1) {
+                    let x2 = buf[i2 - i_start];
+                    let x2_floor = floor_x(x2);
+                    if x2_floor > x_floor {
+                        break;
+                    }
+                    i2 += 1;
                 }
-                i2 += 1;
+                if i2 == i {
+                    i2 = (i + 1).min(i_end.min(self.len() - 1));
+                }
+                out.xs.push(x_mid);
+                out.tops.push(find_min(&self.tops[i..i2]));
+                out.bottoms.push(find_max(&self.bottoms[i..i2]));
+                i = i2;
             }
-            if i2 == i {
-                i2 = (i + 1).min(i_end.min(self.len() - 1));
+            if i_end == self.len() {
+                out.xs.push(floor_x(buf[i_end - i_start - 1]) + scale / 2.0);
+                out.tops.push(self.tops[i_end - 1]);
+                out.bottoms.push(self.bottoms[i_end - 1]);
             }
-            out.xs.push(x_mid);
-            out.tops.push(find_min(&self.tops[i..i2]));
-            out.bottoms.push(find_max(&self.bottoms[i..i2]));
-            i = i2;
-        }
-        if i_end == self.len() {
-            out.xs.push(floor_x(tmp[i_end - i_start - 1]) + scale / 2.0);
-            out.tops.push(self.tops[i_end - 1]);
-            out.bottoms.push(self.bottoms[i_end - 1]);
-        }
-        tmp.clear();
+            buf.clear();
 
-        fused_mul_add(&out.tops, params.y2v_scale, params.y2v_offset, &mut tmp);
-        clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
-        out.tops.clear();
-        fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.tops);
-        tmp.clear();
+            fused_mul_add(&out.tops, params.y2v_scale, params.y2v_offset, buf);
+            clamp_inplace(buf, params.v_clip_values.0, params.v_clip_values.1);
+            out.tops.clear();
+            fused_mul_add(&buf, params.v2y_scale, params.v2y_offset, &mut out.tops);
+            buf.clear();
 
-        fused_mul_add(&out.bottoms, params.y2v_scale, params.y2v_offset, &mut tmp);
-        clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
-        out.bottoms.clear();
-        fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.bottoms);
-        tmp.clear();
+            fused_mul_add(&out.bottoms, params.y2v_scale, params.y2v_offset, buf);
+            clamp_inplace(buf, params.v_clip_values.0, params.v_clip_values.1);
+            out.bottoms.clear();
+            fused_mul_add(&buf, params.v2y_scale, params.v2y_offset, &mut out.bottoms);
+            buf.clear();
+        });
         out
     }
 
