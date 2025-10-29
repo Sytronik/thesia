@@ -20,6 +20,21 @@ fn find_min_max_scalar(values: &[f32]) -> (f32, f32) {
 }
 
 #[allow(unused)]
+#[inline]
+fn find_min_scalar(values: &[f32]) -> f32 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    let mut min_v = f32::INFINITY;
+    for &v in values {
+        if v < min_v {
+            min_v = v;
+        }
+    }
+    min_v
+}
+
+#[allow(unused)]
 #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
 #[inline]
 unsafe fn find_min_max_simd(values: &[f32]) -> (f32, f32) {
@@ -72,6 +87,40 @@ unsafe fn find_min_max_simd(values: &[f32]) -> (f32, f32) {
     (min_v, max_v)
 }
 
+#[allow(unused)]
+#[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+#[inline]
+unsafe fn find_min_simd(values: &[f32]) -> f32 {
+    let len = values.len();
+    if len == 0 {
+        return 0.0;
+    }
+
+    let mut i = 0usize;
+    let ptr = values.as_ptr();
+
+    let mut v_min = f32x4_splat(f32::INFINITY);
+    while i + 4 <= len {
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        v_min = f32x4_min(v_min, v);
+        i += 4;
+    }
+
+    let mut tmp_min = [0.0f32; 4];
+    unsafe { v128_store(tmp_min.as_mut_ptr() as *mut _, v_min) };
+    let mut min_v = tmp_min[0].min(tmp_min[1]).min(tmp_min[2]).min(tmp_min[3]);
+
+    while i < len {
+        let v = unsafe { *ptr.add(i) };
+        if v < min_v {
+            min_v = v;
+        }
+        i += 1;
+    }
+
+    min_v
+}
+
 #[inline]
 pub(crate) fn find_min_max(values: &[f32]) -> (f32, f32) {
     #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
@@ -81,6 +130,18 @@ pub(crate) fn find_min_max(values: &[f32]) -> (f32, f32) {
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
         find_min_max_scalar(values)
+    }
+}
+
+#[inline]
+pub(crate) fn find_min(values: &[f32]) -> f32 {
+    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    unsafe {
+        find_min_simd(values)
+    }
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
+    {
+        find_min_scalar(values)
     }
 }
 

@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::mem::WasmFloat32Array;
+use crate::simd::find_min;
 use crate::wav::{
     DEVICE_PIXEL_RATIO, WAV_CACHES, WAV_CLIPPING_COLOR, WAV_COLOR, WavDrawingOptions,
     WavLinePoints, draw_wav_internal,
@@ -140,11 +141,11 @@ fn calc_limiter_gain_envelopes(
     gain_range: (f32, f32),
 ) -> Vec<WavLinePoints> {
     let x_scale = width / gain_seq.len() as f32;
-    let idx_to_x = move |i: usize| i as f32 * x_scale;
+    let idx_to_x = |i: usize| i as f32 * x_scale;
 
     let y_scale = -height / (gain_range.1 - gain_range.0).max(1e-8);
     let y_offset = -gain_range.1 * y_scale;
-    let wav_to_y = move |v: f32| v.mul_add(y_scale, y_offset);
+    let wav_to_y = |v: f32| v.mul_add(y_scale, y_offset);
 
     let y_unity_gain = wav_to_y(gain_range.1);
     let mut current_envlp = WavLinePoints::new();
@@ -173,7 +174,7 @@ fn calc_limiter_gain_envelopes(
             i2 = (i + 1).min(gain_seq.len());
         }
 
-        let min_v = gain_seq[i..i2].iter().fold(gain_range.1, |a, &b| a.min(b));
+        let min_v = find_min(&gain_seq[i..i2]);
         let bottom = wav_to_y(min_v);
 
         if bottom > y_unity_gain {
