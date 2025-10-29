@@ -54,7 +54,19 @@ pub fn draw_overview(
         });
     let overview_heights =
         OverviewHeights::new(height, gap, id_ch_arr.len(), OVERVIEW_GAIN_HEIGHT_RATIO);
+
+    let limiter_gain_seq: Option<Vec<_>> = limiter_gain_seq.map(|seq| seq.into());
+    let (mut limiter_gain_seq_iter, height_ch) = match limiter_gain_seq.as_ref() {
+        Some(seq) => {
+            let length = seq.len() / id_ch_arr.len();
+            (Some(seq.chunks_exact(length)), overview_heights.ch_wo_gain)
+        }
+        None => (None, overview_heights.ch),
+    };
+
     let mut options = WavDrawingOptions {
+        width,
+        height: height_ch,
         px_per_sec: css_width as f32 / max_track_sec,
         amp_range,
         scale: 1.0,
@@ -63,14 +75,6 @@ pub fn draw_overview(
         need_border_for_line: false,
         ..Default::default()
     };
-
-    let limiter_gain_seq: Option<Vec<_>> = limiter_gain_seq.map(|seq| seq.into());
-    let mut height_ch = overview_heights.ch;
-    let mut limiter_gain_seq_iter = limiter_gain_seq.as_ref().map(|seq| {
-        let length = seq.len() / id_ch_arr.len();
-        height_ch = overview_heights.ch_wo_gain;
-        seq.chunks_exact(length)
-    });
     for (i, id_ch) in id_ch_arr.iter().enumerate() {
         options.offset_y = i as f32 * (overview_heights.ch + overview_heights.gap);
         options.clip_values = None;
@@ -89,30 +93,15 @@ pub fn draw_overview(
         }
 
         let upsampled_wav_sr = if wav_caches.get(id_ch).unwrap().is_clipped() {
-            let upsampled_wav_sr = draw_wav_internal(
-                ctx,
-                id_ch,
-                width,
-                height_ch,
-                &options,
-                WAV_CLIPPING_COLOR,
-                None,
-            )?;
+            let upsampled_wav_sr =
+                draw_wav_internal(ctx, id_ch, &options, WAV_CLIPPING_COLOR, None)?;
             options.clip_values = Some((-1., 1.));
             upsampled_wav_sr
         } else {
             None
         };
 
-        draw_wav_internal(
-            ctx,
-            id_ch,
-            width,
-            height_ch,
-            &options,
-            WAV_COLOR,
-            upsampled_wav_sr,
-        )?;
+        draw_wav_internal(ctx, id_ch, &options, WAV_COLOR, upsampled_wav_sr)?;
     }
     Ok(())
 }

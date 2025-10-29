@@ -89,26 +89,22 @@ pub fn draw_wav(
 
     let upsampled_wav_sr = if is_clipped {
         let options = WavDrawingOptions {
+            width,
+            height,
             start_sec,
             px_per_sec,
             amp_range: (amp_range_min, amp_range_max),
             ..Default::default()
         };
-        draw_wav_internal(
-            ctx,
-            id_ch_str,
-            width,
-            height,
-            &options,
-            WAV_CLIPPING_COLOR,
-            None,
-        )?
+        draw_wav_internal(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR, None)?
     } else {
         ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
         None
     };
 
     let options = WavDrawingOptions {
+        width,
+        height,
         start_sec,
         px_per_sec,
         amp_range: (amp_range_min, amp_range_max),
@@ -116,15 +112,7 @@ pub fn draw_wav(
         need_border_for_envelope: !is_clipped,
         ..Default::default()
     };
-    draw_wav_internal(
-        ctx,
-        id_ch_str,
-        width,
-        height,
-        &options,
-        WAV_COLOR,
-        upsampled_wav_sr,
-    )?;
+    draw_wav_internal(ctx, id_ch_str, &options, WAV_COLOR, upsampled_wav_sr)?;
 
     Ok(())
 }
@@ -156,8 +144,6 @@ pub fn clear_wav(
 pub(crate) fn draw_wav_internal(
     ctx: &CanvasRenderingContext2d,
     id_ch_str: &str,
-    width: f32,
-    height: f32,
     options: &WavDrawingOptions,
     color: &str,
     upsampled_wav_sr: Option<(Vec<f32>, u32)>,
@@ -169,10 +155,9 @@ pub(crate) fn draw_wav_internal(
         let wav_cache = wav_caches.get(id_ch_str).unwrap();
         if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
             let WavCache { wav, sr, .. } = wav_cache;
-            calc_line_envelope_points(wav, *sr, width, height, options, upsampled_wav_sr)
+            calc_line_envelope_points(wav, *sr, options, upsampled_wav_sr)
         } else {
-            let (line_points, envelopes) =
-                wav_cache.transform_line_envelopes(width, height, options);
+            let (line_points, envelopes) = wav_cache.transform_line_envelopes(options);
             CalcLineEnvelopePointsResult {
                 line_points,
                 envelopes,
@@ -233,6 +218,8 @@ pub(crate) fn draw_wav_internal(
 }
 
 pub(crate) struct WavDrawingOptions {
+    pub(crate) width: f32,
+    pub(crate) height: f32,
     pub(crate) start_sec: f32,
     pub(crate) px_per_sec: f32,       // css pixels per second
     pub(crate) amp_range: (f32, f32), // [min, max]
@@ -247,6 +234,8 @@ pub(crate) struct WavDrawingOptions {
 impl Default for WavDrawingOptions {
     fn default() -> Self {
         Self {
+            width: 0.0,
+            height: 0.0,
             start_sec: 0.0,
             px_per_sec: 0.0,
             amp_range: (0.0, 0.0),
@@ -261,10 +250,13 @@ impl Default for WavDrawingOptions {
 }
 
 impl WavDrawingOptions {
-    fn new_for_cache(amp_range: (f32, f32)) -> Self {
+    fn new_for_cache(wav_len: usize, sr: u32, amp_range: (f32, f32)) -> Self {
+        let px_per_samples = (CACHE_CANVAS_PX_PER_SEC / sr as f32).min(0.1);
         let px_per_sec =
             CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
         Self {
+            width: wav_len as f32 * px_per_samples,
+            height: CACHE_HEIGHT,
             px_per_sec,
             amp_range,
             ..Default::default()
@@ -308,22 +300,19 @@ impl WavCache {
     }
 
     fn update_cache(&mut self) {
-        let options = WavDrawingOptions::new_for_cache(self.cache_amp_range);
-        let px_per_samples = (options.canvas_px_per_sec() / self.sr as f32).min(0.1);
-        let width = self.wav.len() as f32 * px_per_samples;
-
-        let result =
-            calc_line_envelope_points(&self.wav, self.sr, width, CACHE_HEIGHT, &options, None);
+        let options =
+            WavDrawingOptions::new_for_cache(self.wav.len(), self.sr, self.cache_amp_range);
+        let result = calc_line_envelope_points(&self.wav, self.sr, &options, None);
         self.line_points_cache = result.line_points;
         self.envelopes_cache = result.envelopes.unwrap();
     }
 
     fn transform_line_envelopes(
         &self,
-        width: f32,
-        height: f32,
         options: &WavDrawingOptions,
     ) -> (WavLinePoints, Option<Vec<WavEnvelope>>) {
+        let width = options.width;
+        let height = options.height;
         let px_per_sec = options.canvas_px_per_sec();
         let x_scale = px_per_sec / CACHE_CANVAS_PX_PER_SEC;
         let x_offset = -options.start_sec * px_per_sec;
@@ -624,8 +613,6 @@ struct CalcLineEnvelopePointsResult {
 fn calc_line_envelope_points(
     wav: &[f32],
     sr: u32,
-    width: f32,
-    height: f32,
     options: &WavDrawingOptions,
     upsampled_wav_sr: Option<(Vec<f32>, u32)>,
 ) -> CalcLineEnvelopePointsResult {
@@ -641,16 +628,14 @@ fn calc_line_envelope_points(
     let (clip_min, clip_max) = options
         .clip_values
         .unwrap_or((-f32::INFINITY, f32::INFINITY));
-    let y_scale = -height / (options.amp_range.1 - options.amp_range.0).max(1e-8);
+    let y_scale = -options.height / (options.amp_range.1 - options.amp_range.0).max(1e-8);
     let y_offset = options.offset_y - options.amp_range.1 * y_scale;
     let wav_to_y = |v: f32| v.max(clip_min).min(clip_max).mul_add(y_scale, y_offset);
 
-    let margin_samples = (WAV_MARGIN_PX / px_per_sec) * sr_f32;
-    let i_start = (options.start_sec * sr_f32 - margin_samples)
-        .floor()
-        .max(0.0) as usize;
+    let margin_sec = WAV_MARGIN_PX / px_per_sec;
+    let i_start = ((options.start_sec - margin_sec) * sr_f32).floor().max(0.0) as usize;
     let i_end = wav.len().min(
-        (options.start_sec * sr_f32 + width / px_per_sec * sr_f32 + margin_samples).ceil() as usize,
+        ((options.start_sec + options.width / px_per_sec + margin_sec) * sr_f32).ceil() as usize,
     );
 
     if px_per_sec > sr_f32 / 2. {
