@@ -13,7 +13,7 @@ const LIMITER_GAIN_COLOR: &str = "rgb(218, 151, 46)";
 
 const OVERVIEW_CH_GAP_HEIGHT: f32 = 1.;
 const OVERVIEW_GAIN_HEIGHT_RATIO: f32 = 0.2;
-const OVERVIEW_LINE_WIDTH: f32 = 1.;
+const OVERVIEW_LINE_WIDTH_CSS_PX: f32 = 1.;
 
 #[wasm_bindgen(js_name = drawOverview)]
 pub fn draw_overview(
@@ -67,10 +67,10 @@ pub fn draw_overview(
     let mut options = WavDrawingOptions {
         width,
         height: height_ch,
-        px_per_sec: css_width as f32 / max_track_sec,
+        css_px_per_sec: css_width as f32 / max_track_sec,
         amp_range,
         scale: 1.0,
-        line_width: OVERVIEW_LINE_WIDTH,
+        line_width_css_px: OVERVIEW_LINE_WIDTH_CSS_PX,
         need_border_for_envelope: false,
         need_border_for_line: false,
         ..Default::default()

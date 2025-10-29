@@ -16,14 +16,14 @@ pub(crate) const WAV_CLIPPING_COLOR: &str = "rgb(196, 34, 50)";
 const WAV_BORDER_COLOR: &str = "rgb(0, 0, 0)";
 
 const WAV_IMG_SCALE: f32 = 2.0;
-const WAV_BORDER_WIDTH: f32 = 1.5;
-const WAV_LINE_WIDTH: f32 = 1.75;
+const BORDER_WIDTH_CSS_PX: f32 = 1.5;
+const LINE_WIDTH_CSS_PX: f32 = 1.75;
 const WAV_MARGIN_PX: f32 = 10.0;
 
 const UPSAMPLE_CHUNK_SIZE: usize = 1024;
 const UPSAMPLE_MARGIN_SEC: f32 = 0.1;
 
-const CACHE_CANVAS_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
+const CACHE_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 const CACHE_HEIGHT: f32 = 10000.0;
 
 pub(crate) static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
@@ -64,7 +64,7 @@ pub fn draw_wav(
     css_width: u32,
     css_height: u32,
     start_sec: f32,
-    px_per_sec: f32,
+    css_px_per_sec: f32,
     amp_range_min: f32,
     amp_range_max: f32,
 ) -> Result<(), JsValue> {
@@ -92,7 +92,7 @@ pub fn draw_wav(
             width,
             height,
             start_sec,
-            px_per_sec,
+            css_px_per_sec,
             amp_range: (amp_range_min, amp_range_max),
             ..Default::default()
         };
@@ -106,7 +106,7 @@ pub fn draw_wav(
         width,
         height,
         start_sec,
-        px_per_sec,
+        css_px_per_sec,
         amp_range: (amp_range_min, amp_range_max),
         clip_values: if is_clipped { Some((-1., 1.)) } else { None },
         need_border_for_envelope: !is_clipped,
@@ -148,12 +148,12 @@ pub(crate) fn draw_wav_internal(
     color: &str,
     upsampled_wav_sr: Option<(Vec<f32>, u32)>,
 ) -> Result<Option<(Vec<f32>, u32)>, JsValue> {
-    let stroke_width = options.stroke_width();
+    let line_width = options.line_width();
 
     let result = {
         let wav_caches = WAV_CACHES.read().unwrap();
         let wav_cache = wav_caches.get(id_ch_str).unwrap();
-        if options.canvas_px_per_sec() >= CACHE_CANVAS_PX_PER_SEC {
+        if options.px_per_sec() >= CACHE_PX_PER_SEC {
             let WavCache { wav, sr, .. } = wav_cache;
             calc_line_envelope_points(wav, *sr, options, upsampled_wav_sr)
         } else {
@@ -171,7 +171,7 @@ pub(crate) fn draw_wav_internal(
         Some(envelopes) => {
             let mut envelope_paths = Vec::with_capacity(envelopes.len());
             for envelope in envelopes {
-                let path = envelope.try_into_path(stroke_width)?;
+                let path = envelope.try_into_path(line_width)?;
                 envelope_paths.push(path);
             }
             envelope_paths
@@ -186,7 +186,7 @@ pub(crate) fn draw_wav_internal(
         ctx.set_line_cap("round");
         ctx.set_line_join("round");
         ctx.set_stroke_style_str(WAV_BORDER_COLOR);
-        ctx.set_line_width((stroke_width + 2.0 * WAV_BORDER_WIDTH * dpr) as f64);
+        ctx.set_line_width((line_width + 2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
         ctx.stroke_with_path(&line_path);
     }
 
@@ -196,7 +196,7 @@ pub(crate) fn draw_wav_internal(
             ctx.set_line_cap("round");
             ctx.set_line_join("round");
             ctx.set_stroke_style_str(WAV_BORDER_COLOR);
-            ctx.set_line_width((2.0 * WAV_BORDER_WIDTH * dpr) as f64);
+            ctx.set_line_width((2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
             ctx.stroke_with_path(path);
         }
     }
@@ -205,7 +205,7 @@ pub(crate) fn draw_wav_internal(
     ctx.set_line_cap("round");
     ctx.set_line_join("round");
     ctx.set_stroke_style_str(color);
-    ctx.set_line_width(stroke_width as f64);
+    ctx.set_line_width(line_width as f64);
     ctx.stroke_with_path(&line_path);
 
     // Fill envelopes
@@ -221,12 +221,12 @@ pub(crate) struct WavDrawingOptions {
     pub(crate) width: f32,
     pub(crate) height: f32,
     pub(crate) start_sec: f32,
-    pub(crate) px_per_sec: f32,       // css pixels per second
+    pub(crate) css_px_per_sec: f32,
     pub(crate) amp_range: (f32, f32), // [min, max]
     pub(crate) offset_y: f32,
     pub(crate) clip_values: Option<(f32, f32)>, // [min, max] or None
     pub(crate) scale: f32,
-    pub(crate) line_width: f32,
+    pub(crate) line_width_css_px: f32,
     pub(crate) need_border_for_envelope: bool,
     pub(crate) need_border_for_line: bool,
 }
@@ -237,12 +237,12 @@ impl Default for WavDrawingOptions {
             width: 0.0,
             height: 0.0,
             start_sec: 0.0,
-            px_per_sec: 0.0,
+            css_px_per_sec: 0.0,
             amp_range: (0.0, 0.0),
             offset_y: 0.0,
             clip_values: None,
             scale: WAV_IMG_SCALE,
-            line_width: WAV_LINE_WIDTH,
+            line_width_css_px: LINE_WIDTH_CSS_PX,
             need_border_for_envelope: true,
             need_border_for_line: true,
         }
@@ -251,24 +251,24 @@ impl Default for WavDrawingOptions {
 
 impl WavDrawingOptions {
     fn new_for_cache(wav_len: usize, sr: u32, amp_range: (f32, f32)) -> Self {
-        let px_per_samples = (CACHE_CANVAS_PX_PER_SEC / sr as f32).min(0.1);
-        let px_per_sec =
-            CACHE_CANVAS_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
+        let px_per_samples = (CACHE_PX_PER_SEC / sr as f32).min(0.1);
+        let css_px_per_sec =
+            CACHE_PX_PER_SEC / WAV_IMG_SCALE / DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
         Self {
             width: wav_len as f32 * px_per_samples,
             height: CACHE_HEIGHT,
-            px_per_sec,
+            css_px_per_sec,
             amp_range,
             ..Default::default()
         }
     }
 
-    fn stroke_width(&self) -> f32 {
-        self.line_width * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
+    fn line_width(&self) -> f32 {
+        self.line_width_css_px * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 
-    fn canvas_px_per_sec(&self) -> f32 {
-        self.px_per_sec * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
+    fn px_per_sec(&self) -> f32 {
+        self.css_px_per_sec * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 }
 
@@ -313,8 +313,8 @@ impl WavCache {
     ) -> (WavLinePoints, Option<Vec<WavEnvelope>>) {
         let width = options.width;
         let height = options.height;
-        let px_per_sec = options.canvas_px_per_sec();
-        let x_scale = px_per_sec / CACHE_CANVAS_PX_PER_SEC;
+        let px_per_sec = options.px_per_sec();
+        let x_scale = px_per_sec / CACHE_PX_PER_SEC;
         let x_offset = -options.start_sec * px_per_sec;
 
         let y2v_scale = -(self.cache_amp_range.1 - self.cache_amp_range.0) / CACHE_HEIGHT;
@@ -339,7 +339,7 @@ impl WavCache {
         let end_x = (width + WAV_MARGIN_PX - x_offset) / x_scale;
 
         let line_len_hint =
-            ((width / px_per_sec - options.start_sec) * CACHE_CANVAS_PX_PER_SEC).ceil() as usize;
+            ((width / px_per_sec - options.start_sec) * CACHE_PX_PER_SEC).ceil() as usize;
         let xformed_line_points = self.line_points_cache.slice_transform(
             start_x,
             end_x,
@@ -616,8 +616,8 @@ fn calc_line_envelope_points(
     options: &WavDrawingOptions,
     upsampled_wav_sr: Option<(Vec<f32>, u32)>,
 ) -> CalcLineEnvelopePointsResult {
-    let px_per_sec = options.canvas_px_per_sec();
-    let stroke_width = options.stroke_width();
+    let px_per_sec = options.px_per_sec();
+    let stroke_width = options.line_width();
     let sr_f32 = sr as f32;
 
     let x_scale = px_per_sec / sr_f32;
