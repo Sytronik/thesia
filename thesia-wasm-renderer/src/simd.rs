@@ -65,12 +65,29 @@ unsafe fn find_min_max_simd(values: &[f32]) -> (f32, f32) {
     let mut v_min = f32x4_splat(f32::INFINITY);
     let mut v_max = f32x4_splat(f32::NEG_INFINITY);
 
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
+
+        v_min = f32x4_min(v_min, v0);
+        v_max = f32x4_max(v_max, v0);
+        v_min = f32x4_min(v_min, v1);
+        v_max = f32x4_max(v_max, v1);
+        v_min = f32x4_min(v_min, v2);
+        v_max = f32x4_max(v_max, v2);
+        v_min = f32x4_min(v_min, v3);
+        v_max = f32x4_max(v_max, v3);
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
     while i + 4 <= len {
-        unsafe {
-            let v = v128_load(ptr.add(i) as *const _);
-            v_min = f32x4_min(v_min, v);
-            v_max = f32x4_max(v_max, v);
-        }
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        v_min = f32x4_min(v_min, v);
+        v_max = f32x4_max(v_max, v);
         i += 4;
     }
 
@@ -87,14 +104,12 @@ unsafe fn find_min_max_simd(values: &[f32]) -> (f32, f32) {
 
     // Remainder
     while i < len {
-        unsafe {
-            let v = *ptr.add(i);
-            if v < min_v {
-                min_v = v;
-            }
-            if v > max_v {
-                max_v = v;
-            }
+        let v = unsafe { *ptr.add(i) };
+        if v < min_v {
+            min_v = v;
+        }
+        if v > max_v {
+            max_v = v;
         }
         i += 1;
     }
@@ -115,6 +130,22 @@ unsafe fn find_min_simd(values: &[f32]) -> f32 {
     let ptr = values.as_ptr();
 
     let mut v_min = f32x4_splat(f32::INFINITY);
+
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
+
+        v_min = f32x4_min(v_min, v0);
+        v_min = f32x4_min(v_min, v1);
+        v_min = f32x4_min(v_min, v2);
+        v_min = f32x4_min(v_min, v3);
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
     while i + 4 <= len {
         let v = unsafe { v128_load(ptr.add(i) as *const _) };
         v_min = f32x4_min(v_min, v);
@@ -149,6 +180,22 @@ unsafe fn find_max_simd(values: &[f32]) -> f32 {
     let ptr = values.as_ptr();
 
     let mut v_max = f32x4_splat(f32::NEG_INFINITY);
+
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
+
+        v_max = f32x4_max(v_max, v0);
+        v_max = f32x4_max(v_max, v1);
+        v_max = f32x4_max(v_max, v2);
+        v_max = f32x4_max(v_max, v3);
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
     while i + 4 <= len {
         let v = unsafe { v128_load(ptr.add(i) as *const _) };
         v_max = f32x4_max(v_max, v);
@@ -222,12 +269,32 @@ unsafe fn add_scalar_inplace_simd(values: &mut [f32], scalar: f32) {
     let ptr = values.as_mut_ptr();
     let splat_scalar = f32x4_splat(scalar);
 
-    while i + 4 <= len {
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
+
+        let result0 = f32x4_add(v0, splat_scalar);
+        let result1 = f32x4_add(v1, splat_scalar);
+        let result2 = f32x4_add(v2, splat_scalar);
+        let result3 = f32x4_add(v3, splat_scalar);
+
         unsafe {
-            let v = v128_load(ptr.add(i) as *const _);
-            let result = f32x4_add(v, splat_scalar);
-            v128_store(ptr.add(i) as *mut _, result);
+            v128_store(ptr.add(i) as *mut _, result0);
+            v128_store(ptr.add(i + 4) as *mut _, result1);
+            v128_store(ptr.add(i + 8) as *mut _, result2);
+            v128_store(ptr.add(i + 12) as *mut _, result3);
         }
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
+    while i + 4 <= len {
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        let result = f32x4_add(v, splat_scalar);
+        unsafe { v128_store(ptr.add(i) as *mut _, result) };
         i += 4;
     }
 
@@ -275,16 +342,42 @@ unsafe fn fused_mul_add_simd(values: &[f32], scale: f32, offset: f32, out: &mut 
     let out_ptr = out.as_mut_ptr();
     let old_len = out.len();
 
-    // Process 4 elements at a time
-    while i + 4 <= len {
-        unsafe {
-            let v = v128_load(ptr.add(i) as *const _);
-            let scaled = f32x4_mul(v, splat_scale);
-            let result = f32x4_add(scaled, splat_offset);
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
 
-            // Write directly to Vec's memory
-            v128_store(out_ptr.add(old_len + i) as *mut _, result);
+        let scaled0 = f32x4_mul(v0, splat_scale);
+        let scaled1 = f32x4_mul(v1, splat_scale);
+        let scaled2 = f32x4_mul(v2, splat_scale);
+        let scaled3 = f32x4_mul(v3, splat_scale);
+
+        let result0 = f32x4_add(scaled0, splat_offset);
+        let result1 = f32x4_add(scaled1, splat_offset);
+        let result2 = f32x4_add(scaled2, splat_offset);
+        let result3 = f32x4_add(scaled3, splat_offset);
+
+        // Write directly to Vec's memory
+        unsafe {
+            v128_store(out_ptr.add(old_len + i) as *mut _, result0);
+            v128_store(out_ptr.add(old_len + i + 4) as *mut _, result1);
+            v128_store(out_ptr.add(old_len + i + 8) as *mut _, result2);
+            v128_store(out_ptr.add(old_len + i + 12) as *mut _, result3);
         }
+
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
+    while i + 4 <= len {
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        let scaled = f32x4_mul(v, splat_scale);
+        let result = f32x4_add(scaled, splat_offset);
+
+        // Write directly to Vec's memory
+        unsafe { v128_store(out_ptr.add(old_len + i) as *mut _, result) };
         i += 4;
     }
 
@@ -332,13 +425,33 @@ unsafe fn clamp_inplace_simd(values: &mut [f32], min: f32, max: f32) {
     let splat_min = f32x4_splat(min);
     let splat_max = f32x4_splat(max);
 
-    // Process 4 elements at a time
-    while i + 4 <= len {
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
+
+        let clamped0 = f32x4_min(f32x4_max(v0, splat_min), splat_max);
+        let clamped1 = f32x4_min(f32x4_max(v1, splat_min), splat_max);
+        let clamped2 = f32x4_min(f32x4_max(v2, splat_min), splat_max);
+        let clamped3 = f32x4_min(f32x4_max(v3, splat_min), splat_max);
+
         unsafe {
-            let v = v128_load(ptr.add(i) as *const _);
-            let clamped = f32x4_min(f32x4_max(v, splat_min), splat_max);
-            v128_store(ptr.add(i) as *mut _, clamped);
+            v128_store(ptr.add(i) as *mut _, clamped0);
+            v128_store(ptr.add(i + 4) as *mut _, clamped1);
+            v128_store(ptr.add(i + 8) as *mut _, clamped2);
+            v128_store(ptr.add(i + 12) as *mut _, clamped3);
         }
+
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
+    while i + 4 <= len {
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        let clamped = f32x4_min(f32x4_max(v, splat_min), splat_max);
+        unsafe { v128_store(ptr.add(i) as *mut _, clamped) };
         i += 4;
     }
 
@@ -386,15 +499,36 @@ unsafe fn negate_simd(values: &[f32], out: &mut Vec<f32>) {
     let out_ptr = out.as_mut_ptr();
     let old_len = out.len();
 
-    // Process 4 elements at a time
-    while i + 4 <= len {
-        unsafe {
-            let v = v128_load(ptr.add(i) as *const _);
-            let result = f32x4_mul(v, neg_one);
+    // Loop unrolling: process 16 elements (4x4) at a time
+    while i + 16 <= len {
+        let v0 = unsafe { v128_load(ptr.add(i) as *const _) };
+        let v1 = unsafe { v128_load(ptr.add(i + 4) as *const _) };
+        let v2 = unsafe { v128_load(ptr.add(i + 8) as *const _) };
+        let v3 = unsafe { v128_load(ptr.add(i + 12) as *const _) };
 
-            // Write directly to Vec's memory
-            v128_store(out_ptr.add(old_len + i) as *mut _, result);
+        let result0 = f32x4_mul(v0, neg_one);
+        let result1 = f32x4_mul(v1, neg_one);
+        let result2 = f32x4_mul(v2, neg_one);
+        let result3 = f32x4_mul(v3, neg_one);
+
+        // Write directly to Vec's memory
+        unsafe {
+            v128_store(out_ptr.add(old_len + i) as *mut _, result0);
+            v128_store(out_ptr.add(old_len + i + 4) as *mut _, result1);
+            v128_store(out_ptr.add(old_len + i + 8) as *mut _, result2);
+            v128_store(out_ptr.add(old_len + i + 12) as *mut _, result3);
         }
+
+        i += 16;
+    }
+
+    // Handle remaining 4-element chunks
+    while i + 4 <= len {
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        let result = f32x4_mul(v, neg_one);
+
+        // Write directly to Vec's memory
+        unsafe { v128_store(out_ptr.add(old_len + i) as *mut _, result) };
         i += 4;
     }
 
