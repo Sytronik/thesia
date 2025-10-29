@@ -654,6 +654,15 @@ fn calc_line_envelope_points(
     );
 
     if px_per_sec > sr_f32 / 2. {
+        let mut line_points = WavLinePoints::new();
+        if i_start >= i_end {
+            return CalcLineEnvelopePointsResult {
+                line_points,
+                envelopes: None,
+                upsampled_wav_sr: None,
+            };
+        }
+
         let (upsampled_wav, upsampled_sr, factor) = match upsampled_wav_sr {
             Some((upsampled_wav, upsampled_sr)) => {
                 let factor = (upsampled_sr / sr) as usize;
@@ -676,8 +685,8 @@ fn calc_line_envelope_points(
                 }
             }
         };
+
         let factor_f32 = factor as f32;
-        let mut line_points = WavLinePoints::new();
         let wav_slice = upsampled_wav
             .as_ref()
             .map_or_else(|| &wav[i_start..i_end], Vec::as_slice);
