@@ -1,5 +1,7 @@
 // https://librosa.org/doc/0.8.0/_modules/librosa/filters.html#mel
 
+use std::fmt::Debug;
+
 use ndarray::ScalarOperand;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Float, NumAssignOps};
@@ -49,7 +51,7 @@ pub fn calc_mel_fb<A>(
     do_norm: bool,
 ) -> Array2<A>
 where
-    A: Float + ScalarOperand + NumAssignOps + Sync + Send + std::fmt::Debug,
+    A: Float + ScalarOperand + NumAssignOps + Sync + Send + Debug,
     f64: AsPrimitive<A>,
     usize: AsPrimitive<A>,
 {

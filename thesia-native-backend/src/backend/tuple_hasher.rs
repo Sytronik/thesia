@@ -1,3 +1,4 @@
+use std::collections;
 use std::fmt;
 use std::hash::{BuildHasherDefault, Hasher};
 use std::marker::PhantomData;
@@ -5,8 +6,8 @@ use std::marker::PhantomData;
 use super::spectrogram::SrWinNfft;
 use identity_hash::IdentityHashable;
 
-pub type TupleIntMap<K, V> = std::collections::HashMap<K, V, BuildTupleIntHasher<K>>;
-pub type TupleIntSet<T> = std::collections::HashSet<T, BuildTupleIntHasher<T>>;
+pub type TupleIntMap<K, V> = collections::HashMap<K, V, BuildTupleIntHasher<K>>;
+pub type TupleIntSet<T> = collections::HashSet<T, BuildTupleIntHasher<T>>;
 
 pub type BuildTupleIntHasher<T> = BuildHasherDefault<TupleIntHasher<T>>;
 

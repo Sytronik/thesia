@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use napi_derive::napi;
 use ndarray::prelude::*;
@@ -13,7 +13,7 @@ pub enum GuardClippingMode {
 }
 
 impl Display for GuardClippingMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             GuardClippingMode::Clip => write!(f, "clipped"),
             GuardClippingMode::ReduceGlobalLevel => write!(f, "globally reduced"),

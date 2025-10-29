@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use ebur128::{EbuR128, Mode as LoudnessMode};
 use ndarray::prelude::*;
@@ -100,7 +100,7 @@ pub struct GuardClippingStats {
 }
 
 impl Display for GuardClippingStats {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.max_reduction_gain_dB == 0. {
             write!(f, "")
         } else if self.reduction_cnt == 0 {
