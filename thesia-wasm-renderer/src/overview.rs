@@ -3,11 +3,12 @@ use std::sync::atomic::Ordering;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
+use crate::line_envelope::WavLinePoints;
 use crate::mem::WasmFloat32Array;
 use crate::simd::find_min;
 use crate::wav::{
     DEVICE_PIXEL_RATIO, WAV_CACHES, WAV_CLIPPING_COLOR, WAV_COLOR, WavDrawingOptions,
-    WavLinePoints, draw_wav_internal,
+    draw_wav_internal,
 };
 
 const LIMITER_GAIN_COLOR: &str = "rgb(218, 151, 46)";
