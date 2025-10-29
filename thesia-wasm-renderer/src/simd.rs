@@ -35,6 +35,21 @@ fn find_min_scalar(values: &[f32]) -> f32 {
 }
 
 #[allow(unused)]
+#[inline]
+fn find_max_scalar(values: &[f32]) -> f32 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    let mut max_v = f32::NEG_INFINITY;
+    for &v in values {
+        if v > max_v {
+            max_v = v;
+        }
+    }
+    max_v
+}
+
+#[allow(unused)]
 #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
 #[inline]
 unsafe fn find_min_max_simd(values: &[f32]) -> (f32, f32) {
@@ -121,6 +136,40 @@ unsafe fn find_min_simd(values: &[f32]) -> f32 {
     min_v
 }
 
+#[allow(unused)]
+#[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+#[inline]
+unsafe fn find_max_simd(values: &[f32]) -> f32 {
+    let len = values.len();
+    if len == 0 {
+        return 0.0;
+    }
+
+    let mut i = 0usize;
+    let ptr = values.as_ptr();
+
+    let mut v_max = f32x4_splat(f32::NEG_INFINITY);
+    while i + 4 <= len {
+        let v = unsafe { v128_load(ptr.add(i) as *const _) };
+        v_max = f32x4_max(v_max, v);
+        i += 4;
+    }
+
+    let mut tmp_max = [0.0f32; 4];
+    unsafe { v128_store(tmp_max.as_mut_ptr() as *mut _, v_max) };
+    let mut max_v = tmp_max[0].max(tmp_max[1]).max(tmp_max[2]).max(tmp_max[3]);
+
+    while i < len {
+        let v = unsafe { *ptr.add(i) };
+        if v > max_v {
+            max_v = v;
+        }
+        i += 1;
+    }
+
+    max_v
+}
+
 #[inline]
 pub(crate) fn find_min_max(values: &[f32]) -> (f32, f32) {
     #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
@@ -142,6 +191,18 @@ pub(crate) fn find_min(values: &[f32]) -> f32 {
     #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
     {
         find_min_scalar(values)
+    }
+}
+
+#[inline]
+pub(crate) fn find_max(values: &[f32]) -> f32 {
+    #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+    unsafe {
+        find_max_simd(values)
+    }
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
+    {
+        find_max_scalar(values)
     }
 }
 

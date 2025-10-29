@@ -9,7 +9,9 @@ use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
 
 use crate::mem::WasmFloat32Array;
-use crate::simd::{add_scalar_inplace, clamp_inplace, find_min_max, fused_mul_add, negate};
+use crate::simd::{
+    add_scalar_inplace, clamp_inplace, find_max, find_min, find_min_max, fused_mul_add, negate,
+};
 
 pub(crate) const WAV_COLOR: &str = "rgb(19, 137, 235)";
 pub(crate) const WAV_CLIPPING_COLOR: &str = "rgb(196, 34, 50)";
@@ -352,8 +354,13 @@ impl WavCache {
             if envelope.xs[0] >= end_x || envelope.xs[envelope.len() - 1] < start_x {
                 continue;
             }
-            let xformed_envelope =
-                envelope.slice_transform(start_x, end_x, &transform_params, Some(envelope.len()));
+            let xformed_envelope = envelope.slice_transform(
+                start_x,
+                end_x,
+                &transform_params,
+                options.scale,
+                Some(envelope.len()),
+            );
             xformed_envelopes.push(xformed_envelope);
         }
 
@@ -548,6 +555,7 @@ impl WavEnvelope {
         start_x: f32,
         end_x: f32,
         params: &TransformParams,
+        scale: f32,
         len_hint: Option<usize>,
     ) -> Self {
         let mut out = len_hint.map_or_else(Self::new, Self::with_capacity);
@@ -566,28 +574,59 @@ impl WavEnvelope {
                 break;
             }
         }
+
         fused_mul_add(
             &self.xs[i_start..i_end],
             params.x_scale,
             params.x_offset,
-            &mut out.xs,
-        );
-        fused_mul_add(
-            &self.tops[i_start..i_end],
-            params.y2v_scale,
-            params.y2v_offset,
             &mut tmp,
         );
+
+        // downsampling
+        let floor_x = |x: f32| (x / scale).floor() * scale;
+        if i_start == 0 {
+            out.xs.push(floor_x(tmp[0]) + scale / 2.0);
+            out.tops.push(self.tops[0]);
+            out.bottoms.push(self.bottoms[0]);
+        }
+        let mut i = i_start.max(1);
+        while i < i_end.min(self.len() - 1) {
+            let x = tmp[i - i_start];
+            let x_floor = floor_x(x);
+            let x_mid = x_floor + scale / 2.0;
+            let mut i2 = i;
+            while i2 < i_end.min(self.len() - 1) {
+                let x2 = tmp[i2 - i_start];
+                let x2_floor = floor_x(x2);
+                if x2_floor > x_floor {
+                    break;
+                }
+                i2 += 1;
+            }
+            if i2 == i {
+                i2 = (i + 1).min(i_end.min(self.len() - 1));
+            }
+            out.xs.push(x_mid);
+            out.tops.push(find_min(&self.tops[i..i2]));
+            out.bottoms.push(find_max(&self.bottoms[i..i2]));
+            i = i2;
+        }
+        if i_end == self.len() {
+            out.xs.push(floor_x(tmp[i_end - i_start - 1]) + scale / 2.0);
+            out.tops.push(self.tops[i_end - 1]);
+            out.bottoms.push(self.bottoms[i_end - 1]);
+        }
+        tmp.clear();
+
+        fused_mul_add(&out.tops, params.y2v_scale, params.y2v_offset, &mut tmp);
         clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
+        out.tops.clear();
         fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.tops);
         tmp.clear();
-        fused_mul_add(
-            &self.bottoms[i_start..i_end],
-            params.y2v_scale,
-            params.y2v_offset,
-            &mut tmp,
-        );
+
+        fused_mul_add(&out.bottoms, params.y2v_scale, params.y2v_offset, &mut tmp);
         clamp_inplace(&mut tmp, params.v_clip_values.0, params.v_clip_values.1);
+        out.bottoms.clear();
         fused_mul_add(&tmp, params.v2y_scale, params.v2y_offset, &mut out.bottoms);
         tmp.clear();
         out
