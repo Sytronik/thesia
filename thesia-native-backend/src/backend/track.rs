@@ -1,6 +1,7 @@
 use std::fmt;
 use std::ops::Index;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use identity_hash::{IntMap, IntSet};
 use kittyaudio::Frame;
@@ -49,8 +50,8 @@ macro_rules! indexed_par_iter_mut_filtered {
 pub struct AudioTrack {
     pub format_info: AudioFormatInfo,
     path: PathBuf,
-    original: Audio,
-    audio: Audio,
+    original: Arc<Audio>,
+    audio: Arc<Audio>,
     interleaved: Vec<Frame>,
     stat_calculator: StatCalculator,
 }
@@ -59,10 +60,10 @@ impl AudioTrack {
     pub fn new(path: String) -> Result<Self, SymphoniaError> {
         let (wavs, format_info) = open_audio_file(&path)?;
         let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, format_info.sr);
-        let original = Audio::new(wavs, format_info.sr, &mut stat_calculator);
+        let original = Arc::new(Audio::new(wavs, format_info.sr, &mut stat_calculator));
 
-        let audio = original.clone();
-        let interleaved = (&audio).into();
+        let audio = Arc::clone(&original);
+        let interleaved = audio.as_ref().into();
 
         Ok(AudioTrack {
             format_info,
@@ -81,12 +82,12 @@ impl AudioTrack {
         }
         self.stat_calculator
             .change_parameters(wavs.shape()[0] as u32, format_info.sr);
-        let original = Audio::new(wavs, format_info.sr, &mut self.stat_calculator);
+        let original = Arc::new(Audio::new(wavs, format_info.sr, &mut self.stat_calculator));
 
         self.format_info = format_info;
-        self.original = original.clone();
-        self.audio = original;
-        self.interleaved = (&self.audio).into();
+        self.original = original;
+        self.audio = Arc::clone(&self.original);
+        self.interleaved = self.audio.as_ref().into();
 
         Ok(true)
     }
@@ -168,7 +169,7 @@ impl Normalize for AudioTrack {
         if !gain.is_finite() || gain == 1. {
             self.audio.clone_from(&self.original);
         } else {
-            self.audio.mutate(
+            Arc::make_mut(&mut self.audio).mutate(
                 |wavs| {
                     azip!((y in wavs, x in self.original.view()) *y = gain * x);
                 },
@@ -176,7 +177,7 @@ impl Normalize for AudioTrack {
                 guard_clipping_mode,
             );
         }
-        self.interleaved = (&self.audio).into();
+        self.interleaved = self.audio.as_ref().into();
     }
 }
 
@@ -210,11 +211,11 @@ impl TrackList {
     pub fn new() -> Self {
         TrackList {
             max_sec: 0.,
+            common_normalize: NormalizeTarget::Off,
+            common_guard_clipping: GuardClippingMode::ReduceGlobalLevel,
             tracks: vec![None],
             filenames: Vec::new(),
             id_max_sec: 0,
-            common_normalize: NormalizeTarget::Off,
-            common_guard_clipping: GuardClippingMode::ReduceGlobalLevel,
         }
     }
 
