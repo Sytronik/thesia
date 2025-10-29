@@ -58,13 +58,9 @@ pub fn draw_overview(
         OverviewHeights::new(height, gap, id_ch_arr.len(), OVERVIEW_GAIN_HEIGHT_RATIO);
 
     let limiter_gain_seq: Option<Vec<_>> = limiter_gain_seq.map(|seq| seq.into());
-    let (mut limiter_gain_seq_iter, height_ch) = match limiter_gain_seq.as_ref() {
-        Some(seq) => {
-            let length = seq.len() / id_ch_arr.len();
-            (Some(seq.chunks_exact(length)), overview_heights.ch_wo_gain)
-        }
-        None => (None, overview_heights.ch),
-    };
+    let height_ch = limiter_gain_seq
+        .as_ref()
+        .map_or(overview_heights.ch, |_| overview_heights.ch_wo_gain);
 
     let mut options = WavDrawingOptions {
         width,
@@ -81,7 +77,7 @@ pub fn draw_overview(
         options.offset_y = i as f32 * (overview_heights.ch + overview_heights.gap);
         options.clip_values = None;
 
-        if let Some(gain_seq) = limiter_gain_seq_iter.as_mut().and_then(|iter| iter.next()) {
+        if let Some(gain_seq) = limiter_gain_seq.as_ref() {
             draw_limiter_gain(
                 ctx,
                 gain_seq,

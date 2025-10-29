@@ -202,7 +202,7 @@ function Overview(props: OverviewProps) {
       const {wav, sr, isClipped} = wavInfo;
       WasmAPI.setWav(idCh, wav, sr, isClipped);
     }); // TODO: this is duplicated with ImgCanvas.tsx
-    const limiterGainSeq = BackendAPI.getLimiterGainSeq(trackId, idChArr.length);
+    const limiterGainSeq = BackendAPI.getLimiterGainSeq(trackId);
     WasmAPI.drawOverview(
       backgroundElem.current,
       ctx,
