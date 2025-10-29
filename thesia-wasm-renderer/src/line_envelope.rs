@@ -223,13 +223,18 @@ impl WavEnvelope {
                 out.tops.push(self.tops[0]);
                 out.bottoms.push(self.bottoms[0]);
             }
-            let mut i = i_start.max(1);
-            while i < i_end.min(self.len() - 1) {
+
+            // exclude the first and last points
+            let i_start2 = i_start.max(1);
+            let i_end2 = i_end.min(self.len() - 1);
+
+            let mut i = i_start2;
+            while i < i_end2 {
                 let x = buf[i - i_start];
                 let x_floor = floor_x(x);
                 let x_mid = x_floor + scale / 2.0;
                 let mut i2 = i;
-                while i2 < i_end.min(self.len() - 1) {
+                while i2 < i_end2 {
                     let x2 = buf[i2 - i_start];
                     let x2_floor = floor_x(x2);
                     if x2_floor > x_floor {
@@ -238,7 +243,7 @@ impl WavEnvelope {
                     i2 += 1;
                 }
                 if i2 == i {
-                    i2 = (i + 1).min(i_end.min(self.len() - 1));
+                    i2 = (i + 1).min(i_end2);
                 }
                 out.xs.push(x_mid);
                 out.tops.push(find_min(&self.tops[i..i2]));

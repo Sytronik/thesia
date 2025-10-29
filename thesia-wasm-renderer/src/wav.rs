@@ -192,11 +192,11 @@ pub(crate) fn draw_wav_internal(
 
     // Draw borders for envelopes
     if options.need_border_for_envelope {
+        ctx.set_line_cap("round");
+        ctx.set_line_join("round");
+        ctx.set_stroke_style_str(WAV_BORDER_COLOR);
+        ctx.set_line_width((2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
         for path in &envelope_paths {
-            ctx.set_line_cap("round");
-            ctx.set_line_join("round");
-            ctx.set_stroke_style_str(WAV_BORDER_COLOR);
-            ctx.set_line_width((2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
             ctx.stroke_with_path(path);
         }
     }
@@ -209,8 +209,8 @@ pub(crate) fn draw_wav_internal(
     ctx.stroke_with_path(&line_path);
 
     // Fill envelopes
+    ctx.set_fill_style_str(color);
     for path in &envelope_paths {
-        ctx.set_fill_style_str(color);
         ctx.fill_with_path_2d(path);
     }
 

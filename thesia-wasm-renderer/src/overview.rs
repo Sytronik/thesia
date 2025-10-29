@@ -114,6 +114,7 @@ fn draw_limiter_gain(
     gain_range: (f32, f32),
 ) -> Result<(), JsValue> {
     let above_envelopes = calc_limiter_gain_envelopes(gain_seq, width, height, gain_range);
+    ctx.set_fill_style_str(LIMITER_GAIN_COLOR);
     for mut above_envelope in above_envelopes {
         let mut below_envelope = above_envelope.upside_down();
         below_envelope.shift_y_inplace(offset_y_below_part + height);
@@ -124,7 +125,6 @@ fn draw_limiter_gain(
         let below_path = below_envelope.try_into_path()?;
         below_path.close_path();
 
-        ctx.set_fill_style_str(LIMITER_GAIN_COLOR);
         ctx.fill_with_path_2d(&above_path);
         ctx.fill_with_path_2d(&below_path);
     }
