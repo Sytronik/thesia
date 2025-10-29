@@ -21,6 +21,7 @@ const WAV_LINE_WIDTH: f32 = 1.75;
 const WAV_MARGIN_PX: f32 = 10.0;
 
 const UPSAMPLE_CHUNK_SIZE: usize = 1024;
+const UPSAMPLE_MARGIN_SEC: f32 = 0.1;
 
 const CACHE_CANVAS_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 const CACHE_HEIGHT: f32 = 10000.0;
@@ -662,7 +663,13 @@ fn calc_line_envelope_points(
                 let factor = 2usize.pow((px_per_sec / sr_f32).log2().ceil().max(0.) as u32);
                 let upsample_sr = sr * factor as u32;
                 if upsample_sr > sr {
-                    let upsampled_wav = resample(&wav[i_start..i_end], sr, upsample_sr);
+                    let upsample_margin = (UPSAMPLE_MARGIN_SEC * sr_f32).round() as usize;
+                    let i_start_upsample = i_start.saturating_sub(upsample_margin);
+                    let i_end_upsample = (i_end + upsample_margin).min(wav.len());
+                    let mut upsampled_wav =
+                        resample(&wav[i_start_upsample..i_end_upsample], sr, upsample_sr);
+                    upsampled_wav.drain(..((i_start - i_start_upsample) * factor));
+                    upsampled_wav.truncate((i_end - i_start) * factor);
                     (Some(upsampled_wav), upsample_sr, factor)
                 } else {
                     (None, sr, 1)
