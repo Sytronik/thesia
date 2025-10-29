@@ -13,16 +13,9 @@ import useEvent from "react-use-event-hook";
 import {debounce, throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "renderer/contexts";
 
-import {WAV_CLIPPING_COLOR, WAV_COLOR} from "renderer/prototypes/constants/colors";
-import {
-  WAV_IMAGE_SCALE,
-  WAV_LINE_WIDTH_FACTOR,
-  WAV_MARGIN_RATIO,
-} from "renderer/prototypes/constants/tracks";
-import {drawWavEnvelope, drawWavLine} from "renderer/lib/drawing-wav";
 import {sleep} from "renderer/utils/time";
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI from "../api";
+import BackendAPI, {WasmAPI} from "../api";
 import {
   cleanupWebGLResources,
   WebGLResources,
@@ -67,6 +60,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     needRefresh,
     hidden,
   } = props;
+
   const endSec = startSec + width / (pxPerSec + 1e-8);
 
   const needClearSpec = hidden || startSec >= trackSec || width <= 0;
@@ -74,12 +68,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const needHideWav = blend >= 1 || hidden;
 
   const devicePixelRatio = useContext(DevicePixelRatioContext);
-  const wavCanvasScale = devicePixelRatio * WAV_IMAGE_SCALE;
-  const scaledWidth = width * wavCanvasScale;
-  const scaledHeight = height * wavCanvasScale;
 
   const spectrogramRef = useRef<Spectrogram | null>(null);
-  const wavDrawingInfoRef = useRef<WavDrawingInfo | null>(null);
+  const wavMetadataRef = useRef<WavMetadata | null>(null);
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
@@ -291,85 +282,21 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawWavImage = useCallback(() => {
     if (!wavCanvasElem.current || !wavCtxRef.current) return;
 
-    wavCanvasElem.current.width = width * devicePixelRatio;
-    wavCanvasElem.current.height = height * devicePixelRatio;
-
     // set opacity by blend
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.max(2 - 2 * blend, 0)}`;
 
-    const ctx = wavCtxRef.current;
-
-    ctx.scale(devicePixelRatio / wavCanvasScale, devicePixelRatio / wavCanvasScale);
-
-    if (!wavDrawingInfoRef.current) return;
-    const wavDrawingInfo = wavDrawingInfoRef.current;
-
-    // startSec > trackSec case
-    if (wavDrawingInfo.line !== null && wavDrawingInfo.line.length === 0) {
-      ctx.clearRect(0, 0, scaledWidth, scaledHeight);
-      return;
-    }
-
-    // fillRect case
-    if (!wavDrawingInfo.line && !wavDrawingInfo.topEnvelope && !wavDrawingInfo.bottomEnvelope) {
-      ctx.fillStyle = WAV_COLOR;
-      ctx.fillRect(0, 0, scaledWidth, scaledHeight);
-      return;
-    }
-
-    const pxPerPoints = (pxPerSec * wavCanvasScale) / wavDrawingInfo.pointsPerSec;
-    const startPx =
-      -wavDrawingInfo.preMargin * pxPerPoints -
-      (startSec - wavDrawingInfo.startSec) * pxPerSec * wavCanvasScale;
-    const options = {
-      startPx,
-      pxPerPoints,
-      height: scaledHeight,
-      scale: wavCanvasScale,
-      devicePixelRatio,
-      needBorder: true,
-    };
-    ctx.clearRect(0, 0, scaledWidth, scaledHeight);
-    if (wavDrawingInfo.line) {
-      // line case
-
-      if (wavDrawingInfo.clipValues) {
-        drawWavLine(ctx, wavDrawingInfo.line, {...options, color: WAV_CLIPPING_COLOR});
-      }
-
-      drawWavLine(ctx, wavDrawingInfo.line, {
-        ...options,
-        color: WAV_COLOR,
-        clipValues: wavDrawingInfo.clipValues,
-      });
-    } else if (wavDrawingInfo.topEnvelope && wavDrawingInfo.bottomEnvelope) {
-      // envelope case
-
-      if (wavDrawingInfo.clipValues) {
-        drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
-          ...options,
-          color: WAV_CLIPPING_COLOR,
-        });
-      }
-
-      drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
-        ...options,
-        color: WAV_COLOR,
-        clipValues: wavDrawingInfo.clipValues,
-        needBorder: wavDrawingInfo.clipValues === null,
-      });
-    }
-  }, [
-    blend,
-    devicePixelRatio,
-    height,
-    pxPerSec,
-    scaledHeight,
-    scaledWidth,
-    startSec,
-    wavCanvasScale,
-    width,
-  ]);
+    WasmAPI.drawWav(
+      wavCanvasElem.current,
+      wavCtxRef.current,
+      wavMetadataRef.current !== null ? idChStr : "",
+      width,
+      height,
+      startSec,
+      pxPerSec,
+      ampRange[0],
+      ampRange[1],
+    );
+  }, [width, height, blend, startSec, pxPerSec, ampRange, idChStr]);
 
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
@@ -377,11 +304,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   useEffect(() => {
     if (needHideWav) {
       if (wavCanvasElem.current) {
-        wavCanvasElem.current.width = width * devicePixelRatio;
-        wavCanvasElem.current.height = height * devicePixelRatio;
         wavCanvasElem.current.style.opacity = "0";
       }
-      wavCtxRef.current?.clearRect(0, 0, scaledWidth, scaledHeight);
+      WasmAPI.clearWav(wavCanvasElem.current, wavCtxRef.current, width, height);
       return () => {};
     }
     drawWavImageRef.current = drawWavImage;
@@ -391,77 +316,36 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
-  }, [
-    devicePixelRatio,
-    drawWavImage,
-    height,
-    hidden,
-    needHideWav,
-    scaledHeight,
-    scaledWidth,
-    wavCanvasScale,
-    width,
-  ]);
+  }, [devicePixelRatio, drawWavImage, height, hidden, needHideWav, width]);
 
   // getWavImage is throttled and it calls drawWavImage always,
   // but inside drawWavImage, it renders the image once at a frame
   const drawWavImageRequestRef = useRef<number>(0);
-  const throttledGetWavDrawingInfo = useMemo(
+  const throttledGetWav = useMemo(
     () =>
-      throttle(
-        1000 / 60,
-        async (_idChStr, _startSec, _endSec, _width, _height, _ampRange, _devicePixelRatio) => {
-          const wavSlice = await BackendAPI.getWavDrawingInfo(
-            _idChStr,
-            [_startSec, _endSec],
-            _width,
-            _height,
-            _ampRange,
-            WAV_LINE_WIDTH_FACTOR,
-            _devicePixelRatio,
-            WAV_MARGIN_RATIO,
-          );
-          if (wavSlice === null) return;
-          wavDrawingInfoRef.current = wavSlice;
-          if (drawWavImageRequestRef.current !== 0)
-            cancelAnimationFrame(drawWavImageRequestRef.current);
-          drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());
-        },
-      ),
+      throttle(1000 / 60, (_idChStr) => {
+        const wavInfo = BackendAPI.getWav(_idChStr);
+        if (wavInfo === null) return;
+        const {wav, sr, isClipped} = wavInfo;
+        wavMetadataRef.current = {length: wav.length, sr, isClipped};
+        WasmAPI.setWav(_idChStr, wav, sr, isClipped);
+        if (drawWavImageRequestRef.current !== 0)
+          cancelAnimationFrame(drawWavImageRequestRef.current);
+        drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());
+      }),
     [],
   );
-  const getWavDrawingInfoIfNotHidden = useCallback(() => {
-    if (needHideWav) return;
-    throttledGetWavDrawingInfo(
-      idChStr,
-      startSec,
-      endSec,
-      width,
-      height,
-      ampRange,
-      devicePixelRatio,
-    );
-  }, [
-    ampRange,
-    devicePixelRatio,
-    endSec,
-    height,
-    idChStr,
-    needHideWav,
-    startSec,
-    throttledGetWavDrawingInfo,
-    width,
-  ]);
+  const getWav = useCallback(() => throttledGetWav(idChStr), [idChStr, throttledGetWav]);
 
-  // getWavDrawingInfo is called when needRefresh is true ...
-  const prevGetWavDrawingInfoRef = useRef<() => void>(getWavDrawingInfoIfNotHidden);
-  if (prevGetWavDrawingInfoRef.current === getWavDrawingInfoIfNotHidden && needRefresh) {
-    getWavDrawingInfoIfNotHidden();
+  // getWav is called when needRefresh is true ...
+  const prevGetWavRef = useRef<() => void>(getWav);
+  if (prevGetWavRef.current === getWav && needRefresh) {
+    getWav();
   }
-  prevGetWavDrawingInfoRef.current = getWavDrawingInfoIfNotHidden;
+  prevGetWavRef.current = getWav;
 
   // or when deps change
-  useEffect(getWavDrawingInfoIfNotHidden, [getWavDrawingInfoIfNotHidden]);
+  useEffect(getWav, [getWav]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;

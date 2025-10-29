@@ -298,54 +298,30 @@ async fn get_spectrogram(
 }
 
 #[napi]
-async fn get_wav_drawing_info(
-    id_ch_str: String,
-    sec_range: (f64, f64),
-    width: u32,
-    height: u32,
-    amp_range: (f64, f64),
-    wav_stroke_width: f64,
-    topbottom_context_size: f64,
-    margin_ratio: f64,
-) -> Result<Option<WavDrawingInfo>> {
+fn get_wav_metadata(id_ch_str: String) -> Result<WavMetadata> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    let sec_range = (sec_range.0.max(0.), sec_range.1);
-    if sec_range.0 >= sec_range.1 {
-        return Ok(None);
+    match TRACK_LIST.read().get(id) {
+        Some(track) => {
+            let (wav, is_clipped) = track.channel_for_drawing(ch);
+            Ok(WavMetadata {
+                length: wav.len() as u32,
+                sr: track.sr(),
+                is_clipped,
+            })
+        }
+        None => Ok(Default::default()),
     }
+}
 
-    let task_id = {
-        let mut entry = DRAW_WAV_TASK_ID_MAP
-            .entry(id_ch_str.clone())
-            .or_insert(Wrapping(0));
-        *entry.value_mut() += 1;
-        *entry.value()
-    };
-
-    let out = tokio_rayon::spawn(move || {
-        let tracklist = TRACK_LIST.read();
-        let track = tracklist.get(id)?;
-        let internal = track.get_wav_drawing_info(
-            ch,
-            sec_range,
-            width as f64,
-            height as f64,
-            (amp_range.0 as f32, amp_range.1 as f32),
-            wav_stroke_width,
-            topbottom_context_size,
-            margin_ratio,
-        );
-        Some(WavDrawingInfo::new(internal, sec_range.0))
-    })
-    .await;
-
-    if DRAW_WAV_TASK_ID_MAP
-        .get(&id_ch_str)
-        .is_none_or(|id| *id != task_id)
-    {
-        return Ok(None); // if new task has been started, return None
+#[napi]
+fn assign_wav_to(mut arr: Float32Array, id_ch_str: String) -> Result<()> {
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
+    if let Some(track) = TRACK_LIST.read().get(id) {
+        let (wav, _) = track.channel_for_drawing(ch);
+        let arr_mut = unsafe { arr.as_mut() };
+        arr_mut.copy_from_slice(wav.as_slice().unwrap());
     }
-    Ok(out)
+    Ok(())
 }
 
 #[napi]
@@ -357,35 +333,39 @@ fn find_id_by_path(path: String) -> i32 {
 }
 
 #[napi]
-async fn get_overview_drawing_info(
-    track_id: u32,
-    width: u32,
-    height: u32,
-    gap_height: f64,
-    limiter_gain_height_ratio: f64,
-    wav_stroke_width: f64,
-    topbottom_context_size: f64,
-) -> Option<OverviewDrawingInfo> {
-    assert!(width >= 1 && height >= 1);
-
-    let (internal, track_sec) = tokio_rayon::spawn(move || {
-        let tracklist = TRACK_LIST.read();
-        let track = tracklist.get(track_id as usize)?;
-        let internal = OverviewDrawingInfoInternal::new(
-            track,
-            width as f64,
-            tracklist.max_sec,
-            height as f64,
-            gap_height,
-            limiter_gain_height_ratio,
-            wav_stroke_width,
-            topbottom_context_size,
-        );
-        Some((internal, track.sec()))
+fn get_limiter_gain_length(track_id: u32) -> u32 {
+    let tracklist = TRACK_LIST.read();
+    tracklist.get(track_id as usize).map_or(0, |track| {
+        if let GuardClippingResult::GainSequence(gain_seq) = track.guard_clip_result()
+            && gain_seq.iter().any(|&x| x < 1.)
+        {
+            gain_seq.shape()[1] as u32
+        } else {
+            0
+        }
     })
-    .await?;
+}
 
-    Some(OverviewDrawingInfo::new(internal, track_sec))
+#[napi]
+fn assign_limiter_gain_to(mut arr: Float32Array, track_id: u32) -> Result<()> {
+    let tracklist = TRACK_LIST.read();
+    match tracklist.get(track_id as usize) {
+        Some(track) => {
+            if let GuardClippingResult::GainSequence(gain_seq) = track.guard_clip_result() {
+                let arr_mut = unsafe { arr.as_mut() };
+                for (&x, y) in gain_seq.iter().zip(arr_mut.iter_mut()) {
+                    *y = x;
+                }
+                Ok(())
+            } else {
+                Err(napi::Error::new(
+                    Status::InvalidArg,
+                    "Guard clipping result is not a gain sequence",
+                ))
+            }
+        }
+        None => Ok(()),
+    }
 }
 
 #[napi]

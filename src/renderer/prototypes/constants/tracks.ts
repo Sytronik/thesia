@@ -206,12 +206,4 @@ export const T_OVERLAP_VALUES = [1, 2, 4, 8, 16, 32];
 
 export const MIN_VOLUME_dB = -36;
 
-export const WAV_MARGIN_RATIO = 0.2;
-export const WAV_IMAGE_SCALE = 2;
-export const WAV_LINE_WIDTH_FACTOR = 1.75;
-export const WAV_BORDER_WIDTH = 1.5;
-export const WAV_TOPBOTTOM_CONTEXT_SIZE = 2;
-
-export const OVERVIEW_CH_GAP_HEIGHT = 1;
-export const OVERVIEW_GAIN_HEIGHT_RATIO = 0.2;
-export const OVERVIEW_LINE_WIDTH_FACTOR = 1;
+export const OVERVIEW_MAX_CH = 4;

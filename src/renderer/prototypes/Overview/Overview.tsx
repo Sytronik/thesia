@@ -3,11 +3,9 @@ import useEvent from "react-use-event-hook";
 
 import {DevicePixelRatioContext} from "renderer/contexts";
 import styles from "./Overview.module.scss";
-import BackendAPI from "../../api";
-import {OVERVIEW_LENS_STYLE} from "../constants/tracks";
+import BackendAPI, {WasmAPI} from "../../api";
+import {OVERVIEW_LENS_STYLE, OVERVIEW_MAX_CH} from "../constants/tracks";
 import Draggable, {CursorStateInfo} from "../../modules/Draggable";
-import {WAV_COLOR, WAV_CLIPPING_COLOR, LIMITER_GAIN_COLOR} from "../constants/colors";
-import {drawWavLine, drawWavEnvelope} from "../../lib/drawing-wav";
 
 const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
   OVERVIEW_LENS_STYLE;
@@ -16,6 +14,7 @@ const THICKNESS = 3;
 
 type OverviewProps = {
   trackId: number | null;
+  idChArr: IdChArr;
   maxTrackSec: number;
   startSec: number;
   lensDurationSec: number;
@@ -31,6 +30,7 @@ type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 function Overview(props: OverviewProps) {
   const {
     trackId,
+    idChArr: _idChArr,
     maxTrackSec,
     startSec,
     lensDurationSec,
@@ -40,6 +40,7 @@ function Overview(props: OverviewProps) {
     resetLens,
     needRefresh,
   } = props;
+  const idChArr = _idChArr.slice(0, OVERVIEW_MAX_CH);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSec = useMemo(
     () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : 0),
@@ -51,128 +52,6 @@ function Overview(props: OverviewProps) {
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const lensCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-
-  const getWavDrawingOptionsBase = useCallback(
-    (scaledWidth: number, scaledHeight: number, offsetY: number, pointsPerSec: number) => {
-      const pxPerPoints = scaledWidth / maxTrackSec / pointsPerSec;
-      // line case
-      return {
-        startPx: 0,
-        pxPerPoints,
-        height: scaledHeight,
-        offsetY,
-        scale: devicePixelRatio,
-        devicePixelRatio,
-        needBorder: false,
-      };
-    },
-    [devicePixelRatio, maxTrackSec],
-  );
-
-  const drawChannel = useCallback(
-    (
-      ctx: CanvasRenderingContext2D,
-      wavDrawingInfo: WavDrawingInfo,
-      scaledWidth: number,
-      scaledHeight: number,
-      offsetY: number,
-    ) => {
-      const baseOptions = getWavDrawingOptionsBase(
-        scaledWidth,
-        scaledHeight,
-        offsetY,
-        wavDrawingInfo.pointsPerSec,
-      );
-      if (wavDrawingInfo.line) {
-        if (wavDrawingInfo.clipValues) {
-          drawWavLine(ctx, wavDrawingInfo.line, {...baseOptions, color: WAV_CLIPPING_COLOR}, 1);
-        }
-
-        drawWavLine(
-          ctx,
-          wavDrawingInfo.line,
-          {
-            ...baseOptions,
-            color: WAV_COLOR,
-            clipValues: wavDrawingInfo.clipValues,
-          },
-          1,
-        );
-      } else if (wavDrawingInfo.topEnvelope && wavDrawingInfo.bottomEnvelope) {
-        // envelope case
-
-        if (wavDrawingInfo.clipValues) {
-          drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
-            ...baseOptions,
-            color: WAV_CLIPPING_COLOR,
-          });
-        }
-
-        drawWavEnvelope(ctx, wavDrawingInfo.topEnvelope, wavDrawingInfo.bottomEnvelope, {
-          ...baseOptions,
-          color: WAV_COLOR,
-          clipValues: wavDrawingInfo.clipValues,
-        });
-      }
-    },
-    [getWavDrawingOptionsBase],
-  );
-
-  const drawLimiterGain = useCallback(
-    (
-      ctx: CanvasRenderingContext2D,
-      gainTopDrawingInfo: WavDrawingInfo,
-      gainBottomDrawingInfo: WavDrawingInfo,
-      scaledWidth: number,
-      gainHeight: number,
-      chWoGainHeight: number,
-      offsetY: number,
-    ) => {
-      if (!gainTopDrawingInfo.topEnvelope || !gainTopDrawingInfo.bottomEnvelope) {
-        console.error(
-          "gainTopDrawingInfo.topEnvelope or gainTopDrawingInfo.bottomEnvelope is null",
-        );
-        return;
-      }
-
-      const topBaseOptions = getWavDrawingOptionsBase(
-        scaledWidth,
-        gainHeight,
-        offsetY,
-        gainTopDrawingInfo.pointsPerSec,
-      );
-      drawWavEnvelope(ctx, gainTopDrawingInfo.topEnvelope, gainTopDrawingInfo.bottomEnvelope, {
-        ...topBaseOptions,
-        color: LIMITER_GAIN_COLOR,
-        clipValues: gainTopDrawingInfo.clipValues,
-      });
-
-      if (!gainBottomDrawingInfo.topEnvelope || !gainBottomDrawingInfo.bottomEnvelope) {
-        console.error(
-          "gainBottomDrawingInfo.topEnvelope or gainBottomDrawingInfo.bottomEnvelope is null",
-        );
-        return;
-      }
-
-      const bottomBaseOptions = getWavDrawingOptionsBase(
-        scaledWidth,
-        gainHeight,
-        offsetY + gainHeight + chWoGainHeight,
-        gainBottomDrawingInfo.pointsPerSec,
-      );
-      drawWavEnvelope(
-        ctx,
-        gainBottomDrawingInfo.topEnvelope,
-        gainBottomDrawingInfo.bottomEnvelope,
-        {
-          ...bottomBaseOptions,
-          color: LIMITER_GAIN_COLOR,
-          clipValues: gainBottomDrawingInfo.clipValues,
-        },
-      );
-    },
-    [getWavDrawingOptionsBase],
-  );
 
   const draw = useCallback(async () => {
     if (!backgroundElem.current || !lensElem.current) return;
@@ -195,62 +74,30 @@ function Overview(props: OverviewProps) {
 
     if (!ctx) return;
 
-    const drawingInfo = await BackendAPI.getOverviewDrawingInfo(
-      trackId,
+    idChArr.forEach((idCh) => {
+      const wavInfo = BackendAPI.getWav(idCh);
+      if (wavInfo === null) return;
+      const {wav, sr, isClipped} = wavInfo;
+      WasmAPI.setWav(idCh, wav, sr, isClipped);
+    }); // TODO: this is duplicated with ImgCanvas.tsx
+    const limiterGainSeq = BackendAPI.getLimiterGainSeq(trackId);
+    WasmAPI.drawOverview(
+      backgroundElem.current,
+      ctx,
+      idChArr,
       width,
       height,
-      devicePixelRatio,
+      maxTrackSec,
+      limiterGainSeq,
     );
-    if (!drawingInfo) return;
 
-    backgroundElem.current.width = width * devicePixelRatio;
-    backgroundElem.current.height = height * devicePixelRatio;
-    ctx.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
-    const {
-      chDrawingInfos,
-      limiterGainTopInfo: gainTopDrawingInfo,
-      limiterGainBottomInfo: gainBottomDrawingInfo,
-      scaledChHeight: chHeight,
-      scaledGapHeight: gapHeight,
-      scaledLimiterGainHeight: gainHeight,
-      scaledChWoGainHeight: chWoGainHeight,
-    } = drawingInfo;
-    chDrawingInfos.forEach((chDrawingInfo, chIdx) => {
-      if (gainTopDrawingInfo === null || gainBottomDrawingInfo === null) {
-        drawChannel(
-          ctx,
-          chDrawingInfo,
-          width * devicePixelRatio,
-          chHeight,
-          chIdx * (chHeight + gapHeight),
-        );
-      } else {
-        drawChannel(
-          ctx,
-          chDrawingInfo,
-          width * devicePixelRatio,
-          chWoGainHeight,
-          chIdx * (chHeight + gapHeight) + gainHeight,
-        );
-        drawLimiterGain(
-          ctx,
-          gainTopDrawingInfo,
-          gainBottomDrawingInfo,
-          width * devicePixelRatio,
-          gainHeight,
-          chWoGainHeight,
-          chIdx * (chHeight + gapHeight),
-        );
-      }
-
-      // fill out of track area
-      if (durationSec < maxTrackSec) {
-        ctx.fillStyle = OUT_TRACK_FILL_STYLE;
-        const x = width * devicePixelRatio * (durationSec / maxTrackSec);
-        ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
-      }
-    });
-  }, [devicePixelRatio, drawChannel, drawLimiterGain, durationSec, maxTrackSec, trackId]);
+    // fill out of track area
+    if (durationSec < maxTrackSec) {
+      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
+      const x = width * devicePixelRatio * (durationSec / maxTrackSec);
+      ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
+    }
+  }, [devicePixelRatio, durationSec, idChArr, maxTrackSec, trackId]);
 
   const prevDrawRef = useRef(draw);
   if (prevDrawRef.current === draw && needRefresh) draw();

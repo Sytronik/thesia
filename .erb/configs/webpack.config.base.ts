@@ -54,6 +54,9 @@ const configuration: webpack.Configuration = {
       NODE_ENV: "production",
     }),
   ],
+  experiments: {
+    asyncWebAssembly: true,
+  },
 };
 
 export default configuration;

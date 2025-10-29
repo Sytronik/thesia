@@ -4,6 +4,10 @@ export declare function addTracks(idList: Array<number>, pathList: Array<string>
 
 export declare function applyTrackListChanges(): Promise<Array<string>>
 
+export declare function assignLimiterGainTo(arr: Float32Array, trackId: number): void
+
+export declare function assignWavTo(arr: Float32Array, idChStr: string): void
+
 export interface AudioFormatInfo {
   name: string
   sampleRate: number
@@ -48,6 +52,8 @@ export declare function getGuardClipStats(trackId: number): any
 
 export declare function getLengthSec(trackId: number): number
 
+export declare function getLimiterGainLength(trackId: number): number
+
 export declare function getLongestTrackLengthSec(): number
 
 export declare function getMaxdB(): number
@@ -57,8 +63,6 @@ export declare function getMaxPeakdB(trackId: number): number
 export declare function getMaxTrackHz(): number
 
 export declare function getMindB(): number
-
-export declare function getOverviewDrawingInfo(trackId: number, width: number, height: number, gapHeight: number, limiterGainHeightRatio: number, wavStrokeWidth: number, topbottomContextSize: number): Promise<OverviewDrawingInfo | null>
 
 export declare function getPath(trackId: number): string
 
@@ -74,7 +78,7 @@ export declare function getSpectrogram(idChStr: string, secRange: [number, numbe
 
 export declare function getTimeAxisMarkers(startSec: number, endSec: number, tickUnit: number, labelInterval: number, maxSec: number): any
 
-export declare function getWavDrawingInfo(idChStr: string, secRange: [number, number], width: number, height: number, ampRange: [number, number], wavStrokeWidth: number, topbottomContextSize: number, marginRatio: number): Promise<WavDrawingInfo | null>
+export declare function getWavMetadata(idChStr: string): WavMetadata
 
 export declare const enum GuardClippingMode {
   Clip = 'Clip',
@@ -85,16 +89,6 @@ export declare const enum GuardClippingMode {
 export declare function hzToLabel(hz: number): string
 
 export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number): UserSettings
-
-export interface OverviewDrawingInfo {
-  chDrawingInfos: Array<WavDrawingInfo>
-  limiterGainTopInfo?: WavDrawingInfo
-  limiterGainBottomInfo?: WavDrawingInfo
-  chHeight: number
-  gapHeight: number
-  limiterGainHeight: number
-  chWoGainHeight: number
-}
 
 export declare function pausePlayer(): Promise<void>
 
@@ -166,13 +160,8 @@ export interface UserSettingsOptionals {
   commonNormalize?: any
 }
 
-export interface WavDrawingInfo {
-  line?: Buffer
-  topEnvelope?: Buffer
-  bottomEnvelope?: Buffer
-  startSec: number
-  pointsPerSec: number
-  preMargin: number
-  postMargin: number
-  clipValues?: Array<number>
+export interface WavMetadata {
+  length: number
+  sr: number
+  isClipped: boolean
 }

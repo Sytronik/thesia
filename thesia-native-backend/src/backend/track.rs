@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use identity_hash::{IntMap, IntSet};
 use kittyaudio::Frame;
 use ndarray::prelude::*;
-use parking_lot::RwLock;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
 
@@ -15,13 +14,9 @@ use super::dynamics::{
     AudioStats, GuardClippingMode, GuardClippingResult, GuardClippingStats, Normalize,
     NormalizeTarget, StatCalculator,
 };
-use super::simd::find_min_max;
 use super::spectrogram::{SpecSetting, SrWinNfft};
 use super::tuple_hasher::TupleIntSet;
 use super::utils::unique_filenames;
-use super::visualize::{WavDrawingInfoCache, WavDrawingInfoInternal};
-
-const CACHE_PX_PER_SEC: f64 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 
 macro_rules! iter_filtered {
     ($vec: expr) => {
@@ -59,7 +54,6 @@ pub struct AudioTrack {
     audio: Audio,
     interleaved: Vec<Frame>,
     stat_calculator: StatCalculator,
-    wav_drawing_info_cache: RwLock<Option<WavDrawingInfoCache>>,
 }
 
 impl AudioTrack {
@@ -78,7 +72,6 @@ impl AudioTrack {
             audio,
             interleaved,
             stat_calculator,
-            wav_drawing_info_cache: RwLock::new(None),
         })
     }
 
@@ -95,7 +88,6 @@ impl AudioTrack {
         self.original = original.clone();
         self.audio = original;
         self.interleaved = (&self.audio).into();
-        self.refresh_wav_drawing_info_cache();
 
         Ok(true)
     }
@@ -118,125 +110,6 @@ impl AudioTrack {
             }
             _ => (self.channel(ch), false),
         }
-    }
-
-    pub fn get_wav_drawing_info(
-        &self,
-        ch: usize,
-        sec_range: (f64, f64),
-        width: f64,
-        height: f64,
-        amp_range: (f32, f32),
-        wav_stroke_width: f64,
-        topbottom_context_size: f64,
-        margin_ratio: f64,
-    ) -> WavDrawingInfoInternal {
-        let px_per_sec = width / (sec_range.1 - sec_range.0);
-        let (return_cache, need_new_cache) = {
-            if let Some(cache) = self.wav_drawing_info_cache.read().as_ref() {
-                let return_cache = px_per_sec <= cache.px_per_sec;
-                let need_new_cache = cache.wav_stroke_width != wav_stroke_width
-                    || cache.topbottom_context_size != topbottom_context_size;
-                (return_cache, need_new_cache)
-            } else {
-                self.set_wav_drawing_info_cache(wav_stroke_width, topbottom_context_size);
-                let return_cache = px_per_sec
-                    <= self
-                        .wav_drawing_info_cache
-                        .read()
-                        .as_ref()
-                        .unwrap()
-                        .px_per_sec;
-                (return_cache, false)
-            }
-        };
-
-        // first, update cache
-        if need_new_cache {
-            self.set_wav_drawing_info_cache(wav_stroke_width, topbottom_context_size);
-        }
-
-        // second, calculate sliced wav drawing info
-        if !return_cache {
-            let (wav, is_clipped) = self.channel_for_drawing(ch);
-
-            WavDrawingInfoInternal::from_wav_with_slicing(
-                wav,
-                self.sr(),
-                sec_range,
-                margin_ratio,
-                width,
-                height,
-                amp_range,
-                wav_stroke_width,
-                topbottom_context_size,
-                is_clipped,
-                false,
-            )
-            .unwrap_or_default()
-        } else {
-            let cache = self.wav_drawing_info_cache.read();
-            cache.as_ref().unwrap().slice(
-                ch,
-                sec_range,
-                self.sec(),
-                margin_ratio,
-                width,
-                height,
-                amp_range,
-                wav_stroke_width,
-            )
-        }
-    }
-
-    fn set_wav_drawing_info_cache(&self, wav_stroke_width: f64, topbottom_context_size: f64) {
-        let px_per_sec = CACHE_PX_PER_SEC;
-        let px_per_samples = (px_per_sec / self.sr() as f64).min(0.1);
-        let width = self.audio.len() as f64 * px_per_samples;
-        let (amp_ranges, kinds): (Vec<_>, Vec<_>) = (0..self.n_ch())
-            .into_par_iter()
-            .map(|ch| {
-                let amp_range = {
-                    let (wav, _) = self.channel_for_drawing(ch);
-                    let (min, max) = find_min_max(wav.as_slice().unwrap());
-                    (min.min(-1.), max.max(1.))
-                };
-
-                let (wav, is_clipped) = self.channel_for_drawing(ch);
-                let kind = WavDrawingInfoInternal::from_wav(
-                    wav,
-                    self.sr(),
-                    width,
-                    10000., // just a large number. doesn't affect the performance
-                    amp_range,
-                    wav_stroke_width,
-                    topbottom_context_size,
-                    is_clipped,
-                    true,
-                )
-                .into();
-                (amp_range, kind)
-            })
-            .unzip();
-        self.wav_drawing_info_cache
-            .write()
-            .replace(WavDrawingInfoCache {
-                wav_stroke_width,
-                topbottom_context_size,
-                px_per_sec,
-                drawing_info_kinds: kinds,
-                amp_ranges,
-            });
-    }
-
-    fn refresh_wav_drawing_info_cache(&mut self) {
-        let (wav_stroke_width, topbottom_context_size) =
-            if let Some(cache) = self.wav_drawing_info_cache.read().as_ref() {
-                (cache.wav_stroke_width, cache.topbottom_context_size)
-            } else {
-                return;
-            };
-        self.set_wav_drawing_info_cache(wav_stroke_width, topbottom_context_size);
     }
 
     #[inline]
@@ -301,7 +174,6 @@ impl Normalize for AudioTrack {
             );
         }
         self.interleaved = (&self.audio).into();
-        self.refresh_wav_drawing_info_cache();
     }
 }
 
@@ -588,7 +460,7 @@ mod tests {
 
     #[test]
     fn calc_loudness_works() {
-        let track = AudioTrack::new("samples/sample_48k.wav".into()).unwrap();
+        let track = AudioTrack::new("../samples/sample_48k.wav".into()).unwrap();
         assert_abs_diff_eq!(track.stats().global_lufs, -26.20331705029079);
     }
 }

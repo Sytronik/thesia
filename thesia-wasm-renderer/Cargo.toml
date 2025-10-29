@@ -1,0 +1,27 @@
+[package]
+authors = {workspace = true}
+edition = {workspace = true}
+license-file = {workspace = true}
+name = "thesia-wasm-renderer"
+version = {workspace = true}
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+atomic_float = {workspace = true}
+js-sys = "0.3.81"
+rubato = "0.16.2"
+wasm-bindgen = "0.2.104"
+
+[dependencies.web-sys]
+features = [
+  "CanvasRenderingContext2d",
+  "HtmlCanvasElement",
+  "Path2d",
+  "console",
+]
+version = "0.3.81"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-simd", "-O"]

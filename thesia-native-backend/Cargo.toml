@@ -1,0 +1,91 @@
+[package]
+authors = {workspace = true}
+edition = {workspace = true}
+license-file = {workspace = true}
+name = "thesia-native-backend"
+version = {workspace = true}
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = {version = "3.3.0", features = [
+  "async",
+  "serde-json",
+  "tokio_time",
+], default-features = false}
+napi-derive = {version = "3.2.5"}
+
+approx = "0.5.1"
+atomic_float = {workspace = true}
+chrono = "0.4.42"
+# console-subscriber = "0.4.0"
+bytemuck = "1.24.0"
+cpal = "0.16.0"
+dashmap = {version = "6.1.0", features = ["inline"]}
+dunce = "1.0.5"
+ebur128 = "0.1.10"
+fast_image_resize = "5.3.0"
+identity-hash = "0.1.0"
+itertools = "0.14.0"
+log = "0.4.28"
+memmap2 = "0.9.8"
+ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"]}
+ndarray-npy = "0.9.1"
+ndarray-stats = "0.6.0"
+num-traits = "0.2.19"
+num_cpus = "1.17.0"
+parking_lot = "0.12.5"
+rayon = "1.11.0"
+readonly = "0.2.13"
+realfft = "3.5.0"
+serde = {version = "1.0.228", features = ["derive"]}
+serde_json = "1.0.145"
+simple_logger = "5.0.0"
+temp-dir = "0.1.16"
+tiny-skia = "0.11.4"
+tokio-rayon = "2.1.0"
+
+[dependencies.kittyaudio]
+git = "https://github.com/Sytronik/kittyaudio.git"
+rev = "7172a558ef11c52522025f986bf6df4c3f548759"
+
+[dependencies.symphonia]
+default-features = false
+features = [
+  "aac",
+  "alac",
+  "flac",
+  "id3v2",
+  "isomp4",
+  "mp3",
+  "ogg",
+  "opt-simd",
+  "pcm",
+  "vorbis",
+  "wav",
+]
+git = "https://github.com/Sytronik/Symphonia.git"
+rev = "021a45b7345193ce8f5874cde003180f6fd5de6c"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+accelerate-src = {version = "0.3.2"}
+blas-src = {version = "0.14.0", features = ["accelerate"]}
+
+[target.'cfg(target_os = "windows")'.dependencies]
+blas-src = {version = "0.14.0", features = ["openblas"]}
+openblas-src = {version = "0.10.13", features = ["cblas", "static", "system"]}
+
+[target.'cfg(target_os = "linux")'.dependencies]
+blas-src = {version = "0.14.0", features = ["openblas"]}
+openblas-src = {version = "0.10.13", features = ["cache", "cblas", "static"]}
+
+[target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
+mimalloc = "0.1.48"
+
+[dev-dependencies]
+hound = "3.5.1"
+ndarray-rand = "0.15.0"
+
+[build-dependencies]
+napi-build = "2.2.3"

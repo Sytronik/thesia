@@ -1,12 +1,7 @@
-import backend, {Spectrogram, WavDrawingInfo as _WavDrawingInfo} from "backend";
-import {
-  OVERVIEW_CH_GAP_HEIGHT,
-  OVERVIEW_GAIN_HEIGHT_RATIO,
-  OVERVIEW_LINE_WIDTH_FACTOR,
-  WAV_TOPBOTTOM_CONTEXT_SIZE,
-} from "renderer/prototypes/constants/tracks";
+import backend, {Spectrogram} from "backend";
+import {default as WasmAPI, WasmFloat32Array} from "renderer/api/wasm-wrapper";
 
-export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram} from "backend";
+export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavMetadata} from "backend";
 
 // most api returns empty array for edge case
 /* get each track file's information */
@@ -101,93 +96,28 @@ export type Spectrograms = {
   [key: IdChannel]: Spectrogram;
 };
 
-export type WavDrawingInfo = {
-  line: Float32Array | null;
-  topEnvelope: Float32Array | null;
-  bottomEnvelope: Float32Array | null;
-  startSec: number;
-  pointsPerSec: number;
-  preMargin: number;
-  postMargin: number;
-  clipValues: [number, number] | null;
+export type WavInfo = {
+  wav: WasmFloat32Array;
+  sr: number;
+  isClipped: boolean;
 };
 
-function convertWavDrawingInfo(info: _WavDrawingInfo): WavDrawingInfo {
-  let line = null;
-  let topEnvelope = null;
-  let bottomEnvelope = null;
-  let clipValues: [number, number] | null = null;
-  if (info.line) line = new Float32Array(info.line.buffer);
-  if (info.topEnvelope) topEnvelope = new Float32Array(info.topEnvelope.buffer);
-  if (info.bottomEnvelope) bottomEnvelope = new Float32Array(info.bottomEnvelope.buffer);
-  if (info.clipValues) clipValues = [info.clipValues[0], info.clipValues[1]];
+export function getWav(idChStr: string): WavInfo | null {
+  const metadata = backend.getWavMetadata(idChStr);
+  if (!metadata) return null;
 
-  return {...info, line, topEnvelope, bottomEnvelope, clipValues};
+  const {length, sr, isClipped} = metadata;
+  const [wav, view] = WasmAPI.createWasmFloat32Array(length);
+  backend.assignWavTo(view, idChStr);
+  return {wav, sr, isClipped};
 }
 
-export async function getWavDrawingInfo(
-  idChStr: string,
-  secRange: [number, number],
-  width: number,
-  height: number,
-  ampRange: [number, number],
-  wavStrokeWidth: number,
-  devicePixelRatio: number,
-  marginRatio: number,
-): Promise<WavDrawingInfo | null> {
-  const info = await backend.getWavDrawingInfo(
-    idChStr,
-    secRange,
-    width * devicePixelRatio,
-    height * devicePixelRatio,
-    ampRange,
-    wavStrokeWidth * devicePixelRatio,
-    WAV_TOPBOTTOM_CONTEXT_SIZE * devicePixelRatio,
-    marginRatio,
-  );
-  if (!info) return null;
-  return convertWavDrawingInfo(info);
-}
-
-export type OverviewDrawingInfo = {
-  chDrawingInfos: WavDrawingInfo[];
-  limiterGainTopInfo: WavDrawingInfo | null;
-  limiterGainBottomInfo: WavDrawingInfo | null;
-  scaledChHeight: number;
-  scaledGapHeight: number;
-  scaledLimiterGainHeight: number;
-  scaledChWoGainHeight: number;
-};
-
-export async function getOverviewDrawingInfo(
-  trackId: number,
-  width: number,
-  height: number,
-  devicePixelRatio: number,
-): Promise<OverviewDrawingInfo | null> {
-  const info = await backend.getOverviewDrawingInfo(
-    trackId,
-    width * devicePixelRatio,
-    height * devicePixelRatio,
-    OVERVIEW_CH_GAP_HEIGHT * devicePixelRatio,
-    OVERVIEW_GAIN_HEIGHT_RATIO,
-    OVERVIEW_LINE_WIDTH_FACTOR * devicePixelRatio,
-    WAV_TOPBOTTOM_CONTEXT_SIZE * devicePixelRatio,
-  );
-  if (!info) return null;
-  return {
-    chDrawingInfos: info.chDrawingInfos.map(convertWavDrawingInfo),
-    limiterGainTopInfo: info.limiterGainTopInfo
-      ? convertWavDrawingInfo(info.limiterGainTopInfo)
-      : null,
-    limiterGainBottomInfo: info.limiterGainBottomInfo
-      ? convertWavDrawingInfo(info.limiterGainBottomInfo)
-      : null,
-    scaledChHeight: info.chHeight,
-    scaledGapHeight: info.gapHeight,
-    scaledLimiterGainHeight: info.limiterGainHeight,
-    scaledChWoGainHeight: info.chWoGainHeight,
-  };
+export function getLimiterGainSeq(trackId: number): WasmFloat32Array | null {
+  const length = backend.getLimiterGainLength(trackId);
+  if (length === 0) return null;
+  const [wav, view] = WasmAPI.createWasmFloat32Array(length);
+  backend.assignLimiterGainTo(view, trackId);
+  return wav;
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;

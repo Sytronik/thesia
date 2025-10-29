@@ -961,6 +961,7 @@ function MainViewer(props: MainViewerProps) {
       {trackIds.length ? (
         <Overview
           trackId={overviewTrackId}
+          idChArr={overviewTrackId !== null ? trackIdChMap.get(overviewTrackId) || [] : []}
           maxTrackSec={maxTrackSec}
           startSec={startSec}
           lensDurationSec={width / pxPerSec}

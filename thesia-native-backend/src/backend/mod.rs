@@ -13,7 +13,7 @@ pub mod visualize;
 mod windows;
 
 pub use audio::AudioFormatInfo;
-pub use dynamics::{DeciBel, GuardClippingMode};
+pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingResult};
 use simd::find_min_max;
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;
@@ -21,9 +21,9 @@ pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
 use visualize::Mipmaps;
 pub use visualize::{
-    OverviewDrawingInfoInternal, SpectrogramSliceArgs, WavDrawingInfoInternal, WavDrawingInfoKind,
-    calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
-    convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
+    SpectrogramSliceArgs, calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers,
+    calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label,
+    convert_time_label_to_sec,
 };
 
 pub type IdCh = (usize, usize);
@@ -275,9 +275,9 @@ mod tests {
         let mut path_list: Vec<String> = tags
             .iter()
             .take(6)
-            .map(|x| format!("samples/sample_{}.wav", x))
+            .map(|x| format!("../samples/sample_{}.wav", x))
             .collect();
-        path_list.push("samples/stereo/sample_48k.wav".into());
+        path_list.push("../samples/stereo/sample_48k.wav".into());
         let mut tracklist = TrackList::new();
         let mut tm = TrackManager::new();
         let added_ids = tracklist.add_tracks(id_list[0..3].to_owned(), path_list[0..3].to_owned());
