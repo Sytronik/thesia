@@ -64,7 +64,8 @@ jobs:
 
       - name: npm install
         run: |
-          npm install --global @napi-rs/cli
+          npm install --global @napi-rs/cli wasm-pack
+          npm run build:wasm
           npm install
 
       - name: npm test
