@@ -70,7 +70,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
   const spectrogramRef = useRef<Spectrogram | null>(null);
-  const wavMetadataRef = useRef<WavMetadata | null>(null);
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
@@ -288,7 +287,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     WasmAPI.drawWav(
       wavCanvasElem.current,
       wavCtxRef.current,
-      wavMetadataRef.current !== null ? idChStr : "",
+      idChStr,
       width,
       height,
       startSec,
@@ -301,6 +300,13 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
   const drawWavImageRef = useRef(drawWavImage);
+
+  const drawWavImageRequestRef = useRef<number>(0);
+  if (needRefresh && !needHideWav && drawWavImageRef.current === drawWavImage) {
+    if (drawWavImageRequestRef.current !== 0) cancelAnimationFrame(drawWavImageRequestRef.current);
+    drawWavImageRequestRef.current = requestAnimationFrame(drawWavImage);
+  }
+
   useEffect(() => {
     if (needHideWav) {
       if (wavCanvasElem.current) {
@@ -316,36 +322,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
-  }, [devicePixelRatio, drawWavImage, height, hidden, needHideWav, width]);
-
-  // getWavImage is throttled and it calls drawWavImage always,
-  // but inside drawWavImage, it renders the image once at a frame
-  const drawWavImageRequestRef = useRef<number>(0);
-  const throttledGetWav = useMemo(
-    () =>
-      throttle(1000 / 60, (_idChStr) => {
-        const wavInfo = BackendAPI.getWav(_idChStr);
-        if (wavInfo === null) return;
-        const {wav, sr, isClipped} = wavInfo;
-        wavMetadataRef.current = {length: wav.length, sr, isClipped};
-        WasmAPI.setWav(_idChStr, wav, sr, isClipped);
-        if (drawWavImageRequestRef.current !== 0)
-          cancelAnimationFrame(drawWavImageRequestRef.current);
-        drawWavImageRequestRef.current = requestAnimationFrame(() => drawWavImageRef.current?.());
-      }),
-    [],
-  );
-  const getWav = useCallback(() => throttledGetWav(idChStr), [idChStr, throttledGetWav]);
-
-  // getWav is called when needRefresh is true ...
-  const prevGetWavRef = useRef<() => void>(getWav);
-  if (prevGetWavRef.current === getWav && needRefresh) {
-    getWav();
-  }
-  prevGetWavRef.current = getWav;
-
-  // or when deps change
-  useEffect(getWav, [getWav]);
+  }, [drawWavImage, width, height, needHideWav, devicePixelRatio]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;

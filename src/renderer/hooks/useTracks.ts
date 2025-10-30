@@ -4,11 +4,23 @@ import useEvent from "react-use-event-hook";
 import {setUserSetting} from "renderer/lib/ipc-sender";
 import update from "immutability-helper";
 import {UserSettings} from "backend";
-import BackendAPI from "../api";
+import BackendAPI, {WasmAPI} from "../api";
 
 type AddTracksResultType = {
   existingIds: number[];
   invalidPaths: string[];
+};
+
+const getTrackIdChArr = (id: number) => {
+  return Array.from({length: BackendAPI.getChannelCounts(id)}, (_, ch) => `${id}_${ch}`);
+};
+
+const transferWavFromBackendToWasm = (idCh: string) => {
+  const wavInfo = BackendAPI.getWav(idCh);
+  if (wavInfo === null) return;
+
+  const {wav, sr, isClipped} = wavInfo;
+  WasmAPI.setWav(idCh, wav, sr, isClipped);
 };
 
 function useTracks(userSettings: UserSettings) {
@@ -42,13 +54,7 @@ function useTracks(userSettings: UserSettings) {
   const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds, needRefreshTrackIdChArr]);
 
   const trackIdChMap: IdChMap = useMemo(
-    () =>
-      new Map(
-        trackIds.map((id) => [
-          id,
-          [...Array(BackendAPI.getChannelCounts(id)).keys()].map((ch) => `${id}_${ch}`),
-        ]),
-      ),
+    () => new Map(trackIds.map((id) => [id, getTrackIdChArr(id)])),
     [trackIds],
   );
 
@@ -81,6 +87,9 @@ function useTracks(userSettings: UserSettings) {
             newTrackIds.splice(index, 0, ...addedIds);
             return newTrackIds;
           });
+          addedIds.forEach((id) => {
+            getTrackIdChArr(id).forEach((idCh) => transferWavFromBackendToWasm(idCh));
+          });
         }
 
         if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
@@ -107,7 +116,12 @@ function useTracks(userSettings: UserSettings) {
 
       if (erroredIds && erroredIds.length) setErroredTrackIds(erroredIds);
 
-      if (reloadedIds.length > 0) setTrackIds((prevTrackIds) => prevTrackIds.slice());
+      if (reloadedIds.length > 0) {
+        setTrackIds((prevTrackIds) => prevTrackIds.slice());
+        reloadedIds.forEach((id) => {
+          getTrackIdChArr(id).forEach((idCh) => transferWavFromBackendToWasm(idCh));
+        });
+      }
     } catch (err) {
       console.error("Could not reload tracks", err);
     }
@@ -116,9 +130,8 @@ function useTracks(userSettings: UserSettings) {
   const refreshTracks = useEvent(async () => {
     try {
       const needRefreshIdChArr = await BackendAPI.applyTrackListChanges();
-      if (needRefreshIdChArr) {
-        setNeedRefreshTrackIdChArr(needRefreshIdChArr);
-      }
+      if (needRefreshIdChArr) setNeedRefreshTrackIdChArr(needRefreshIdChArr);
+
       setIsLoading(false);
     } catch (err) {
       console.error("Could not refresh tracks", err);
@@ -133,6 +146,7 @@ function useTracks(userSettings: UserSettings) {
     try {
       setIsLoading(true);
       BackendAPI.removeTracks(ids);
+      ids.forEach((id) => WasmAPI.removeWav(id));
       setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
       setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 
@@ -202,7 +216,9 @@ function useTracks(userSettings: UserSettings) {
     const commonGuardClipping = BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
     setUserSetting("commonGuardClipping", commonGuardClipping);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    const allIdChArr = Array.from(trackIdChMap.values()).flat();
+    setNeedRefreshTrackIdChArr(allIdChArr);
+    allIdChArr.forEach((idCh) => transferWavFromBackendToWasm(idCh));
     setIsLoading(false);
   });
 
@@ -212,7 +228,9 @@ function useTracks(userSettings: UserSettings) {
     const commonNormalize = BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
     setUserSetting("commonNormalize", commonNormalize);
-    setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
+    const allIdChArr = Array.from(trackIdChMap.values()).flat();
+    setNeedRefreshTrackIdChArr(allIdChArr);
+    allIdChArr.forEach((idCh) => transferWavFromBackendToWasm(idCh));
     setIsLoading(false);
   });
 

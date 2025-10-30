@@ -5,6 +5,7 @@ import init, {
   drawWav,
   clearWav,
   drawOverview,
+  removeWav,
 } from "thesia-wasm-renderer";
 
 let wasmInitialized = false;
@@ -52,4 +53,5 @@ export default {
   drawWav,
   clearWav,
   drawOverview,
+  removeWav,
 };

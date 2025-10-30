@@ -40,20 +40,19 @@ pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
 
 #[wasm_bindgen(js_name = setWav)]
 pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool) {
-    let wav: Vec<_> = wav.into();
-    if let Some(wav_cache) = WAV_CACHES.read().unwrap().get(id_ch_str)
-        && wav_cache.wav.len() == wav.len()
-        && wav_cache.sr == sr
-        && wav_cache.is_clipped == is_clipped
-        && wav_cache.wav.iter().zip(wav.iter()).all(|(a, b)| a == b)
-    {
-        return; // TODO: remove duplicated calls at the first place
-    }
-    let wav_cache = WavCache::new(wav, sr, is_clipped);
+    let wav_cache = WavCache::new(wav.into(), sr, is_clipped);
     WAV_CACHES
         .write()
         .unwrap()
         .insert(id_ch_str.into(), wav_cache);
+}
+
+#[wasm_bindgen(js_name = removeWav)]
+pub fn remove_wav(track_id: u32) {
+    WAV_CACHES
+        .write()
+        .unwrap()
+        .retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)))
 }
 
 #[wasm_bindgen(js_name = drawWav)]
