@@ -1,5 +1,5 @@
 import backend, {Spectrogram} from "backend";
-import {default as WasmAPI, WasmFloat32Array} from "renderer/api/wasm-wrapper";
+import {createWasmFloat32Array, WasmFloat32Array} from "renderer/api/wasm-wrapper";
 
 export {GuardClippingMode, FreqScale, SpecSetting, Spectrogram, WavMetadata} from "backend";
 
@@ -107,7 +107,7 @@ export function getWav(idChStr: string): WavInfo | null {
   if (!metadata) return null;
 
   const {length, sr, isClipped} = metadata;
-  const [wav, view] = WasmAPI.createWasmFloat32Array(length);
+  const [wav, view] = createWasmFloat32Array(length);
   backend.assignWavTo(view, idChStr);
   return {wav, sr, isClipped};
 }
@@ -115,7 +115,7 @@ export function getWav(idChStr: string): WavInfo | null {
 export function getLimiterGainSeq(trackId: number): WasmFloat32Array | null {
   const length = backend.getLimiterGainLength(trackId);
   if (length === 0) return null;
-  const [wav, view] = WasmAPI.createWasmFloat32Array(length);
+  const [wav, view] = createWasmFloat32Array(length);
   backend.assignLimiterGainTo(view, trackId);
   return wav;
 }

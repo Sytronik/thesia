@@ -36,5 +36,8 @@ npm-debug.log.*
 src_backend
 target
 
+# wasm
+thesia-wasm-renderer/pkg
+
 # etc
 samples

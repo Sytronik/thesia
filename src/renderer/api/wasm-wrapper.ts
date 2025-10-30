@@ -38,7 +38,7 @@ export function createWasmFloat32Array(length: number): [WasmFloat32Array, Float
   }
 
   const wasmWav = new WasmFloat32Array(length);
-  let view = new Float32Array(memory.buffer, wasmWav.ptr, wasmWav.length);
+  const view = new Float32Array(memory.buffer, wasmWav.ptr, wasmWav.length);
   return [wasmWav, view];
 }
 
