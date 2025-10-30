@@ -49,7 +49,7 @@ tokio-rayon = "2.1.0"
 
 [dependencies.kittyaudio]
 git = "https://github.com/Sytronik/kittyaudio.git"
-rev = "7172a558ef11c52522025f986bf6df4c3f548759"
+rev = "549b6764da73724336b7539cf773b653c01d9420"
 
 [dependencies.symphonia]
 default-features = false

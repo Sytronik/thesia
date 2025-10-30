@@ -52,7 +52,6 @@ pub struct AudioTrack {
     path: PathBuf,
     original: Arc<Audio>,
     audio: Arc<Audio>,
-    interleaved: Vec<Frame>,
     stat_calculator: StatCalculator,
 }
 
@@ -63,14 +62,12 @@ impl AudioTrack {
         let original = Arc::new(Audio::new(wavs, format_info.sr, &mut stat_calculator));
 
         let audio = Arc::clone(&original);
-        let interleaved = audio.as_ref().into();
 
         Ok(AudioTrack {
             format_info,
             path: PathBuf::from(path).canonicalize().unwrap(),
             original,
             audio,
-            interleaved,
             stat_calculator,
         })
     }
@@ -87,7 +84,6 @@ impl AudioTrack {
         self.format_info = format_info;
         self.original = original;
         self.audio = Arc::clone(&self.original);
-        self.interleaved = self.audio.as_ref().into();
 
         Ok(true)
     }
@@ -97,9 +93,8 @@ impl AudioTrack {
         self.audio.channel(ch)
     }
 
-    #[inline]
-    pub fn interleaved_frames(&self) -> &[Frame] {
-        &self.interleaved
+    pub fn interleaved_frames(&self) -> Vec<Frame> {
+        self.audio.as_ref().into()
     }
 
     #[inline]
@@ -177,7 +172,6 @@ impl Normalize for AudioTrack {
                 guard_clipping_mode,
             );
         }
-        self.interleaved = self.audio.as_ref().into();
     }
 }
 
