@@ -14,7 +14,9 @@ thread_local! {
 
 pub(crate) fn resample(wav: &[f32], sr: u32, output_sr: u32) -> Vec<f32> {
     let output_len = (wav.len() as f64 * output_sr as f64 / sr as f64).round() as usize;
+
     RESAMPLERS.with_borrow_mut(|resamplers| {
+        resamplers.retain(|key, _| !(key.0 == sr && key.1 > output_sr * 2));
         let (resampler, in_buffer, out_buffer) =
             resamplers.entry((sr, output_sr)).or_insert_with(|| {
                 let resampler = FftFixedInOut::<f32>::new(
