@@ -110,10 +110,13 @@
     ],
     "moduleNameMapper": {
       "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/.erb/mocks/fileMock.js",
-      "\\.(css|less|sass|scss)$": "identity-obj-proxy"
+      "\\.(css|less|sass|scss)$": "identity-obj-proxy",
+      "^renderer/api/wasm-wrapper$": "<rootDir>/.erb/mocks/wasmMock.js",
+      "^thesia-wasm-renderer$": "<rootDir>/.erb/mocks/wasmMock.js"
     },
     "setupFiles": [
-      "./.erb/scripts/check-build-exists.ts"
+      "./.erb/scripts/check-build-exists.ts",
+      "./.erb/scripts/test-setup.ts"
     ],
     "testEnvironment": "jsdom",
     "testEnvironmentOptions": {
@@ -125,7 +128,10 @@
     ],
     "transform": {
       "\\.(ts|tsx|js|jsx)$": "ts-jest"
-    }
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(react-dnd|react-dnd-html5-backend|dnd-core|@react-dnd)/)"
+    ]
   },
   "dependencies": {
     "electron-debug": "^3.2.0",
