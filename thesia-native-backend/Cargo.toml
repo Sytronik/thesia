@@ -66,8 +66,8 @@ features = [
   "vorbis",
   "wav",
 ]
-git = "https://github.com/Sytronik/Symphonia.git"
-rev = "021a45b7345193ce8f5874cde003180f6fd5de6c"
+git = "https://github.com/pdeljanov/Symphonia.git"
+rev = "2846716d4fa875e0428ffa638a0adabfacc676ca" # dev-0.6 branch
 
 [target.'cfg(target_os = "macos")'.dependencies]
 accelerate-src = {version = "0.3.2"}
