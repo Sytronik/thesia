@@ -65,7 +65,11 @@ fn _napi_init() {
 }
 
 #[napi]
-fn init(user_settings: UserSettingsOptionals, max_spectrogram_size: u32) -> Result<UserSettings> {
+fn init(
+    user_settings: UserSettingsOptionals,
+    max_spectrogram_size: u32,
+    tmp_dir_path: String,
+) -> Result<UserSettings> {
     // On Windows, reloading cause restarting of renderer process.
     // (See killAndReload in src/main/menu.ts)
     // So INIT may not be needed, but use it for defensive purpose.
@@ -81,7 +85,10 @@ fn init(user_settings: UserSettingsOptionals, max_spectrogram_size: u32) -> Resu
         let mut tm = TM.write();
         if !tracklist.is_empty() {
             *tracklist = TrackList::new();
-            *tm = TrackManager::with_max_spectrogram_size(max_spectrogram_size);
+            *tm =
+                TrackManager::with_max_spec_size_tmp_dir(max_spectrogram_size, tmp_dir_path.into());
+        } else {
+            tm.set_tmp_dir_path(tmp_dir_path.into());
         }
         if let Some(setting) = user_settings.spec_setting {
             tm.set_setting(&tracklist, setting.clone());

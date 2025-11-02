@@ -1,8 +1,8 @@
 use std::cell::RefCell;
-use std::fs::File;
+use std::fs::{self, File};
+use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{fs, mem};
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
@@ -10,7 +10,7 @@ use memmap2::Mmap;
 use ndarray::{SliceArg, prelude::*};
 use ndarray_npy::{ViewNpyExt, write_npy};
 use parking_lot::RwLock;
-use temp_dir::TempDir;
+use tempfile::TempDir;
 
 use super::super::spectrogram::SpecSetting;
 
@@ -61,6 +61,17 @@ impl Mipmap {
     fn has_file(&self) -> bool {
         matches!(self.status, FileStatus::Exists)
     }
+
+    fn move_to(&mut self, dir: &Path) -> bool {
+        let new_path = dir.join(self.path.file_name().unwrap());
+        if self.has_file() {
+            if let Err(_) = fs::copy(&self.path, &new_path) {
+                self.status = FileStatus::NoFile;
+            }
+        }
+        self.path = new_path;
+        self.has_file()
+    }
 }
 
 pub struct Mipmaps {
@@ -71,8 +82,8 @@ pub struct Mipmaps {
 }
 
 impl Mipmaps {
-    pub fn new(spec_img: Array2<pixels::U16>, max_size: u32) -> Self {
-        let _tmp_dir = TempDir::with_prefix("mipmaps").unwrap();
+    pub fn new(spec_img: Array2<pixels::U16>, max_size: u32, dir: &Path) -> Self {
+        let _tmp_dir = TempDir::new_in(dir).unwrap();
         let (orig_height, orig_width) = (spec_img.shape()[0], spec_img.shape()[1]);
         let mut mipmaps = vec![vec![Mipmap::new(
             orig_width as u32,
@@ -111,19 +122,15 @@ impl Mipmaps {
                 height = max_size as f64;
             }
         }
-        if mipmaps.len() > 1 || mipmaps[0].len() > 1 {
-            let i_last = mipmaps.len() - 1;
-            let last = mipmaps[i_last].last_mut().unwrap();
-            let img = resize(spec_img.view(), last.width, last.height);
-            last.write(img.view());
-        }
 
-        Self {
+        let _self = Self {
             orig_img: Arc::new(spec_img),
             mipmaps: Arc::new(RwLock::new(mipmaps)),
             max_size,
             _tmp_dir,
-        }
+        };
+        _self.ensure_last_mipmap_exists();
+        _self
     }
 
     pub fn get_sliced_mipmap(
@@ -138,8 +145,8 @@ impl Mipmaps {
         let max_size = self.max_size as usize;
         let mut out_idx_img_args = None; // Some((i_h, i_w, args))
         let mut need_to_create = None; // Some((i_h, i_w, is_creating))
-        for (i_h, spec_mipmap_along_widths) in self.mipmaps.read().iter().enumerate() {
-            for (i_w, mipmap) in spec_mipmap_along_widths.iter().enumerate() {
+        for (i_h, mipmaps_along_width) in self.mipmaps.read().iter().enumerate() {
+            for (i_w, mipmap) in mipmaps_along_width.iter().enumerate() {
                 let args = SpectrogramSliceArgs::new(
                     mipmap.width as usize,
                     mipmap.height as usize,
@@ -228,6 +235,30 @@ impl Mipmaps {
             (args, sliced_img, need_to_create.is_some())
         } else {
             panic!("No mipmap found!");
+        }
+    }
+
+    pub fn move_to(&mut self, dir: &Path) {
+        let _tmp_dir = TempDir::new_in(dir).unwrap();
+        for mipmaps_along_width in self.mipmaps.write().iter_mut() {
+            for mipmap in mipmaps_along_width.iter_mut() {
+                mipmap.move_to(&_tmp_dir.path());
+            }
+        }
+        self.ensure_last_mipmap_exists();
+        self._tmp_dir = _tmp_dir;
+    }
+
+    fn ensure_last_mipmap_exists(&self) {
+        let mut mipmaps = self.mipmaps.write();
+        if mipmaps.len() > 1 || mipmaps[0].len() > 1 {
+            let i_last = mipmaps.len() - 1;
+            let last = mipmaps[i_last].last_mut().unwrap();
+            if last.has_file() {
+                return;
+            }
+            let img = resize(self.orig_img.view(), last.width, last.height);
+            last.write(img.view());
         }
     }
 }

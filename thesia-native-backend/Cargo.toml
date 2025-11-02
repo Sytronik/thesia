@@ -43,7 +43,7 @@ realfft = "3.5.0"
 serde = {version = "1.0.228", features = ["derive"]}
 serde_json = "1.0.145"
 simple_logger = "5.0.0"
-temp-dir = "0.1.16"
+tempfile = "3.23.0"
 tiny-skia = "0.11.4"
 tokio-rayon = "2.1.0"
 

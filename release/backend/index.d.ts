@@ -88,7 +88,7 @@ export declare const enum GuardClippingMode {
 
 export declare function hzToLabel(hz: number): string
 
-export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number): UserSettings
+export declare function init(userSettings: UserSettingsOptionals, maxSpectrogramSize: number, tmpDirPath: string): UserSettings
 
 export declare function pausePlayer(): Promise<void>
 

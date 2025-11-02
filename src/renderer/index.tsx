@@ -9,7 +9,7 @@ import {COLORMAP_RGBA8} from "./prototypes/constants/colors";
 const container = document.getElementById("root") as HTMLElement;
 const root = createRoot(container);
 
-ipcRenderer.once("render-with-settings", async (_, settings) => {
+ipcRenderer.once("render-with-settings", async (_, settings, tempDirectory) => {
   const canvas = document.createElement("canvas");
   const gl = canvas.getContext("webgl2");
   if (!gl) throw new Error("WebGL2 is not supported");
@@ -31,7 +31,7 @@ ipcRenderer.once("render-with-settings", async (_, settings) => {
     commonGuardClipping: settings.commonGuardClipping,
     commonNormalize: settings.commonNormalize,
   };
-  const userSettingsOrInitialValues = BackendAPI.init(userSettings, maxTextureSize);
+  const userSettingsOrInitialValues = BackendAPI.init(userSettings, maxTextureSize, tempDirectory);
   Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
     setUserSetting(key as keyof UserSettings, value),
   );

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use identity_hash::IntSet;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -47,6 +49,7 @@ pub struct TrackManager {
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
     no_mipmap_ids: Vec<usize>,
+    tmp_dir_path: PathBuf,
 }
 
 impl TrackManager {
@@ -63,13 +66,22 @@ impl TrackManager {
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             no_mipmap_ids: Vec::new(),
+            tmp_dir_path: PathBuf::new(),
         }
     }
 
-    pub fn with_max_spectrogram_size(max_spectrogram_size: u32) -> Self {
+    pub fn with_max_spec_size_tmp_dir(max_spectrogram_size: u32, tmp_dir_path: PathBuf) -> Self {
         Self {
             max_spectrogram_size,
+            tmp_dir_path,
             ..TrackManager::new()
+        }
+    }
+
+    pub fn set_tmp_dir_path(&mut self, tmp_dir_path: PathBuf) {
+        self.tmp_dir_path = tmp_dir_path;
+        for mipmap in self.spec_mipmaps.values_mut() {
+            mipmap.move_to(&self.tmp_dir_path);
         }
     }
 
@@ -252,7 +264,10 @@ impl TrackManager {
                         (self.min_dB, self.max_dB),
                         Some(self.colormap_length),
                     );
-                    ((id, ch), Mipmaps::new(spec_img, self.max_spectrogram_size))
+                    (
+                        (id, ch),
+                        Mipmaps::new(spec_img, self.max_spectrogram_size, &self.tmp_dir_path),
+                    )
                 });
 
             if need_update_all {

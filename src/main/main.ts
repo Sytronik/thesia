@@ -9,6 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from "path";
+import fs from "fs";
 import {app, BrowserWindow, shell} from "electron";
 import {autoUpdater} from "electron-updater";
 import log from "electron-log";
@@ -55,6 +56,60 @@ const installExtensions = async () => {
   }
 };
 
+type TempDirectory = {
+  path: string;
+  createdAt: string;
+  appPath: string;
+};
+
+const appName = app.getName();
+const appDataDir = path.join(app.getPath("appData"), appName);
+if (isDebug) console.log(`appDataDir: ${appDataDir}`);
+
+let tmpDirPath = "";
+const createTmpDir = async () => {
+  while (true) {
+    tmpDirPath = path.join(app.getPath("temp"), `${appName}-temp-${Date.now()}`);
+    if (!fs.existsSync(tmpDirPath)) break;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  fs.mkdirSync(tmpDirPath);
+  if (isDebug) console.log(`tmpDirPath: ${tmpDirPath}`);
+  return tmpDirPath;
+};
+
+const updateTempDirectoryList = async (
+  needToRetain: (tempDirectory: TempDirectory) => boolean,
+  newTmpDirPath?: string,
+) => {
+  const lockFile = path.join(appDataDir, ".temp_directories.lock");
+  while (true) {
+    if (!fs.existsSync(lockFile)) {
+      fs.writeFileSync(lockFile, "1");
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const tempDirectorieListFile = path.join(appDataDir, "temp_directories.json");
+  const tempDirectoriyList = fs.existsSync(tempDirectorieListFile)
+    ? JSON.parse(fs.readFileSync(tempDirectorieListFile, "utf8"))
+    : [];
+  const newTempDirectoryList = [];
+  for (const dir of tempDirectoriyList) {
+    if (needToRetain(dir)) newTempDirectoryList.push(dir);
+  }
+
+  if (newTmpDirPath) {
+    newTempDirectoryList.push({
+      path: newTmpDirPath,
+      createdAt: new Date().toISOString(),
+      appPath: app.getPath("exe"),
+    });
+  }
+  fs.writeFileSync(tempDirectorieListFile, JSON.stringify(newTempDirectoryList, null, 2));
+  fs.unlinkSync(lockFile);
+};
+
 const createWindow = async (pathsToOpen: string[]) => {
   if (isDebug) await installExtensions();
 
@@ -90,7 +145,7 @@ const createWindow = async (pathsToOpen: string[]) => {
   mainWindow.on("ready-to-show", () => {
     if (!mainWindow) throw new Error('"mainWindow" is not defined');
 
-    mainWindow.webContents.send("render-with-settings", settings.getSync());
+    mainWindow.webContents.send("render-with-settings", settings.getSync(), tmpDirPath);
     if (process.env.START_MINIMIZED) mainWindow.minimize();
     else mainWindow.show();
   });
@@ -142,7 +197,23 @@ app.on("will-finish-launching", () => {
 
 app
   .whenReady()
-  .then(() => {
+  .then(async () => {
+    tmpDirPath = await createTmpDir();
+    updateTempDirectoryList((dir: TempDirectory) => {
+      if (
+        dir.appPath === app.getPath("exe") ||
+        new Date(dir.createdAt) < new Date(Date.now() - 365 * 60 * 60 * 24)
+      ) {
+        try {
+          fs.rmSync(dir.path, {recursive: true});
+          return false;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      return true;
+    }, tmpDirPath);
+
     createWindow(pathsToOpenAfterLaunch);
 
     app.on("open-file", (e, filePath) => {
@@ -150,10 +221,25 @@ app
       if (mainWindow === null) createWindow([filePath]);
       else mainWindow.webContents.send("open-files", [filePath]);
     });
+
     app.on("activate", () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow([]);
+    });
+
+    app.on("before-quit", async () => {
+      updateTempDirectoryList((dir: TempDirectory) => {
+        if (dir.path === tmpDirPath) {
+          try {
+            fs.rmSync(dir.path, {recursive: true});
+            return false;
+          } catch (error) {
+            console.error(error);
+          }
+        }
+        return true;
+      });
     });
   })
   .catch(console.log);
