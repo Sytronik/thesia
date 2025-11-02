@@ -315,11 +315,11 @@ pub fn convert_hz_to_label(freq: f32) -> String {
     let freq = freq.round().max(0.);
     let freq_int = freq as usize;
     if freq_int >= 1000 {
-        if freq_int % 1000 == 0 {
+        if freq_int.is_multiple_of(1000) {
             format!("{}k", freq_int / 1000)
-        } else if freq_int % 100 == 0 {
+        } else if freq_int.is_multiple_of(100) {
             format!("{:.1}k", freq / 1000.)
-        } else if freq_int % 10 == 0 {
+        } else if freq_int.is_multiple_of(10) {
             format!("{:.2}k", freq / 1000.)
         } else {
             format!("{:.3}k", freq / 1000.)

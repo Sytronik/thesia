@@ -549,8 +549,7 @@ fn get_guard_clip_stats(track_id: u32) -> serde_json::Value {
         Some(track) => {
             let format_ch_stat = move |(ch, stat): (isize, &GuardClippingStats)| {
                 let stat_str = stat.to_string();
-                (!stat_str.is_empty())
-                    .then_some((ch as isize, format!("{} by {}", &prefix, stat_str)))
+                (!stat_str.is_empty()).then_some((ch, format!("{} by {}", &prefix, stat_str)))
             };
             let vec = track.format_guard_clip_stats(mode, format_ch_stat);
             json!(vec)

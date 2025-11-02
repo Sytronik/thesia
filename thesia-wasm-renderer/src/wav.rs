@@ -332,7 +332,7 @@ impl WavCache {
         let v2y_scale = -height / (options.amp_range.1 - options.amp_range.0).max(1e-8);
         let v2y_offset = options.offset_y - options.amp_range.1 * v2y_scale;
 
-        let transform_params = &TransformParams {
+        let transform_params = TransformParams {
             x_scale,
             x_offset,
             y2v_scale,

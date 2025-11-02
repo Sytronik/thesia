@@ -56,7 +56,7 @@ impl WavLinePoints {
         params: &TransformParams,
     ) -> Self {
         thread_local! {
-            static TMP_BUFFER: RefCell<Vec<f32>> = RefCell::new(Vec::new());
+            static TMP_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
         }
         let mut i_start = self.len();
         let mut i_end = self.len();
@@ -88,7 +88,7 @@ impl WavLinePoints {
                 buf,
             );
             clamp_inplace(buf, params.v_clip_values.0, params.v_clip_values.1);
-            fused_mul_add(&buf, params.v2y_scale, params.v2y_offset, &mut out.ys);
+            fused_mul_add(buf, params.v2y_scale, params.v2y_offset, &mut out.ys);
             buf.clear();
         });
         out
@@ -189,7 +189,7 @@ impl WavEnvelope {
         scale: f32,
     ) -> Self {
         thread_local! {
-            static TMP_BUFFER: RefCell<Vec<f32>> = RefCell::new(Vec::new());
+            static TMP_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
         }
         let mut i_start = self.len();
         let mut i_end = self.len();
@@ -260,13 +260,13 @@ impl WavEnvelope {
             fused_mul_add(&out.tops, params.y2v_scale, params.y2v_offset, buf);
             clamp_inplace(buf, params.v_clip_values.0, params.v_clip_values.1);
             out.tops.clear();
-            fused_mul_add(&buf, params.v2y_scale, params.v2y_offset, &mut out.tops);
+            fused_mul_add(buf, params.v2y_scale, params.v2y_offset, &mut out.tops);
             buf.clear();
 
             fused_mul_add(&out.bottoms, params.y2v_scale, params.y2v_offset, buf);
             clamp_inplace(buf, params.v_clip_values.0, params.v_clip_values.1);
             out.bottoms.clear();
-            fused_mul_add(&buf, params.v2y_scale, params.v2y_offset, &mut out.bottoms);
+            fused_mul_add(buf, params.v2y_scale, params.v2y_offset, &mut out.bottoms);
             buf.clear();
         });
         out

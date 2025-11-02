@@ -3,7 +3,6 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use anyhow;
 use kittyaudio::Frame;
 use napi_derive::napi;
 use ndarray::prelude::*;
