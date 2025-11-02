@@ -88,7 +88,7 @@ fn init(
             *tm =
                 TrackManager::with_max_spec_size_tmp_dir(max_spectrogram_size, tmp_dir_path.into());
         } else {
-            tm.set_tmp_dir_path(tmp_dir_path.into());
+            tm.set_tmp_dir_path(tmp_dir_path.into())?;
         }
         if let Some(setting) = user_settings.spec_setting {
             tm.set_setting(&tracklist, setting.clone());

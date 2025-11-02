@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 
 use identity_hash::IntSet;
 use ndarray::prelude::*;
@@ -78,11 +78,12 @@ impl TrackManager {
         }
     }
 
-    pub fn set_tmp_dir_path(&mut self, tmp_dir_path: PathBuf) {
+    pub fn set_tmp_dir_path(&mut self, tmp_dir_path: PathBuf) -> io::Result<()> {
         self.tmp_dir_path = tmp_dir_path;
-        for mipmap in self.spec_mipmaps.values_mut() {
-            mipmap.move_to(&self.tmp_dir_path);
-        }
+        self.spec_mipmaps
+            .values_mut()
+            .map(|mipmap| mipmap.move_to(&self.tmp_dir_path))
+            .fold(Ok(()), |result, current_result| result.and(current_result))
     }
 
     pub fn add_tracks(&mut self, tracklist: &TrackList, added_ids: &[usize]) {
@@ -266,7 +267,8 @@ impl TrackManager {
                     );
                     (
                         (id, ch),
-                        Mipmaps::new(spec_img, self.max_spectrogram_size, &self.tmp_dir_path),
+                        Mipmaps::new(spec_img, self.max_spectrogram_size, &self.tmp_dir_path)
+                            .unwrap(),
                     )
                 });
 

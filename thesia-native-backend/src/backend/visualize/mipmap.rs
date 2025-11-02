@@ -1,14 +1,14 @@
 use std::cell::RefCell;
 use std::fs::{self, File};
-use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{io, mem};
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
 use memmap2::Mmap;
 use ndarray::{SliceArg, prelude::*};
-use ndarray_npy::{ViewNpyExt, write_npy};
+use ndarray_npy::{ViewNpyExt, WriteNpyError, write_npy};
 use parking_lot::RwLock;
 use tempfile::TempDir;
 
@@ -45,21 +45,28 @@ impl Mipmap {
         }
     }
 
-    fn read<I: SliceArg<Ix2, OutDim = Ix2>>(&self, slice: I) -> Array2<f32> {
-        let file = File::open(&self.path).unwrap();
+    fn read<I: SliceArg<Ix2, OutDim = Ix2>>(&self, slice: I) -> io::Result<Array2<f32>> {
+        let file = File::open(&self.path)?;
         let mmap = unsafe { Mmap::map(&file).unwrap() };
         let view = ArrayView2::<u16>::view_npy(&mmap).unwrap();
-        view.slice(slice).mapv(u16_to_f32)
+        Ok(view.slice(slice).mapv(u16_to_f32))
     }
 
-    fn write(&mut self, img: ArrayView2<pixels::U16>) {
+    fn write(&mut self, img: ArrayView2<pixels::U16>) -> io::Result<()> {
         let arr = unsafe { mem::transmute::<ArrayView2<pixels::U16>, ArrayView2<u16>>(img) };
-        write_npy(&self.path, &arr).unwrap();
-        self.status = FileStatus::Exists;
-    }
-
-    fn has_file(&self) -> bool {
-        matches!(self.status, FileStatus::Exists)
+        match write_npy(&self.path, &arr) {
+            Ok(_) => {
+                self.status = FileStatus::Exists;
+                Ok(())
+            }
+            Err(err) => {
+                self.status = FileStatus::NoFile;
+                match err {
+                    WriteNpyError::Io(err) => Err(err),
+                    _ => panic!("Failed to write mipmap: {:?}", err),
+                }
+            }
+        }
     }
 
     fn move_to(&mut self, dir: &Path) -> bool {
@@ -72,6 +79,18 @@ impl Mipmap {
         self.path = new_path;
         self.has_file()
     }
+
+    fn remove(&mut self) -> io::Result<()> {
+        if self.has_file() {
+            self.status = FileStatus::NoFile;
+            fs::remove_file(&self.path)?;
+        }
+        Ok(())
+    }
+
+    fn has_file(&self) -> bool {
+        matches!(self.status, FileStatus::Exists)
+    }
 }
 
 pub struct Mipmaps {
@@ -82,8 +101,8 @@ pub struct Mipmaps {
 }
 
 impl Mipmaps {
-    pub fn new(spec_img: Array2<pixels::U16>, max_size: u32, dir: &Path) -> Self {
-        let _tmp_dir = TempDir::new_in(dir).unwrap();
+    pub fn new(spec_img: Array2<pixels::U16>, max_size: u32, dir: &Path) -> io::Result<Self> {
+        let _tmp_dir = TempDir::new_in(dir)?;
         let (orig_height, orig_width) = (spec_img.shape()[0], spec_img.shape()[1]);
         let mut mipmaps = vec![vec![Mipmap::new(
             orig_width as u32,
@@ -129,8 +148,8 @@ impl Mipmaps {
             max_size,
             _tmp_dir,
         };
-        _self.ensure_last_mipmap_exists();
-        _self
+        _self.ensure_last_mipmap_exists()?;
+        Ok(_self)
     }
 
     pub fn get_sliced_mipmap(
@@ -173,7 +192,7 @@ impl Mipmaps {
                             };
                             arr.mapv(u16_to_f32)
                         } else if mipmap.has_file() {
-                            mipmap.read(slice)
+                            mipmap.read(slice).unwrap()
                         } else {
                             unreachable!();
                         };
@@ -203,13 +222,9 @@ impl Mipmaps {
                         if !mipmaps[i_h][i_w].has_file() {
                             continue;
                         }
-                        if let Err(err) = fs::remove_file(&mipmaps[i_h][i_w].path) {
-                            match err.kind() {
-                                std::io::ErrorKind::NotFound => (),
-                                _ => log::error!("Failed to remove mipmap: {}", err),
-                            }
+                        if let Err(err) = mipmaps[i_h][i_w].remove() {
+                            log::error!("Failed to remove mipmap: {:?}", err);
                         }
-                        mipmaps[i_h][i_w].status = FileStatus::NoFile;
                     }
                 }
             }
@@ -227,7 +242,9 @@ impl Mipmaps {
                     rayon::spawn(move || {
                         let resized_img = resize(orig_img_clone.view(), width, height);
                         let mut mipmaps = mipmaps_clone.write();
-                        mipmaps[i_h][i_w].write(resized_img.view());
+                        if let Err(err) = mipmaps[i_h][i_w].write(resized_img.view()) {
+                            log::error!("Failed to write mipmap: {:?}", err);
+                        }
                     });
                 }
             }
@@ -238,28 +255,30 @@ impl Mipmaps {
         }
     }
 
-    pub fn move_to(&mut self, dir: &Path) {
-        let _tmp_dir = TempDir::new_in(dir).unwrap();
+    pub fn move_to(&mut self, dir: &Path) -> io::Result<()> {
+        let _tmp_dir = TempDir::new_in(dir)?;
         for mipmaps_along_width in self.mipmaps.write().iter_mut() {
             for mipmap in mipmaps_along_width.iter_mut() {
                 mipmap.move_to(&_tmp_dir.path());
             }
         }
-        self.ensure_last_mipmap_exists();
+        self.ensure_last_mipmap_exists()?;
         self._tmp_dir = _tmp_dir;
+        Ok(())
     }
 
-    fn ensure_last_mipmap_exists(&self) {
+    fn ensure_last_mipmap_exists(&self) -> io::Result<()> {
         let mut mipmaps = self.mipmaps.write();
         if mipmaps.len() > 1 || mipmaps[0].len() > 1 {
             let i_last = mipmaps.len() - 1;
             let last = mipmaps[i_last].last_mut().unwrap();
             if last.has_file() {
-                return;
+                return Ok(());
             }
             let img = resize(self.orig_img.view(), last.width, last.height);
-            last.write(img.view());
+            last.write(img.view())?;
         }
+        Ok(())
     }
 }
 
