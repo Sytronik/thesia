@@ -28,7 +28,7 @@ const CACHE_HEIGHT: f32 = 10000.0;
 
 pub(crate) static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
-pub(crate) static DEVICE_PIXEL_RATIO: LazyLock<AtomicF32> = LazyLock::new(|| AtomicF32::new(1.0));
+pub(crate) static DEVICE_PIXEL_RATIO: AtomicF32 = AtomicF32::new(1.0);
 
 #[wasm_bindgen(js_name = setDevicePixelRatio)]
 pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
