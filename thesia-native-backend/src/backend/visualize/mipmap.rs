@@ -71,10 +71,8 @@ impl Mipmap {
 
     fn move_to(&mut self, dir: &Path) -> bool {
         let new_path = dir.join(self.path.file_name().unwrap());
-        if self.has_file() {
-            if let Err(_) = fs::copy(&self.path, &new_path) {
-                self.status = FileStatus::NoFile;
-            }
+        if self.has_file() && fs::copy(&self.path, &new_path).is_err() {
+            self.status = FileStatus::NoFile;
         }
         self.path = new_path;
         self.has_file()
@@ -259,7 +257,7 @@ impl Mipmaps {
         let _tmp_dir = TempDir::new_in(dir)?;
         for mipmaps_along_width in self.mipmaps.write().iter_mut() {
             for mipmap in mipmaps_along_width.iter_mut() {
-                mipmap.move_to(&_tmp_dir.path());
+                mipmap.move_to(_tmp_dir.path());
             }
         }
         self.ensure_last_mipmap_exists()?;

@@ -83,7 +83,8 @@ impl TrackManager {
         self.spec_mipmaps
             .values_mut()
             .map(|mipmap| mipmap.move_to(&self.tmp_dir_path))
-            .fold(Ok(()), |result, current_result| result.and(current_result))
+            .reduce(|result, current_result| result.and(current_result))
+            .unwrap_or(Ok(()))
     }
 
     pub fn add_tracks(&mut self, tracklist: &TrackList, added_ids: &[usize]) {
