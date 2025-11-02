@@ -19,7 +19,7 @@ This project is in a very early stage.
        git clone https://github.com/microsoft/vcpkg
        .\vcpkg\bootstrap-vcpkg.bat
        .\vcpkg\vcpkg integrate install
-       vcpkg install openblas --triplet x64-windows-static
+       vcpkg install openblas --triplet x64-windows-static-md
        ```
    - Linux
      - ALSA
