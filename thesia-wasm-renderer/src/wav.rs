@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 
 use atomic_float::AtomicF32;
-use parking_lot::RwLock;
+use dashmap::DashMap;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
@@ -27,29 +26,27 @@ const LINE_WIDTH_CSS_PX: f32 = 1.75;
 const CACHE_PX_PER_SEC: f32 = 2. / (1. / 20.); // 2px per period of 20Hz sine wave
 const CACHE_HEIGHT: f32 = 10000.0;
 
-pub(crate) static WAV_CACHES: LazyLock<RwLock<HashMap<String, WavCache>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
+pub(crate) static WAV_CACHES: LazyLock<DashMap<String, WavCache>> =
+    LazyLock::new(|| DashMap::new());
 pub(crate) static DEVICE_PIXEL_RATIO: AtomicF32 = AtomicF32::new(1.0);
 
 #[wasm_bindgen(js_name = setDevicePixelRatio)]
 pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
     DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
-    for wav_cache in WAV_CACHES.write().values_mut() {
-        wav_cache.update_cache();
+    for mut entry in WAV_CACHES.iter_mut() {
+        entry.value_mut().update_cache();
     }
 }
 
 #[wasm_bindgen(js_name = setWav)]
 pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool) {
     let wav_cache = WavCache::new(wav.into(), sr, is_clipped);
-    WAV_CACHES.write().insert(id_ch_str.into(), wav_cache);
+    WAV_CACHES.insert(id_ch_str.into(), wav_cache);
 }
 
 #[wasm_bindgen(js_name = removeWav)]
 pub fn remove_wav(track_id: u32) {
-    WAV_CACHES
-        .write()
-        .retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)));
+    WAV_CACHES.retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -75,9 +72,8 @@ pub fn draw_wav(
     let height = canvas.height() as f32 * WAV_IMG_SCALE;
 
     let is_clipped = {
-        let wav_caches = WAV_CACHES.read();
-        match wav_caches.get(id_ch_str) {
-            Some(wav_cache) => wav_cache.is_clipped,
+        match WAV_CACHES.get(id_ch_str) {
+            Some(entry) => entry.value().is_clipped(),
             None => {
                 return Ok(());
             }
@@ -148,15 +144,14 @@ pub(crate) fn draw_wav_internal(
     let line_width = options.line_width();
 
     let result = {
-        let wav_caches = WAV_CACHES.read();
-        let wav_cache = wav_caches
+        let entry = WAV_CACHES
             .get(id_ch_str)
             .ok_or_else(|| JsValue::from_str("Wav not found"))?;
         if options.px_per_sec() >= CACHE_PX_PER_SEC {
-            let WavCache { wav, sr, .. } = wav_cache;
+            let WavCache { wav, sr, .. } = entry.value();
             calc_line_envelope_points(wav, *sr, options, upsampled_wav_sr)
         } else {
-            let (line_points, envelopes) = wav_cache.transform_line_envelopes(options);
+            let (line_points, envelopes) = entry.value().transform_line_envelopes(options);
             CalcLineEnvelopePointsResult {
                 line_points,
                 envelopes,
