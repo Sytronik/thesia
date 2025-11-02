@@ -61,7 +61,7 @@ impl PerfectLimiter {
         debug_assert!(attack_ms >= 0.);
         debug_assert!(hold_ms >= 0.);
         debug_assert!(release_ms >= 0.);
-        let ms_to_samples = |x: f64| (x * sr as f64 / 1000.);
+        let ms_to_samples = |x: f64| x * sr as f64 / 1000.;
         let attack = ms_to_samples(attack_ms).round() as usize;
         let mut smoother = BoxStackFilter::with_num_layers(attack, 3);
         smoother.reset(1.);

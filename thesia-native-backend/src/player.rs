@@ -95,7 +95,7 @@ fn get_supported_sr_list(device_name: &str) -> Result<Vec<u32>, KaError> {
     if let Device::Custom(device) = Device::from_name(device_name)? {
         match device.supported_output_configs() {
             Ok(supported_configs) => Ok(supported_configs
-                .flat_map(|c| (c.min_sample_rate().0..=c.max_sample_rate().0))
+                .flat_map(|c| c.min_sample_rate().0..=c.max_sample_rate().0)
                 .collect()),
             Err(SupportedStreamConfigsError::DeviceNotAvailable) => Err(KaError::BuildStreamError(
                 cpal::BuildStreamError::DeviceNotAvailable,
