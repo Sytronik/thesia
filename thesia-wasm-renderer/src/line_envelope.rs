@@ -454,7 +454,7 @@ pub(crate) fn calc_line_envelope_points(
     }
     CalcLineEnvelopePointsResult {
         line_points,
-        envelopes: Some(envelopes),
+        envelopes: (!envelopes.is_empty()).then_some(envelopes),
         upsampled_wav_sr: None,
     }
 }

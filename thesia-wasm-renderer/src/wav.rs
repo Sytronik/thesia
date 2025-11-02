@@ -311,7 +311,7 @@ impl WavCache {
             WavDrawingOptions::new_for_cache(self.wav.len(), self.sr, self.cache_amp_range);
         let result = calc_line_envelope_points(&self.wav, self.sr, &options, None);
         self.line_points_cache = result.line_points;
-        self.envelopes_cache = result.envelopes.unwrap();
+        self.envelopes_cache = result.envelopes.unwrap_or_default();
     }
 
     fn transform_line_envelopes(
