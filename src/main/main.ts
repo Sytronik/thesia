@@ -68,10 +68,14 @@ if (isDebug) console.log(`appDataDir: ${appDataDir}`);
 
 let tmpDirPath = "";
 const createTmpDir = async () => {
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     tmpDirPath = path.join(app.getPath("temp"), `${appName}-temp-${Date.now()}`);
     if (!fs.existsSync(tmpDirPath)) break;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => {
+      setTimeout(resolve, 1000);
+    });
   }
   fs.mkdirSync(tmpDirPath);
   if (isDebug) console.log(`tmpDirPath: ${tmpDirPath}`);
@@ -83,21 +87,22 @@ const updateTempDirectoryList = async (
   newTmpDirPath?: string,
 ) => {
   const lockFile = path.join(appDataDir, ".temp_directories.lock");
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     if (!fs.existsSync(lockFile)) {
       fs.writeFileSync(lockFile, "1");
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => {
+      setTimeout(resolve, 100);
+    });
   }
   const tempDirectorieListFile = path.join(appDataDir, "temp_directories.json");
-  const tempDirectoriyList = fs.existsSync(tempDirectorieListFile)
+  const tempDirectoriyList: TempDirectory[] = fs.existsSync(tempDirectorieListFile)
     ? JSON.parse(fs.readFileSync(tempDirectorieListFile, "utf8"))
     : [];
-  const newTempDirectoryList = [];
-  for (const dir of tempDirectoriyList) {
-    if (needToRetain(dir)) newTempDirectoryList.push(dir);
-  }
+  const newTempDirectoryList = tempDirectoriyList.filter(needToRetain);
 
   if (newTmpDirPath) {
     newTempDirectoryList.push({
