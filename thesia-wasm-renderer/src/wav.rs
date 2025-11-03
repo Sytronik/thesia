@@ -55,6 +55,7 @@ pub fn remove_wav(track_id: u32) {
         .retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = drawWav)]
 pub fn draw_wav(
     canvas: &HtmlCanvasElement,

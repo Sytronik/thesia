@@ -38,6 +38,7 @@ pub struct SpectrogramSliceArgs {
 }
 
 impl SpectrogramSliceArgs {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         n_frames: usize,
         n_freqs: usize,
