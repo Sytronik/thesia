@@ -152,7 +152,9 @@ pub(crate) fn draw_wav_internal(
 
     let result = {
         let wav_caches = WAV_CACHES.read().unwrap();
-        let wav_cache = wav_caches.get(id_ch_str).unwrap();
+        let wav_cache = wav_caches
+            .get(id_ch_str)
+            .ok_or_else(|| JsValue::from_str("Wav not found"))?;
         if options.px_per_sec() >= CACHE_PX_PER_SEC {
             let WavCache { wav, sr, .. } = wav_cache;
             calc_line_envelope_points(wav, *sr, options, upsampled_wav_sr)

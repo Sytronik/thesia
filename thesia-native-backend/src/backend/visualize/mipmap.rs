@@ -47,7 +47,7 @@ impl Mipmap {
 
     fn read<I: SliceArg<Ix2, OutDim = Ix2>>(&self, slice: I) -> io::Result<Array2<f32>> {
         let file = File::open(&self.path)?;
-        let mmap = unsafe { Mmap::map(&file).unwrap() };
+        let mmap = unsafe { Mmap::map(&file)? };
         let view = ArrayView2::<u16>::view_npy(&mmap).unwrap();
         Ok(view.slice(slice).mapv(u16_to_f32))
     }
