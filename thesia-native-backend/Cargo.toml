@@ -18,12 +18,12 @@ napi = {version = "3.3.0", features = [
 ], default-features = false}
 napi-derive = {version = "3.2.5"}
 
+anyhow = "1.0.100"
 approx = "0.5.1"
 atomic_float = {workspace = true}
+bytemuck = "1.24.0"
 chrono = "0.4.42"
 # console-subscriber = "0.4.0"
-anyhow = "1.0.100"
-bytemuck = "1.24.0"
 cpal = "0.16.0"
 dashmap = {version = "6.1.0", features = ["inline"]}
 dunce = "1.0.5"
@@ -38,7 +38,7 @@ ndarray-npy = "0.9.1"
 ndarray-stats = "0.6.0"
 num-traits = "0.2.19"
 num_cpus = "1.17.0"
-parking_lot = "0.12.5"
+parking_lot = {workspace = true}
 rayon = "1.11.0"
 readonly = "0.2.13"
 realfft = "3.5.0"

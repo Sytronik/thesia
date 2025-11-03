@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
-use std::sync::{LazyLock, RwLock};
 
 use atomic_float::AtomicF32;
+use parking_lot::RwLock;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
@@ -33,7 +34,7 @@ pub(crate) static DEVICE_PIXEL_RATIO: AtomicF32 = AtomicF32::new(1.0);
 #[wasm_bindgen(js_name = setDevicePixelRatio)]
 pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
     DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
-    for wav_cache in WAV_CACHES.write().unwrap().values_mut() {
+    for wav_cache in WAV_CACHES.write().values_mut() {
         wav_cache.update_cache();
     }
 }
@@ -41,18 +42,14 @@ pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
 #[wasm_bindgen(js_name = setWav)]
 pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool) {
     let wav_cache = WavCache::new(wav.into(), sr, is_clipped);
-    WAV_CACHES
-        .write()
-        .unwrap()
-        .insert(id_ch_str.into(), wav_cache);
+    WAV_CACHES.write().insert(id_ch_str.into(), wav_cache);
 }
 
 #[wasm_bindgen(js_name = removeWav)]
 pub fn remove_wav(track_id: u32) {
     WAV_CACHES
         .write()
-        .unwrap()
-        .retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)))
+        .retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -78,7 +75,7 @@ pub fn draw_wav(
     let height = canvas.height() as f32 * WAV_IMG_SCALE;
 
     let is_clipped = {
-        let wav_caches = WAV_CACHES.read().unwrap();
+        let wav_caches = WAV_CACHES.read();
         match wav_caches.get(id_ch_str) {
             Some(wav_cache) => wav_cache.is_clipped,
             None => {
@@ -151,7 +148,7 @@ pub(crate) fn draw_wav_internal(
     let line_width = options.line_width();
 
     let result = {
-        let wav_caches = WAV_CACHES.read().unwrap();
+        let wav_caches = WAV_CACHES.read();
         let wav_cache = wav_caches
             .get(id_ch_str)
             .ok_or_else(|| JsValue::from_str("Wav not found"))?;
