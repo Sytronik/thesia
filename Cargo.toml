@@ -18,6 +18,7 @@ authors = [
 edition = "2024"
 license-file = "../LICENSE"
 version = "0.1.0"
+repository = "https://github.com/Sytronik/thesia"
 
 # Shared dependencies that can be inherited by workspace members
 [workspace.dependencies]

@@ -1,8 +1,10 @@
 [package]
 authors = {workspace = true}
+description = "Thesia's backend module powered by napi-rs."
 edition = {workspace = true}
 license-file = {workspace = true}
 name = "thesia-native-backend"
+repository = {workspace = true}
 version = {workspace = true}
 
 [lib]
