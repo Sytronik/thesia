@@ -269,7 +269,10 @@ impl AudioFormatInfo {
     }
 }
 
-pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), SymphoniaError> {
+pub fn open_audio_file(
+    path: impl AsRef<Path>,
+) -> Result<(Array2<f32>, AudioFormatInfo), SymphoniaError> {
+    let path = path.as_ref();
     let src = fs::File::open(path)?;
 
     // Create the media source stream.
@@ -277,7 +280,7 @@ pub fn open_audio_file(path: &str) -> Result<(Array2<f32>, AudioFormatInfo), Sym
 
     // Create a probe hint using the file's extension. [Optional]
     let mut hint = Hint::new();
-    if let Some(ext) = Path::new(path).extension() {
+    if let Some(ext) = path.extension() {
         let ext = ext.to_string_lossy();
         hint.with_extension(&ext);
     }

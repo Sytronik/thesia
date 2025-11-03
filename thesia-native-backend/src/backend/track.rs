@@ -56,7 +56,8 @@ pub struct AudioTrack {
 }
 
 impl AudioTrack {
-    pub fn new(path: String) -> Result<Self, SymphoniaError> {
+    pub fn new(path_str: String) -> Result<Self, anyhow::Error> {
+        let path = PathBuf::from(path_str).canonicalize()?;
         let (wavs, format_info) = open_audio_file(&path)?;
         let mut stat_calculator = StatCalculator::new(wavs.shape()[0] as u32, format_info.sr);
         let original = Arc::new(Audio::new(wavs, format_info.sr, &mut stat_calculator));
@@ -65,7 +66,7 @@ impl AudioTrack {
 
         Ok(AudioTrack {
             format_info,
-            path: PathBuf::from(path).canonicalize().unwrap(),
+            path,
             original,
             audio,
             stat_calculator,
@@ -217,8 +218,8 @@ impl TrackList {
         let id_tracks: Vec<_> = id_list
             .into_par_iter()
             .zip(path_list.into_par_iter())
-            .filter_map(|(id, path)| {
-                AudioTrack::new(path).ok().map(|mut track| {
+            .filter_map(|(id, path_str)| {
+                AudioTrack::new(path_str).ok().map(|mut track| {
                     track.normalize(self.common_normalize, self.common_guard_clipping);
                     (id, track)
                 })
