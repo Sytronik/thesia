@@ -37,12 +37,14 @@ impl WasmFloat32Array {
         self.len
     }
 
+    #[inline(always)]
     unsafe fn forget(&mut self) {
         self.cap = 0;
     }
 }
 
 impl Drop for WasmFloat32Array {
+    #[inline(always)]
     fn drop(&mut self) {
         if self.cap == 0 {
             return;
@@ -55,6 +57,7 @@ impl Drop for WasmFloat32Array {
 }
 
 impl From<WasmFloat32Array> for Vec<f32> {
+    #[inline(always)]
     fn from(mut value: WasmFloat32Array) -> Self {
         let v = unsafe { Vec::from_raw_parts(value.ptr, value.len, value.cap) };
         unsafe { value.forget() };

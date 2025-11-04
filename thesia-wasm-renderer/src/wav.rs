@@ -231,6 +231,7 @@ pub(crate) struct WavDrawingOptions {
 }
 
 impl Default for WavDrawingOptions {
+    #[inline(always)]
     fn default() -> Self {
         Self {
             width: 0.0,
@@ -249,6 +250,7 @@ impl Default for WavDrawingOptions {
 }
 
 impl WavDrawingOptions {
+    #[inline(always)]
     fn new_for_cache(wav_len: usize, sr: u32, amp_range: (f32, f32)) -> Self {
         let px_per_samples = (CACHE_PX_PER_SEC / sr as f32).min(0.1);
         let css_px_per_sec =
@@ -262,10 +264,12 @@ impl WavDrawingOptions {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn line_width(&self) -> f32 {
         self.line_width_css_px * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
 
+    #[inline(always)]
     pub(crate) fn px_per_sec(&self) -> f32 {
         self.css_px_per_sec * self.scale * DEVICE_PIXEL_RATIO.load(Ordering::Acquire)
     }
@@ -281,6 +285,7 @@ pub(crate) struct WavCache {
 }
 
 impl WavCache {
+    #[inline(always)]
     fn new(wav: Vec<f32>, sr: u32, is_clipped: bool) -> Self {
         let cache_amp_range = {
             let (min, max) = find_min_max(&wav);
@@ -298,14 +303,17 @@ impl WavCache {
         wav_cache
     }
 
+    #[inline(always)]
     pub(crate) fn is_clipped(&self) -> bool {
         self.is_clipped
     }
 
+    #[inline(always)]
     pub(crate) fn cache_amp_range(&self) -> (f32, f32) {
         self.cache_amp_range
     }
 
+    #[inline(always)]
     fn update_cache(&mut self) {
         let options =
             WavDrawingOptions::new_for_cache(self.wav.len(), self.sr, self.cache_amp_range);

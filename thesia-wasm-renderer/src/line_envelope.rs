@@ -18,6 +18,7 @@ pub(crate) struct WavLinePoints {
 }
 
 impl WavLinePoints {
+    #[inline(always)]
     pub(crate) fn new() -> Self {
         Self {
             xs: Vec::new(),
@@ -25,6 +26,7 @@ impl WavLinePoints {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             xs: Vec::with_capacity(capacity),
@@ -32,6 +34,7 @@ impl WavLinePoints {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn push(&mut self, x: f32, y: f32) {
         self.xs.push(x);
         self.ys.push(y);
@@ -94,10 +97,12 @@ impl WavLinePoints {
         out
     }
 
+    #[inline(always)]
     pub(crate) fn shift_y_inplace(&mut self, offset_y: f32) {
         add_scalar_inplace(&mut self.ys, offset_y);
     }
 
+    #[inline(always)]
     pub(crate) fn upside_down(&self) -> Self {
         let mut out = Self::with_capacity(self.len());
         out.xs = self.xs.clone();
@@ -105,10 +110,12 @@ impl WavLinePoints {
         out
     }
 
+    #[inline(always)]
     pub(crate) fn is_empty(&self) -> bool {
         self.xs.is_empty()
     }
 
+    #[inline(always)]
     pub(crate) fn len(&self) -> usize {
         self.xs.len()
     }
@@ -117,6 +124,7 @@ impl WavLinePoints {
 impl TryFrom<WavLinePoints> for Path2d {
     type Error = JsValue;
 
+    #[inline(always)]
     fn try_from(value: WavLinePoints) -> Result<Self, Self::Error> {
         value.try_into_path()
     }
@@ -130,6 +138,7 @@ pub(crate) struct WavEnvelope {
 }
 
 impl WavEnvelope {
+    #[inline(always)]
     pub(crate) fn new() -> Self {
         Self {
             xs: Vec::new(),
@@ -138,6 +147,7 @@ impl WavEnvelope {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             xs: Vec::with_capacity(capacity),
@@ -146,6 +156,7 @@ impl WavEnvelope {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn push(&mut self, x: f32, top: f32, bottom: f32) {
         self.xs.push(x);
         self.tops.push(top);
@@ -272,14 +283,17 @@ impl WavEnvelope {
         out
     }
 
+    #[inline(always)]
     pub(crate) fn out_of_range(&self, start_x: f32, end_x: f32) -> bool {
         self.xs[0] >= end_x || self.xs[self.len() - 1] < start_x
     }
 
+    #[inline(always)]
     pub(crate) fn is_empty(&self) -> bool {
         self.xs.is_empty()
     }
 
+    #[inline(always)]
     pub(crate) fn len(&self) -> usize {
         self.xs.len()
     }
