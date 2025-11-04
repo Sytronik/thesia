@@ -105,7 +105,7 @@ impl WavLinePoints {
     #[inline(always)]
     pub(crate) fn upside_down(&self) -> Self {
         let mut out = Self::with_capacity(self.len());
-        out.xs = self.xs.clone();
+        out.xs.clone_from(&self.xs);
         negate(&self.ys, &mut out.ys);
         out
     }

@@ -132,10 +132,10 @@ impl TrackManager {
         (set, self.max_sr)
     }
 
-    pub fn set_setting(&mut self, tracklist: &TrackList, setting: SpecSetting) {
+    pub fn set_setting(&mut self, tracklist: &TrackList, setting: &SpecSetting) {
         let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&tracklist.all_ids(), &setting);
 
-        self.setting = setting;
+        self.setting.clone_from(setting);
         self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
         self.update_specs(tracklist, tracklist.id_ch_tuples(), &sr_win_nfft_set);

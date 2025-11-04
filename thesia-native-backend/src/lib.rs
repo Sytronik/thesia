@@ -91,7 +91,7 @@ fn init(
             tm.set_tmp_dir_path(tmp_dir_path.into())?;
         }
         if let Some(setting) = user_settings.spec_setting {
-            tm.set_setting(&tracklist, setting.clone());
+            tm.set_setting(&tracklist, &setting);
         }
         #[allow(non_snake_case)]
         if let Some(dB_range) = user_settings.dB_range {
@@ -112,7 +112,7 @@ fn init(
             common_normalize: serde_json::to_value(tracklist.common_normalize).unwrap(),
         }
     };
-    *SPEC_SETTING.write() = user_settings.spec_setting.clone();
+    SPEC_SETTING.write().clone_from(&user_settings.spec_setting);
 
     player::spawn_task();
     Ok(user_settings)
@@ -212,8 +212,9 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.win_ms > 0.);
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
-    *SPEC_SETTING.write() = spec_setting.clone();
-    tokio_rayon::spawn_fifo(move || TM.write().set_setting(&TRACK_LIST.read(), spec_setting)).await;
+    SPEC_SETTING.write().clone_from(&spec_setting);
+    tokio_rayon::spawn_fifo(move || TM.write().set_setting(&TRACK_LIST.read(), &spec_setting))
+        .await;
 }
 
 #[napi]
