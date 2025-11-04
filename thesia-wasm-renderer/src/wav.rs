@@ -356,7 +356,7 @@ impl WavCache {
             self.line_points_cache
                 .slice_transform(start_x, end_x, &transform_params);
 
-        let mut xformed_envelopes = Vec::new();
+        let mut xformed_envelopes = Vec::with_capacity(self.envelopes_cache.len());
         for envelope in self.envelopes_cache.iter() {
             if envelope.out_of_range(start_x, end_x) {
                 continue;

@@ -324,10 +324,9 @@ pub(crate) fn calc_line_envelope_points(
     );
 
     if px_per_sec > sr_f32 / 2. {
-        let mut line_points = WavLinePoints::new();
         if i_start >= i_end {
             return CalcLineEnvelopePointsResult {
-                line_points,
+                line_points: WavLinePoints::new(),
                 envelopes: None,
                 upsampled_wav_sr: None,
             };
@@ -360,6 +359,8 @@ pub(crate) fn calc_line_envelope_points(
         let wav_slice = upsampled_wav
             .as_ref()
             .map_or_else(|| &wav[i_start..i_end], Vec::as_slice);
+        let mut line_points = WavLinePoints::with_capacity(wav_slice.len());
+
         for (i, v) in ((i_start * factor)..(i_end * factor)).zip(wav_slice) {
             let x = idx_to_x(i as f32 / factor_f32);
             let y = wav_to_y(*v);
@@ -374,7 +375,9 @@ pub(crate) fn calc_line_envelope_points(
         };
     }
 
-    let mut line_points = WavLinePoints::new();
+    // Estimate capacity based on downsampling: each pixel might need 1-2 points
+    let estimated_points = (options.width / options.scale).ceil() as usize * 2;
+    let mut line_points = WavLinePoints::with_capacity(estimated_points);
     let mut current_envlp = WavEnvelope::new();
     let mut envelopes = Vec::new();
 
