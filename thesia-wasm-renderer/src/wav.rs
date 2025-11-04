@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 use atomic_float::AtomicF32;
 use parking_lot::RwLock;
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
 
 use crate::line_envelope::{
     CalcLineEnvelopePointsResult, TransformParams, WavEnvelope, WavLinePoints,
@@ -166,17 +166,16 @@ pub(crate) fn draw_wav_internal(
     };
 
     let line_path = result.line_points.try_into_path()?;
-    let envelope_paths = match result.envelopes {
-        Some(envelopes) => {
-            let mut envelope_paths = Vec::with_capacity(envelopes.len());
+    let envelope_path = result
+        .envelopes
+        .map(|envelopes| -> Result<Path2d, JsValue> {
+            let path = Path2d::new()?;
             for envelope in envelopes {
-                let path = envelope.try_into_path(line_width)?;
-                envelope_paths.push(path);
+                envelope.record_on_path(&path, line_width)?;
             }
-            envelope_paths
-        }
-        None => Vec::new(),
-    };
+            Ok(path)
+        })
+        .transpose()?;
 
     let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
 
@@ -190,14 +189,14 @@ pub(crate) fn draw_wav_internal(
     }
 
     // Draw borders for envelopes
-    if options.need_border_for_envelope {
+    if options.need_border_for_envelope
+        && let Some(ref envelope_path) = envelope_path
+    {
         ctx.set_line_cap("round");
         ctx.set_line_join("round");
         ctx.set_stroke_style_str(WAV_BORDER_COLOR);
         ctx.set_line_width((2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
-        for path in &envelope_paths {
-            ctx.stroke_with_path(path);
-        }
+        ctx.stroke_with_path(envelope_path);
     }
 
     // Draw main line
@@ -208,9 +207,9 @@ pub(crate) fn draw_wav_internal(
     ctx.stroke_with_path(&line_path);
 
     // Fill envelopes
-    ctx.set_fill_style_str(color);
-    for path in &envelope_paths {
-        ctx.fill_with_path_2d(path);
+    if let Some(ref envelope_path) = envelope_path {
+        ctx.set_fill_style_str(color);
+        ctx.fill_with_path_2d(envelope_path);
     }
 
     Ok(result.upsampled_wav_sr)

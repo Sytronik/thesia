@@ -163,11 +163,13 @@ impl WavEnvelope {
         self.bottoms.push(bottom);
     }
 
-    pub(crate) fn try_into_path(mut self, stroke_width: f32) -> Result<Path2d, JsValue> {
-        let path = Path2d::new()?;
-
+    pub(crate) fn record_on_path(
+        mut self,
+        path: &Path2d,
+        stroke_width: f32,
+    ) -> Result<(), JsValue> {
         if self.is_empty() {
-            return Ok(path);
+            return Ok(());
         }
 
         let half_stroke_width = stroke_width / 2.0;
@@ -189,7 +191,7 @@ impl WavEnvelope {
         }
 
         path.close_path();
-        Ok(path)
+        Ok(())
     }
 
     pub(crate) fn slice_transform(
