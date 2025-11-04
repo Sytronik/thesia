@@ -61,21 +61,15 @@ impl WavLinePoints {
         thread_local! {
             static TMP_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
         }
-        let mut i_start = self.len();
-        let mut i_end = self.len();
-        for (i, x) in self.xs.iter().enumerate() {
-            if *x < start_x {
-                continue;
-            }
-            if i_start == self.len() {
-                i_start = i;
-            }
-            if *x >= end_x {
-                i_end = i;
-                break;
-            }
-        }
-        let mut out = Self::with_capacity(i_end - i_start);
+        // Binary search for range bounds - more efficient than linear scan
+        let len = self.len();
+        let i_start = self.xs.partition_point(|&x| x < start_x).min(len);
+        let i_end = if i_start < len {
+            i_start + self.xs[i_start..].partition_point(|&x| x < end_x)
+        } else {
+            len
+        };
+        let mut out = Self::with_capacity(i_end.saturating_sub(i_start));
         fused_mul_add(
             &self.xs[i_start..i_end],
             params.x_scale,
@@ -204,22 +198,16 @@ impl WavEnvelope {
         thread_local! {
             static TMP_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
         }
-        let mut i_start = self.len();
-        let mut i_end = self.len();
-        for (i, x) in self.xs.iter().enumerate() {
-            if *x < start_x {
-                continue;
-            }
-            if i_start == self.len() {
-                i_start = i;
-            }
-            if *x >= end_x {
-                i_end = i;
-                break;
-            }
-        }
+        // Binary search for range bounds - more efficient than linear scan
+        let len = self.len();
+        let i_start = self.xs.partition_point(|&x| x < start_x).min(len);
+        let i_end = if i_start < len {
+            i_start + self.xs[i_start..].partition_point(|&x| x < end_x)
+        } else {
+            len
+        };
 
-        let mut out = Self::with_capacity(i_end - i_start);
+        let mut out = Self::with_capacity(i_end.saturating_sub(i_start));
         TMP_BUFFER.with_borrow_mut(|buf| {
             buf.clear();
             fused_mul_add(
