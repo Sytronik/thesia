@@ -9,7 +9,7 @@ describe("App", () => {
     const gl = canvas.getContext("webgl2");
     if (!gl) throw new Error("WebGL2 is not supported");
     expect(
-      render(<App userSettings={BackendAPI.init({}, gl.getParameter(gl.MAX_TEXTURE_SIZE))} />),
+      render(<App userSettings={BackendAPI.init({}, gl.getParameter(gl.MAX_TEXTURE_SIZE), "")} />),
     ).toBeTruthy();
   });
 });
