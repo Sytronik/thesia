@@ -3,11 +3,61 @@
 // allow for whole file because [napi(object)] attribite on struct blocks allow(non_snake_case)
 #![allow(non_snake_case)]
 
+use std::{sync::LazyLock, thread};
+
+use crossbeam_channel::{Sender, unbounded};
 use napi::bindgen_prelude::*;
+use napi::tokio::sync::oneshot;
 use napi_derive::napi;
 use ndarray::Array2;
 
 use crate::{GuardClippingMode, SpecSetting, SpectrogramSliceArgs};
+
+static WRITE_LOCK_WORKER: LazyLock<WriteLockWorker> = LazyLock::new(WriteLockWorker::new);
+
+type WriteLockJob = Box<dyn FnOnce() + Send + 'static>;
+
+struct WriteLockWorker {
+    sender: Sender<WriteLockJob>,
+}
+
+impl WriteLockWorker {
+    fn new() -> Self {
+        let (sender, receiver) = unbounded::<WriteLockJob>();
+        thread::Builder::new()
+            .name("write-lock-worker".into())
+            .spawn(move || {
+                while let Ok(job) = receiver.recv() {
+                    job();
+                }
+                log::error!("write lock worker channel closed; exiting thread");
+            })
+            .expect("Failed to spawn write lock worker");
+        Self { sender }
+    }
+
+    fn spawn<F>(&self, job: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        if let Err(err) = self.sender.send(Box::new(job)) {
+            log::error!("Failed to submit write lock job: {err}");
+        }
+    }
+}
+
+pub fn spawn_write_lock_task<F, R>(f: F) -> impl std::future::Future<Output = R>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    let (tx, rx) = oneshot::channel();
+    WRITE_LOCK_WORKER.spawn(move || {
+        let result = f();
+        let _ = tx.send(result);
+    });
+    async move { rx.await.expect("write lock worker terminated unexpectedly") }
+}
 
 #[napi(object)]
 pub struct UserSettingsOptionals {

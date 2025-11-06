@@ -122,7 +122,7 @@ fn init(
 async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
     assert!(!id_list.is_empty() && id_list.len() == path_list.len());
 
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         let added_ids = TRACK_LIST
             .write()
             .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
@@ -139,7 +139,7 @@ async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
 async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     assert!(!track_ids.is_empty());
 
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
         let (reloaded_ids, no_err_ids) = TRACK_LIST.write().reload_tracks(&track_ids);
         let tracklist = TRACK_LIST.read();
@@ -168,7 +168,7 @@ fn remove_tracks(track_ids: Vec<u32>) {
 
 #[napi]
 async fn apply_track_list_changes() -> Vec<String> {
-    let (id_ch_tuples, sr) = tokio_rayon::spawn_fifo(move || {
+    let (id_ch_tuples, sr) = spawn_write_lock_task(move || {
         let (updated_id_set, sr) = {
             let tracklist = TRACK_LIST.read();
             TM.write().apply_track_list_changes(&tracklist)
@@ -195,17 +195,17 @@ fn get_dB_range() -> f64 {
 #[allow(non_snake_case)]
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         let tracklist = TRACK_LIST.read();
         TM.write().set_dB_range(&tracklist, dB_range as f32)
     })
-        .await;
+    .await;
 }
 
 #[napi]
 async fn set_colormap_length(colormap_length: u32) {
     assert!(colormap_length > 0);
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         let tracklist = TRACK_LIST.read();
         TM.write().set_colormap_length(&tracklist, colormap_length)
     })
@@ -223,11 +223,11 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
     SPEC_SETTING.write().clone_from(&spec_setting);
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         let tracklist = TRACK_LIST.read();
         TM.write().set_setting(&tracklist, &spec_setting)
     })
-        .await;
+    .await;
 }
 
 #[napi]
@@ -237,7 +237,7 @@ fn get_common_guard_clipping() -> GuardClippingMode {
 
 #[napi]
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         TRACK_LIST.write().set_common_guard_clipping(mode);
         let tracklist = TRACK_LIST.read();
         TM.write().update_all_specs_mipmaps(&tracklist);
@@ -255,7 +255,7 @@ fn get_common_normalize() -> serde_json::Value {
 async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
     let target = serde_json::from_value(target)?;
 
-    tokio_rayon::spawn_fifo(move || {
+    spawn_write_lock_task(move || {
         TRACK_LIST.write().set_common_normalize(target);
         let tracklist = TRACK_LIST.read();
         TM.write().update_all_specs_mipmaps(&tracklist);

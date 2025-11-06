@@ -25,6 +25,7 @@ bytemuck = "1.24.0"
 chrono = "0.4.42"
 # console-subscriber = "0.4.0"
 cpal = "0.16.0"
+crossbeam-channel = "0.5.13"
 dashmap = {version = "6.1.0", features = ["inline"]}
 dunce = "1.0.5"
 ebur128 = "0.1.10"
