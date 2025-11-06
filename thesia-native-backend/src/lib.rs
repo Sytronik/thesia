@@ -126,7 +126,10 @@ async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
         let added_ids = TRACK_LIST
             .write()
             .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
-        TM.write().add_tracks(&TRACK_LIST.read(), &added_ids);
+        {
+            let tracklist = TRACK_LIST.read();
+            TM.write().add_tracks(&tracklist, &added_ids);
+        }
         added_ids.iter().map(|&x| x as u32).collect()
     })
     .await
@@ -139,7 +142,8 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
     tokio_rayon::spawn_fifo(move || {
         let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
         let (reloaded_ids, no_err_ids) = TRACK_LIST.write().reload_tracks(&track_ids);
-        TM.write().reload_tracks(&TRACK_LIST.read(), &reloaded_ids);
+        let tracklist = TRACK_LIST.read();
+        TM.write().reload_tracks(&tracklist, &reloaded_ids);
         no_err_ids.into_iter().map(|x| x as u32).collect()
     })
     .await
@@ -157,15 +161,18 @@ fn remove_tracks(track_ids: Vec<u32>) {
         DRAW_WAV_TASK_ID_MAP.remove(&id_ch_str);
     });
     rayon::spawn_fifo(move || {
-        TM.write()
-            .remove_tracks(&TRACK_LIST.read(), &removed_id_ch_tuples);
+        let tracklist = TRACK_LIST.read();
+        TM.write().remove_tracks(&tracklist, &removed_id_ch_tuples);
     });
 }
 
 #[napi]
 async fn apply_track_list_changes() -> Vec<String> {
     let (id_ch_tuples, sr) = tokio_rayon::spawn_fifo(move || {
-        let (updated_id_set, sr) = TM.write().apply_track_list_changes(&TRACK_LIST.read());
+        let (updated_id_set, sr) = {
+            let tracklist = TRACK_LIST.read();
+            TM.write().apply_track_list_changes(&tracklist)
+        };
         let updated_ids: Vec<usize> = updated_id_set.into_iter().collect();
         (TRACK_LIST.read().id_ch_tuples_from(&updated_ids), sr)
     })
@@ -188,7 +195,10 @@ fn get_dB_range() -> f64 {
 #[allow(non_snake_case)]
 async fn set_dB_range(dB_range: f64) {
     assert!(dB_range > 0.);
-    tokio_rayon::spawn_fifo(move || TM.write().set_dB_range(&TRACK_LIST.read(), dB_range as f32))
+    tokio_rayon::spawn_fifo(move || {
+        let tracklist = TRACK_LIST.read();
+        TM.write().set_dB_range(&tracklist, dB_range as f32)
+    })
         .await;
 }
 
@@ -196,8 +206,8 @@ async fn set_dB_range(dB_range: f64) {
 async fn set_colormap_length(colormap_length: u32) {
     assert!(colormap_length > 0);
     tokio_rayon::spawn_fifo(move || {
-        TM.write()
-            .set_colormap_length(&TRACK_LIST.read(), colormap_length)
+        let tracklist = TRACK_LIST.read();
+        TM.write().set_colormap_length(&tracklist, colormap_length)
     })
     .await;
 }
@@ -213,7 +223,10 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
     assert!(spec_setting.t_overlap >= 1);
     assert!(spec_setting.f_overlap >= 1);
     SPEC_SETTING.write().clone_from(&spec_setting);
-    tokio_rayon::spawn_fifo(move || TM.write().set_setting(&TRACK_LIST.read(), &spec_setting))
+    tokio_rayon::spawn_fifo(move || {
+        let tracklist = TRACK_LIST.read();
+        TM.write().set_setting(&tracklist, &spec_setting)
+    })
         .await;
 }
 
@@ -226,7 +239,8 @@ fn get_common_guard_clipping() -> GuardClippingMode {
 async fn set_common_guard_clipping(mode: GuardClippingMode) {
     tokio_rayon::spawn_fifo(move || {
         TRACK_LIST.write().set_common_guard_clipping(mode);
-        TM.write().update_all_specs_mipmaps(&TRACK_LIST.read());
+        let tracklist = TRACK_LIST.read();
+        TM.write().update_all_specs_mipmaps(&tracklist);
     })
     .await;
     refresh_track_player().await;
@@ -243,7 +257,8 @@ async fn set_common_normalize(target: serde_json::Value) -> Result<()> {
 
     tokio_rayon::spawn_fifo(move || {
         TRACK_LIST.write().set_common_normalize(target);
-        TM.write().update_all_specs_mipmaps(&TRACK_LIST.read());
+        let tracklist = TRACK_LIST.read();
+        TM.write().update_all_specs_mipmaps(&tracklist);
     })
     .await;
     refresh_track_player().await;
