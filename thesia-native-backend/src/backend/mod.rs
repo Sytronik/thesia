@@ -133,7 +133,7 @@ impl TrackManager {
     }
 
     pub fn set_setting(&mut self, tracklist: &TrackList, setting: &SpecSetting) {
-        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&tracklist.all_ids(), &setting);
+        let sr_win_nfft_set = tracklist.construct_sr_win_nfft_set(&tracklist.all_ids(), setting);
 
         self.setting.clone_from(setting);
         self.spec_analyzer

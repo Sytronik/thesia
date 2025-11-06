@@ -38,9 +38,9 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 static TRACK_LIST: LazyLock<RwLock<TrackList>> = LazyLock::new(|| RwLock::new(TrackList::new()));
 static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackManager::new()));
 
-static DRAW_SPEC_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> =
-    LazyLock::new(DashMap::new);
-static DRAW_WAV_TASK_ID_MAP: LazyLock<DashMap<String, Wrapping<u64>>> = LazyLock::new(DashMap::new);
+type IdChStrToTaskIdMap = DashMap<String, Wrapping<u64>>;
+static DRAW_SPEC_TASK_ID_MAP: LazyLock<IdChStrToTaskIdMap> = LazyLock::new(IdChStrToTaskIdMap::new);
+static DRAW_WAV_TASK_ID_MAP: LazyLock<IdChStrToTaskIdMap> = LazyLock::new(IdChStrToTaskIdMap::new);
 
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());

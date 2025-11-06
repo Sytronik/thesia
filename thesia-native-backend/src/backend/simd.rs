@@ -8,10 +8,7 @@ use std::arch::is_x86_feature_detected;
 use std::arch::x86_64::*;
 
 use itertools::Itertools;
-use ndarray::ArrayBase;
-use ndarray::Data;
-use ndarray::DataMut;
-use ndarray::Dimension;
+use ndarray::{ArrayBase, Data, DataMut, Dimension};
 use ndarray_stats::QuantileExt;
 
 pub fn find_min_max(slice: &[f32]) -> (f32, f32) {

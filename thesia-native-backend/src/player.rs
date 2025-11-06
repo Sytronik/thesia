@@ -169,7 +169,7 @@ fn main_loop(
             "".into()
         })
     };
-    let device_name = RefCell::new(String::new());
+    let device_name = RefCell::new("".into());
     let init_mixer = |sr: Option<u32>, change_device: bool| {
         let sr = sr.unwrap_or(48000);
         let mixer = Mixer::new();
