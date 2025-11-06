@@ -11,12 +11,12 @@ version = {workspace = true}
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "3.3.0", features = [
+napi = {version = "3.5.0", features = [
   "async",
   "serde-json",
   "tokio_time",
 ], default-features = false}
-napi-derive = {version = "3.2.5"}
+napi-derive = {version = "3.3.0"}
 
 anyhow = "1.0.100"
 approx = "0.5.1"
@@ -25,7 +25,7 @@ bytemuck = "1.24.0"
 chrono = "0.4.42"
 # console-subscriber = "0.4.0"
 cpal = "0.16.0"
-crossbeam-channel = "0.5.13"
+crossbeam-channel = "0.5.15"
 dashmap = {version = "6.1.0", features = ["inline"]}
 dunce = "1.0.5"
 ebur128 = "0.1.10"
@@ -33,7 +33,7 @@ fast_image_resize = "5.3.0"
 identity-hash = "0.1.0"
 itertools = "0.14.0"
 log = "0.4.28"
-memmap2 = "0.9.8"
+memmap2 = "0.9.9"
 ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"]}
 ndarray-npy = "0.9.1"
 ndarray-stats = "0.6.0"
@@ -45,7 +45,7 @@ readonly = "0.2.13"
 realfft = "3.5.0"
 serde = {version = "1.0.228", features = ["derive"]}
 serde_json = "1.0.145"
-simple_logger = "5.0.0"
+simple_logger = "5.1.0"
 tempfile = "3.23.0"
 tiny-skia = "0.11.4"
 tokio-rayon = "2.1.0"
@@ -92,4 +92,4 @@ hound = "3.5.1"
 ndarray-rand = "0.15.0"
 
 [build-dependencies]
-napi-build = "2.2.3"
+napi-build = "2.3.0"

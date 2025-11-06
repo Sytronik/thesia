@@ -12,10 +12,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 atomic_float = {workspace = true}
-js-sys = "0.3.81"
+js-sys = "0.3.82"
 parking_lot = {workspace = true}
 rubato = "0.16.2"
-wasm-bindgen = "0.2.104"
+wasm-bindgen = "0.2.105"
 
 [dependencies.web-sys]
 features = [
@@ -24,7 +24,7 @@ features = [
   "Path2d",
   "console",
 ]
-version = "0.3.81"
+version = "0.3.82"
 
 [package.metadata.wasm-pack.profile.dev]
 wasm-opt = ["--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-simd"]
