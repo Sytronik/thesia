@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::{io, mem};
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
@@ -13,7 +13,6 @@ use parking_lot::RwLock;
 use tempfile::TempDir;
 
 use super::super::spectrogram::SpecSetting;
-
 use super::slice_args::SpectrogramSliceArgs;
 
 fn u16_to_f32(x: u16) -> f32 {
@@ -281,6 +280,9 @@ impl Mipmaps {
 }
 
 fn resize(img: ArrayView2<pixels::U16>, width: u32, height: u32) -> Array2<pixels::U16> {
+    static RESIZE_OPT: LazyLock<ResizeOptions> = LazyLock::new(|| {
+        ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3))
+    });
     thread_local! {
         static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
     }
@@ -292,14 +294,12 @@ fn resize(img: ArrayView2<pixels::U16>, width: u32, height: u32) -> Array2<pixel
             img.as_slice().unwrap(),
         )
         .unwrap();
-        let resize_opt =
-            ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
 
         let mut dst_buf = vec![pixels::U16::new(0); width as usize * height as usize];
         let mut dst_img =
             TypedImage::<pixels::U16>::from_pixels_slice(width, height, &mut dst_buf).unwrap();
         resizer
-            .resize_typed(&src_img, &mut dst_img, &resize_opt)
+            .resize_typed(&src_img, &mut dst_img, &*RESIZE_OPT)
             .unwrap();
         Array2::from_shape_vec((height as usize, width as usize), dst_buf).unwrap()
     })
