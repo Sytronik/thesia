@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "thesia-native-backend",
+  "src-tauri",
   "thesia-wasm-renderer",
 ]
 resolver = "2"

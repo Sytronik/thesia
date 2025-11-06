@@ -1,0 +1,44 @@
+// Typography variables
+@import url(src/assets/fonts/pretendard/pretendard.css);
+
+// Font weights
+$font-weight-bold: 600 !default;
+$font-weight-medium: 500 !default;
+$font-weight-normal: 400 !default;
+$font-weight-light: 300 !default;
+
+// Line heights
+$lh-condensed-ultra: 1 !default;
+$lh-condensed: 1.25 !default;
+$lh-default: 1.5 !default;
+
+// The base body size
+$body-font-size-xlarge: 20px !default;
+$body-font-size-large: 16px !default;
+$body-font-size: 14px !default;
+$body-font-size-small: 12px !default;
+$body-font-size-xsmall: 11px !default;
+
+$body-line-height: $lh-default !default;
+
+// button size
+$button-font-size: 14px !default;
+
+// Font stacks
+$body-font:
+  // customize font
+  "Pretendard",
+  // Apple OSs
+  -apple-system,
+  BlinkMacSystemFont,
+  // Windows
+  // Note this should be prioritized over `system-ui` to avoid legacy fonts.
+  // See https://infinnie.github.io/blog/2017/systemui.html
+  "Segoe UI Variable",
+  "Segoe UI",
+  // Linux-friendly system-level fonts + fallbacks
+  system-ui,
+  ui-sans-serif, Helvetica, Arial, sans-serif,
+  // Emojis
+  "Apple Color Emoji",
+  "Segoe UI Emoji" !default;
