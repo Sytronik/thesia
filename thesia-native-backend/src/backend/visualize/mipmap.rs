@@ -19,11 +19,12 @@ fn u16_to_f32(x: u16) -> f32 {
     (x as f32) / u16::MAX as f32
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum FileStatus {
     NoFile,
     Creating,
     Exists,
+    OnMemory(Array2<u16>),
 }
 
 struct Mipmap {
@@ -35,16 +36,18 @@ struct Mipmap {
 
 impl Mipmap {
     fn new(width: u32, height: u32, dir: &Path) -> Self {
-        let path = dir.join(format!("{}_{}.npy", width, height));
         Self {
             width,
             height,
-            path,
+            path: dir.join(format!("{}_{}.npy", width, height)),
             status: FileStatus::NoFile,
         }
     }
 
     fn read<I: SliceArg<Ix2, OutDim = Ix2>>(&self, slice: I) -> io::Result<Array2<f32>> {
+        if let FileStatus::OnMemory(arr) = &self.status {
+            return Ok(arr.slice(slice).mapv(u16_to_f32));
+        }
         let file = File::open(&self.path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let view = ArrayView2::<u16>::view_npy(&mmap).unwrap();
@@ -59,7 +62,7 @@ impl Mipmap {
                 Ok(())
             }
             Err(err) => {
-                self.status = FileStatus::NoFile;
+                self.status = FileStatus::OnMemory(arr.to_owned());
                 match err {
                     WriteNpyError::Io(err) => Err(err),
                     _ => panic!("Failed to write mipmap: {:?}", err),
@@ -70,23 +73,29 @@ impl Mipmap {
 
     fn move_to(&mut self, dir: &Path) -> bool {
         let new_path = dir.join(self.path.file_name().unwrap());
-        if self.has_file() && fs::copy(&self.path, &new_path).is_err() {
+        if matches!(self.status, FileStatus::Exists) && fs::copy(&self.path, &new_path).is_err() {
             self.status = FileStatus::NoFile;
         }
         self.path = new_path;
-        self.has_file()
+        self.exists()
     }
 
     fn remove(&mut self) -> io::Result<()> {
-        if self.has_file() {
-            self.status = FileStatus::NoFile;
-            fs::remove_file(&self.path)?;
+        match &mut self.status {
+            FileStatus::Exists => {
+                self.status = FileStatus::NoFile;
+                fs::remove_file(&self.path)?;
+            }
+            FileStatus::OnMemory(_) => {
+                self.status = FileStatus::NoFile;
+            }
+            _ => {}
         }
         Ok(())
     }
 
-    fn has_file(&self) -> bool {
-        matches!(self.status, FileStatus::Exists)
+    fn exists(&self) -> bool {
+        matches!(self.status, FileStatus::Exists | FileStatus::OnMemory(_))
     }
 }
 
@@ -177,7 +186,7 @@ impl Mipmaps {
                     break;
                 }
                 if args.width <= max_size {
-                    if i_h == 0 && i_w == 0 || mipmap.has_file() {
+                    if i_h == 0 && i_w == 0 || mipmap.exists() {
                         let slice = s![
                             args.top..args.top + args.height,
                             args.left..args.left + args.width
@@ -188,7 +197,7 @@ impl Mipmaps {
                                 mem::transmute::<ArrayView2<pixels::U16>, ArrayView2<u16>>(pixels)
                             };
                             arr.mapv(u16_to_f32)
-                        } else if mipmap.has_file() {
+                        } else if mipmap.exists() {
                             mipmap.read(slice).unwrap()
                         } else {
                             unreachable!();
@@ -196,7 +205,7 @@ impl Mipmaps {
                         out_idx_img_args = Some((i_h, i_w, sliced_arr, args));
                         break;
                     } else if need_to_create.is_none() {
-                        need_to_create = Some((i_h, i_w, mipmap.status));
+                        need_to_create = Some((i_h, i_w, mipmap.status.clone()));
                     }
                 }
             }
@@ -216,7 +225,7 @@ impl Mipmaps {
                         if (i_h, i_w) == (mipmaps.len() - 1, mipmaps[i_h].len() - 1) {
                             continue;
                         }
-                        if !mipmaps[i_h][i_w].has_file() {
+                        if !mipmaps[i_h][i_w].exists() {
                             continue;
                         }
                         if let Err(err) = mipmaps[i_h][i_w].remove() {
@@ -225,6 +234,7 @@ impl Mipmaps {
                     }
                 }
             }
+            let is_low_quality = need_to_create.is_some();
             if let Some((i_h, i_w, status)) = need_to_create
                 && matches!(status, FileStatus::NoFile)
             {
@@ -246,7 +256,7 @@ impl Mipmaps {
                 }
             }
 
-            (args, sliced_img, need_to_create.is_some())
+            (args, sliced_img, is_low_quality)
         } else {
             panic!("No mipmap found!");
         }
@@ -269,7 +279,7 @@ impl Mipmaps {
         if mipmaps.len() > 1 || mipmaps[0].len() > 1 {
             let i_last = mipmaps.len() - 1;
             let last = mipmaps[i_last].last_mut().unwrap();
-            if last.has_file() {
+            if last.exists() {
                 return Ok(());
             }
             let img = resize(self.orig_img.view(), last.width, last.height);
