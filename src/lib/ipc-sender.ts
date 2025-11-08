@@ -12,10 +12,6 @@ export function setUserSetting<K extends keyof UserSettings>(
   // ipcRenderer.send("set-setting", key, value);
 }
 
-export function showElectronOpenDialog() {
-  // ipcRenderer.send("show-open-dialog");
-}
-
 export function showTrackContextMenu() {
   // ipcRenderer.send("show-track-context-menu");
 }
@@ -27,10 +23,6 @@ export function showAxisContextMenu(axisKind: AxisKind, id: number) {
 
 export function showEditContextMenu() {
   // ipcRenderer.send("show-edit-context-menu");
-}
-
-export function showElectronFileOpenErrorMsg(unsupportedPaths: string[], invalidPaths: string[]) {
-  // ipcRenderer.send("show-file-open-err-msg", unsupportedPaths, invalidPaths);
 }
 
 export function enableEditMenu() {

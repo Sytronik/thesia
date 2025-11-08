@@ -1,5 +1,5 @@
 import { MemoryRouter as Router, Routes, Route } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import useEvent from "react-use-event-hook";
 // import {ipcRenderer} from "electron";
 import { DndProvider } from "react-dnd";
@@ -16,7 +16,6 @@ import {
   removeGlobalFocusInListener,
   removeGlobalFocusOutListener,
   showEditContextMenuIfEditableNode,
-  showElectronFileOpenErrorMsg,
 } from "./lib/ipc-sender";
 import { SUPPORTED_MIME } from "./prototypes/constants/constants";
 import useTracks from "./hooks/useTracks";
@@ -24,6 +23,7 @@ import useSelectedTracks from "./hooks/useSelectedTracks";
 import { DevicePixelRatioProvider } from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
+import { getOpenTracksHandler, listenMenuOpenAudioTracks, showFileOpenErrorMsg } from './lib/ipc';
 
 type AppProps = { userSettings: UserSettings };
 
@@ -90,17 +90,18 @@ function MyApp({ userSettings }: AppProps) {
       const droppedFiles = Array.from(item.files);
 
       droppedFiles.forEach((file: File) => {
+        // TODO
         // if (SUPPORTED_MIME.includes(file.type)) {
         //   newPaths.push(file.path);
         // } else {
-        //   unsupportedPaths.push(file.path);
+        unsupportedPaths.push(file.name);
         // }
       });
 
       const { existingIds, invalidPaths } = await addTracks(newPaths, index);
 
       if (unsupportedPaths.length || invalidPaths.length) {
-        showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+        showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
       }
       if (existingIds.length) {
         await reloadTracks(existingIds);
@@ -109,13 +110,13 @@ function MyApp({ userSettings }: AppProps) {
     }
   );
 
-  const openFiles = useEvent(async (filePaths: string[]) => {
+  const openAudioTracks = useEvent(async (filePaths: string[]) => {
     const unsupportedPaths: string[] = [];
 
     const { existingIds, invalidPaths } = await addTracks(filePaths);
 
     if (unsupportedPaths.length || invalidPaths.length) {
-      showElectronFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+      showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
     }
 
     if (existingIds.length) {
@@ -124,25 +125,17 @@ function MyApp({ userSettings }: AppProps) {
     await refreshTracks();
   });
 
-  useEffect(() => {
-    // ipcRenderer.on("open-files", async (_, filePaths) => openFiles(filePaths));
-    // return () => {
-    //   ipcRenderer.removeAllListeners("open-files");
-    // };
-  }, [openFiles]);
+  const openAudioTracksHandler = useMemo(
+    () => getOpenTracksHandler(openAudioTracks),
+    [openAudioTracks]
+  );
 
   useEffect(() => {
-    // ipcRenderer.on(
-    //   "open-dialog-closed",
-    //   async (_, dialogResult: Electron.OpenDialogReturnValue) => {
-    //     if (!dialogResult.canceled) openFiles(dialogResult.filePaths);
-    //   }
-    // );
-
-    // return () => {
-    //   ipcRenderer.removeAllListeners("open-dialog-closed");
-    // };
-  }, [openFiles]);
+    const promiseUnlisten = listenMenuOpenAudioTracks(openAudioTracksHandler);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
+  }, [openAudioTracksHandler]);
 
   const removeSelectedTracks = useEvent(async () => {
     if (selectedTrackIds.length === 0) return;
@@ -244,6 +237,7 @@ function MyApp({ userSettings }: AppProps) {
               maxTrackHz={maxTrackHz}
               blend={blend}
               player={player}
+              openAudioTracksHandler={openAudioTracksHandler}
               addDroppedFile={addDroppedFile}
               ignoreError={ignoreError}
               refreshTracks={refreshTracks}

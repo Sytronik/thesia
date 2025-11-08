@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-opener": "^2",
     "immutability-helper": "^3.1.1",
     "react": "^19.1.0",
@@ -23,9 +24,9 @@
     "react-router-dom": "^7.9.5",
     "react-tooltip": "^5.30.0",
     "react-use-event-hook": "^0.9.6",
+    "thesia-wasm-renderer": "file:./thesia-wasm-renderer/pkg",
     "throttle-debounce": "^5.0.2",
-    "use-device-pixel-ratio": "^1.1.2",
-    "thesia-wasm-renderer": "file:./thesia-wasm-renderer/pkg"
+    "use-device-pixel-ratio": "^1.1.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

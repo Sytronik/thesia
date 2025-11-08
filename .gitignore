@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 *.scss.d.ts
+*.png
 
 /target
 /thesia-wasm-renderer/pkg

@@ -56,6 +56,7 @@ type MainViewerProps = {
   maxTrackHz: number;
   blend: number;
   player: Player;
+  openAudioTracksHandler: () => Promise<void>;
   addDroppedFile: (item: {files: File[]}, index: number) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
@@ -82,6 +83,7 @@ function MainViewer(props: MainViewerProps) {
     maxTrackHz,
     blend,
     player,
+    openAudioTracksHandler,
     addDroppedFile,
     ignoreError,
     refreshTracks,
@@ -849,7 +851,10 @@ function MainViewer(props: MainViewerProps) {
           />
         );
       })}
-      <TrackAddButtonSection key="track_add_button" />
+      <TrackAddButtonSection
+        key="track_add_button"
+        openAudioTracksHandler={openAudioTracksHandler}
+      />
     </>
   );
 

@@ -1,11 +1,12 @@
 import React from "react";
-import {showElectronOpenDialog} from "../../lib/ipc-sender";
 import styles from "./TrackAddButtonSection.module.scss";
 
-function TrackAddButtonSection() {
+function TrackAddButtonSection(
+  { openAudioTracksHandler }: { openAudioTracksHandler: () => Promise<void> }
+) {
   return (
     <div className={styles.trackAddButtonSection}>
-      <button type="button" onClick={showElectronOpenDialog} aria-label="Add track">
+      <button type="button" onClick={openAudioTracksHandler} aria-label="Add track">
         <span className={styles.btnPlus} />
       </button>
     </div>
