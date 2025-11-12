@@ -695,7 +695,12 @@ fn get_project_root() -> Option<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+    #[cfg(debug_assertions)]
+    {    let devtools = tauri_plugin_devtools::init();
+        builder = builder.plugin(devtools);
+    }
+    builder = builder
         .plugin(tauri_plugin_dialog::init())
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| menu::handle_menu_event(app, event))
@@ -776,7 +781,9 @@ pub fn run() {
             menu::disable_toggle_play_menu,
             menu::show_play_menu,
             menu::show_pause_menu
-        ])
+        ]);
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
