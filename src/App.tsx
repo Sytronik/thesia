@@ -4,7 +4,7 @@ import useEvent from "react-use-event-hook";
 // import {ipcRenderer} from "electron";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import {UserSettings} from "src/api/backend-types";
+import {UserSettings} from "src/api/backend-wrapper";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";

@@ -11,7 +11,7 @@ type DraggingProps<T extends string, U> = {
   cursorStateInfos: Map<T, CursorStateInfo<T, U>>;
   calcCursorPos: "x" | "y" | ((e: MouseEvent | React.MouseEvent, rect: DOMRect) => number);
   determineCursorStates: (cursorPos: number, rect: DOMRect) => T;
-  calcDragAnchor: (cursorState: T, cursorPos: number, rect: DOMRect) => U;
+  calcDragAnchor: (cursorState: T, cursorPos: number, rect: DOMRect) => Promise<U> | U;
   dragAnchorDefault: U;
   onCursorStateChange?: (cursorState: T) => void;
   children: ReactNode;
@@ -84,7 +84,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     if (hasDraggedRef.current) e.target?.addEventListener("click", stopPropagation, {once: true});
   });
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onMouseDown = async (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     (e.target as HTMLDivElement).parentElement?.focus();
     if (!divElem.current) return;
@@ -92,7 +92,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     updateCursorState(e);
     const rect = divElem.current.getBoundingClientRect();
     dragAnchorPosRef.current = calcCursorPosFunc(e, rect);
-    dragAnchorRef.current = calcDragAnchor(
+    dragAnchorRef.current = await calcDragAnchor(
       cursorStateRef.current as T,
       dragAnchorPosRef.current,
       rect,

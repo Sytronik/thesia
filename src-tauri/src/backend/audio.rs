@@ -203,6 +203,7 @@ impl From<&Audio> for Vec<Frame> {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AudioFormatInfo {
     pub name: String,
     pub sr: u32,

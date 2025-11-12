@@ -1,34 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
 import {createWasmFloat32Array, WasmFloat32Array} from "./wasm-wrapper";
 
-// Import types from local types file (works even when backend type definitions are not available)
-import type { Spectrogram, PlayerState } from "./backend-types";
-// Note: GuardClippingMode and FreqScale types are exported from backend-types
-// We don't import them here to avoid conflicts with enum values
-
-import * as backend from "./backend-mock";
-
-// Re-export types from local types file
-// Note: GuardClippingMode and FreqScale types are available from backend-types
-// but we don't re-export them here to avoid conflicts with enum values
-export type {
-  SpecSetting,
-  Spectrogram,
-  WavMetadata,
-  AudioFormatInfo,
-  UserSettings,
-  UserSettingsOptionals,
-  PlayerState,
-} from "./backend-types";
-
-export { GuardClippingMode, FreqScale } from "./backend-types";
-// Re-export enum values (needed for runtime usage)
-// Use backend's enum values if available, otherwise use mock's
-// Note: Enum types can be imported directly from "./backend-types" if needed
-
-// most api returns empty array for edge case
-/* get each track file's information */
-export function getChannelCounts(trackId: number): 1 | 2 {
-  const ch = backend.getChannelCounts(trackId);
+export async function getChannelCounts(trackId: number): Promise<1 | 2> {
+  const ch = await invoke<number>("get_channel_counts", {trackId});
   if (!(ch === 1 || ch === 2)) console.error(`No. of channel ${ch} not supported!`);
   if (ch >= 1.5) return 2;
   return 1;
@@ -48,42 +22,114 @@ export type MarkerDrawOption = {
   maxdB?: number;
 };
 
+export interface AudioFormatInfo {
+  name: string
+  sampleRate: number
+  bitDepth: string
+  bitrate: string
+}
+
+export type FreqScale = 'Linear' | 'Mel';
+
+export type GuardClippingMode = 'Clip' | 'ReduceGlobalLevel' | 'Limiter';
+
+export interface PlayerState {
+  isPlaying: boolean
+  positionSec: number
+  err: string
+}
+
+export interface SpecSetting {
+  winMillisec: number
+  tOverlap: number
+  fOverlap: number
+  freqScale: FreqScale
+}
+
+export interface Spectrogram {
+  buf: Float32Array
+  width: number
+  height: number
+  startSec: number
+  pxPerSec: number
+  leftMargin: number
+  rightMargin: number
+  topMargin: number
+  bottomMargin: number
+  isLowQuality: boolean
+}
+
+export interface UserSettings {
+  specSetting: SpecSetting
+  blend: number
+  dBRange: number
+  commonGuardClipping: GuardClippingMode
+  commonNormalize: any
+}
+
+export interface UserSettingsOptionals {
+  specSetting?: SpecSetting
+  blend?: number
+  dBRange?: number
+  commonGuardClipping?: GuardClippingMode
+  commonNormalize?: any
+}
+
+export interface WavMetadata {
+  length: number
+  sr: number
+  isClipped: boolean
+}
+
+
 /* draw tracks */
 /* time axis */
-export function getTimeAxisMarkers(
+export async function getTimeAxisMarkers(
   subTickSec: number,
   subTickUnitCount: number,
   markerDrawOptions?: MarkerDrawOption,
-): Markers {
+): Promise<Markers> {
   const {startSec, endSec, maxSec} = markerDrawOptions || {};
 
   if (startSec === undefined || endSec === undefined || maxSec === undefined) {
     console.error("no markerDrawOptions for time axis exist");
     return [];
   }
-  return backend.getTimeAxisMarkers(startSec, endSec, subTickSec, subTickUnitCount, maxSec);
+  return invoke<Markers>(
+    "get_time_axis_markers",
+    {
+      startSec,
+      endSec,
+      tickUnit: subTickSec,
+      labelInterval: subTickUnitCount,
+      maxSec,
+    },
+  );
 }
 
 /* track axis */
-export function getFreqAxisMarkers(
+export async function getFreqAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
-): Markers {
+): Promise<Markers> {
   const {maxTrackHz, hzRange} = markerDrawOptions || {};
 
   if (maxTrackHz === undefined || hzRange === undefined) {
     console.error("no markerDrawOptions for freq axis exist");
     return [];
   }
-  return backend.getFreqAxisMarkers(maxNumTicks, maxNumLabels, hzRange, maxTrackHz);
+  return invoke<Markers>(
+    "get_freq_axis_markers",
+    { maxNumTicks, maxNumLabels, hzRange, maxTrackHz },
+  );
 }
 
-export function getAmpAxisMarkers(
+export async function getAmpAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
-): Markers {
+): Promise<Markers> {
   const {ampRange} = markerDrawOptions || {};
 
   if (!ampRange) {
@@ -91,16 +137,19 @@ export function getAmpAxisMarkers(
     return [];
   }
 
-  return backend.getAmpAxisMarkers(maxNumTicks, maxNumLabels, ampRange);
+  return invoke<Markers>(
+    "get_amp_axis_markers",
+    { maxNumTicks, maxNumLabels, ampRange },
+  );
 }
 
 /* dB Axis */
 
-export function getdBAxisMarkers(
+export async function getdBAxisMarkers(
   maxNumTicks: number,
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
-): Markers {
+): Promise<Markers> {
   const {mindB, maxdB} = markerDrawOptions || {};
 
   if (mindB === undefined || maxdB === undefined) {
@@ -108,7 +157,10 @@ export function getdBAxisMarkers(
     return [];
   }
 
-  return backend.getdBAxisMarkers(maxNumTicks, maxNumLabels, mindB, maxdB);
+  return invoke<Markers>(
+    "get_dB_axis_markers",
+    { maxNumTicks, maxNumLabels, minDB: mindB, maxDB: maxdB },
+  );
 }
 
 // IdChannel is form of id#_ch#
@@ -124,21 +176,21 @@ export type WavInfo = {
   isClipped: boolean;
 };
 
-export function getWav(idChStr: string): WavInfo | null {
-  const metadata = backend.getWavMetadata(idChStr);
+export async function getWav(idChStr: string): Promise<WavInfo | null> {
+  const metadata = await invoke<WavMetadata>("get_wav_metadata", {idChStr});
   if (!metadata) return null;
 
   const {length, sr, isClipped} = metadata;
   const [wav, view] = createWasmFloat32Array(length);
-  backend.assignWavTo(view, idChStr);
+  // backend.assignWavTo(view, idChStr);
   return {wav, sr, isClipped};
 }
 
-export function getLimiterGainSeq(trackId: number): WasmFloat32Array | null {
-  const length = backend.getLimiterGainLength(trackId);
+export async function getLimiterGainSeq(trackId: number): Promise<WasmFloat32Array | null> {
+  const length = await invoke<number>("get_limiter_gain_length", {trackId});
   if (length === 0) return null;
   const [wav, view] = createWasmFloat32Array(length);
-  backend.assignLimiterGainTo(view, trackId);
+  // backend.assignLimiterGainTo(view, trackId);
   return wav;
 }
 
@@ -151,60 +203,202 @@ export type NormalizeTarget =
       target: number;
     };
 
-export function getCommonNormalize(): NormalizeTarget {
-  return backend.getCommonNormalize();
+export async function getCommonNormalize(): Promise<NormalizeTarget> {
+  const commonNormalize = await invoke<NormalizeTarget>("get_common_normalize");
+  return commonNormalize;
 }
 
 export async function setCommonNormalize(commonNormalize: NormalizeTarget): Promise<void> {
-  return backend.setCommonNormalize(commonNormalize);
+  return invoke<void>("set_common_normalize", {commonNormalize});
 }
 
-export function getGuardClipStats(trackId: number): [number, string][] {
+export async function getGuardClipStats(trackId: number): Promise<[number, string][]> {
   // [channel, stats]
   // if [[-1, stats]], then all channels have the same stats
-  return backend.getGuardClipStats(trackId);
+  return invoke<[number, string][]>("get_guard_clip_stats", {trackId});
 }
 
-export function getPlayerState(): PlayerState {
-  return backend.getPlayerState();
+export async function getPlayerState(): Promise<PlayerState> {
+  return invoke<PlayerState>("get_player_state");
 }
 
-export const {
-  init,
-  addTracks,
-  reloadTracks,
-  removeTracks,
-  applyTrackListChanges,
-  findIdByPath,
-  getPath,
-  getFileName,
-  getLengthSec,
-  getFormatInfo,
-  getGlobalLUFS,
-  getRMSdB,
-  getMaxPeakdB,
-  getLongestTrackLengthSec,
-  freqPosToHz,
-  freqHzToPos,
-  secondsToLabel,
-  timeLabelToSeconds,
-  hzToLabel,
-  freqLabelToHz,
-  getMaxdB,
-  getMindB,
-  getMaxTrackHz,
-  getSpectrogram,
-  getdBRange,
-  setdBRange,
-  setColormapLength,
-  getSampleRate,
-  getSpecSetting,
-  setSpecSetting,
-  getCommonGuardClipping,
-  setCommonGuardClipping,
-  setVolumedB,
-  setTrackPlayer,
-  pausePlayer,
-  resumePlayer,
-  seekPlayer,
-} = backend;
+export async function init(
+  userSettings: UserSettingsOptionals,
+  maxTextureSize: number,
+  tempDirectory: string,
+): Promise<UserSettings> {
+  return invoke<UserSettings>("init", {
+    userSettings,
+    maxSpectrogramSize: maxTextureSize,
+    tmpDirPath: tempDirectory,
+  });
+}
+
+export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {
+  return invoke<number[]>("add_tracks", {trackIds, paths});
+}
+
+export async function reloadTracks(trackIds: number[]): Promise<number[]> {
+  return invoke<number[]>("reload_tracks", {trackIds});
+}
+
+export async function removeTracks(trackIds: number[]): Promise<void> {
+  return invoke<void>("remove_tracks", {trackIds});
+}
+
+export async function applyTrackListChanges(): Promise<string[]> {
+  return invoke<string[]>("apply_track_list_changes");
+}
+
+export async function getdBRange(): Promise<number> {
+  return invoke<number>("get_dB_range");
+}
+
+export async function setdBRange(dBRange: number): Promise<void> {
+  return invoke<void>("set_dB_range", {dBRange});
+}
+
+export async function setColormapLength(colormapLength: number): Promise<void> {
+  return invoke<void>("set_colormap_length", {colormapLength});
+}
+
+export async function getSpecSetting(): Promise<SpecSetting> {
+  return invoke<SpecSetting>("get_spec_setting");
+}
+
+export async function setSpecSetting(specSetting: SpecSetting): Promise<void> {
+  return invoke<void>("set_spec_setting", {specSetting});
+}
+
+export async function getCommonGuardClipping(): Promise<GuardClippingMode> {
+  return invoke<GuardClippingMode>("get_common_guard_clipping");
+}
+
+export async function setCommonGuardClipping(commonGuardClipping: GuardClippingMode): Promise<void> {
+  return invoke<void>("set_common_guard_clipping", {commonGuardClipping});
+}
+
+export async function getSpectrogram(
+  idChStr: string,
+  secRange: [number, number],
+  hzRange: [number, number],
+  marginPx: number,
+): Promise<Spectrogram | null> {
+  const out = await invoke<any>(
+    "get_spectrogram",
+    { idChStr, secRange, hzRange, marginPx },
+  );
+  if (!out) return null;
+  out.buf = new Float32Array(out.buf);
+  return out;
+}
+
+export async function findIdByPath(path: string): Promise<number> {
+  return invoke<number>("find_id_by_path", {path});
+}
+
+export async function freqPosToHz(
+  y: number,
+  height: number,
+  hzRange: [number, number],
+): Promise<number> {
+  return invoke<number>("freq_pos_to_hz", {y, height, hzRange});
+}
+
+export async function freqHzToPos(
+  hz: number,
+  height: number,
+  hzRange: [number, number],
+): Promise<number> {
+  return invoke<number>("freq_hz_to_pos", {hz, height, hzRange});
+}
+
+export async function secondsToLabel(sec: number): Promise<string> {
+  return invoke<string>("seconds_to_label", {sec});
+}
+
+export async function timeLabelToSeconds(label: string): Promise<number> {
+  return invoke<number>("time_label_to_seconds", {label});
+}
+
+export async function hzToLabel(hz: number): Promise<string> {
+  return invoke<string>("hz_to_label", {hz});
+}
+
+export async function freqLabelToHz(label: string): Promise<number> {
+  return invoke<number>("freq_label_to_hz", {label});
+}
+
+export async function getMaxdB(): Promise<number> {
+  return invoke<number>("get_max_dB");
+}
+
+export async function getMindB(): Promise<number> {
+  return invoke<number>("get_min_dB");
+}
+
+export async function getMaxTrackHz(): Promise<number> {
+  return invoke<number>("get_max_track_hz");
+}
+
+export async function getLongestTrackLengthSec(): Promise<number> {
+  return invoke<number>("get_longest_track_length_sec");
+}
+
+export async function getLengthSec(trackId: number): Promise<number> {
+  return invoke<number>("get_length_sec", {trackId});
+}
+
+export async function getSampleRate(trackId: number): Promise<number> {
+  return invoke<number>("get_sample_rate", {trackId});
+}
+
+export async function getFormatInfo(trackId: number): Promise<AudioFormatInfo> {
+  const out = await invoke<any>("get_format_info", {trackId});
+  return {
+    name: out.name,
+    sampleRate: out.sr,
+    bitDepth: out.bitDepth,
+    bitrate: out.bitrate,
+  };
+}
+
+export async function getGlobalLUFS(trackId: number): Promise<number> {
+  return invoke<number>("get_global_lufs", {trackId});
+}
+
+export async function getRMSdB(trackId: number): Promise<number> {
+  return invoke<number>("get_rms_dB", {trackId});
+}
+
+export async function getMaxPeakdB(trackId: number): Promise<number> {
+  return invoke<number>("get_max_peak_dB", {trackId});
+}
+
+export async function getPath(trackId: number): Promise<string> {
+  return invoke<string>("get_path", {trackId});
+}
+
+export async function getFileName(trackId: number): Promise<string> {
+  return invoke<string>("get_file_name", {trackId});
+}
+
+export async function setVolumedB(volumedB: number): Promise<void> {
+  return invoke<void>("set_volume_dB", {volumeDB: volumedB});
+}
+
+export async function setTrackPlayer(trackId: number, sec?: number): Promise<void> {
+  return invoke<void>("set_track_player", {trackId, sec});
+}
+
+export async function seekPlayer(sec: number): Promise<void> {
+  return invoke<void>("seek_player", {sec});
+}
+
+export async function pausePlayer(): Promise<void> {
+  return invoke<void>("pause_player");
+}
+
+export async function resumePlayer(): Promise<void> {
+  return invoke<void>("resume_player");
+}

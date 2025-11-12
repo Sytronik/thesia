@@ -85,7 +85,9 @@ pub struct SrWinNfft {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SpecSetting {
+    #[serde(rename = "winMillisec")]
     pub win_ms: f64,
     pub t_overlap: u32,
     pub f_overlap: u32,

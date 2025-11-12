@@ -20,7 +20,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import BackendAPI from "../../api";
+import BackendAPI, { FreqScale } from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
@@ -205,7 +205,12 @@ function MainViewer(props: MainViewerProps) {
     drawOptions: ampMarkersDrawOptions,
   });
 
-  const {freqScale} = BackendAPI.getSpecSetting();
+  const [freqScale, setFreqScale] = useState<FreqScale>("Mel");
+  useEffect(() => {
+    BackendAPI.getSpecSetting().then(({freqScale}) => {
+      setFreqScale(freqScale);
+    });
+  });
   const freqMarkersDrawOptions = useMemo(
     () => ({maxTrackHz, hzRange, freqScale}),
     [maxTrackHz, hzRange, freqScale],
@@ -235,7 +240,9 @@ function MainViewer(props: MainViewerProps) {
 
   useEffect(() => {
     if (trackIds.length === 0 || needRefreshTrackIdChArr.length === 0) return;
-    setMinMaxdB({mindB: BackendAPI.getMindB(), maxdB: BackendAPI.getMaxdB()});
+    Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()]).then(([mindB, maxdB]) => {
+      setMinMaxdB({mindB, maxdB});
+    });
   }, [trackIds, needRefreshTrackIdChArr]);
 
   const setSelectSec = useEvent((sec) => {
@@ -684,23 +691,25 @@ function MainViewer(props: MainViewerProps) {
     player.isPlaying ? ((player.positionSecRef.current ?? 0) - startSec) * pxPerSec : -Infinity,
   );
 
-  const trackSummaryArr: TrackSummaryData[] = useMemo(
-    () =>
-      trackIds.map((trackId) => {
-        const formatInfo = BackendAPI.getFormatInfo(trackId);
-        return {
-          fileName: BackendAPI.getFileName(trackId),
-          time: new Date(BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
-          formatName: formatInfo.name,
-          bitDepth: formatInfo.bitDepth,
-          bitrate: formatInfo.bitrate,
-          sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-          globalLUFS: `${BackendAPI.getGlobalLUFS(trackId).toFixed(2)} LUFS`,
-          guardClipStats: BackendAPI.getGuardClipStats(trackId),
-        };
-      }),
-    [trackIds, needRefreshTrackIdChArr], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const [trackSummaryArr, setTrackSummaryArr] = useState<TrackSummaryData[]>([]);
+  useEffect(() => {
+    setTrackSummaryArr(Array(trackIds.length).fill(null));
+    Promise.all(trackIds.map(async (trackId) => {
+      const formatInfo = await BackendAPI.getFormatInfo(trackId);
+      return {
+        fileName: await BackendAPI.getFileName(trackId),
+        time: new Date(await BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
+        formatName: formatInfo.name,
+        bitDepth: formatInfo.bitDepth,
+        bitrate: formatInfo.bitrate,
+        sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
+        globalLUFS: `${((await BackendAPI.getGlobalLUFS(trackId)) ?? -Infinity).toFixed(2)} LUFS`,
+        guardClipStats: await BackendAPI.getGuardClipStats(trackId),
+      };
+    })).then((trackSummaryArr) => {
+      setTrackSummaryArr(trackSummaryArr);
+    });
+  }, [trackIds, needRefreshTrackIdChArr]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // auto-scroll to the recently selected track
   const reducerForTrackInfoElemRange = useEvent(
@@ -858,6 +867,15 @@ function MainViewer(props: MainViewerProps) {
     </>
   );
 
+  const [trackSecMap, setTrackSecMap] = useState<Map<number, number>>(new Map());
+  useEffect(() => {
+    Promise.all(
+      trackIds.map((trackId) => BackendAPI.getLengthSec(trackId))
+    ).then((trackSecArr) => {
+      setTrackSecMap(new Map(trackIds.map((trackId, index) => [trackId, trackSecArr[index]])));
+    });
+  }, [trackIds]);
+
   const rightPane = (
     <>
       <div className={`${styles.trackRightHeader}  ${styles.stickyHeader}`}>
@@ -898,7 +916,7 @@ function MainViewer(props: MainViewerProps) {
                     height={imgHeight}
                     startSec={startSec}
                     pxPerSec={pxPerSec}
-                    trackSec={BackendAPI.getLengthSec(id)}
+                    trackSec={trackSecMap.get(id) ?? 0}
                     maxTrackSec={maxTrackSec}
                     hzRange={hzRange}
                     ampRange={ampRange}

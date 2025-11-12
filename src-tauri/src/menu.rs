@@ -228,7 +228,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         )?;
         menu.append(&toggle_devtools)?;
     } /* else {
-        menu.append(&build_fullscreen_menu_item(app)?)?;
+    menu.append(&build_fullscreen_menu_item(app)?)?;
     } */
 
     Ok(menu)
@@ -295,7 +295,7 @@ fn build_play_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         ids::REWIND_TO_FRONT,
         "Rewind to the Front",
         false,
-        Some("Enter"),  // TODO: check if this is correct
+        Some("Enter"), // TODO: check if this is correct
     )?;
 
     Submenu::with_id_and_items(

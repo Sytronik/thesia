@@ -21,7 +21,6 @@ export async function showOpenDialog() {
     defaultPath, 
     canCreateDirectories: false,
    });
-  console.log(files);
 
   if (files && files.length > 0) {
     // find the common directory of the filepaths

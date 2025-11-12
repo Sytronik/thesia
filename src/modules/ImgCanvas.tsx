@@ -359,7 +359,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // TODO: need better formatting (from backend?)
     const time = Math.min(Math.max(startSec + x / pxPerSec, 0), maxTrackSec);
     const timeStr = time.toFixed(6).slice(0, -3);
-    const hz = BackendAPI.freqPosToHz(y, height, hzRange);
+    const hz = await BackendAPI.freqPosToHz(y, height, hzRange);
     const hzStr = hz.toFixed(0);
     return [`${timeStr} sec`, `${hzStr} Hz`];
   });

@@ -598,7 +598,7 @@ function renderSpectrogramInternal(
     gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
 
     // --- Texture and Framebuffer Setup ---
-    const data = new Float32Array(spectrogram.buf.buffer);
+    const data = spectrogram.buf;
     texSrc = createTexture(gl, spectrogram.width, spectrogram.height, data, gl.R32F);
 
     // Check if we need to recreate intermediate texture

@@ -57,6 +57,7 @@ where
 
 #[derive(Default, Serialize, Deserialize)]
 #[allow(non_snake_case)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSettingsOptionals {
     pub spec_setting: Option<SpecSetting>,
     pub blend: Option<f64>,
@@ -65,8 +66,9 @@ pub struct UserSettingsOptionals {
     pub common_normalize: Option<serde_json::Value>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[allow(non_snake_case)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSettings {
     pub spec_setting: SpecSetting,
     pub blend: f64,
@@ -76,13 +78,15 @@ pub struct UserSettings {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlayerState {
     pub is_playing: bool,
     pub position_sec: f64,
     pub err: String,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Spectrogram {
     pub buf: Vec<f32>,
     pub width: u32,
@@ -103,7 +107,6 @@ impl Spectrogram {
         start_sec: f64,
         is_low_quality: bool,
     ) -> Self {
-
         Self {
             buf: mipmap.into_raw_vec_and_offset().0,
             width: args.width as u32,
@@ -120,6 +123,7 @@ impl Spectrogram {
 }
 
 #[derive(Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WavMetadata {
     pub length: u32,
     pub sr: u32,
@@ -137,7 +141,7 @@ pub fn parse_id_ch_str(id_ch_str: &str) -> anyhow::Result<(usize, usize)> {
     match (iter.next(), iter.next()) {
         (Some(Ok(id)), Some(Ok(ch))) => Ok((id, ch)),
         _ => Err(anyhow::anyhow!(
-          "The array element should be \"{{unsigned_int}}_{{unsigned_int}}\".",
+            "The array element should be \"{{unsigned_int}}_{{unsigned_int}}\".",
         )),
     }
 }

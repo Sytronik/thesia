@@ -1,4 +1,4 @@
-import {useMemo} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {MarkerDrawOption} from "../api";
 
 type ThrottledSetMarkersParams = {
@@ -8,7 +8,7 @@ type ThrottledSetMarkersParams = {
     maxTickCount: number,
     maxLabelCount: number,
     drawOption?: MarkerDrawOption,
-  ) => Markers;
+  ) => Promise<Markers>;
   canvasLength: number;
   scaleDeterminant: number;
   drawOptions?: MarkerDrawOption;
@@ -28,21 +28,20 @@ const getTickScale = (
   return table[target];
 };
 
-export default function useAxisMarkers(params: ThrottledSetMarkersParams) {
+export default function useAxisMarkers(params: ThrottledSetMarkersParams): [Markers, number] {
   const {scaleTable, boundaries, getMarkers, canvasLength, scaleDeterminant, drawOptions} = params;
   const tickScale: [number, number] | null = useMemo(
     () => getTickScale(scaleTable, boundaries, scaleDeterminant),
     [scaleTable, boundaries, scaleDeterminant],
   );
 
-  const markersAndLength: [Markers, number] = useMemo(() => {
-    if (!tickScale || canvasLength === 0) return [[], 1];
-
-    // time axis returns [size of minor unit, number of minor tick]
-    // instead of tick and lable count
+  const [markersAndLength, setMarkersAndLength] = useState<[Markers, number]>([[], 1]);
+  useEffect(() => {
+    if (!tickScale || canvasLength === 0) return;
     const [maxTickCount, maxLabelCount] = tickScale;
-    const markers = getMarkers(maxTickCount, maxLabelCount, drawOptions);
-    return [markers, canvasLength];
+    getMarkers(maxTickCount, maxLabelCount, drawOptions).then((markers) => {
+      setMarkersAndLength([markers, canvasLength]);
+    });
   }, [tickScale, getMarkers, drawOptions, canvasLength]);
 
   return markersAndLength;

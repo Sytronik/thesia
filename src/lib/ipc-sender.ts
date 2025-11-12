@@ -1,4 +1,4 @@
-import {UserSettings} from "src/api/backend-types";
+import {UserSettings} from "src/api/backend-wrapper";
 // import {ipcRenderer} from "electron";
 
 export function notifyAppRendered() {

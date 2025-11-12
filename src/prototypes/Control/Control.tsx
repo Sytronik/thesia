@@ -37,8 +37,8 @@ type ControlProps = {
 };
 
 // TODO: this should be changed if FreqScale has more than 2 values.
-const freqScaleToChecked = (freqScale: FreqScale) => freqScale === FreqScale.Linear;
-const checkedToFreqScale = (checked: boolean) => (checked ? FreqScale.Linear : FreqScale.Mel);
+const freqScaleToChecked = (freqScale: FreqScale) => freqScale === "Linear";
+const checkedToFreqScale = (checked: boolean) => (checked ? "Linear" : "Mel");
 
 function Control(props: ControlProps) {
   const {
@@ -414,9 +414,9 @@ function Control(props: ControlProps) {
               onChange={onCommonGuardClippingModeChange}
               defaultValue={commonGuardClipping}
             >
-              <option value={GuardClippingMode.ReduceGlobalLevel}>Reducing Global Level</option>
-              <option value={GuardClippingMode.Limiter}>Applying Limiter</option>
-              <option value={GuardClippingMode.Clip}>Off (Hard Clipping)</option>
+              <option value="ReduceGlobalLevel">Reducing Global Level</option>
+              <option value="Limiter">Applying Limiter</option>
+              <option value="Clip">Off (Hard Clipping)</option>
             </select>
           </div>
         </div>

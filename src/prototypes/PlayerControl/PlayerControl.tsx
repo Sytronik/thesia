@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI from "src/api";
 import {Player} from "src/hooks/usePlayer";
@@ -25,7 +25,7 @@ function PlayerControl(props: PlayerControlProps) {
   const posInputElem = useRef<FloatingUserInputElement | null>(null);
   const requestRef = useRef<number>(0);
 
-  const updatePosLabel = useEvent(() => {
+  const updatePosLabel = useEvent(async () => {
     const positionSec =
       (player.isPlaying ? player.positionSecRef.current : player.selectSecRef.current) ?? 0;
     if (
@@ -33,7 +33,7 @@ function PlayerControl(props: PlayerControlProps) {
       !posInputElem.current.isEditing() &&
       Math.abs(prevPosSecRef.current - positionSec) > 1e-4
     ) {
-      const positionLabel = BackendAPI.secondsToLabel(positionSec);
+      const positionLabel = await BackendAPI.secondsToLabel(positionSec);
       posInputElem.current.setValue(positionLabel);
       prevPosSecRef.current = positionSec;
     }
@@ -45,9 +45,9 @@ function PlayerControl(props: PlayerControlProps) {
     return () => cancelAnimationFrame(requestRef.current);
   }, [updatePosLabel]);
 
-  const onEndEditing = useEvent((v: string | null) => {
+  const onEndEditing = useEvent(async (v: string | null) => {
     if (v === null) return;
-    const sec = BackendAPI.timeLabelToSeconds(v);
+    const sec = await BackendAPI.timeLabelToSeconds(v);
     if (Number.isNaN(sec)) return;
     if (player.isPlaying) player.seek(sec);
     else player.setSelectSec(sec);
@@ -57,12 +57,20 @@ function PlayerControl(props: PlayerControlProps) {
     () => (isTrackEmpty ? {pointerEvents: "none"} : undefined),
     [isTrackEmpty],
   );
+
+  const [secondsLabel, setSecondsLabel] = useState<string>("");
+  useEffect(() => {
+    BackendAPI.secondsToLabel(player.positionSecRef.current ?? 0).then((label) => {
+      setSecondsLabel(label);
+    });
+  }, [player.positionSecRef.current]);
+
   return (
     <div className={`flex-container-row ${styles.PlayerControl}`}>
       <FloatingUserInput
         ref={posInputElem}
         className={styles.positionInput}
-        value={BackendAPI.secondsToLabel(player.positionSecRef.current ?? 0)}
+        value={secondsLabel}
         onEndEditing={onEndEditing}
         hidden={false}
         focusOnShow={false}

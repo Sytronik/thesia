@@ -66,12 +66,14 @@ function FreqAxis(props: FreqAxisProps) {
   };
 
   const calcDragAnchor = useEvent(
-    (cursorState: FreqAxisCursorState, cursorPos: number, rect: DOMRect) => {
+    async (cursorState: FreqAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorAxisPos = getAxisPos(cursorPos);
       if (cursorState === "shift-hz-range") {
         const axisHeight = getAxisHeight(rect);
-        const zeroHzPos = BackendAPI.freqHzToPos(0, axisHeight, hzRange);
-        const maxTrackHzPos = BackendAPI.freqHzToPos(maxTrackHz, axisHeight, hzRange);
+        const [zeroHzPos, maxTrackHzPos] = await Promise.all([
+          BackendAPI.freqHzToPos(0, axisHeight, hzRange),
+          BackendAPI.freqHzToPos(maxTrackHz, axisHeight, hzRange),
+        ]);
         return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
       }
       return {cursorAxisPos: getAxisPos(cursorPos), hzRange} as FreqAxisDragAnchor;
@@ -79,7 +81,7 @@ function FreqAxis(props: FreqAxisProps) {
   );
 
   const handleDragging = useEvent(
-    (
+    async (
       cursorState: FreqAxisCursorState,
       cursorPos: number,
       dragAnchorValue: FreqAxisDragAnchor,
@@ -95,12 +97,12 @@ function FreqAxis(props: FreqAxisProps) {
           const cursorRelFreq = Math.max(1 - cursorAxisPos / axisHeight, 0);
           const newMaxRelFreq = anchorRelFreq / cursorRelFreq;
           const newMaxAxisPos = (1 - newMaxRelFreq) * axisHeight;
-          const maxHz = BackendAPI.freqPosToHz(newMaxAxisPos, axisHeight, anchorHzRange);
+          const maxHz = await BackendAPI.freqPosToHz(newMaxAxisPos, axisHeight, anchorHzRange);
           newHzRange[1] = clampMaxHz(maxHz, anchorHzRange[0]);
           break;
         }
         case "control-min-hz": {
-          const minHz = BackendAPI.freqPosToHz(
+          const minHz = await BackendAPI.freqPosToHz(
             anchorAxisPos,
             Math.max(cursorAxisPos, 1),
             anchorHzRange,
@@ -126,10 +128,10 @@ function FreqAxis(props: FreqAxisProps) {
             newHzRange = [0, Infinity];
             break;
           }
-          newHzRange = [
+          newHzRange = await Promise.all([
             BackendAPI.freqPosToHz(minHzPos, axisHeight, anchorHzRange),
             BackendAPI.freqPosToHz(maxHzPos, axisHeight, anchorHzRange),
-          ];
+          ]);
           break;
         }
         default:
@@ -139,14 +141,14 @@ function FreqAxis(props: FreqAxisProps) {
     },
   );
 
-  const onWheel = useEvent((e: WheelEvent) => {
+  const onWheel = useEvent(async (e: WheelEvent) => {
     if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
       // TODO: control minHz
-      const maxHz = BackendAPI.freqPosToHz(e.deltaY, 500, hzRange);
+      const maxHz = await BackendAPI.freqPosToHz(e.deltaY, 500, hzRange);
       setHzRange([hzRange[0], clampMaxHz(maxHz, hzRange[0])]);
     }
   });
@@ -202,15 +204,20 @@ function FreqAxis(props: FreqAxisProps) {
     [handleDragging],
   );
 
-  const hzRangeLabel = hzRange.map((hz) => BackendAPI.hzToLabel(Math.min(hz, maxTrackHz)));
+  const [hzRangeLabel, setHzRangeLabel] = useState<[string, string]>(["", ""]);
+  useEffect(() => {
+    Promise.all([BackendAPI.hzToLabel(Math.min(hzRange[0], maxTrackHz)), BackendAPI.hzToLabel(Math.min(hzRange[1], maxTrackHz))]).then(([minHzLabel, maxHzLabel]) => {
+      setHzRangeLabel([minHzLabel, maxHzLabel]);
+    });
+  }, [hzRange, maxTrackHz]);
 
   const onCursorStateChange = useEvent((cursorState) => {
     cursorStateRef.current = cursorState;
   });
 
-  const onEndEditingFloatingInput = (v: string | null, idx: number) => {
+  const onEndEditingFloatingInput = async (v: string | null, idx: number) => {
     if (v !== null) {
-      const hz = BackendAPI.freqLabelToHz(v);
+      const hz = await BackendAPI.freqLabelToHz(v);
       if (!Number.isNaN(hz)) {
         const newHzRange = [hzRange[0], hzRange[1]];
         newHzRange[idx] = idx === 0 ? clampMinHz(hz, newHzRange[1]) : clampMaxHz(hz, newHzRange[0]);

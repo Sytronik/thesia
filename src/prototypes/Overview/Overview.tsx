@@ -42,8 +42,8 @@ function Overview(props: OverviewProps) {
   } = props;
   const idChArr = _idChArr.slice(0, OVERVIEW_MAX_CH);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
-  const durationSec = useMemo(
-    () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : 0),
+  const durationSecPromise = useMemo(
+    async () => (trackId !== null ? await BackendAPI.getLengthSec(trackId) : 0),
     [trackId],
   );
 
@@ -74,7 +74,7 @@ function Overview(props: OverviewProps) {
 
     if (!ctx) return;
 
-    const limiterGainSeq = BackendAPI.getLimiterGainSeq(trackId);
+    const limiterGainSeq = await BackendAPI.getLimiterGainSeq(trackId);
     WasmAPI.drawOverview(
       backgroundElem.current,
       ctx,
@@ -85,13 +85,14 @@ function Overview(props: OverviewProps) {
       limiterGainSeq,
     );
 
+    const durationSec = await durationSecPromise;
     // fill out of track area
     if (durationSec < maxTrackSec) {
       ctx.fillStyle = OUT_TRACK_FILL_STYLE;
       const x = width * devicePixelRatio * (durationSec / maxTrackSec);
       ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
     }
-  }, [devicePixelRatio, durationSec, idChArr, maxTrackSec, trackId]);
+  }, [devicePixelRatio, durationSecPromise, idChArr, maxTrackSec, trackId]);
 
   const prevDrawRef = useRef(draw);
   if (prevDrawRef.current === draw && needRefresh) draw();

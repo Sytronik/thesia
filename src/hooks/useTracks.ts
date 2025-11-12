@@ -1,9 +1,9 @@
-import {useRef, useState, useMemo} from "react";
+import {useRef, useState, useEffect} from "react";
 import {difference} from "src/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
 import {setUserSetting} from "src/lib/ipc-sender";
 import update from "immutability-helper";
-import {UserSettings} from "src/api/backend-types";
+import {UserSettings} from "src/api/backend-wrapper";
 import BackendAPI, {WasmAPI} from "../api";
 
 type AddTracksResultType = {
@@ -11,12 +11,20 @@ type AddTracksResultType = {
   invalidPaths: string[];
 };
 
-const getTrackIdChArr = (id: number) => {
-  return Array.from({length: BackendAPI.getChannelCounts(id)}, (_, ch) => `${id}_${ch}`);
+const getTrackIdChMap = async (trackIds: number[]) => {
+  const idChArrTuples: [number, IdChArr][] = await Promise.all(trackIds.map(async (id) => {
+    const idChArr = await getTrackIdChArr(id);
+    return [id, idChArr];
+  }));
+  return new Map(idChArrTuples);
 };
 
-const transferWavFromBackendToWasm = (idCh: string) => {
-  const wavInfo = BackendAPI.getWav(idCh);
+const getTrackIdChArr = async (id: number) => {
+  return Array.from({length: await BackendAPI.getChannelCounts(id)}, (_, ch) => `${id}_${ch}`);
+};
+
+const transferWavFromBackendToWasm = async (idCh: string) => {
+  const wavInfo = await BackendAPI.getWav(idCh);
   if (wavInfo === null) return;
 
   const {wav, sr, isClipped} = wavInfo;
@@ -47,22 +55,26 @@ function useTracks(userSettings: UserSettings) {
     ids.forEach((id) => waitingIdsRef.current.add(id));
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const maxTrackSec = useMemo(BackendAPI.getLongestTrackLengthSec, [trackIds]);
+  const [maxTrackSec, setMaxTrackSec] = useState<number>(0);
+  const [maxTrackHz, setMaxTrackHz] = useState<number>(0);
+  const [trackIdChMap, setTrackIdChMap] = useState<IdChMap>(new Map());
+  useEffect(() => {
+    Promise.all(
+      [BackendAPI.getLongestTrackLengthSec(), BackendAPI.getMaxTrackHz(), getTrackIdChMap(trackIds)]
+    ).then(([maxTrackSec, maxTrackHz, trackIdChMap]) => {
+      setMaxTrackSec(maxTrackSec);
+      setMaxTrackHz(maxTrackHz);
+      setTrackIdChMap(trackIdChMap);
+    });
+  }, [trackIds, needRefreshTrackIdChArr]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const maxTrackHz = useMemo(BackendAPI.getMaxTrackHz, [trackIds, needRefreshTrackIdChArr]);
 
-  const trackIdChMap: IdChMap = useMemo(
-    () => new Map(trackIds.map((id) => [id, getTrackIdChArr(id)])),
-    [trackIds],
-  );
 
   const addTracks = useEvent(
     async (paths: string[], index: number | null = null): Promise<AddTracksResultType> => {
       try {
         setIsLoading(true);
-        const idsOfInputPaths = paths.map(BackendAPI.findIdByPath);
+        const idsOfInputPaths = await Promise.all(paths.map(BackendAPI.findIdByPath));
         const newPaths = paths.filter((_, i) => idsOfInputPaths[i] === -1);
         const existingIds = idsOfInputPaths.filter((id) => id !== -1);
 
@@ -87,9 +99,10 @@ function useTracks(userSettings: UserSettings) {
             newTrackIds.splice(index, 0, ...addedIds);
             return newTrackIds;
           });
-          addedIds.forEach((id) => {
-            getTrackIdChArr(id).forEach((idCh) => transferWavFromBackendToWasm(idCh));
-          });
+          await Promise.all(addedIds.map(async (id) => {
+            const idChArr = await getTrackIdChArr(id);
+            await Promise.all(idChArr.map(transferWavFromBackendToWasm));
+          }));
         }
 
         if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
@@ -118,9 +131,10 @@ function useTracks(userSettings: UserSettings) {
 
       if (reloadedIds.length > 0) {
         setTrackIds((prevTrackIds) => prevTrackIds.slice());
-        reloadedIds.forEach((id) => {
-          getTrackIdChArr(id).forEach((idCh) => transferWavFromBackendToWasm(idCh));
-        });
+        await Promise.all(reloadedIds.map(async (id) => {
+          const idChArr = await getTrackIdChArr(id);
+          await Promise.all(idChArr.map(transferWavFromBackendToWasm));
+        }));
       }
     } catch (err) {
       console.error("Could not reload tracks", err);
@@ -188,7 +202,7 @@ function useTracks(userSettings: UserSettings) {
   const setSpecSetting = useEvent(async (v: SpecSetting) => {
     setIsLoading(true);
     await BackendAPI.setSpecSetting(v);
-    const specSetting = BackendAPI.getSpecSetting();
+    const specSetting = await BackendAPI.getSpecSetting();
     setCurrentSpecSetting(specSetting);
     setUserSetting("specSetting", specSetting);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
@@ -203,7 +217,7 @@ function useTracks(userSettings: UserSettings) {
   const setdBRange = useEvent(async (v: number) => {
     setIsLoading(true);
     await BackendAPI.setdBRange(v);
-    const dBRange = BackendAPI.getdBRange();
+    const dBRange = await BackendAPI.getdBRange();
     setCurrentdBRange(dBRange);
     setUserSetting("dBRange", dBRange);
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
@@ -213,7 +227,7 @@ function useTracks(userSettings: UserSettings) {
   const setCommonGuardClipping = useEvent(async (v: GuardClippingMode) => {
     setIsLoading(true);
     await BackendAPI.setCommonGuardClipping(v);
-    const commonGuardClipping = BackendAPI.getCommonGuardClipping();
+    const commonGuardClipping = await BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
     setUserSetting("commonGuardClipping", commonGuardClipping);
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
@@ -225,7 +239,7 @@ function useTracks(userSettings: UserSettings) {
   const setCommonNormalize = useEvent(async (v: NormalizeTarget) => {
     setIsLoading(true);
     await BackendAPI.setCommonNormalize(v);
-    const commonNormalize = BackendAPI.getCommonNormalize();
+    const commonNormalize = await BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
     setUserSetting("commonNormalize", commonNormalize);
     const allIdChArr = Array.from(trackIdChMap.values()).flat();

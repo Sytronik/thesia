@@ -7,7 +7,7 @@ import styles from "./TrackSummary.module.scss";
 import {CHANNEL} from "../constants/tracks";
 
 type TrackSummaryProps = {
-  data: TrackSummaryData;
+  data: TrackSummaryData | null;
   chCount: number;
   className: string;
 };
@@ -21,7 +21,16 @@ function TrackSummary(props: TrackSummaryProps) {
   const nameElem = useRef<HTMLSpanElement>(null);
 
   const {fileName, time, formatName, bitDepth, bitrate, sampleRate, globalLUFS, guardClipStats} =
-    data;
+    data || {
+      fileName: "",
+      time: "",
+      formatName: "",
+      bitDepth: "",
+      bitrate: "",
+      sampleRate: "",
+      globalLUFS: "",
+      guardClipStats: [],
+    };
   const pathPieces = fileName.split("/");
   const name = pathPieces.pop();
 

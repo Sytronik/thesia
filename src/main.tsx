@@ -1,7 +1,6 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 // import {ipcRenderer} from "electron";
-import {UserSettings, UserSettingsOptionals} from "src/api/backend-types";
+import {UserSettingsOptionals} from "src/api/backend-wrapper";
 import BackendAPI, {initWasm} from "./api";
 import { setUserSetting } from "./lib/ipc-sender";
 import { COLORMAP_RGBA8 } from "./prototypes/constants/colors";
@@ -33,15 +32,13 @@ const userSettings: UserSettingsOptionals = {
   // commonNormalize: settings.commonNormalize,
 };
 // const userSettingsOrInitialValues = BackendAPI.init(userSettings, maxTextureSize, tempDirectory);
-const userSettingsOrInitialValues = BackendAPI.init(userSettings, maxTextureSize, "");
-Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
-  setUserSetting(key as keyof UserSettings, value),
-);
+const userSettingsOrInitialValues = await BackendAPI.init(userSettings, maxTextureSize, "");
+// Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
+//   setUserSetting(key as keyof UserSettings, value),
+// );
 BackendAPI.setColormapLength(COLORMAP_RGBA8.length / 4);
 
 root.render(
-  <React.StrictMode>
     <App userSettings={userSettingsOrInitialValues} />
-  </React.StrictMode>,
 );
 // });

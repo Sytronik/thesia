@@ -5,13 +5,12 @@ use std::io;
 use std::num::Wrapping;
 use std::sync::LazyLock;
 
-use tauri::Manager;
 use dashmap::DashMap;
 use log::LevelFilter;
 use parking_lot::RwLock;
 use serde_json::json;
 use simple_logger::SimpleLogger;
-
+use tauri::Manager;
 
 mod backend;
 mod interface;
@@ -41,7 +40,7 @@ static DRAW_WAV_TASK_ID_MAP: LazyLock<IdChStrToTaskIdMap> = LazyLock::new(IdChSt
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
-/* 
+/*
 fn _init_once() {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
@@ -61,11 +60,12 @@ fn _napi_init() {
     _init_once();
 } */
 
+#[tauri::command]
 fn init(
     user_settings: UserSettingsOptionals,
     max_spectrogram_size: u32,
     tmp_dir_path: String,
-) -> io::Result<UserSettings> {
+) -> tauri::Result<UserSettings> {
     // On Windows, reloading cause restarting of renderer process.
     // (See killAndReload in src/main/menu.ts)
     // So INIT may not be needed, but use it for defensive purpose.
@@ -115,13 +115,13 @@ fn init(
 }
 
 #[tauri::command]
-async fn add_tracks(id_list: Vec<u32>, path_list: Vec<String>) -> Vec<u32> {
-    assert!(!id_list.is_empty() && id_list.len() == path_list.len());
+async fn add_tracks(track_ids: Vec<u32>, paths: Vec<String>) -> Vec<u32> {
+    assert!(!track_ids.is_empty() && track_ids.len() == paths.len());
 
     spawn_write_lock_task(move || {
         let added_ids = TRACK_LIST
             .write()
-            .add_tracks(id_list.into_iter().map(|x| x as usize).collect(), path_list);
+            .add_tracks(track_ids.into_iter().map(|x| x as usize).collect(), paths);
         {
             let tracklist = TRACK_LIST.read();
             TM.write().add_tracks(&tracklist, &added_ids);
@@ -265,7 +265,7 @@ async fn set_common_normalize(target: serde_json::Value) -> tauri::Result<()> {
 async fn get_spectrogram(
     id_ch_str: String,
     sec_range: (f64, f64),
-    hz_range: (f64, f64),
+    hz_range: (f64, Option<f64>),
     margin_px: u32,
 ) -> tauri::Result<Option<Spectrogram>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
@@ -294,7 +294,10 @@ async fn get_spectrogram(
             (id, ch),
             track_sec,
             sec_range,
-            (hz_range.0 as f32, hz_range.1 as f32),
+            (
+                hz_range.0 as f32,
+                hz_range.1.unwrap_or(f64::INFINITY) as f32,
+            ),
             margin_px as usize,
         )?;
 
@@ -379,18 +382,24 @@ fn assign_limiter_gain_to(mut arr: Float32Array, track_id: u32) -> tauri::Result
 */
 
 #[tauri::command]
-fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, f64)) -> f64 {
+fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, Option<f64>)) -> f64 {
     assert!(height >= 1);
 
-    let hz_range = (hz_range.0 as f32, hz_range.1 as f32);
+    let hz_range = (
+        hz_range.0 as f32,
+        hz_range.1.unwrap_or(f64::INFINITY) as f32,
+    );
     convert_freq_pos_to_hz(y as f32, height, hz_range) as f64
 }
 
 #[tauri::command]
-fn freq_hz_to_pos(hz: f64, height: u32, hz_range: (f64, f64)) -> f64 {
+fn freq_hz_to_pos(hz: f64, height: u32, hz_range: (f64, Option<f64>)) -> f64 {
     assert!(height >= 1);
 
-    let hz_range = (hz_range.0 as f32, hz_range.1 as f32);
+    let hz_range = (
+        hz_range.0 as f32,
+        hz_range.1.unwrap_or(f64::INFINITY) as f32,
+    );
     convert_freq_hz_to_pos(hz as f32, height, hz_range) as f64
 }
 
@@ -437,13 +446,13 @@ fn get_time_axis_markers(
 fn get_freq_axis_markers(
     max_num_ticks: u32,
     max_num_labels: u32,
-    hz_range: (f64, f64),
+    hz_range: (f64, Option<f64>),
     max_track_hz: f64,
 ) -> serde_json::Value {
     assert_axis_params(max_num_ticks, max_num_labels);
 
     json!(calc_freq_axis_markers(
-        (hz_range.0 as f32, hz_range.1.min(max_track_hz) as f32),
+        (hz_range.0 as f32, hz_range.1.unwrap_or(max_track_hz) as f32),
         SPEC_SETTING.read().freq_scale,
         max_num_ticks,
         max_num_labels
@@ -677,7 +686,6 @@ fn convert_freq_hz_to_pos(hz: f32, height: u32, hz_range: (f32, f32)) -> f32 {
     (1. - rel_freq) * height as f32
 }
 
-
 #[tauri::command]
 fn is_dev() -> bool {
     tauri::is_dev()
@@ -705,7 +713,6 @@ pub fn run() {
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| menu::handle_menu_event(app, event))
         .setup(|app| {
-            init(UserSettingsOptionals::default(), 16384, "".to_string())?;
             let handle = app.handle();
             menu::init(&handle)?;
 
@@ -720,6 +727,7 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            init,
             is_dev,
             get_project_root,
             add_tracks,
