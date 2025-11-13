@@ -1,7 +1,7 @@
 import ReactDOM from "react-dom/client";
 // import {ipcRenderer} from "electron";
 import {UserSettingsOptionals} from "src/api/backend-wrapper";
-import BackendAPI, {initWasm} from "./api";
+import BackendAPI, {WasmAPI} from "./api";
 import { setUserSetting } from "./lib/ipc-sender";
 import { COLORMAP_RGBA8 } from "./prototypes/constants/colors";
 import App from "./App";
@@ -18,7 +18,8 @@ gl.getExtension("WEBGL_lose_context")?.loseContext();
 
 // Initialize WASM module
 try {
-  await initWasm();
+  await WasmAPI.initWasm();
+  await WasmAPI.initThreadPool(navigator.hardwareConcurrency);
   console.log("WASM module loaded successfully.");
 } catch (error) {
   console.error("Error occurred during WASM module initialization:", error);

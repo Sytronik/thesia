@@ -1,4 +1,5 @@
 import init, {
+  initThreadPool,
   WasmFloat32Array,
   setDevicePixelRatio,
   setWav,
@@ -46,6 +47,7 @@ export function createWasmFloat32Array(length: number): [WasmFloat32Array, Float
 export {WasmFloat32Array};
 export default {
   initWasm,
+  initThreadPool,
   isWasmInitialized,
   createWasmFloat32Array,
   setDevicePixelRatio,
