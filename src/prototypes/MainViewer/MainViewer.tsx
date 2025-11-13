@@ -802,7 +802,7 @@ function MainViewer(props: MainViewerProps) {
     if (trackIds.length > 0) setLensParamsForFitCanvas(width, canvasIsFit);
 
     prevTrackCountRef.current = trackIds.length;
-  }, [trackIds, width, setLensParamsForFitCanvas, canvasIsFit]);
+  }, [trackIds, width, setLensParamsForFitCanvas, canvasIsFit, maxTrackSec]);
 
   useEffect(() => {
     if (needRefreshTrackIdChArr.length > 0) finishRefreshTracks();
