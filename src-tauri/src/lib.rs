@@ -1,15 +1,12 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
-use std::io;
 use std::num::Wrapping;
 use std::sync::LazyLock;
 
 use dashmap::DashMap;
-use log::LevelFilter;
 use parking_lot::RwLock;
 use serde_json::json;
-use simple_logger::SimpleLogger;
 use tauri::Manager;
 
 mod backend;
@@ -40,42 +37,12 @@ static DRAW_WAV_TASK_ID_MAP: LazyLock<IdChStrToTaskIdMap> = LazyLock::new(IdChSt
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
-/*
-fn _init_once() {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus::get_physical())
-        .build_global()
-        .unwrap();
-    SimpleLogger::new()
-        .with_level(LevelFilter::Info)
-        .init()
-        .unwrap();
-    // console_subscriber::init();
-}
-
-// On Windows, this cause hanging.
-#[cfg(not(windows))]
-#[napi_derive::module_init]
-fn _napi_init() {
-    _init_once();
-} */
-
 #[tauri::command]
 fn init(
     user_settings: UserSettingsOptionals,
     max_spectrogram_size: u32,
     tmp_dir_path: String,
 ) -> tauri::Result<UserSettings> {
-    // On Windows, reloading cause restarting of renderer process.
-    // (See killAndReload in src/main/menu.ts)
-    // So INIT may not be needed, but use it for defensive purpose.
-    #[cfg(windows)]
-    {
-        use parking_lot::Once;
-        static INIT: Once = Once::new();
-        INIT.call_once(_init_once);
-    }
-
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
         let mut tm = TM.write();
@@ -674,9 +641,16 @@ fn get_project_root() -> Option<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get_physical())
+        .build_global()
+        .unwrap();
+    // console_subscriber::init();
+
     let mut builder = tauri::Builder::default();
     #[cfg(debug_assertions)]
-    {    let devtools = tauri_plugin_devtools::init();
+    {
+        let devtools = tauri_plugin_devtools::init();
         builder = builder.plugin(devtools);
     }
     builder = builder

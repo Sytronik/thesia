@@ -49,7 +49,6 @@ parking_lot = {workspace = true}
 rayon = "1.11.0"
 readonly = "0.2.13"
 realfft = "3.5.0"
-simple_logger = "5.1.0"
 tempfile = "3.23.0"
 tiny-skia = "0.11.4"
 tokio = "1"
@@ -96,4 +95,3 @@ mimalloc = "0.1.48"
 [dev-dependencies]
 hound = "3.5.1"
 ndarray-rand = "0.15.0"
-
