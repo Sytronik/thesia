@@ -27,8 +27,8 @@ const transferWavFromBackendToWasm = async (idCh: string) => {
   const wavInfo = await BackendAPI.getWav(idCh);
   if (wavInfo === null) return;
 
-  const {wav, sr, isClipped} = wavInfo;
-  WasmAPI.setWav(idCh, wav, sr, isClipped);
+  const {wavWasmArr, sr, isClipped} = wavInfo;
+  WasmAPI.setWav(idCh, wavWasmArr, sr, isClipped);
 };
 
 function useTracks(userSettings: UserSettings) {

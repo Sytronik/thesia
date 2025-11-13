@@ -320,13 +320,13 @@ async fn get_spectrogram(
 }
 
 #[tauri::command]
-fn get_wav_metadata(id_ch_str: String) -> tauri::Result<WavMetadata> {
+fn get_wav(id_ch_str: String) -> tauri::Result<WavInfo> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     match TRACK_LIST.read().get(id) {
         Some(track) => {
             let (wav, is_clipped) = track.channel_for_drawing(ch);
-            Ok(WavMetadata {
-                length: wav.len() as u32,
+            Ok(WavInfo {
+                wav: wav.to_vec(),
                 sr: track.sr(),
                 is_clipped,
             })
@@ -334,19 +334,6 @@ fn get_wav_metadata(id_ch_str: String) -> tauri::Result<WavMetadata> {
         None => Ok(Default::default()),
     }
 }
-
-/*
-#[tauri::command]
-fn assign_wav_to(mut arr: Float32Array, id_ch_str: String) -> tauri::Result<()> {
-    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    if let Some(track) = TRACK_LIST.read().get(id) {
-        let (wav, _) = track.channel_for_drawing(ch);
-        let arr_mut = unsafe { arr.as_mut() };
-        arr_mut.copy_from_slice(wav.as_slice().unwrap());
-    }
-    Ok(())
-}
-*/
 
 #[tauri::command]
 fn find_id_by_path(path: String) -> i32 {
@@ -357,29 +344,13 @@ fn find_id_by_path(path: String) -> i32 {
 }
 
 #[tauri::command]
-fn get_limiter_gain_length(track_id: u32) -> u32 {
+fn get_limiter_gain(track_id: u32) -> Option<Vec<f32>> {
     let tracklist = TRACK_LIST.read();
     tracklist
         .get(track_id as usize)
-        .and_then(|track| track.guard_clipping_gain_info())
-        .map_or(
-            0,
-            |(reduced, length)| if reduced { length as u32 } else { 0 },
-        )
+        .and_then(|track| track.guard_clipping_gain())
+        .map(|gain| gain.to_owned().into_raw_vec_and_offset().0)
 }
-
-/*
-#[tauri::command]
-fn assign_limiter_gain_to(mut arr: Float32Array, track_id: u32) -> tauri::Result<()> {
-    let tracklist = TRACK_LIST.read();
-    match tracklist.get(track_id as usize) {
-        Some(track) => track
-            .assign_guard_clipping_gain_to(unsafe { arr.as_mut() })
-            .map_err(|e| napi::Error::new(Status::InvalidArg, e.to_string())),
-        None => Ok(()),
-    }
-}
-*/
 
 #[tauri::command]
 fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, Option<f64>)) -> f64 {
@@ -744,9 +715,9 @@ pub fn run() {
             get_common_normalize,
             set_common_normalize,
             get_spectrogram,
-            get_wav_metadata,
+            get_wav,
             find_id_by_path,
-            get_limiter_gain_length,
+            get_limiter_gain,
             freq_pos_to_hz,
             freq_hz_to_pos,
             seconds_to_label,

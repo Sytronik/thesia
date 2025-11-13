@@ -75,13 +75,6 @@ export interface UserSettingsOptionals {
   commonNormalize?: any
 }
 
-export interface WavMetadata {
-  length: number
-  sr: number
-  isClipped: boolean
-}
-
-
 /* draw tracks */
 /* time axis */
 export async function getTimeAxisMarkers(
@@ -171,27 +164,27 @@ export type Spectrograms = {
 };
 
 export type WavInfo = {
-  wav: WasmFloat32Array;
+  wavWasmArr: WasmFloat32Array;
   sr: number;
   isClipped: boolean;
 };
 
 export async function getWav(idChStr: string): Promise<WavInfo | null> {
-  const metadata = await invoke<WavMetadata>("get_wav_metadata", {idChStr});
-  if (!metadata) return null;
+  const wavInfo = await invoke<any | null>("get_wav", {idChStr});
+  if (!wavInfo) return null;
 
-  const {length, sr, isClipped} = metadata;
-  const [wav, view] = createWasmFloat32Array(length);
-  // backend.assignWavTo(view, idChStr);
-  return {wav, sr, isClipped};
+  const {wav, sr, isClipped} = wavInfo;
+  const [wavWasmArr, view] = createWasmFloat32Array(wav.length);
+  view.set(wav);
+  return {wavWasmArr, sr, isClipped};
 }
 
 export async function getLimiterGainSeq(trackId: number): Promise<WasmFloat32Array | null> {
-  const length = await invoke<number>("get_limiter_gain_length", {trackId});
-  if (length === 0) return null;
-  const [wav, view] = createWasmFloat32Array(length);
-  // backend.assignLimiterGainTo(view, trackId);
-  return wav;
+  const gainSeq = await invoke<number[] | null>("get_limiter_gain", {trackId});
+  if (gainSeq === null) return null;
+  const [gainSeqWasmArr, view] = createWasmFloat32Array(gainSeq.length);
+  view.set(gainSeq);
+  return gainSeqWasmArr;
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;

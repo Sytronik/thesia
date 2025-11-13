@@ -78,24 +78,16 @@ impl Audio {
     }
 
     #[inline]
-    pub fn guard_clipping_gain_info(&self) -> Option<(bool, usize)> {
+    pub fn guard_clipping_gain(&self) -> Option<CowArray<'_, f32, Ix2>> {
         match &self.guard_clip_result {
             GuardClippingResult::GainSequence(gain_seq) => {
-                Some((gain_seq.iter().any(|&x| x < 1.), gain_seq.shape()[1]))
+                if gain_seq.iter().any(|&x| x < 1.) {
+                    Some(gain_seq.into())
+                } else {
+                    Some(Array2::from_elem((1, 1), 1f32).into())
+                }
             }
             _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn assign_guard_clipping_gain_to(&self, arr: &mut [f32]) -> anyhow::Result<()> {
-        if let GuardClippingResult::GainSequence(gain_seq) = &self.guard_clip_result {
-            arr.copy_from_slice(gain_seq.as_slice().unwrap());
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!(
-                "Guard clipping result is not a gain sequence"
-            ))
         }
     }
 

@@ -124,8 +124,8 @@ impl Spectrogram {
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WavMetadata {
-    pub length: u32,
+pub struct WavInfo {
+    pub wav: Vec<f32>,
     pub sr: u32,
     pub is_clipped: bool,
 }

@@ -136,13 +136,8 @@ impl AudioTrack {
     }
 
     #[inline]
-    pub fn guard_clipping_gain_info(&self) -> Option<(bool, usize)> {
-        self.audio.guard_clipping_gain_info()
-    }
-
-    #[inline]
-    pub fn assign_guard_clipping_gain_to(&self, arr: &mut [f32]) -> anyhow::Result<()> {
-        self.audio.assign_guard_clipping_gain_to(arr)
+    pub fn guard_clipping_gain(&self) -> Option<CowArray<'_, f32, Ix2>> {
+        self.audio.guard_clipping_gain()
     }
 
     #[inline]
