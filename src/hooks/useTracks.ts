@@ -4,7 +4,7 @@ import useEvent from "react-use-event-hook";
 import {setUserSetting} from "src/lib/ipc-sender";
 import update from "immutability-helper";
 import {UserSettings} from "src/api/backend-wrapper";
-import BackendAPI, {WasmAPI} from "../api";
+import BackendAPI from "../api";
 
 type AddTracksResultType = {
   existingIds: number[];
@@ -21,14 +21,6 @@ const getTrackIdChMap = async (trackIds: number[]) => {
 
 const getTrackIdChArr = async (id: number) => {
   return Array.from({length: await BackendAPI.getChannelCounts(id)}, (_, ch) => `${id}_${ch}`);
-};
-
-const transferWavFromBackendToWasm = async (idCh: string) => {
-  const wavInfo = await BackendAPI.getWav(idCh);
-  if (wavInfo === null) return;
-
-  const {wavWasmArr, sr, isClipped} = wavInfo;
-  WasmAPI.setWav(idCh, wavWasmArr, sr, isClipped);
 };
 
 function useTracks(userSettings: UserSettings) {
@@ -99,10 +91,6 @@ function useTracks(userSettings: UserSettings) {
             newTrackIds.splice(index, 0, ...addedIds);
             return newTrackIds;
           });
-          await Promise.all(addedIds.map(async (id) => {
-            const idChArr = await getTrackIdChArr(id);
-            await Promise.all(idChArr.map(transferWavFromBackendToWasm));
-          }));
         }
 
         if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
@@ -131,10 +119,6 @@ function useTracks(userSettings: UserSettings) {
 
       if (reloadedIds.length > 0) {
         setTrackIds((prevTrackIds) => prevTrackIds.slice());
-        await Promise.all(reloadedIds.map(async (id) => {
-          const idChArr = await getTrackIdChArr(id);
-          await Promise.all(idChArr.map(transferWavFromBackendToWasm));
-        }));
       }
     } catch (err) {
       console.error("Could not reload tracks", err);
@@ -160,7 +144,6 @@ function useTracks(userSettings: UserSettings) {
     try {
       setIsLoading(true);
       BackendAPI.removeTracks(ids);
-      ids.forEach((id) => WasmAPI.removeWav(id));
       setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
       setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 
@@ -232,7 +215,6 @@ function useTracks(userSettings: UserSettings) {
     setUserSetting("commonGuardClipping", commonGuardClipping);
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
     setNeedRefreshTrackIdChArr(allIdChArr);
-    allIdChArr.forEach((idCh) => transferWavFromBackendToWasm(idCh));
     setIsLoading(false);
   });
 
@@ -244,7 +226,6 @@ function useTracks(userSettings: UserSettings) {
     setUserSetting("commonNormalize", commonNormalize);
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
     setNeedRefreshTrackIdChArr(allIdChArr);
-    allIdChArr.forEach((idCh) => transferWavFromBackendToWasm(idCh));
     setIsLoading(false);
   });
 

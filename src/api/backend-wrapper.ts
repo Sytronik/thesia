@@ -164,7 +164,7 @@ export type Spectrograms = {
 };
 
 export type WavInfo = {
-  wavWasmArr: WasmFloat32Array;
+  wavArr: Float32Array;
   sr: number;
   isClipped: boolean;
 };
@@ -174,17 +174,14 @@ export async function getWav(idChStr: string): Promise<WavInfo | null> {
   if (!wavInfo) return null;
 
   const {wav, sr, isClipped} = wavInfo;
-  const [wavWasmArr, view] = createWasmFloat32Array(wav.length);
-  view.set(wav);
-  return {wavWasmArr, sr, isClipped};
+  const wavArr = new Float32Array(wav);
+  return {wavArr, sr, isClipped};
 }
 
-export async function getLimiterGainSeq(trackId: number): Promise<WasmFloat32Array | null> {
+export async function getLimiterGainSeq(trackId: number): Promise<Float32Array | null> {
   const gainSeq = await invoke<number[] | null>("get_limiter_gain", {trackId});
   if (gainSeq === null) return null;
-  const [gainSeqWasmArr, view] = createWasmFloat32Array(gainSeq.length);
-  view.set(gainSeq);
-  return gainSeqWasmArr;
+  return new Float32Array(gainSeq);
 }
 
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;

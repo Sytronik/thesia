@@ -15,7 +15,7 @@ import {DevicePixelRatioContext} from "src/contexts";
 
 import {sleep} from "src/utils/time";
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, {WasmAPI} from "../api";
+import BackendAPI from "../api";
 import {
   cleanupWebGLResources,
   WebGLResources,
@@ -23,6 +23,12 @@ import {
   renderSpectrogram,
   prepareWebGLResources,
 } from "../lib/webgl-helpers";
+import { postMessageToWorker, NUM_WORKERS } from "../lib/worker-pool";
+
+const idChStrToWorkerIndex = (idChStr: string) => {
+  const [id, ch] = idChStr.split("_");
+  return (Number(id) + Number(ch) * 100) % NUM_WORKERS;
+}
 
 type ImgCanvasProps = {
   idChStr: string;
@@ -60,6 +66,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     needRefresh,
     hidden,
   } = props;
+  const workerIndex = idChStrToWorkerIndex(idChStr);
 
   const endSec = startSec + width / (pxPerSec + 1e-8);
 
@@ -74,7 +81,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
   const wavCanvasElem = useRef<HTMLCanvasElement | null>(null);
-  const wavCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
   const loadingElem = useRef<HTMLDivElement>(null);
   const tooltipElem = useRef<HTMLSpanElement>(null);
@@ -100,18 +106,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
     wavCanvasElem.current = elem;
 
-    if (!wavCanvasElem.current) {
-      wavCtxRef.current = null;
-      return;
-    }
-
-    wavCtxRef.current = wavCanvasElem.current.getContext("2d", {alpha: true, desynchronized: true});
-
-    if (!wavCtxRef.current) {
-      console.error("Failed to get 2d context.");
-      wavCtxRef.current = null;
-    }
+    if (!wavCanvasElem.current) return;
+    const offscreenCanvas = wavCanvasElem.current.transferControlToOffscreen();
+    postMessageToWorker(
+      workerIndex,
+      {type: "init", data: {idChStr, canvas: offscreenCanvas}},
+      [offscreenCanvas],
+    );
   }, []);
+
+
+  useEffect(() => {
+    postMessageToWorker(workerIndex, {type: "setDevicePixelRatio", data: {devicePixelRatio}});
+  }, [devicePixelRatio]);
 
   const renderSpecHighQuality = useEvent((srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
     if (!webglResourcesRef.current || !spectrogramRef.current || needClearSpec) return;
@@ -276,25 +283,23 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   // or when deps change
   useEffect(getSpectrogramIfNotHidden, [getSpectrogramIfNotHidden]);
 
-  // drawWavImage is not updated when deps change
-  // the actual render (transferFromImageBitmap) is called once at a frame
   const drawWavImage = useCallback(() => {
-    if (!wavCanvasElem.current || !wavCtxRef.current) return;
+    if (!wavCanvasElem.current) return;
 
     // set opacity by blend
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.max(2 - 2 * blend, 0)}`;
 
-    WasmAPI.drawWav(
-      wavCanvasElem.current,
-      wavCtxRef.current,
-      idChStr,
-      width,
-      height,
-      startSec,
-      pxPerSec,
-      ampRange[0],
-      ampRange[1],
-    );
+    postMessageToWorker(workerIndex, {
+      type: "drawWav", 
+      data: {
+        idChStr,
+        width,
+        height,
+        startSec,
+        pxPerSec,
+        ampRange,
+      },
+    });
   }, [width, height, blend, startSec, pxPerSec, ampRange, idChStr]);
 
   // Draw spectrogram when props change
@@ -302,7 +307,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawWavImageRef = useRef(drawWavImage);
 
   const drawWavImageRequestRef = useRef<number>(0);
-  if (needRefresh && !needHideWav && drawWavImageRef.current === drawWavImage) {
+  if (!needHideWav && drawWavImageRef.current === drawWavImage) {
     if (drawWavImageRequestRef.current !== 0) cancelAnimationFrame(drawWavImageRequestRef.current);
     drawWavImageRequestRef.current = requestAnimationFrame(drawWavImage);
   }
@@ -312,7 +317,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       if (wavCanvasElem.current) {
         wavCanvasElem.current.style.opacity = "0";
       }
-      WasmAPI.clearWav(wavCanvasElem.current, wavCtxRef.current, width, height);
+      postMessageToWorker(workerIndex, {type: "clearWav", data: {idChStr, width, height}});
       return () => {};
     }
     drawWavImageRef.current = drawWavImage;
@@ -323,6 +328,23 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
   }, [drawWavImage, width, height, needHideWav, devicePixelRatio]);
+
+  useEffect(() => {
+    if (!needRefresh) return; // Changing idChStr without needRefresh does not happen
+    BackendAPI.getWav(idChStr).then((wavInfo) => {
+      if (wavInfo === null) return;
+      postMessageToWorker(
+        workerIndex,
+        {type: "setWav", data: {idChStr, wavInfo}},
+        [wavInfo.wavArr.buffer],
+      );
+      drawWavImageRef.current?.();
+    });
+    return () => {
+      postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
+    };
+  }, [idChStr, needRefresh]);
+
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;

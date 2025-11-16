@@ -3,7 +3,7 @@ import useEvent from "react-use-event-hook";
 
 import {DevicePixelRatioContext} from "src/contexts";
 import styles from "./Overview.module.scss";
-import BackendAPI, {WasmAPI} from "../../api";
+import BackendAPI, {WasmAPI, WasmFloat32Array} from "../../api";
 import {OVERVIEW_LENS_STYLE, OVERVIEW_MAX_CH} from "../constants/tracks";
 import Draggable, {CursorStateInfo} from "../../modules/Draggable";
 
@@ -27,6 +27,25 @@ type OverviewProps = {
 
 type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 
+// Initialize WASM module
+try {
+  await WasmAPI.initWasm();
+  await WasmAPI.initThreadPool(navigator.hardwareConcurrency);
+  console.log("WASM module loaded successfully.");
+} catch (error) {
+  console.error("Error occurred during WASM module initialization:", error);
+}
+
+const transferWavFromBackendToWasm = async (idChStr: string) => {
+  const wavInfo = await BackendAPI.getWav(idChStr);
+  if (wavInfo === null) return;
+
+  const {wavArr, sr, isClipped} = wavInfo;
+  const [wavWasmArr, view] = WasmAPI.createWasmFloat32Array(wavArr.length);
+  view.set(wavArr);
+  WasmAPI.setWav(idChStr, wavWasmArr, sr, isClipped);
+};
+
 function Overview(props: OverviewProps) {
   const {
     trackId,
@@ -40,7 +59,7 @@ function Overview(props: OverviewProps) {
     resetLens,
     needRefresh,
   } = props;
-  const idChArr = _idChArr.slice(0, OVERVIEW_MAX_CH);
+  const idChArr = useMemo(() => _idChArr.slice(0, OVERVIEW_MAX_CH), [_idChArr]);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSecPromise = useMemo(
     async () => (trackId !== null ? await BackendAPI.getLengthSec(trackId) : 0),
@@ -52,6 +71,18 @@ function Overview(props: OverviewProps) {
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const lensCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+
+  useEffect(() => {
+    WasmAPI.setDevicePixelRatio(devicePixelRatio);
+  }, [devicePixelRatio]);
+
+  useEffect(() => {
+    idChArr.forEach(idChStr => transferWavFromBackendToWasm(idChStr));
+
+    return () => {
+      idChArr.forEach(idChStr => WasmAPI.removeWav(idChStr));
+    };
+  }, [idChArr]);
 
   const draw = useCallback(async () => {
     if (!backgroundElem.current || !lensElem.current) return;
@@ -75,6 +106,12 @@ function Overview(props: OverviewProps) {
     if (!ctx) return;
 
     const limiterGainSeq = await BackendAPI.getLimiterGainSeq(trackId);
+    let limiterGainSeqWasmArr: WasmFloat32Array | null = null;
+    if (limiterGainSeq) {
+      const [wasmArr, view] = WasmAPI.createWasmFloat32Array(limiterGainSeq.length);
+      view.set(limiterGainSeq);
+      limiterGainSeqWasmArr = wasmArr;
+    }
     WasmAPI.drawOverview(
       backgroundElem.current,
       ctx,
@@ -82,7 +119,7 @@ function Overview(props: OverviewProps) {
       width,
       height,
       maxTrackSec,
-      limiterGainSeq,
+      limiterGainSeqWasmArr,
     );
 
     const durationSec = await durationSecPromise;

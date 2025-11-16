@@ -23,6 +23,8 @@ wasm-bindgen-rayon = "1.3.0"
 features = [
   "CanvasRenderingContext2d",
   "HtmlCanvasElement",
+  "OffscreenCanvas",
+  "OffscreenCanvasRenderingContext2d",
   "Path2d",
   "console",
 ]

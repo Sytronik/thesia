@@ -7,10 +7,6 @@ export const DevicePixelRatioContext = createContext(1);
 export function DevicePixelRatioProvider({children}: {children: React.ReactElement}) {
   const dpr = useDevicePixelRatio({round: false});
 
-  useEffect(() => {
-    WasmAPI.setDevicePixelRatio(dpr);
-  }, [dpr]);
-
   return (
     <DevicePixelRatioContext.Provider value={dpr}>{children}</DevicePixelRatioContext.Provider>
   );
