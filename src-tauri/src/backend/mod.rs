@@ -15,7 +15,7 @@ pub mod visualize;
 mod windows;
 
 pub use audio::AudioFormatInfo;
-pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingStats};
+pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingStats, NormalizeTarget};
 use simd::find_min_max;
 pub use spectrogram::SpecSetting;
 pub use track::TrackList;

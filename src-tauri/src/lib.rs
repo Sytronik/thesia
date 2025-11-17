@@ -210,14 +210,12 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
 }
 
 #[tauri::command]
-fn get_common_normalize() -> serde_json::Value {
-    serde_json::to_value(TRACK_LIST.read().common_normalize).unwrap()
+fn get_common_normalize() -> NormalizeTarget {
+    TRACK_LIST.read().common_normalize
 }
 
 #[tauri::command]
-async fn set_common_normalize(target: serde_json::Value) -> tauri::Result<()> {
-    let target = serde_json::from_value(target)?;
-
+async fn set_common_normalize(target: NormalizeTarget) {
     spawn_write_lock_task(move || {
         TRACK_LIST.write().set_common_normalize(target);
         let tracklist = TRACK_LIST.read();
@@ -225,7 +223,6 @@ async fn set_common_normalize(target: serde_json::Value) -> tauri::Result<()> {
     })
     .await;
     refresh_track_player().await;
-    Ok(())
 }
 
 #[tauri::command]

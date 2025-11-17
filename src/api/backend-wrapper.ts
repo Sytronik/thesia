@@ -198,8 +198,8 @@ export async function getCommonNormalize(): Promise<NormalizeTarget> {
   return commonNormalize;
 }
 
-export async function setCommonNormalize(commonNormalize: NormalizeTarget): Promise<void> {
-  return invoke<void>("set_common_normalize", {commonNormalize});
+export async function setCommonNormalize(target: NormalizeTarget): Promise<void> {
+  return invoke<void>("set_common_normalize", {target});
 }
 
 export async function getGuardClipStats(trackId: number): Promise<[number, string][]> {
@@ -264,8 +264,8 @@ export async function getCommonGuardClipping(): Promise<GuardClippingMode> {
   return invoke<GuardClippingMode>("get_common_guard_clipping");
 }
 
-export async function setCommonGuardClipping(commonGuardClipping: GuardClippingMode): Promise<void> {
-  return invoke<void>("set_common_guard_clipping", {commonGuardClipping});
+export async function setCommonGuardClipping(mode: GuardClippingMode): Promise<void> {
+  return invoke<void>("set_common_guard_clipping", {mode});
 }
 
 export async function getSpectrogram(
