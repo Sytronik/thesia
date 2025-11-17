@@ -4,7 +4,6 @@ use std::sync::atomic::Ordering;
 
 use atomic_float::AtomicF32;
 use parking_lot::RwLock;
-use rayon::prelude::*;
 use wasm_bindgen::prelude::*;
 use web_sys::{
     CanvasRenderingContext2d, OffscreenCanvas, OffscreenCanvasRenderingContext2d, Path2d,
@@ -40,12 +39,9 @@ pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
         return;
     }
     DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
-    WAV_CACHES
-        .write()
-        .par_iter_mut()
-        .for_each(|(_, wav_cache)| {
-            wav_cache.update_cache();
-        });
+    for wav_cache in WAV_CACHES.write().values_mut() {
+        wav_cache.update_cache();
+    }
 }
 
 #[wasm_bindgen(js_name = setWav)]
@@ -356,7 +352,7 @@ impl WavCache {
         let v2y_scale = -height / (options.amp_range.1 - options.amp_range.0).max(1e-8);
         let v2y_offset = options.offset_y - options.amp_range.1 * v2y_scale;
 
-        let transform_params = &TransformParams {
+        let transform_params = TransformParams {
             x_scale,
             x_offset,
             y2v_scale,
@@ -369,28 +365,19 @@ impl WavCache {
         let start_x = (-WAV_MARGIN_PX - x_offset) / x_scale;
         let end_x = (width + WAV_MARGIN_PX - x_offset) / x_scale;
 
-        let (xformed_line_points, xformed_envelopes) = rayon::join(
-            move || {
-                self.line_points_cache
-                    .slice_transform(start_x, end_x, transform_params)
-            },
-            move || {
-                self.envelopes_cache
-                    .par_iter()
-                    .filter_map(|envelope| {
-                        if envelope.out_of_range(start_x, end_x) {
-                            return None;
-                        }
-                        Some(envelope.slice_transform(
-                            start_x,
-                            end_x,
-                            transform_params,
-                            options.scale,
-                        ))
-                    })
-                    .collect()
-            },
-        );
+        let xformed_line_points =
+            self.line_points_cache
+                .slice_transform(start_x, end_x, &transform_params);
+
+        let mut xformed_envelopes = Vec::with_capacity(self.envelopes_cache.len());
+        for envelope in self.envelopes_cache.iter() {
+            if envelope.out_of_range(start_x, end_x) {
+                continue;
+            }
+            let xformed_envelope =
+                envelope.slice_transform(start_x, end_x, &transform_params, options.scale);
+            xformed_envelopes.push(xformed_envelope);
+        }
 
         (xformed_line_points, Some(xformed_envelopes))
     }
