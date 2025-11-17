@@ -145,8 +145,9 @@ fn calc_limiter_gain_envelopes(
     let wav_to_y = |v: f32| v.mul_add(y_scale, y_offset);
 
     let y_unity_gain = wav_to_y(gain_range.1);
-    let mut current_envlp = WavLinePoints::new();
-    let mut envelopes = Vec::new();
+    let mut n_estimated_points = width as usize + 10;
+    let mut current_envlp = WavLinePoints::with_capacity(n_estimated_points);
+    let mut envelopes = Vec::with_capacity(10);
 
     let mut i = 0;
     while i < gain_seq.len() {
@@ -188,8 +189,9 @@ fn calc_limiter_gain_envelopes(
                 // finish the recent envelope
                 current_envlp.push(x_floor, y_unity_gain);
 
+                n_estimated_points -= current_envlp.len();
                 envelopes.push(current_envlp);
-                current_envlp = WavLinePoints::new();
+                current_envlp = WavLinePoints::with_capacity(n_estimated_points);
             }
         }
         i = i_next;
