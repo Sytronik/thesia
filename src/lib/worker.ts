@@ -139,5 +139,4 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
 };
 
 await WasmAPI.initWasm();
-await WasmAPI.initThreadPool(navigator.hardwareConcurrency ?? 1);
 initialized = true;

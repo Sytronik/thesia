@@ -30,8 +30,6 @@ type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 // Initialize WASM module
 try {
   await WasmAPI.initWasm();
-  await WasmAPI.initThreadPool(navigator.hardwareConcurrency);
-  console.log("WASM module loaded successfully.");
 } catch (error) {
   console.error("Error occurred during WASM module initialization:", error);
 }

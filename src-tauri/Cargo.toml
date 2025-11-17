@@ -46,7 +46,7 @@ ndarray-stats = "0.6.0"
 num-traits = "0.2.19"
 num_cpus = "1.17.0"
 parking_lot = {workspace = true}
-rayon = { workspace = true }
+rayon = "1.11.0"
 readonly = "0.2.13"
 realfft = "3.5.0"
 tempfile = "3.23.0"

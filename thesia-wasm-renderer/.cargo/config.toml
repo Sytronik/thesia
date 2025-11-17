@@ -1,5 +1,2 @@
 [target.wasm32-unknown-unknown]
-rustflags = ["-C", "target-feature=+simd128,+atomics,+bulk-memory"]
-
-[unstable]
-build-std = ["panic_abort", "std"]
+rustflags = ["-C", "target-feature=+simd128"]
