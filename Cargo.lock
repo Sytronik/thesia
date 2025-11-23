@@ -5706,7 +5706,9 @@ name = "thesia-wasm-renderer"
 version = "0.1.0"
 dependencies = [
  "atomic_float",
+ "fast_image_resize",
  "js-sys",
+ "ndarray",
  "parking_lot",
  "rubato",
  "wasm-bindgen",

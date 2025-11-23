@@ -5,6 +5,7 @@ use std::num::Wrapping;
 use std::sync::LazyLock;
 
 use dashmap::DashMap;
+use fast_image_resize::pixels;
 use parking_lot::RwLock;
 use serde_json::json;
 use tauri::Manager;
@@ -226,12 +227,32 @@ async fn set_common_normalize(target: NormalizeTarget) {
 }
 
 #[tauri::command]
-async fn get_spectrogram(
+async fn get_spectrogram(id_ch_str: String) -> tauri::Result<serde_json::Value> {
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
+
+    let out = {
+        let tm = TM.read();
+        tm.get_spectrogram((id, ch)).map(|spec| {
+            let (height, width) = (spec.shape()[0], spec.shape()[1]);
+            let arr =
+                unsafe { std::mem::transmute::<&[pixels::U16], &[u16]>(spec.as_slice().unwrap()) };
+            Spectrogram {
+                arr,
+                width: width as u32,
+                height: height as u32,
+            }
+        })
+    };
+    Ok(json!(out))
+}
+
+#[tauri::command]
+async fn get_mipmap_info(
     id_ch_str: String,
     sec_range: (f64, f64),
     hz_range: (f64, Option<f64>),
     margin_px: u32,
-) -> tauri::Result<Option<Spectrogram>> {
+) -> tauri::Result<Option<MipmapInfo>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let sec_range = (sec_range.0.max(0.), sec_range.1);
     if sec_range.0 >= sec_range.1 {
@@ -254,7 +275,7 @@ async fn get_spectrogram(
         if sec_range.0 >= track_sec {
             return None;
         }
-        let (args, sliced_mipmap, is_low_quality) = TM.read().get_sliced_spec_mipmap(
+        TM.read().get_mipmap_info(
             (id, ch),
             track_sec,
             sec_range,
@@ -263,14 +284,7 @@ async fn get_spectrogram(
                 hz_range.1.unwrap_or(f64::INFINITY) as f32,
             ),
             margin_px as usize,
-        )?;
-
-        Some(Spectrogram::new(
-            args,
-            sliced_mipmap,
-            sec_range.0,
-            is_low_quality,
-        ))
+        )
     })
     .await;
 
@@ -686,6 +700,7 @@ pub fn run() {
             get_common_normalize,
             set_common_normalize,
             get_spectrogram,
+            get_mipmap_info,
             get_wav,
             find_id_by_path,
             get_limiter_gain,

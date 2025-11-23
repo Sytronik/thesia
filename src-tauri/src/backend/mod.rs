@@ -1,5 +1,6 @@
 use std::{io, path::PathBuf};
 
+use fast_image_resize::pixels;
 use identity_hash::IntSet;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -23,9 +24,9 @@ pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
 use visualize::Mipmaps;
 pub use visualize::{
-    SpectrogramSliceArgs, calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers,
-    calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label,
-    convert_time_label_to_sec,
+    MipmapInfo, SpectrogramSliceArgs, calc_amp_axis_markers, calc_dB_axis_markers,
+    calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label,
+    convert_sec_to_label, convert_time_label_to_sec,
 };
 
 pub type IdCh = (usize, usize);
@@ -158,27 +159,32 @@ impl TrackManager {
         self.update_mipmaps(tracklist, true);
     }
 
-    pub fn get_sliced_spec_mipmap(
+    pub fn get_spectrogram(&'_ self, (id, ch): IdCh) -> Option<ArrayView2<'_, pixels::U16>> {
+        self.spec_mipmaps
+            .get(&(id, ch))
+            .map(|spec_mipmap| spec_mipmap.get_orig_img())
+    }
+
+    pub fn get_mipmap_info(
         &self,
         (id, ch): IdCh,
         track_sec: f64,
         sec_range: (f64, f64),
         hz_range: (f32, f32),
         margin_px: usize,
-    ) -> Option<(SpectrogramSliceArgs, Array2<f32>, bool)> {
+    ) -> Option<MipmapInfo> {
         let spec_hz_range = (0., self.max_sr as f32 / 2.);
         let hz_range = ((hz_range.0).max(0.), (hz_range.1).min(spec_hz_range.1));
 
         self.spec_mipmaps.get(&(id, ch)).map(|spec_mipmap| {
-            let (args, sliced_arr, is_low_quality) = spec_mipmap.get_sliced_mipmap(
+            spec_mipmap.get_mipmap_info(
                 track_sec,
                 (sec_range.0, sec_range.1),
                 spec_hz_range,
                 hz_range,
                 margin_px,
                 &self.setting,
-            );
-            (args, sliced_arr, is_low_quality)
+            )
         })
     }
 

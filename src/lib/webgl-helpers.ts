@@ -553,7 +553,7 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
 // Internal helper function to encapsulate common rendering logic
 function renderSpectrogramInternal(
   webglResources: WebGLResources,
-  spectrogram: Spectrogram,
+  spectrogram: Mipmap,
   srcLeft: number,
   srcTop: number,
   srcW: number,
@@ -598,7 +598,7 @@ function renderSpectrogramInternal(
     gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
 
     // --- Texture and Framebuffer Setup ---
-    const data = spectrogram.buf;
+    const data = spectrogram.arr;
     texSrc = createTexture(gl, spectrogram.width, spectrogram.height, data, gl.R32F);
 
     // Check if we need to recreate intermediate texture
@@ -729,7 +729,7 @@ function renderSpectrogramInternal(
 
 export function renderSpectrogram(
   webglResources: WebGLResources,
-  spectrogram: Spectrogram,
+  spectrogram: Mipmap,
   srcLeft: number,
   srcTop: number,
   srcW: number,

@@ -15,7 +15,7 @@ import {DevicePixelRatioContext} from "src/contexts";
 
 import {sleep} from "src/utils/time";
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI from "../api";
+import BackendAPI, { Mipmap } from "../api";
 import {
   cleanupWebGLResources,
   WebGLResources,
@@ -23,7 +23,7 @@ import {
   renderSpectrogram,
   prepareWebGLResources,
 } from "../lib/webgl-helpers";
-import { postMessageToWorker, NUM_WORKERS } from "../lib/worker-pool";
+import { postMessageToWorker, NUM_WORKERS, onReturnMipmap } from "../lib/worker-pool";
 
 const idChStrToWorkerIndex = (idChStr: string) => {
   const [id, ch] = idChStr.split("_");
@@ -76,7 +76,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
-  const spectrogramRef = useRef<Spectrogram | null>(null);
+  const mipmapInfoRef = useRef<MipmapInfo | null>(null);
+  const mipmapRef = useRef<Mipmap | null>(null);
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
@@ -120,11 +121,11 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     postMessageToWorker(workerIndex, {type: "setDevicePixelRatio", data: {devicePixelRatio}});
   }, [devicePixelRatio]);
 
-  const renderSpecHighQuality = useEvent((srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
-    if (!webglResourcesRef.current || !spectrogramRef.current || needClearSpec) return;
+  const renderSpecHighQuality = useEvent((slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
+    if (!webglResourcesRef.current || needClearSpec) return;
     renderSpectrogram(
       webglResourcesRef.current,
-      spectrogramRef.current,
+      slicedMipmap,
       srcLeft,
       srcTop,
       srcW,
@@ -138,15 +139,15 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   const debouncedRenderSpecHighQuality = useMemo(
     () =>
-      debounce(100, (srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) =>
+      debounce(100, (slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) =>
         requestAnimationFrame(() =>
-          renderSpecHighQuality(srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend),
+          renderSpecHighQuality(slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend),
         ),
       ),
     [renderSpecHighQuality],
   );
 
-  const drawSpectrogram = useCallback(() => {
+  const drawSpectrogram = useCallback(async () => {
     if (!specCanvasElem.current) return;
     if (!webglResourcesRef.current)
       webglResourcesRef.current = prepareWebGLResources(specCanvasElem.current);
@@ -154,25 +155,60 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Ensure WebGL resources are ready
     if (!webglResourcesRef.current) return;
 
-    const spectrogram = spectrogramRef.current;
 
-    // Check if img and img.data are valid before proceeding
-    if (!spectrogram || needClearSpec) {
+    // Check if mipmap exists before proceeding
+    if (!mipmapInfoRef.current || needClearSpec) {
       const {gl} = webglResourcesRef.current;
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
 
+    // Wait for mipmap to be ready (TODO: draw using current mipmap or low-resolution mipmap if available)
+    while (
+      mipmapInfoRef.current &&
+      (mipmapRef.current === null ||
+        mipmapInfoRef.current.width !== mipmapRef.current.width ||
+        mipmapInfoRef.current.height !== mipmapRef.current.height)
+    ) {
+      await sleep(1000 / 120);
+    }
+
+    // Check again if mipmap exists before proceeding
+    if (!mipmapInfoRef.current || !mipmapRef.current || needClearSpec) {
+      const {gl} = webglResourcesRef.current;
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      return;
+    }
+
+    const mipmap = mipmapRef.current;
+    const {sliceArgs, startSec: mipmapStartSec} = mipmapInfoRef.current;
+
+    // slice the mipmap using the sliceArgs
+    const slicedArr = new Float32Array(sliceArgs.width * sliceArgs.height);
+    for (let y = 0; y < sliceArgs.height; y++) {
+      slicedArr.subarray(
+        y * sliceArgs.width,
+        (y + 1) * sliceArgs.width
+      ).set(
+        mipmap.arr.subarray(
+          (y + sliceArgs.top) * mipmap.width + sliceArgs.left,
+          (y + sliceArgs.top) * mipmap.width + sliceArgs.left + sliceArgs.width
+        )
+      );
+    }
+    const slicedMipmap = {arr: slicedArr, width: sliceArgs.width, height: sliceArgs.height};
+
     // widths
     const dstLengthSec = width / pxPerSec;
     const srcLeft = Math.max(
-      spectrogram.leftMargin + (startSec - spectrogram.startSec) * spectrogram.pxPerSec,
+      sliceArgs.leftMargin + (startSec - mipmapStartSec) * sliceArgs.pxPerSec,
       0,
     );
-    let srcW = dstLengthSec * spectrogram.pxPerSec;
+    let srcW = dstLengthSec * sliceArgs.pxPerSec;
     let dstW = width * devicePixelRatio;
-    if (srcLeft + srcW > spectrogram.width) srcW = spectrogram.width - srcLeft;
+    if (srcLeft + srcW > sliceArgs.width) srcW = sliceArgs.width - srcLeft;
 
     if (startSec + dstLengthSec > trackSec)
       dstW = (trackSec - startSec) * pxPerSec * devicePixelRatio;
@@ -181,8 +217,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     dstW = Math.max(0.5, dstW);
 
     // heights
-    const srcTop = spectrogram.topMargin;
-    const srcH = Math.max(0.5, spectrogram.height - srcTop - spectrogram.bottomMargin);
+    const srcTop = sliceArgs.topMargin;
+    const srcH = Math.max(0.5, sliceArgs.height - srcTop - sliceArgs.bottomMargin);
     const dstH = Math.max(0.5, Math.floor(height * devicePixelRatio));
 
     if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
@@ -191,7 +227,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }
     renderSpectrogram(
       webglResourcesRef.current,
-      spectrogram,
+      slicedMipmap,
       srcLeft,
       srcTop,
       srcW,
@@ -201,8 +237,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       blend,
       true, // bilinear: low qality
     );
-    if (!spectrogram.isLowQuality)
-      debouncedRenderSpecHighQuality(srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
+    debouncedRenderSpecHighQuality(slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, blend);
   }, [
     needClearSpec,
     width,
@@ -232,50 +267,52 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const drawNewSpectrogramRequestRef = useRef<number>(0);
 
   const getSpectrogram = useEvent(async (_startSec, _endSec, _idChStr, _hzRange) => {
-    const spectrogram = await BackendAPI.getSpectrogram(
-      _idChStr,
-      [_startSec, _endSec],
-      _hzRange,
-      MARGIN_FOR_RESIZE,
-    );
-    spectrogramRef.current = spectrogram;
-    if (drawNewSpectrogramRequestRef.current !== 0)
-      cancelAnimationFrame(drawNewSpectrogramRequestRef.current);
-    drawNewSpectrogramRequestRef.current = requestAnimationFrame(() =>
-      drawSpectrogramRef.current?.(),
-    );
+    const mipmapInfo = await BackendAPI.getMipmapInfo(_idChStr, [_startSec, _endSec], _hzRange, MARGIN_FOR_RESIZE);
+    if (!mipmapInfo) return;
+    mipmapInfoRef.current = mipmapInfo;
+    if (mipmapInfo.width !== mipmapRef.current?.width || mipmapInfo.height !== mipmapRef.current?.height) {
+    postMessageToWorker(workerIndex, {
+      type: "getMipmap",
+      data: {
+        idChStr: _idChStr,
+        width: mipmapInfo.width,
+        height: mipmapInfo.height,
+      },
+    });
+  }
   });
-  const thGetSpecCallId = useRef<number>(0);
+
+  useEffect(() => {
+    const unsubscribe = onReturnMipmap(workerIndex, idChStr, (mipmap: Mipmap | null) => {
+      if (!mipmap) return;
+      mipmapRef.current = mipmap;
+      if (drawNewSpectrogramRequestRef.current !== 0)
+        cancelAnimationFrame(drawNewSpectrogramRequestRef.current);
+      drawNewSpectrogramRequestRef.current = requestAnimationFrame(() =>
+        drawSpectrogramRef.current?.(),
+      );
+    });
+    return () => unsubscribe();
+  }, [workerIndex, idChStr]);
+
   const throttledGetSpectrogram = useMemo(
     () =>
-      throttle(1000 / 60, async (_startSec, _endSec, _idChStr, _hzRange) => {
-        thGetSpecCallId.current = (thGetSpecCallId.current + 1) % (Number.MAX_SAFE_INTEGER - 1);
-        const callId = thGetSpecCallId.current;
-        await getSpectrogram(_startSec, _endSec, _idChStr, _hzRange);
-        await sleep(1000 / 60);
-        /* eslint-disable no-await-in-loop */
-        while (
-          callId === thGetSpecCallId.current &&
-          (spectrogramRef.current === null || spectrogramRef.current.isLowQuality)
-        ) {
-          await getSpectrogram(_startSec, _endSec, _idChStr, _hzRange);
-          await sleep(1000 / 60);
-        }
-        /* eslint-enable no-await-in-loop */
+      throttle(1000 / 60, (_startSec, _endSec, _idChStr, _hzRange) => {
+        getSpectrogram(_startSec, _endSec, _idChStr, _hzRange);
       }),
     [getSpectrogram],
   );
   const getSpectrogramIfNotHidden = useCallback(
     (force: boolean = false) => {
       // Even if specIsNotNeeded, need at least one spectrogram to draw black box with proper size
-      if (specIsNotNeeded && (spectrogramRef.current || !force)) return;
+      if (specIsNotNeeded && (mipmapRef.current || !force)) return;
       throttledGetSpectrogram(startSec, endSec, idChStr, hzRange);
     },
     [specIsNotNeeded, throttledGetSpectrogram, startSec, endSec, idChStr, hzRange],
   );
 
   // getSpectrogram is called when needRefresh is true ...
-  const prevGetSpectrogramRef = useRef<() => void>(getSpectrogramIfNotHidden);
+  const prevGetSpectrogramRef = useRef<() => void>(() => {});
   if (prevGetSpectrogramRef.current === getSpectrogramIfNotHidden && needRefresh)
     getSpectrogramIfNotHidden(true);
   prevGetSpectrogramRef.current = getSpectrogramIfNotHidden;
@@ -331,14 +368,26 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   useEffect(() => {
     if (!needRefresh) return; // Changing idChStr without needRefresh does not happen
-    BackendAPI.getWav(idChStr).then((wavInfo) => {
-      if (wavInfo === null) return;
-      postMessageToWorker(
-        workerIndex,
-        {type: "setWav", data: {idChStr, wavInfo}},
-        [wavInfo.wavArr.buffer],
-      );
-      drawWavImageRef.current?.();
+    Promise.all([
+      BackendAPI.getSpectrogram(idChStr),
+      BackendAPI.getWav(idChStr),
+    ]).then(([spectrogram, wavInfo]) => {
+      if (spectrogram !== null) {
+        postMessageToWorker(
+          workerIndex,
+          { type: "setSpectrogram", data: { idChStr, ...spectrogram } },
+          [spectrogram.arr.buffer]
+        );
+        getSpectrogramIfNotHidden();
+      }
+      if (wavInfo !== null) {
+        postMessageToWorker(
+          workerIndex,
+          { type: "setWav", data: { idChStr, wavInfo } },
+          [wavInfo.wavArr.buffer]
+        );
+        drawWavImageRef.current?.();
+      }
     });
     return () => {
       postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});

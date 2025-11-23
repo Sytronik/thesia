@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import {createWasmFloat32Array, WasmFloat32Array} from "./wasm-wrapper";
 
 export async function getChannelCounts(trackId: number): Promise<1 | 2> {
   const ch = await invoke<number>("get_channel_counts", {trackId});
@@ -47,16 +46,28 @@ export interface SpecSetting {
 }
 
 export interface Spectrogram {
-  buf: Float32Array
+  arr: Uint16Array
   width: number
   height: number
+}
+
+export interface MipmapInfo {
+  width: number
+  height: number
+  sliceArgs: SpectrogramSliceArgs
   startSec: number
+}
+
+export interface SpectrogramSliceArgs {
   pxPerSec: number
+  left: number
+  width: number
+  top: number
+  height: number
   leftMargin: number
   rightMargin: number
   topMargin: number
   bottomMargin: number
-  isLowQuality: boolean
 }
 
 export interface UserSettings {
@@ -159,9 +170,6 @@ export async function getdBAxisMarkers(
 // IdChannel is form of id#_ch#
 export type IdChannel = string;
 export type IdChArr = IdChannel[];
-export type Spectrograms = {
-  [key: IdChannel]: Spectrogram;
-};
 
 export type WavInfo = {
   wavArr: Float32Array;
@@ -268,19 +276,23 @@ export async function setCommonGuardClipping(mode: GuardClippingMode): Promise<v
   return invoke<void>("set_common_guard_clipping", {mode});
 }
 
-export async function getSpectrogram(
+export async function getSpectrogram(idChStr: string): Promise<Spectrogram | null> {
+  const out = await invoke<any | null>("get_spectrogram", {idChStr});
+  if (!out) return null;
+  out.arr = new Uint16Array(out.arr);
+  return out;
+}
+
+export async function getMipmapInfo(
   idChStr: string,
   secRange: [number, number],
   hzRange: [number, number],
   marginPx: number,
-): Promise<Spectrogram | null> {
-  const out = await invoke<any>(
-    "get_spectrogram",
+): Promise<MipmapInfo | null> {
+  return invoke<MipmapInfo | null>(
+    "get_mipmap_info",
     { idChStr, secRange, hzRange, marginPx },
   );
-  if (!out) return null;
-  out.buf = new Float32Array(out.buf);
-  return out;
 }
 
 export async function findIdByPath(path: string): Promise<number> {

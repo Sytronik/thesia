@@ -8,5 +8,5 @@ pub use axis::{
     convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
 };
 pub use drawing::convert_spectrogram_to_img;
-pub use mipmap::Mipmaps;
+pub use mipmap::{MipmapInfo, Mipmaps};
 pub use slice_args::SpectrogramSliceArgs;

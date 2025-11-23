@@ -10,6 +10,7 @@ use memmap2::Mmap;
 use ndarray::{SliceArg, prelude::*};
 use ndarray_npy::{ViewNpyExt, WriteNpyError, write_npy};
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
 use super::super::spectrogram::SpecSetting;
@@ -99,6 +100,16 @@ impl Mipmap {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MipmapInfo {
+    width: u32,
+    height: u32,
+    slice_args: SpectrogramSliceArgs,
+    start_sec: f64,
+}
+
+#[readonly::make]
 pub struct Mipmaps {
     orig_img: Arc<Array2<pixels::U16>>,
     mipmaps: Arc<RwLock<Vec<Vec<Mipmap>>>>,
@@ -154,11 +165,15 @@ impl Mipmaps {
             max_size,
             _tmp_dir,
         };
-        _self.ensure_last_mipmap_exists()?;
+        // _self.ensure_last_mipmap_exists()?;
         Ok(_self)
     }
 
-    pub fn get_sliced_mipmap(
+    pub fn get_orig_img(&'_ self) -> ArrayView2<'_, pixels::U16> {
+        self.orig_img.view()
+    }
+
+    pub fn get_mipmap_info(
         &self,
         track_sec: f64,
         sec_range: (f64, f64),
@@ -166,12 +181,10 @@ impl Mipmaps {
         hz_range: (f32, f32),
         margin_px: usize,
         spec_setting: &SpecSetting,
-    ) -> (SpectrogramSliceArgs, Array2<f32>, bool) {
+    ) -> MipmapInfo {
         let max_size = self.max_size as usize;
-        let mut out_idx_img_args = None; // Some((i_h, i_w, args))
-        let mut need_to_create = None; // Some((i_h, i_w, is_creating))
-        for (i_h, mipmaps_along_width) in self.mipmaps.read().iter().enumerate() {
-            for (i_w, mipmap) in mipmaps_along_width.iter().enumerate() {
+        for mipmaps_along_width in self.mipmaps.read().iter() {
+            for mipmap in mipmaps_along_width.iter() {
                 let args = SpectrogramSliceArgs::new(
                     mipmap.width as usize,
                     mipmap.height as usize,
@@ -186,80 +199,16 @@ impl Mipmaps {
                     break;
                 }
                 if args.width <= max_size {
-                    if i_h == 0 && i_w == 0 || mipmap.exists() {
-                        let slice = s![
-                            args.top..args.top + args.height,
-                            args.left..args.left + args.width
-                        ];
-                        let sliced_arr = if i_h == 0 && i_w == 0 {
-                            let pixels = self.orig_img.slice(slice);
-                            let arr = unsafe {
-                                mem::transmute::<ArrayView2<pixels::U16>, ArrayView2<u16>>(pixels)
-                            };
-                            arr.mapv(u16_to_f32)
-                        } else if mipmap.exists() {
-                            mipmap.read(slice).unwrap()
-                        } else {
-                            unreachable!();
-                        };
-                        out_idx_img_args = Some((i_h, i_w, sliced_arr, args));
-                        break;
-                    } else if need_to_create.is_none() {
-                        need_to_create = Some((i_h, i_w, mipmap.status.clone()));
-                    }
+                    return MipmapInfo {
+                        width: mipmap.width,
+                        height: mipmap.height,
+                        slice_args: args,
+                        start_sec: sec_range.0,
+                    };
                 }
-            }
-            if out_idx_img_args.is_some() {
-                break;
             }
         }
-        if let Some((i_h_out, i_w_out, sliced_img, args)) = out_idx_img_args {
-            // prune mipmaps
-            {
-                let mut mipmaps = self.mipmaps.write();
-                for i_h in 0..mipmaps.len() {
-                    for i_w in 0..mipmaps[i_h].len() {
-                        if i_h == i_h_out && i_w == i_w_out {
-                            continue;
-                        }
-                        if (i_h, i_w) == (mipmaps.len() - 1, mipmaps[i_h].len() - 1) {
-                            continue;
-                        }
-                        if !mipmaps[i_h][i_w].exists() {
-                            continue;
-                        }
-                        if let Err(err) = mipmaps[i_h][i_w].remove() {
-                            log::error!("Failed to remove mipmap: {:?}", err);
-                        }
-                    }
-                }
-            }
-            let is_low_quality = need_to_create.is_some();
-            if let Some((i_h, i_w, status)) = need_to_create
-                && matches!(status, FileStatus::NoFile)
-            {
-                let (width, height) = {
-                    let mut mipmaps = self.mipmaps.write();
-                    mipmaps[i_h][i_w].status = FileStatus::Creating;
-                    (mipmaps[i_h][i_w].width, mipmaps[i_h][i_w].height)
-                };
-                if (width, height) != (0, 0) {
-                    let orig_img_clone = Arc::clone(&self.orig_img);
-                    let mipmaps_clone = Arc::clone(&self.mipmaps);
-                    rayon::spawn(move || {
-                        let resized_img = resize(orig_img_clone.view(), width, height);
-                        let mut mipmaps = mipmaps_clone.write();
-                        if let Err(err) = mipmaps[i_h][i_w].write(resized_img.view()) {
-                            log::error!("Failed to write mipmap: {:?}", err);
-                        }
-                    });
-                }
-            }
-
-            (args, sliced_img, is_low_quality)
-        } else {
-            panic!("No mipmap found!");
-        }
+        unreachable!("No mipmap found!");
     }
 
     pub fn move_to(&mut self, dir: &Path) -> io::Result<()> {

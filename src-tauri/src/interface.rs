@@ -3,11 +3,10 @@
 use std::{sync::LazyLock, thread};
 
 use crossbeam_channel::{Sender, unbounded};
-use ndarray::Array2;
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
-use crate::{GuardClippingMode, SpecSetting, SpectrogramSliceArgs};
+use crate::{GuardClippingMode, SpecSetting};
 
 static WRITE_LOCK_WORKER: LazyLock<WriteLockWorker> = LazyLock::new(WriteLockWorker::new);
 
@@ -85,41 +84,12 @@ pub struct PlayerState {
     pub err: String,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Spectrogram {
-    pub buf: Vec<f32>,
+pub struct Spectrogram<'a> {
+    pub arr: &'a [u16],
     pub width: u32,
     pub height: u32,
-    pub start_sec: f64,
-    pub px_per_sec: f64,
-    pub left_margin: f64,
-    pub right_margin: f64,
-    pub top_margin: f64,
-    pub bottom_margin: f64,
-    pub is_low_quality: bool,
-}
-
-impl Spectrogram {
-    pub fn new(
-        args: SpectrogramSliceArgs,
-        mipmap: Array2<f32>,
-        start_sec: f64,
-        is_low_quality: bool,
-    ) -> Self {
-        Self {
-            buf: mipmap.into_raw_vec_and_offset().0,
-            width: args.width as u32,
-            height: args.height as u32,
-            start_sec,
-            px_per_sec: args.px_per_sec,
-            left_margin: args.left_margin,
-            right_margin: args.right_margin,
-            top_margin: args.top_margin,
-            bottom_margin: args.bottom_margin,
-            is_low_quality,
-        }
-    }
 }
 
 #[derive(Default, Serialize, Deserialize)]

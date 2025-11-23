@@ -40,7 +40,7 @@ identity-hash = "0.1.0"
 itertools = "0.14.0"
 log = "0.4.28"
 memmap2 = "0.9.9"
-ndarray = {version = "0.16.1", features = ["approx", "blas", "rayon"] }
+ndarray = {workspace = true, features = ["approx", "blas", "rayon"] }
 ndarray-npy = "0.9.1"
 ndarray-stats = "0.6.0"
 num-traits = "0.2.19"

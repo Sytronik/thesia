@@ -1,4 +1,4 @@
-import { WasmAPI  } from "../api";
+import { WasmAPI } from "../api";
 import type { IdChannel, WavInfo } from "../api/backend-wrapper";
 
 type InitMessage = {
@@ -7,6 +7,25 @@ type InitMessage = {
     idChStr: IdChannel;
     canvas: OffscreenCanvas;
     alpha?: boolean;
+  };
+};
+
+export type SetSpectrogramMessage = {
+  type: "setSpectrogram";
+  data: {
+    idChStr: IdChannel;
+    arr: Uint16Array;
+    width: number;
+    height: number;
+  };
+};
+
+type GetMipmapMessage = {
+  type: "getMipmap";
+  data: {
+    idChStr: IdChannel;
+    width: number;
+    height: number;
   };
 };
 
@@ -55,6 +74,8 @@ type ClearWavMessage = {
 
 export type RendererWorkerMessage =
   | InitMessage
+  | SetSpectrogramMessage
+  | GetMipmapMessage
   | SetDevicePixelRatioMessage
   | SetWavMessage
   | RemoveWavMessage
@@ -90,6 +111,23 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
     const message = msgQueue.shift();
     if (!message) break;
     switch (message.type) {
+      case "setSpectrogram": {
+        const { idChStr, arr, width, height } = message.data;
+        WasmAPI.setSpectrogram(idChStr, arr, width, height);
+        break;
+      }
+      case "getMipmap": {
+        const { idChStr, width, height } = message.data;
+        const mipmap = WasmAPI.getMipmap(idChStr, width, height);
+        self.postMessage(
+          {
+            type: "returnMipmap",
+            data: { idChStr: idChStr, mipmap },
+          },
+          // NOTE: don't transfer the slicedSpectrogram array to the main thread
+        );
+        break;
+      }
       case "setDevicePixelRatio":
         WasmAPI.setDevicePixelRatio(message.data.devicePixelRatio);
         break;

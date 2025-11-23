@@ -12,7 +12,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 atomic_float = {workspace = true}
+fast_image_resize = "5.3.0"
 js-sys = "0.3.82"
+ndarray = {workspace = true}
 parking_lot = {workspace = true}
 rubato = "0.16.2"
 wasm-bindgen = "0.2.105"

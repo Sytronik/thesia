@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::super::spectrogram::SpecSetting;
 
 fn add_pre_post_margin(
@@ -23,8 +25,9 @@ fn add_pre_post_margin(
     )
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 #[readonly::make]
+#[serde(rename_all = "camelCase")]
 pub struct SpectrogramSliceArgs {
     pub px_per_sec: f64,
     pub left: usize,

@@ -23,6 +23,7 @@ version = "0.1.0"
 # Shared dependencies that can be inherited by workspace members
 [workspace.dependencies]
 atomic_float = "1.1.0"
+ndarray = "0.16.1"
 parking_lot = "0.12.5"
 
 [profile.dev]
