@@ -40,7 +40,7 @@ function Overview(props: OverviewProps) {
     resetLens,
     needRefresh,
   } = props;
-  const idChArr = _idChArr.slice(0, OVERVIEW_MAX_CH);
+  const idChArr = useMemo(() => _idChArr.slice(0, OVERVIEW_MAX_CH), [_idChArr]);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSec = useMemo(
     () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : 0),
