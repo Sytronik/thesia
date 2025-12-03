@@ -119,7 +119,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   useEffect(() => {
     postMessageToWorker(workerIndex, {type: "setDevicePixelRatio", data: {devicePixelRatio}});
-  }, [devicePixelRatio]);
+  }, [devicePixelRatio, workerIndex]);
 
   const renderSpecHighQuality = useEvent((slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
     if (!webglResourcesRef.current || needClearSpec) return;
@@ -337,7 +337,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         ampRange,
       },
     });
-  }, [width, height, blend, startSec, pxPerSec, ampRange, idChStr]);
+  }, [blend, workerIndex, idChStr, width, height, startSec, pxPerSec, ampRange]);
 
   // Draw spectrogram when props change
   // Use a ref to store the latest draw function
@@ -364,7 +364,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
-  }, [drawWavImage, width, height, needHideWav, devicePixelRatio]);
+  }, [drawWavImage, width, height, needHideWav, workerIndex, idChStr]);
 
   useEffect(() => {
     if (!needRefresh) return; // Changing idChStr without needRefresh does not happen
@@ -392,8 +392,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return () => {
       postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
     };
-  }, [idChStr, needRefresh]);
-
+  }, [idChStr, needRefresh, workerIndex]);
 
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
