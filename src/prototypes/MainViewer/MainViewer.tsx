@@ -867,15 +867,6 @@ function MainViewer(props: MainViewerProps) {
     </>
   );
 
-  const [trackSecMap, setTrackSecMap] = useState<Map<number, number>>(new Map());
-  useEffect(() => {
-    Promise.all(
-      trackIds.map((trackId) => BackendAPI.getLengthSec(trackId))
-    ).then((trackSecArr) => {
-      setTrackSecMap(new Map(trackIds.map((trackId, index) => [trackId, trackSecArr[index]])));
-    });
-  }, [trackIds]);
-
   const rightPane = (
     <>
       <div className={`${styles.trackRightHeader}  ${styles.stickyHeader}`}>
@@ -916,7 +907,6 @@ function MainViewer(props: MainViewerProps) {
                     height={imgHeight}
                     startSec={startSec}
                     pxPerSec={pxPerSec}
-                    trackSec={trackSecMap.get(id) ?? 0}
                     maxTrackSec={maxTrackSec}
                     hzRange={hzRange}
                     ampRange={ampRange}

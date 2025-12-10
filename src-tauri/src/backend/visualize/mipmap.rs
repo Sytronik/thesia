@@ -107,6 +107,7 @@ pub struct MipmapInfo {
     height: u32,
     slice_args: SpectrogramSliceArgs,
     start_sec: f64,
+    track_sec: f64,
 }
 
 #[readonly::make]
@@ -204,6 +205,7 @@ impl Mipmaps {
                         height: mipmap.height,
                         slice_args: args,
                         start_sec: sec_range.0,
+                        track_sec,
                     };
                 }
             }

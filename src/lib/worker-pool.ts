@@ -5,16 +5,33 @@ export const NUM_WORKERS = navigator.hardwareConcurrency ?? 1;
 const workers = new Map<number, Worker>(
   Array.from({length: NUM_WORKERS}, (_, i) => [i, new RendererWorker()])
 );
+
+const setSpectrogramDoneListeners = new Map<number, Map<string, () => void>>();
 const returnSpectrogramListeners = new Map<number, Map<string, (message: any) => void>>();
 
 workers.forEach((worker, index) => {
+  setSpectrogramDoneListeners.set(index, new Map());
   returnSpectrogramListeners.set(index, new Map());
   worker.onmessage = (event: MessageEvent<any>) => {
     const { type, data } = event.data;
-    if (type === "returnMipmap") {
-      const listeners = returnSpectrogramListeners.get(index);
-      if (listeners) {
-        listeners.get(data.idChStr)?.(data.mipmap);
+    switch (type) {
+      case "setSpectrogramDone": {
+        const listeners = setSpectrogramDoneListeners.get(index);
+        if (listeners) {
+          listeners.get(data.idChStr)?.();
+        }
+        break;
+      }
+      case "returnMipmap": {
+        const listeners = returnSpectrogramListeners.get(index);
+        if (listeners) {
+          listeners.get(data.idChStr)?.(data.mipmap);
+        }
+        break;
+      }
+      default: {
+        console.error("unknown message type", type);
+        break;
       }
     }
   };
@@ -26,6 +43,20 @@ export const postMessageToWorker = (
   transferList: Transferable[] = []
 ) => {
   workers.get(index)?.postMessage(message, transferList);
+};
+
+export const onSetSpectrogramDone = (
+  index: number,
+  idChStr: string,
+  callback: () => void
+) => {
+  if (!setSpectrogramDoneListeners.has(index)) {
+    setSpectrogramDoneListeners.set(index, new Map());
+  }
+  setSpectrogramDoneListeners.get(index)?.set(idChStr, callback);
+  return () => {
+    setSpectrogramDoneListeners.get(index)?.delete(idChStr);
+  };
 };
 
 export const onReturnMipmap = (

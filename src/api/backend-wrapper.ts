@@ -56,6 +56,7 @@ export interface MipmapInfo {
   height: number
   sliceArgs: SpectrogramSliceArgs
   startSec: number
+  trackSec: number
 }
 
 export interface SpectrogramSliceArgs {

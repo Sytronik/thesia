@@ -28,7 +28,6 @@ type ImgCanvasProps = {
   height: number;
   startSec: number;
   pxPerSec: number;
-  trackSec: number;
   maxTrackSec: number;
   hzRange: [number, number];
   ampRange: [number, number];
@@ -49,7 +48,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     height,
     startSec,
     pxPerSec,
-    trackSec,
     maxTrackSec,
     hzRange,
     ampRange,
@@ -60,7 +58,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   } = props;
   const workerIndex = idChStrToWorkerIndex(idChStr);
 
-  const needClearSpec = hidden || startSec >= trackSec || width <= 0;
   const specIsNotNeeded = blend <= 0 || hidden;
   const needHideWav = blend >= 1 || hidden;
 
@@ -221,22 +218,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         </span>
       ) : null}
       <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
-      {!hidden && (
-        <SpecCanvas
-          idChStr={idChStr}
-          width={width}
-          height={height}
-          startSec={startSec}
-          pxPerSec={pxPerSec}
-          trackSec={trackSec}
-          hzRange={hzRange}
-          blend={blend}
-          needRefresh={needRefresh}
-          needClearSpec={needClearSpec}
-          specIsNotNeeded={specIsNotNeeded}
-          workerIndex={workerIndex}
-        />
-      )}
+      <SpecCanvas
+        idChStr={idChStr}
+        width={width}
+        height={height}
+        startSec={startSec}
+        pxPerSec={pxPerSec}
+        hzRange={hzRange}
+        blend={blend}
+        needRefresh={needRefresh}
+        hidden={hidden}
+        specIsNotNeeded={specIsNotNeeded}
+        workerIndex={workerIndex}
+      />
       <canvas
         key="wav"
         className={styles.ImgCanvas}

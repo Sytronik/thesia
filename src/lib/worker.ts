@@ -114,6 +114,12 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
       case "setSpectrogram": {
         const { idChStr, arr, width, height } = message.data;
         WasmAPI.setSpectrogram(idChStr, arr, width, height);
+        self.postMessage(
+          {
+            type: "setSpectrogramDone",
+            data: { idChStr },
+          },
+        );
         break;
       }
       case "getMipmap": {
@@ -122,7 +128,7 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
         self.postMessage(
           {
             type: "returnMipmap",
-            data: { idChStr: idChStr, mipmap },
+            data: { idChStr, mipmap },
           },
           // NOTE: don't transfer the slicedSpectrogram array to the main thread
         );
