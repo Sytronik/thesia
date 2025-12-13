@@ -186,22 +186,21 @@ const SpecCanvas = (props: SpecCanvasProps) => {
       _height: number,
       _blend: number
     ) => {
+      if (_needClearSpec) {
+        if (webglResourcesRef.current !== null) {
+          const { gl } = webglResourcesRef.current;
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+        return;
+      }
+      
       if (!specCanvasElem.current) return;
       if (!webglResourcesRef.current)
-        webglResourcesRef.current = prepareWebGLResources(
-          specCanvasElem.current
-        );
+        webglResourcesRef.current = prepareWebGLResources(specCanvasElem.current);
 
       // Ensure WebGL resources are ready
       if (!webglResourcesRef.current) return;
-
-      // Check if mipmap exists before proceeding
-      if (_needClearSpec) {
-        const { gl } = webglResourcesRef.current;
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        return;
-      }
 
       if (!_mipmapInfo || !mipmapRef.current) return;
 
