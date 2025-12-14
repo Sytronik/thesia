@@ -83,7 +83,7 @@ function Overview(props: OverviewProps) {
   }, [idChArr]);
 
   const draw = useCallback(async () => {
-    if (!backgroundElem.current || !lensElem.current) return;
+    if (!backgroundElem.current || !lensElem.current || idChArr.length === 0) return;
 
     const width = backgroundElem.current.clientWidth;
     const height = backgroundElem.current.clientHeight;
