@@ -131,19 +131,19 @@ impl Mipmaps {
                     let i = mipmaps.len() - 1;
                     mipmaps[i].push(Mipmap::new(width_u32, height_u32, _tmp_dir.path()));
                 }
-                if (width_u32) == max_size {
+                if width_u32 <= max_size {
                     break;
                 }
                 width /= 2.;
-                if (width_u32) < max_size {
+                if width_u32 < max_size {
                     width = max_size as f64;
                 }
             }
-            if (height_u32) == max_size {
+            if height_u32 <= max_size {
                 break;
             }
             height /= 2.;
-            if (height_u32) < max_size {
+            if height_u32 < max_size {
                 height = max_size as f64;
             }
         }
