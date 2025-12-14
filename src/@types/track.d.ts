@@ -5,8 +5,7 @@ type Markers = import("../api").Markers;
 type IdChannel = import("../api").IdChannel;
 type IdChArr = import("../api").IdChArr;
 type IdChMap = Map<number, IdChArr>;
-type MipmapInfo = import("../api").MipmapInfo;
-type Mipmap = import("../api").Mipmap;
+type Mipmap = import("../api/wasm-wrapper").Mipmap;
 type WavMetadata = import("../api").WavMetadata;
 
 type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | React.KeyboardEvent;

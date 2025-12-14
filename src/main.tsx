@@ -10,11 +10,6 @@ const container = document.getElementById("root") as HTMLElement;
 const root = ReactDOM.createRoot(container);
 
 // ipcRenderer.once("render-with-settings", async (_, settings, tempDirectory) => {
-const canvas = document.createElement("canvas");
-const gl = canvas.getContext("webgl2");
-if (!gl) throw new Error("WebGL2 is not supported");
-const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-gl.getExtension("WEBGL_lose_context")?.loseContext();
 
 const userSettings: UserSettingsOptionals = {
   // specSetting: settings.specSetting,
@@ -24,7 +19,7 @@ const userSettings: UserSettingsOptionals = {
   // commonNormalize: settings.commonNormalize,
 };
 // const userSettingsOrInitialValues = BackendAPI.init(userSettings, maxTextureSize, tempDirectory);
-const userSettingsOrInitialValues = await BackendAPI.init(userSettings, maxTextureSize, "");
+const userSettingsOrInitialValues = await BackendAPI.init(userSettings);
 // Object.entries(userSettingsOrInitialValues).forEach(([key, value]) =>
 //   setUserSetting(key as keyof UserSettings, value),
 // );

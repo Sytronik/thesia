@@ -11,16 +11,18 @@ import useEvent from "react-use-event-hook";
 import {debounce} from "throttle-debounce";
 
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, { Mipmap } from "../api";
+import BackendAPI, { FreqScale, Mipmap } from "../api";
 import {
   cleanupWebGLResources,
   WebGLResources,
   MARGIN_FOR_RESIZE,
   renderSpectrogram,
   prepareWebGLResources,
+  MAX_TEXTURE_SIZE,
 } from "../lib/webgl-helpers";
 import { postMessageToWorker, onReturnMipmap, onSetSpectrogramDone } from "../lib/worker-pool";
-import { DevicePixelRatioContext } from "src/contexts";
+import { DevicePixelRatioContext } from "../contexts";
+import { calcMipmapSize, createMipmapSizeArr, createSpectrogramSliceArgs } from "../lib/mipmap-helpers";
 
 type SpecCanvasProps = {
   idChStr: string;
@@ -28,11 +30,12 @@ type SpecCanvasProps = {
   height: number;
   startSec: number;
   pxPerSec: number;
+  maxTrackHz: number;
+  freqScale: FreqScale;
   hzRange: [number, number];
   blend: number;
   needRefresh: boolean;
   hidden: boolean;
-  specIsNotNeeded: boolean;
   workerIndex: number;
 };
 
@@ -43,11 +46,12 @@ const SpecCanvas = (props: SpecCanvasProps) => {
     height,
     startSec,
     pxPerSec,
+    maxTrackHz,
+    freqScale,
     hzRange,
     blend,
     needRefresh,
     hidden,
-    specIsNotNeeded,
     workerIndex,
   } = props;
 
@@ -55,11 +59,14 @@ const SpecCanvas = (props: SpecCanvasProps) => {
 
   const endSec = startSec + width / (pxPerSec + 1e-8);
   
-  const [mipmapInfo, setMipmapInfo] = useState<MipmapInfo | null>(null);
-  const nextMipmapInfoRef = useRef<MipmapInfo | null>(null);
+  const trackSecRef = useRef<number>(0);
+  const mipmapSizeArrRef = useRef<[number, number][][]>([]);
+  const [mipmapSize, setMipmapSize] = useState<[number, number] | null>(null);
+  const nextMipmapSizeRef = useRef<[number, number] | null>(null);
   const mipmapRef = useRef<Mipmap | null>(null);
 
-  const needClearSpec = hidden || width <= 0 || (mipmapInfo !== null && startSec >= mipmapInfo.trackSec);
+  const mipmapIsNotNeeded = hidden || blend <= 0 || width <= 0;
+  const needClearSpec = width <= 0 || startSec >= trackSecRef.current;
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
   const webglResourcesRef = useRef<WebGLResources | null>(null);
@@ -74,43 +81,50 @@ const SpecCanvas = (props: SpecCanvasProps) => {
     webglResourcesRef.current = null;
   }, []);
 
-  const getMipmapInfoAndRequestMipmap = useEvent(async (_startSec, _endSec, _hzRange, force: boolean = false) => {
-    const _mipmapInfo = await BackendAPI.getMipmapInfo(idChStr, [_startSec, _endSec], _hzRange, MARGIN_FOR_RESIZE);
-    // console.log("getMipmapInfoAndRequestMipmap", _mipmapInfo);
-    if (!_mipmapInfo) return;
+  const calcMipmapSizeAndRequestMipmap = useEvent((_startSec, _endSec, _hzRange, force: boolean = false) => {
+    const _mipmapSize = calcMipmapSize(
+      mipmapSizeArrRef.current,
+      trackSecRef.current,
+      [_startSec, _endSec],
+      [0, maxTrackHz],
+      _hzRange,
+      MARGIN_FOR_RESIZE,
+      freqScale,
+      MAX_TEXTURE_SIZE
+    );
+    // console.log("calcMipmapSizeAndRequestMipmap", MAX_TEXTURE_SIZE, mipmapSizeArrRef.current, _mipmapSize);
+    if (!_mipmapSize) return;
     if (
       force ||
-      (nextMipmapInfoRef.current === null &&
-        (_mipmapInfo.width !== mipmapInfo?.width ||
-          _mipmapInfo.height !== mipmapInfo?.height)) ||
-      (nextMipmapInfoRef.current !== null &&
-        (_mipmapInfo.width !== nextMipmapInfoRef.current.width ||
-          _mipmapInfo.height !== nextMipmapInfoRef.current.height))
+      (nextMipmapSizeRef.current === null &&
+        (_mipmapSize[0] !== mipmapSize?.[0] ||
+          _mipmapSize[1] !== mipmapSize?.[1])) ||
+      (nextMipmapSizeRef.current !== null &&
+        (_mipmapSize[0] !== nextMipmapSizeRef.current[0] ||
+          _mipmapSize[1] !== nextMipmapSizeRef.current[1]))
     ) {
-      nextMipmapInfoRef.current = _mipmapInfo;
+      nextMipmapSizeRef.current = _mipmapSize;
+      // console.log("request mipmap", _mipmapSize);
       postMessageToWorker(workerIndex, {
         type: "getMipmap",
         data: {
           idChStr,
-          width: _mipmapInfo.width,
-          height: _mipmapInfo.height,
+          width: _mipmapSize[0],
+          height: _mipmapSize[1],
         },
       });
-    } else {
-      if (nextMipmapInfoRef.current !== null)
-        nextMipmapInfoRef.current = _mipmapInfo;
-      else
-        setMipmapInfo(_mipmapInfo);
     }
   });
 
-  const getMipmapInfoAndRequestMipmapForcely = useEvent(
-    () => getMipmapInfoAndRequestMipmap(startSec, endSec, hzRange, true)
+  const calcMipmapSizeAndRequestMipmapForcely = useEvent(
+    () => calcMipmapSizeAndRequestMipmap(startSec, endSec, hzRange, true)
   );
 
   const setSpectrogram = useEvent((_idChStr: string, _workerIndex: number) => {
     BackendAPI.getSpectrogram(_idChStr).then((spectrogram) => {
       if (spectrogram !== null) {
+        trackSecRef.current = spectrogram.trackSec;
+        mipmapSizeArrRef.current = createMipmapSizeArr(spectrogram.width, spectrogram.height, MAX_TEXTURE_SIZE);
         // console.log("setSpectrogram", _idChStr, _workerIndex);
         postMessageToWorker(
           _workerIndex,
@@ -126,8 +140,8 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   });
 
   useEffect(() => {
-    return onSetSpectrogramDone(workerIndex, idChStr, getMipmapInfoAndRequestMipmapForcely);
-  }, [workerIndex, idChStr, getMipmapInfoAndRequestMipmapForcely]);
+    return onSetSpectrogramDone(workerIndex, idChStr, calcMipmapSizeAndRequestMipmapForcely);
+  }, [workerIndex, idChStr, calcMipmapSizeAndRequestMipmapForcely]);
 
   const setSpectrogramReactively = useCallback(
     () => setSpectrogram(idChStr, workerIndex),
@@ -147,13 +161,13 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   }
 
   useEffect(() => {
-    if (specIsNotNeeded) return;
+    if (mipmapIsNotNeeded) return;
     
-    getMipmapInfoAndRequestMipmap(startSec, endSec, hzRange);
-  }, [startSec, endSec, hzRange, getMipmapInfoAndRequestMipmap, specIsNotNeeded]);
+    calcMipmapSizeAndRequestMipmap(startSec, endSec, hzRange);
+  }, [startSec, endSec, hzRange, calcMipmapSizeAndRequestMipmap, mipmapIsNotNeeded]);
 
   const renderSpecHighQuality = useEvent((slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
-    if (!webglResourcesRef.current || needClearSpec || specIsNotNeeded) return;
+    if (!webglResourcesRef.current || needClearSpec || mipmapIsNotNeeded) return;
     renderSpectrogram(
       webglResourcesRef.current,
       slicedMipmap,
@@ -179,12 +193,17 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   );
 
   const draw = useEvent(
-    async (
-      _mipmapInfo: MipmapInfo | null,
+    (
+      _startSec: number,
+      _endSec: number,
+      _hzRange: [number, number],
+      _pxPerSec: number,
+      _width: number,
+      _height: number,
       _needClearSpec: boolean,
       _devicePixelRatio: number,
-      _height: number,
-      _blend: number
+      _blend: number,
+      _mipmapSize: [number, number] | null,
     ) => {
       if (_needClearSpec) {
         if (webglResourcesRef.current !== null) {
@@ -194,7 +213,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
         }
         return;
       }
-      
+
       if (!specCanvasElem.current) return;
       if (!webglResourcesRef.current)
         webglResourcesRef.current = prepareWebGLResources(specCanvasElem.current);
@@ -202,12 +221,22 @@ const SpecCanvas = (props: SpecCanvasProps) => {
       // Ensure WebGL resources are ready
       if (!webglResourcesRef.current) return;
 
-      if (!_mipmapInfo || !mipmapRef.current) return;
+      if (!_mipmapSize || !mipmapRef.current) return;
 
-      // console.log("draw", _mipmapInfo, startSec, width, pxPerSec);
+      // console.log("draw", _mipmapSize, startSec, width, pxPerSec);
 
       const mipmap = mipmapRef.current;
-      const { sliceArgs, startSec: mipmapStartSec, trackSec } = _mipmapInfo;
+      const sliceArgs = createSpectrogramSliceArgs(
+        mipmap.width,
+        mipmap.height,
+        trackSecRef.current,
+        [startSec, endSec],
+        [0, maxTrackHz],
+        hzRange,
+        MARGIN_FOR_RESIZE,
+        freqScale,
+      );
+      sliceArgs.width = Math.min(sliceArgs.width, MAX_TEXTURE_SIZE);
 
       // slice the mipmap using the sliceArgs
       const slicedArr = new Float32Array(sliceArgs.width * sliceArgs.height);
@@ -223,19 +252,19 @@ const SpecCanvas = (props: SpecCanvasProps) => {
             )
           );
       }
-      const slicedMipmap = {
+      const slicedMipmap: Mipmap = {
         arr: slicedArr,
         width: sliceArgs.width,
         height: sliceArgs.height,
       };
 
       // widths
-      const srcLeft = sliceArgs.leftMargin + (startSec - mipmapStartSec) * sliceArgs.pxPerSec;
+      const srcLeft = sliceArgs.leftMargin;
       let srcW = width * (sliceArgs.pxPerSec / pxPerSec);
       let dstW = width * _devicePixelRatio;
 
-      if (startSec + width / (pxPerSec + 1e-8) > trackSec)
-        dstW = (trackSec - startSec) * pxPerSec * _devicePixelRatio;
+      if (startSec + width / (pxPerSec + 1e-8) > trackSecRef.current)
+        dstW = (trackSecRef.current - startSec) * pxPerSec * _devicePixelRatio;
 
       srcW = Math.max(0.5, srcW);
       dstW = Math.max(0.5, dstW);
@@ -283,32 +312,33 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   );
 
   useLayoutEffect(() => {
+    if (hidden) return () => {};
     const requestId = requestAnimationFrame(
-      () => draw(mipmapInfo, needClearSpec, devicePixelRatio, height, blend),
+      () => draw(startSec, endSec, hzRange, pxPerSec, width, height, needClearSpec, devicePixelRatio, blend, mipmapSize),
     );
 
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
-  }, [draw, mipmapInfo, needClearSpec, devicePixelRatio, height, blend]);
+  }, [draw, startSec, endSec, hzRange, pxPerSec, width, height, needClearSpec, devicePixelRatio, blend, mipmapSize, hidden]);
 
-  const updateMipmapAndRequestDraw = useEvent((mipmap: Mipmap | null) => {
+  const updateMipmap = useEvent((mipmap: Mipmap | null) => {
     if (!mipmap) return;
-    // console.log("updateMipmapAndRequestDraw", mipmap, nextMipmapInfoRef.current);
+    // console.log("updateMipmap", mipmap, nextMipmapSizeRef.current);
     if (
-      nextMipmapInfoRef.current === null ||
-      nextMipmapInfoRef.current.width !== mipmap.width ||
-      nextMipmapInfoRef.current.height !== mipmap.height
+      nextMipmapSizeRef.current === null ||
+      nextMipmapSizeRef.current[0] !== mipmap.width ||
+      nextMipmapSizeRef.current[1] !== mipmap.height
     )
       return;
     mipmapRef.current = mipmap;
-    setMipmapInfo(nextMipmapInfoRef.current);
-    nextMipmapInfoRef.current = null;
+    setMipmapSize(nextMipmapSizeRef.current);
+    nextMipmapSizeRef.current = null;
   })
 
   useEffect(() => {
-    return onReturnMipmap(workerIndex, idChStr, updateMipmapAndRequestDraw);
-  }, [workerIndex, idChStr, updateMipmapAndRequestDraw]);
+    return onReturnMipmap(workerIndex, idChStr, updateMipmap);
+  }, [workerIndex, idChStr, updateMipmap]);
 
   // Cleanup WebGL resources on unmount
   useEffect(() => {

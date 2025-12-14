@@ -1,5 +1,3 @@
-use std::{io, path::PathBuf};
-
 use fast_image_resize::pixels;
 use identity_hash::IntSet;
 use ndarray::prelude::*;
@@ -22,9 +20,8 @@ pub use spectrogram::SpecSetting;
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
-use visualize::Mipmaps;
 pub use visualize::{
-    MipmapInfo, SpectrogramSliceArgs, calc_amp_axis_markers, calc_dB_axis_markers,
+    calc_amp_axis_markers, calc_dB_axis_markers,
     calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label,
     convert_sec_to_label, convert_time_label_to_sec,
 };
@@ -42,15 +39,13 @@ pub struct TrackManager {
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
-    pub spec_mipmaps: IdChMap<Mipmaps>,
+    pub spec_imgs: IdChMap<Array2<pixels::U16>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
     pub colormap_length: u32,
-    pub max_spectrogram_size: u32,
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
     no_mipmap_ids: Vec<usize>,
-    tmp_dir_path: PathBuf,
 }
 
 impl TrackManager {
@@ -59,33 +54,14 @@ impl TrackManager {
             max_dB: -f32::INFINITY,
             min_dB: f32::INFINITY,
             max_sr: 0,
-            spec_mipmaps: IdChMap::with_capacity_and_hasher(2, Default::default()),
+            spec_imgs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             setting: Default::default(),
             dB_range: 100.,
             colormap_length: 258,
-            max_spectrogram_size: 8192,
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
             no_mipmap_ids: Vec::new(),
-            tmp_dir_path: PathBuf::new(),
         }
-    }
-
-    pub fn with_max_spec_size_tmp_dir(max_spectrogram_size: u32, tmp_dir_path: PathBuf) -> Self {
-        Self {
-            max_spectrogram_size,
-            tmp_dir_path,
-            ..TrackManager::new()
-        }
-    }
-
-    pub fn set_tmp_dir_path(&mut self, tmp_dir_path: PathBuf) -> io::Result<()> {
-        self.tmp_dir_path = tmp_dir_path;
-        self.spec_mipmaps
-            .values_mut()
-            .map(|mipmap| mipmap.move_to(&self.tmp_dir_path))
-            .reduce(|result, current_result| result.and(current_result))
-            .unwrap_or(Ok(()))
     }
 
     pub fn add_tracks(&mut self, tracklist: &TrackList, added_ids: &[usize]) {
@@ -113,13 +89,13 @@ impl TrackManager {
     pub fn remove_tracks(&mut self, tracklist: &TrackList, removed_id_ch_tuples: &IdChArr) {
         for tup in removed_id_ch_tuples {
             self.specs.remove(tup);
-            self.spec_mipmaps.remove(tup);
+            self.spec_imgs.remove(tup);
         }
         if self.specs.capacity() > 2 * self.specs.len() {
             self.specs.shrink_to(2);
         }
-        if self.spec_mipmaps.capacity() > 2 * self.spec_mipmaps.len() {
-            self.spec_mipmaps.shrink_to(2);
+        if self.spec_imgs.capacity() > 2 * self.spec_imgs.len() {
+            self.spec_imgs.shrink_to(2);
         }
 
         self.spec_analyzer.retain(
@@ -160,32 +136,7 @@ impl TrackManager {
     }
 
     pub fn get_spectrogram(&'_ self, (id, ch): IdCh) -> Option<ArrayView2<'_, pixels::U16>> {
-        self.spec_mipmaps
-            .get(&(id, ch))
-            .map(|spec_mipmap| spec_mipmap.get_orig_img())
-    }
-
-    pub fn get_mipmap_info(
-        &self,
-        (id, ch): IdCh,
-        track_sec: f64,
-        sec_range: (f64, f64),
-        hz_range: (f32, f32),
-        margin_px: usize,
-    ) -> Option<MipmapInfo> {
-        let spec_hz_range = (0., self.max_sr as f32 / 2.);
-        let hz_range = ((hz_range.0).max(0.), (hz_range.1).min(spec_hz_range.1));
-
-        self.spec_mipmaps.get(&(id, ch)).map(|spec_mipmap| {
-            spec_mipmap.get_mipmap_info(
-                track_sec,
-                (sec_range.0, sec_range.1),
-                spec_hz_range,
-                hz_range,
-                margin_px,
-                &self.setting,
-            )
-        })
+        self.spec_imgs.get(&(id, ch)).map(|spec| spec.view())
     }
 
     fn update_specs<'a>(
@@ -272,17 +223,13 @@ impl TrackManager {
                         (self.min_dB, self.max_dB),
                         Some(self.colormap_length),
                     );
-                    (
-                        (id, ch),
-                        Mipmaps::new(spec_img, self.max_spectrogram_size, &self.tmp_dir_path)
-                            .unwrap(),
-                    )
+                    ((id, ch), spec_img)
                 });
 
             if need_update_all {
-                self.spec_mipmaps.clear();
+                self.spec_imgs.clear();
             }
-            self.spec_mipmaps.par_extend(new_mipmaps_iter);
+            self.spec_imgs.par_extend(new_mipmaps_iter);
         }
         ids_need_update
     }
@@ -312,7 +259,7 @@ mod tests {
         assert_eq!(&added_ids, &id_list[3..]);
         assert_eq!(tracklist.all_ids().len(), id_list.len());
 
-        assert_eq!(tm.spec_mipmaps.len(), 0);
+        assert_eq!(tm.spec_imgs.len(), 0);
         let mut updated_ids: Vec<usize> = tm
             .apply_track_list_changes(&tracklist)
             .0

@@ -908,6 +908,8 @@ function MainViewer(props: MainViewerProps) {
                     startSec={startSec}
                     pxPerSec={pxPerSec}
                     maxTrackSec={maxTrackSec}
+                    maxTrackHz={maxTrackHz}
+                    freqScale={freqScale}
                     hzRange={hzRange}
                     ampRange={ampRange}
                     blend={blend}

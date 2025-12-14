@@ -2,6 +2,12 @@ import {COLORMAP_RGBA8} from "../prototypes/constants/colors";
 
 export const MAX_WEBGL_RESOURCES = 16;
 
+const canvas = document.createElement("canvas");
+const gl = canvas.getContext("webgl2");
+if (!gl) throw new Error("WebGL2 is not supported");
+export const MAX_TEXTURE_SIZE = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+gl.getExtension("WEBGL_lose_context")?.loseContext();
+
 export const MARGIN_FOR_RESIZE = 5; // at least 3 for Lanczos-3 kernel
 
 export const VS_RESIZER = `#version 300 es
@@ -553,7 +559,7 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
 // Internal helper function to encapsulate common rendering logic
 function renderSpectrogramInternal(
   webglResources: WebGLResources,
-  spectrogram: Mipmap,
+  mipmap: Mipmap,
   srcLeft: number,
   srcTop: number,
   srcW: number,
@@ -585,8 +591,8 @@ function renderSpectrogramInternal(
   }
 
   // Vertical texture coordinates parameters
-  const vTexOffset = srcTop / spectrogram.height;
-  const vTexScale = srcH / spectrogram.height;
+  const vTexOffset = srcTop / mipmap.height;
+  const vTexScale = srcH / mipmap.height;
 
   let texSrc: WebGLTexture | null = null;
 
@@ -598,8 +604,8 @@ function renderSpectrogramInternal(
     gl.bindBuffer(gl.ARRAY_BUFFER, resizePosBuffer);
 
     // --- Texture and Framebuffer Setup ---
-    const data = spectrogram.arr;
-    texSrc = createTexture(gl, spectrogram.width, spectrogram.height, data, gl.R32F);
+    const data = mipmap.arr;
+    texSrc = createTexture(gl, mipmap.width, mipmap.height, data, gl.R32F);
 
     // Check if we need to recreate intermediate texture
     if (
@@ -635,9 +641,9 @@ function renderSpectrogramInternal(
 
     // --- Pass-1 (horizontal resize + vertical crop setup) ---
     const scaleX = dstW / srcW;
-    gl.uniform2f(resizeUniforms.uStep, 1 / spectrogram.width, 0);
-    gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / spectrogram.width);
-    gl.uniform1f(resizeUniforms.uTexScale, srcW / spectrogram.width);
+    gl.uniform2f(resizeUniforms.uStep, 1 / mipmap.width, 0);
+    gl.uniform1f(resizeUniforms.uTexOffset, srcLeft / mipmap.width);
+    gl.uniform1f(resizeUniforms.uTexScale, srcW / mipmap.width);
     gl.uniform1f(resizeUniforms.uTexOffsetY, vTexOffset);
     gl.uniform1f(resizeUniforms.uTexScaleY, vTexScale);
     if (!isBilinear && "uScale" in resizeUniforms) {
@@ -729,7 +735,7 @@ function renderSpectrogramInternal(
 
 export function renderSpectrogram(
   webglResources: WebGLResources,
-  spectrogram: Mipmap,
+  mipmap: Mipmap,
   srcLeft: number,
   srcTop: number,
   srcW: number,
@@ -741,7 +747,7 @@ export function renderSpectrogram(
 ) {
   renderSpectrogramInternal(
     webglResources,
-    spectrogram,
+    mipmap,
     srcLeft,
     srcTop,
     srcW,

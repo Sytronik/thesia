@@ -1,10 +1,8 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
-use std::num::Wrapping;
 use std::sync::LazyLock;
 
-use dashmap::DashMap;
 use fast_image_resize::pixels;
 use parking_lot::RwLock;
 use serde_json::json;
@@ -31,18 +29,12 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 static TRACK_LIST: LazyLock<RwLock<TrackList>> = LazyLock::new(|| RwLock::new(TrackList::new()));
 static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackManager::new()));
 
-type IdChStrToTaskIdMap = DashMap<String, Wrapping<u64>>;
-static DRAW_SPEC_TASK_ID_MAP: LazyLock<IdChStrToTaskIdMap> = LazyLock::new(IdChStrToTaskIdMap::new);
-static DRAW_WAV_TASK_ID_MAP: LazyLock<IdChStrToTaskIdMap> = LazyLock::new(IdChStrToTaskIdMap::new);
-
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
 #[tauri::command]
 fn init(
     user_settings: UserSettingsOptionals,
-    max_spectrogram_size: u32,
-    tmp_dir_path: String,
 ) -> tauri::Result<UserSettings> {
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
@@ -50,9 +42,7 @@ fn init(
         if !tracklist.is_empty() {
             *tracklist = TrackList::new();
             *tm =
-                TrackManager::with_max_spec_size_tmp_dir(max_spectrogram_size, tmp_dir_path.into());
-        } else {
-            tm.set_tmp_dir_path(tmp_dir_path.into())?;
+                TrackManager::new();
         }
         if let Some(setting) = user_settings.spec_setting {
             tm.set_setting(&tracklist, &setting);
@@ -119,11 +109,6 @@ fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let removed_id_ch_tuples = TRACK_LIST.write().remove_tracks(&track_ids);
-    removed_id_ch_tuples.iter().for_each(|(id, ch)| {
-        let id_ch_str = format_id_ch(*id, *ch);
-        DRAW_SPEC_TASK_ID_MAP.remove(&id_ch_str);
-        DRAW_WAV_TASK_ID_MAP.remove(&id_ch_str);
-    });
     rayon::spawn_fifo(move || {
         let tracklist = TRACK_LIST.read();
         TM.write().remove_tracks(&tracklist, &removed_id_ch_tuples);
@@ -230,6 +215,14 @@ async fn set_common_normalize(target: NormalizeTarget) {
 async fn get_spectrogram(id_ch_str: String) -> tauri::Result<serde_json::Value> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
 
+    let track_sec = {
+        let tracklist = TRACK_LIST.read();
+        match tracklist.get(id) {
+            Some(track) => track.sec(),
+            None => return Ok(serde_json::Value::Null),
+        }
+    };
+
     let out = {
         let tm = TM.read();
         tm.get_spectrogram((id, ch)).map(|spec| {
@@ -240,61 +233,11 @@ async fn get_spectrogram(id_ch_str: String) -> tauri::Result<serde_json::Value> 
                 arr,
                 width: width as u32,
                 height: height as u32,
+                track_sec,
             }
         })
     };
     Ok(json!(out))
-}
-
-#[tauri::command]
-async fn get_mipmap_info(
-    id_ch_str: String,
-    sec_range: (f64, f64),
-    hz_range: (f64, Option<f64>),
-    margin_px: u32,
-) -> tauri::Result<Option<MipmapInfo>> {
-    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    let sec_range = (sec_range.0.max(0.), sec_range.1);
-    if sec_range.0 >= sec_range.1 {
-        return Ok(None);
-    }
-
-    let task_id = {
-        let mut entry = DRAW_SPEC_TASK_ID_MAP
-            .entry(id_ch_str.clone())
-            .or_insert(Wrapping(0));
-        *entry.value_mut() += 1;
-        *entry.value()
-    };
-
-    let out = tokio_rayon::spawn(move || {
-        let track_sec = {
-            let tracklist = TRACK_LIST.read();
-            tracklist.get(id)?.sec()
-        };
-        if sec_range.0 >= track_sec {
-            return None;
-        }
-        TM.read().get_mipmap_info(
-            (id, ch),
-            track_sec,
-            sec_range,
-            (
-                hz_range.0 as f32,
-                hz_range.1.unwrap_or(f64::INFINITY) as f32,
-            ),
-            margin_px as usize,
-        )
-    })
-    .await;
-
-    if DRAW_SPEC_TASK_ID_MAP
-        .get(&id_ch_str)
-        .is_none_or(|id| *id != task_id)
-    {
-        return Ok(None); // if new task has been started, return None
-    }
-    Ok(out)
 }
 
 #[tauri::command]
@@ -700,7 +643,6 @@ pub fn run() {
             get_common_normalize,
             set_common_normalize,
             get_spectrogram,
-            get_mipmap_info,
             get_wav,
             find_id_by_path,
             get_limiter_gain,

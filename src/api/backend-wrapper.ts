@@ -49,26 +49,7 @@ export interface Spectrogram {
   arr: Uint16Array
   width: number
   height: number
-}
-
-export interface MipmapInfo {
-  width: number
-  height: number
-  sliceArgs: SpectrogramSliceArgs
-  startSec: number
   trackSec: number
-}
-
-export interface SpectrogramSliceArgs {
-  pxPerSec: number
-  left: number
-  width: number
-  top: number
-  height: number
-  leftMargin: number
-  rightMargin: number
-  topMargin: number
-  bottomMargin: number
 }
 
 export interface UserSettings {
@@ -221,16 +202,8 @@ export async function getPlayerState(): Promise<PlayerState> {
   return invoke<PlayerState>("get_player_state");
 }
 
-export async function init(
-  userSettings: UserSettingsOptionals,
-  maxTextureSize: number,
-  tempDirectory: string,
-): Promise<UserSettings> {
-  return invoke<UserSettings>("init", {
-    userSettings,
-    maxSpectrogramSize: maxTextureSize,
-    tmpDirPath: tempDirectory,
-  });
+export async function init( userSettings: UserSettingsOptionals): Promise<UserSettings> {
+  return invoke<UserSettings>("init", { userSettings });
 }
 
 export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {
@@ -282,18 +255,6 @@ export async function getSpectrogram(idChStr: string): Promise<Spectrogram | nul
   if (!out) return null;
   out.arr = new Uint16Array(out.arr);
   return out;
-}
-
-export async function getMipmapInfo(
-  idChStr: string,
-  secRange: [number, number],
-  hzRange: [number, number],
-  marginPx: number,
-): Promise<MipmapInfo | null> {
-  return invoke<MipmapInfo | null>(
-    "get_mipmap_info",
-    { idChStr, secRange, hzRange, marginPx },
-  );
 }
 
 export async function findIdByPath(path: string): Promise<number> {

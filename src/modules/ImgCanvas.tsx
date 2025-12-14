@@ -13,7 +13,7 @@ import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "src/contexts";
 
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI from "../api";
+import BackendAPI, { FreqScale } from "../api";
 import { postMessageToWorker, NUM_WORKERS } from "../lib/worker-pool";
 import SpecCanvas from "./SpecCanvas";
 
@@ -29,6 +29,8 @@ type ImgCanvasProps = {
   startSec: number;
   pxPerSec: number;
   maxTrackSec: number;
+  maxTrackHz: number;
+  freqScale: FreqScale;
   hzRange: [number, number];
   ampRange: [number, number];
   blend: number;
@@ -49,6 +51,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     startSec,
     pxPerSec,
     maxTrackSec,
+    maxTrackHz,
+    freqScale,
     hzRange,
     ampRange,
     blend,
@@ -58,7 +62,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   } = props;
   const workerIndex = idChStrToWorkerIndex(idChStr);
 
-  const specIsNotNeeded = blend <= 0 || hidden;
   const needHideWav = blend >= 1 || hidden;
 
   const devicePixelRatio = useContext(DevicePixelRatioContext);
@@ -112,7 +115,6 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     });
   }, [blend, workerIndex, idChStr, width, height, startSec, pxPerSec, ampRange]);
 
-  // Draw spectrogram when props change
   // Use a ref to store the latest draw function
   const drawWavImageRef = useRef(drawWavImage);
 
@@ -224,11 +226,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         height={height}
         startSec={startSec}
         pxPerSec={pxPerSec}
+        maxTrackHz={maxTrackHz}
+        freqScale={freqScale}
         hzRange={hzRange}
         blend={blend}
         needRefresh={needRefresh}
         hidden={hidden}
-        specIsNotNeeded={specIsNotNeeded}
         workerIndex={workerIndex}
       />
       <canvas
