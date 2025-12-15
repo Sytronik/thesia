@@ -38,9 +38,10 @@ pub fn draw_overview(
     ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
 
     let wav_caches = WAV_CACHES.read();
-    if id_ch_arr.is_empty() || id_ch_arr
-        .iter()
-        .any(|id_ch| wav_caches.get(id_ch).is_none())
+    if id_ch_arr.is_empty()
+        || id_ch_arr
+            .iter()
+            .any(|id_ch| wav_caches.get(id_ch).is_none())
     {
         return Ok(());
     }

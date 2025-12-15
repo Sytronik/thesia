@@ -17,37 +17,26 @@ static SPEC_MIPMAPS: LazyLock<RwLock<HashMap<String, Mipmaps>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[wasm_bindgen(js_name = setSpectrogram)]
-pub fn set_spectrogram(
-    id_ch_str: &str,
-    spectrogram: WasmU16Array,
-    width: u32,
-    height: u32,
-) {
+pub fn set_spectrogram(id_ch_str: &str, spectrogram: WasmU16Array, width: u32, height: u32) {
     let vec = spectrogram.into();
     let vec = unsafe { std::mem::transmute::<Vec<u16>, Vec<pixels::U16>>(vec) };
     let spec_img = Array2::from_shape_vec((height as usize, width as usize), vec).unwrap();
-    SPEC_MIPMAPS.write().insert(
-        id_ch_str.into(),
-        Mipmaps::new(spec_img),
-    );
+    SPEC_MIPMAPS
+        .write()
+        .insert(id_ch_str.into(), Mipmaps::new(spec_img));
 }
 
 #[wasm_bindgen(js_name = getMipmap)]
-pub fn get_mipmap(
-    id_ch_str: &str,
-    width: u32,
-    height: u32,
-) -> Option<WasmU8Array> {
-    SPEC_MIPMAPS.read().get(id_ch_str).map(|mipmaps| {
-        serialize_2d_array(mipmaps.get_mipmap(width, height).view())
-    })
+pub fn get_mipmap(id_ch_str: &str, width: u32, height: u32) -> Option<WasmU8Array> {
+    SPEC_MIPMAPS
+        .read()
+        .get(id_ch_str)
+        .map(|mipmaps| serialize_2d_array(mipmaps.get_mipmap(width, height).view()))
 }
 
 fn serialize_2d_array(array: ArrayView2<f32>) -> WasmU8Array {
-    let mut buf: Vec<u8> = Vec::with_capacity(
-        2 * size_of::<u32>()
-            + array.len() * size_of::<f32>(),
-    );
+    let mut buf: Vec<u8> =
+        Vec::with_capacity(2 * size_of::<u32>() + array.len() * size_of::<f32>());
     buf.extend_from_slice(&array.shape()[0].to_le_bytes());
     buf.extend_from_slice(&array.shape()[1].to_le_bytes());
     buf.extend_from_slice(to_byte_slice(&array.as_slice().unwrap()));
@@ -60,27 +49,22 @@ struct Mipmaps {
 }
 
 impl Mipmaps {
-    pub fn new(
-        orig_img: Array2<pixels::U16>,
-    ) -> Self {
+    pub fn new(orig_img: Array2<pixels::U16>) -> Self {
         Self {
             orig_img,
             // mipmaps: vec![vec![]],
         }
     }
 
-    pub fn get_mipmap(
-        &self,
-        width: u32,
-        height: u32,
-    ) -> Array2<f32> {
+    pub fn get_mipmap(&self, width: u32, height: u32) -> Array2<f32> {
         let (orig_height, orig_width) = (self.orig_img.shape()[0], self.orig_img.shape()[1]);
-        let mipmap: CowArray<pixels::U16, Ix2> = if width != orig_width as u32 || height != orig_height as u32 {
-            let mipmap = resize(self.orig_img.view(), width, height);
-            mipmap.into()
-        } else {
-            self.orig_img.view().into()
-        };
+        let mipmap: CowArray<pixels::U16, Ix2> =
+            if width != orig_width as u32 || height != orig_height as u32 {
+                let mipmap = resize(self.orig_img.view(), width, height);
+                mipmap.into()
+            } else {
+                self.orig_img.view().into()
+            };
         mipmap.mapv(u16_to_f32)
     }
 }

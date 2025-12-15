@@ -21,9 +21,8 @@ pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
 pub use visualize::{
-    calc_amp_axis_markers, calc_dB_axis_markers,
-    calc_freq_axis_markers, calc_time_axis_markers, convert_freq_label_to_hz, convert_hz_to_label,
-    convert_sec_to_label, convert_time_label_to_sec,
+    calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
+    convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
 };
 
 pub type IdCh = (usize, usize);

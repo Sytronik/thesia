@@ -33,16 +33,13 @@ static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackMa
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
 #[tauri::command]
-fn init(
-    user_settings: UserSettingsOptionals,
-) -> tauri::Result<UserSettings> {
+fn init(user_settings: UserSettingsOptionals) -> tauri::Result<UserSettings> {
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
         let mut tm = TM.write();
         if !tracklist.is_empty() {
             *tracklist = TrackList::new();
-            *tm =
-                TrackManager::new();
+            *tm = TrackManager::new();
         }
         if let Some(setting) = user_settings.spec_setting {
             tm.set_setting(&tracklist, &setting);
