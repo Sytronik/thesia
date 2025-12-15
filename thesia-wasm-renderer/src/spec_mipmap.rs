@@ -26,6 +26,11 @@ pub fn set_spectrogram(id_ch_str: &str, spectrogram: WasmU16Array, width: u32, h
         .insert(id_ch_str.into(), Mipmaps::new(spec_img));
 }
 
+#[wasm_bindgen(js_name = removeSpectrogram)]
+pub fn remove_spectrogram(id_ch_str: &str) {
+    SPEC_MIPMAPS.write().remove(id_ch_str);
+}
+
 #[wasm_bindgen(js_name = getMipmap)]
 pub fn get_mipmap(id_ch_str: &str, width: u32, height: u32) -> Option<WasmU8Array> {
     SPEC_MIPMAPS

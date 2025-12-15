@@ -20,6 +20,13 @@ export type SetSpectrogramMessage = {
   };
 };
 
+type RemoveSpectrogramMessage = {
+  type: "removeSpectrogram";
+  data: {
+    idChStr: IdChannel;
+  };
+};
+
 type GetMipmapMessage = {
   type: "getMipmap";
   data: {
@@ -75,6 +82,7 @@ type ClearWavMessage = {
 export type RendererWorkerMessage =
   | InitMessage
   | SetSpectrogramMessage
+  | RemoveSpectrogramMessage
   | GetMipmapMessage
   | SetDevicePixelRatioMessage
   | SetWavMessage
@@ -118,6 +126,11 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
           type: "setSpectrogramDone",
           data: {idChStr},
         });
+        break;
+      }
+      case "removeSpectrogram": {
+        const {idChStr} = message.data;
+        WasmAPI.removeSpectrogram(idChStr);
         break;
       }
       case "getMipmap": {

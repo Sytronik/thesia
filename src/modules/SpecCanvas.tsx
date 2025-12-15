@@ -143,8 +143,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
       }
     });
     return () => {
-      // TODO
-      // postMessageToWorker(workerIndex, {type: "removeSpectrogram", data: {idChStr}});
+      postMessageToWorker(_workerIndex, {type: "removeSpectrogram", data: {idChStr: _idChStr}});
     };
   });
 
