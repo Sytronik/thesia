@@ -79,15 +79,18 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({getBoundingClientRect});
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
-  const wavCanvasElemCallback = useCallback((elem: HTMLCanvasElement | null) => {
-    wavCanvasElem.current = elem;
+  const wavCanvasElemCallback = useCallback(
+    (elem: HTMLCanvasElement | null) => {
+      wavCanvasElem.current = elem;
 
-    if (!wavCanvasElem.current) return;
-    const offscreenCanvas = wavCanvasElem.current.transferControlToOffscreen();
-    postMessageToWorker(workerIndex, {type: "init", data: {idChStr, canvas: offscreenCanvas}}, [
-      offscreenCanvas,
-    ]);
-  }, []);
+      if (!wavCanvasElem.current) return;
+      const offscreenCanvas = wavCanvasElem.current.transferControlToOffscreen();
+      postMessageToWorker(workerIndex, {type: "init", data: {idChStr, canvas: offscreenCanvas}}, [
+        offscreenCanvas,
+      ]);
+    },
+    [workerIndex, idChStr],
+  );
 
   useEffect(() => {
     postMessageToWorker(workerIndex, {type: "setDevicePixelRatio", data: {devicePixelRatio}});
