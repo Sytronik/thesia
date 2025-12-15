@@ -83,16 +83,10 @@ export default [
       "no-restricted-exports": 0,
       "jsx-a11y/click-events-have-key-events": "warn",
       "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/label-has-associated-control": [
-        2,
-        { labelAttributes: ["htmlFor"] },
-      ],
+      "jsx-a11y/label-has-associated-control": [2, {labelAttributes: ["htmlFor"]}],
       "jsx-a11y/control-has-associated-label": "warn",
       "promise/always-return": "off",
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { argsIgnorePattern: "^_" },
-      ],
+      "@typescript-eslint/no-unused-vars": ["warn", {argsIgnorePattern: "^_"}],
     },
     settings: {
       react: {

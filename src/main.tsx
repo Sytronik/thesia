@@ -2,8 +2,8 @@ import ReactDOM from "react-dom/client";
 // import {ipcRenderer} from "electron";
 import {UserSettingsOptionals} from "src/api/backend-wrapper";
 import BackendAPI from "./api";
-import { setUserSetting } from "./lib/ipc-sender";
-import { COLORMAP_RGBA8 } from "./prototypes/constants/colors";
+import {setUserSetting} from "./lib/ipc-sender";
+import {COLORMAP_RGBA8} from "./prototypes/constants/colors";
 import App from "./App";
 
 const container = document.getElementById("root") as HTMLElement;
@@ -25,7 +25,5 @@ const userSettingsOrInitialValues = await BackendAPI.init(userSettings);
 // );
 BackendAPI.setColormapLength(COLORMAP_RGBA8.length / 4);
 
-root.render(
-    <App userSettings={userSettingsOrInitialValues} />
-);
+root.render(<App userSettings={userSettingsOrInitialValues} />);
 // });

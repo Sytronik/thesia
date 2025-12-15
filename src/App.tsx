@@ -1,9 +1,9 @@
-import { MemoryRouter as Router, Routes, Route } from "react-router-dom";
-import { useEffect, useMemo, useRef } from "react";
+import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
+import {useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
 // import {ipcRenderer} from "electron";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
+import {DndProvider} from "react-dnd";
+import {HTML5Backend} from "react-dnd-html5-backend";
 import {UserSettings} from "src/api/backend-wrapper";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
@@ -17,17 +17,17 @@ import {
   removeGlobalFocusOutListener,
   showEditContextMenuIfEditableNode,
 } from "./lib/ipc-sender";
-import { SUPPORTED_MIME } from "./prototypes/constants/constants";
+import {SUPPORTED_MIME} from "./prototypes/constants/constants";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
-import { DevicePixelRatioProvider } from "./contexts";
+import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
-import { getOpenTracksHandler, listenMenuOpenAudioTracks, showFileOpenErrorMsg } from './lib/ipc';
+import {getOpenTracksHandler, listenMenuOpenAudioTracks, showFileOpenErrorMsg} from "./lib/ipc";
 
-type AppProps = { userSettings: UserSettings };
+type AppProps = {userSettings: UserSettings};
 
-function MyApp({ userSettings }: AppProps) {
+function MyApp({userSettings}: AppProps) {
   const {
     trackIds,
     hiddenTrackIds,
@@ -72,48 +72,46 @@ function MyApp({ userSettings }: AppProps) {
       !erroredTrackIds.includes(selectedTrackIds[selectedTrackIds.length - 1])
       ? selectedTrackIds[selectedTrackIds.length - 1]
       : -1,
-    maxTrackSec
+    maxTrackSec,
   );
 
   const prevTrackIds = useRef<number[]>([]); // includes hidden tracks
 
-  const addDroppedFile = useEvent(
-    async (item: { files: File[] }, index: number) => {
-      const newPaths: string[] = [];
-      const unsupportedPaths: string[] = [];
+  const addDroppedFile = useEvent(async (item: {files: File[]}, index: number) => {
+    const newPaths: string[] = [];
+    const unsupportedPaths: string[] = [];
 
-      if (item.files.length === 0) {
-        console.error("no file exists in dropzone");
-        return;
-      }
-
-      const droppedFiles = Array.from(item.files);
-
-      droppedFiles.forEach((file: File) => {
-        // TODO
-        // if (SUPPORTED_MIME.includes(file.type)) {
-        //   newPaths.push(file.path);
-        // } else {
-        unsupportedPaths.push(file.name);
-        // }
-      });
-
-      const { existingIds, invalidPaths } = await addTracks(newPaths, index);
-
-      if (unsupportedPaths.length || invalidPaths.length) {
-        showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
-      }
-      if (existingIds.length) {
-        await reloadTracks(existingIds);
-      }
-      await refreshTracks();
+    if (item.files.length === 0) {
+      console.error("no file exists in dropzone");
+      return;
     }
-  );
+
+    const droppedFiles = Array.from(item.files);
+
+    droppedFiles.forEach((file: File) => {
+      // TODO
+      // if (SUPPORTED_MIME.includes(file.type)) {
+      //   newPaths.push(file.path);
+      // } else {
+      unsupportedPaths.push(file.name);
+      // }
+    });
+
+    const {existingIds, invalidPaths} = await addTracks(newPaths, index);
+
+    if (unsupportedPaths.length || invalidPaths.length) {
+      showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
+    }
+    if (existingIds.length) {
+      await reloadTracks(existingIds);
+    }
+    await refreshTracks();
+  });
 
   const openAudioTracks = useEvent(async (filePaths: string[]) => {
     const unsupportedPaths: string[] = [];
 
-    const { existingIds, invalidPaths } = await addTracks(filePaths);
+    const {existingIds, invalidPaths} = await addTracks(filePaths);
 
     if (unsupportedPaths.length || invalidPaths.length) {
       showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
@@ -127,7 +125,7 @@ function MyApp({ userSettings }: AppProps) {
 
   const openAudioTracksHandler = useMemo(
     () => getOpenTracksHandler(openAudioTracks),
-    [openAudioTracks]
+    [openAudioTracks],
   );
 
   useEffect(() => {
@@ -151,15 +149,9 @@ function MyApp({ userSettings }: AppProps) {
   }, [removeSelectedTracks]);
 
   useEffect(() => {
-    document.body.addEventListener(
-      "contextmenu",
-      showEditContextMenuIfEditableNode
-    );
+    document.body.addEventListener("contextmenu", showEditContextMenuIfEditableNode);
     return () => {
-      document.body.removeEventListener(
-        "contextmenu",
-        showEditContextMenuIfEditableNode
-      );
+      document.body.removeEventListener("contextmenu", showEditContextMenuIfEditableNode);
     };
   }, []);
 
@@ -199,12 +191,7 @@ function MyApp({ userSettings }: AppProps) {
     }
 
     prevTrackIds.current = trackIds.concat(hiddenTrackIds);
-  }, [
-    trackIds,
-    hiddenTrackIds,
-    selectTrackAfterAddTracks,
-    selectTrackAfterRemoveTracks,
-  ]);
+  }, [trackIds, hiddenTrackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
 
   return (
     <div id="App" className="App">
@@ -257,7 +244,7 @@ function MyApp({ userSettings }: AppProps) {
   );
 }
 
-export default function App({ userSettings }: AppProps) {
+export default function App({userSettings}: AppProps) {
   useEffect(notifyAppRendered, []);
 
   return (

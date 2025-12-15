@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import {invoke} from "@tauri-apps/api/core";
 
 export async function getChannelCounts(trackId: number): Promise<1 | 2> {
   const ch = await invoke<number>("get_channel_counts", {trackId});
@@ -22,50 +22,50 @@ export type MarkerDrawOption = {
 };
 
 export interface AudioFormatInfo {
-  name: string
-  sampleRate: number
-  bitDepth: string
-  bitrate: string
+  name: string;
+  sampleRate: number;
+  bitDepth: string;
+  bitrate: string;
 }
 
-export type FreqScale = 'Linear' | 'Mel';
+export type FreqScale = "Linear" | "Mel";
 
-export type GuardClippingMode = 'Clip' | 'ReduceGlobalLevel' | 'Limiter';
+export type GuardClippingMode = "Clip" | "ReduceGlobalLevel" | "Limiter";
 
 export interface PlayerState {
-  isPlaying: boolean
-  positionSec: number
-  err: string
+  isPlaying: boolean;
+  positionSec: number;
+  err: string;
 }
 
 export interface SpecSetting {
-  winMillisec: number
-  tOverlap: number
-  fOverlap: number
-  freqScale: FreqScale
+  winMillisec: number;
+  tOverlap: number;
+  fOverlap: number;
+  freqScale: FreqScale;
 }
 
 export interface Spectrogram {
-  arr: Uint16Array
-  width: number
-  height: number
-  trackSec: number
+  arr: Uint16Array;
+  width: number;
+  height: number;
+  trackSec: number;
 }
 
 export interface UserSettings {
-  specSetting: SpecSetting
-  blend: number
-  dBRange: number
-  commonGuardClipping: GuardClippingMode
-  commonNormalize: any
+  specSetting: SpecSetting;
+  blend: number;
+  dBRange: number;
+  commonGuardClipping: GuardClippingMode;
+  commonNormalize: any;
 }
 
 export interface UserSettingsOptionals {
-  specSetting?: SpecSetting
-  blend?: number
-  dBRange?: number
-  commonGuardClipping?: GuardClippingMode
-  commonNormalize?: any
+  specSetting?: SpecSetting;
+  blend?: number;
+  dBRange?: number;
+  commonGuardClipping?: GuardClippingMode;
+  commonNormalize?: any;
 }
 
 /* draw tracks */
@@ -81,16 +81,13 @@ export async function getTimeAxisMarkers(
     console.error("no markerDrawOptions for time axis exist");
     return [];
   }
-  return invoke<Markers>(
-    "get_time_axis_markers",
-    {
-      startSec,
-      endSec,
-      tickUnit: subTickSec,
-      labelInterval: subTickUnitCount,
-      maxSec,
-    },
-  );
+  return invoke<Markers>("get_time_axis_markers", {
+    startSec,
+    endSec,
+    tickUnit: subTickSec,
+    labelInterval: subTickUnitCount,
+    maxSec,
+  });
 }
 
 /* track axis */
@@ -105,10 +102,7 @@ export async function getFreqAxisMarkers(
     console.error("no markerDrawOptions for freq axis exist");
     return [];
   }
-  return invoke<Markers>(
-    "get_freq_axis_markers",
-    { maxNumTicks, maxNumLabels, hzRange, maxTrackHz },
-  );
+  return invoke<Markers>("get_freq_axis_markers", {maxNumTicks, maxNumLabels, hzRange, maxTrackHz});
 }
 
 export async function getAmpAxisMarkers(
@@ -123,10 +117,7 @@ export async function getAmpAxisMarkers(
     return [];
   }
 
-  return invoke<Markers>(
-    "get_amp_axis_markers",
-    { maxNumTicks, maxNumLabels, ampRange },
-  );
+  return invoke<Markers>("get_amp_axis_markers", {maxNumTicks, maxNumLabels, ampRange});
 }
 
 /* dB Axis */
@@ -143,10 +134,12 @@ export async function getdBAxisMarkers(
     return [];
   }
 
-  return invoke<Markers>(
-    "get_dB_axis_markers",
-    { maxNumTicks, maxNumLabels, minDB: mindB, maxDB: maxdB },
-  );
+  return invoke<Markers>("get_dB_axis_markers", {
+    maxNumTicks,
+    maxNumLabels,
+    minDB: mindB,
+    maxDB: maxdB,
+  });
 }
 
 // IdChannel is form of id#_ch#
@@ -202,8 +195,8 @@ export async function getPlayerState(): Promise<PlayerState> {
   return invoke<PlayerState>("get_player_state");
 }
 
-export async function init( userSettings: UserSettingsOptionals): Promise<UserSettings> {
-  return invoke<UserSettings>("init", { userSettings });
+export async function init(userSettings: UserSettingsOptionals): Promise<UserSettings> {
+  return invoke<UserSettings>("init", {userSettings});
 }
 
 export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {

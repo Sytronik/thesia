@@ -56,15 +56,15 @@ export function createWasmU16Array(length: number): [WasmU16Array, Uint16Array] 
   return [wasmSpec, view];
 }
 
-export function setSpectrogram(idChStr: string, arr: Uint16Array, width: number, height: number): void {
+export function setSpectrogram(
+  idChStr: string,
+  arr: Uint16Array,
+  width: number,
+  height: number,
+): void {
   const [wasmArr, view] = createWasmU16Array(arr.length);
   view.set(arr);
-  _setSpectrogram(
-    idChStr,
-    wasmArr,
-    width,
-    height,
-  );
+  _setSpectrogram(idChStr, wasmArr, width, height);
 }
 
 export type Mipmap = {
@@ -75,9 +75,7 @@ export type Mipmap = {
 
 export function getMipmap(idChStr: string, width: number, height: number): Mipmap | null {
   if (!wasmInitialized) {
-    throw new Error(
-      "WASM module has not been initialized. Please call initWasm() first."
-    );
+    throw new Error("WASM module has not been initialized. Please call initWasm() first.");
   }
 
   const info = _getMipmap(idChStr, width, height);
@@ -95,7 +93,7 @@ export function getMipmap(idChStr: string, width: number, height: number): Mipma
 }
 
 // Named exports
-export { WasmFloat32Array, WasmU16Array, WasmU8Array };
+export {WasmFloat32Array, WasmU16Array, WasmU8Array};
 export default {
   initWasm,
   isWasmInitialized,

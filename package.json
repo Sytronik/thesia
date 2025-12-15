@@ -29,24 +29,48 @@
     "use-device-pixel-ratio": "^1.1.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.17",
     "@types/react-dom": "^19.1.11",
     "@types/throttle-debounce": "^5.0.2",
-    "@eslint/js": "^9.39.2",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
     "@vitejs/plugin-react": "^5.1.2",
     "eslint": "^9.39.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-promise": "^7.1.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "prettier": "^3.7.4",
     "react-devtools": "^7.0.1",
     "react-devtools-core": "^7.0.1",
     "sass": "^1.93.3",
     "sass-embedded": "^1.93.3",
     "typescript": "~5.9.3",
     "vite": "^7.2.2"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "tabWidth": 2,
+    "useTabs": false,
+    "semi": true,
+    "singleQuote": false,
+    "trailingComma": "all",
+    "bracketSpacing": false,
+    "jsxBracketSameLine": false,
+    "arrowParens": "always",
+    "overrides": [
+      {
+        "files": [
+          ".prettierrc",
+          ".eslintrc"
+        ],
+        "options": {
+          "parser": "json"
+        }
+      }
+    ]
   }
 }

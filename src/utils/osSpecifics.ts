@@ -1,4 +1,4 @@
-import { Hotkey } from "react-hotkeys-hook/packages/react-hotkeys-hook/dist/types";
+import {Hotkey} from "react-hotkeys-hook/packages/react-hotkeys-hook/dist/types";
 
 export function isApple() {
   const expression = /(Mac|iPhone|iPod|iPad)/i;

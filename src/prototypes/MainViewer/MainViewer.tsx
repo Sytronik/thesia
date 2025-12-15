@@ -20,7 +20,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import BackendAPI, { FreqScale } from "../../api";
+import BackendAPI, {FreqScale} from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
@@ -207,8 +207,8 @@ function MainViewer(props: MainViewerProps) {
 
   const [freqScale, setFreqScale] = useState<FreqScale>("Mel");
   useEffect(() => {
-    BackendAPI.getSpecSetting().then(({freqScale}) => {
-      setFreqScale(freqScale);
+    BackendAPI.getSpecSetting().then(({freqScale: _freqScale}) => {
+      setFreqScale(_freqScale);
     });
   });
   const freqMarkersDrawOptions = useMemo(
@@ -694,22 +694,26 @@ function MainViewer(props: MainViewerProps) {
   const [trackSummaryArr, setTrackSummaryArr] = useState<TrackSummaryData[]>([]);
   useEffect(() => {
     setTrackSummaryArr(Array(trackIds.length).fill(null));
-    Promise.all(trackIds.map(async (trackId) => {
-      const formatInfo = await BackendAPI.getFormatInfo(trackId);
-      return {
-        fileName: await BackendAPI.getFileName(trackId),
-        time: new Date(await BackendAPI.getLengthSec(trackId) * 1000).toISOString().substring(11, 23),
-        formatName: formatInfo.name,
-        bitDepth: formatInfo.bitDepth,
-        bitrate: formatInfo.bitrate,
-        sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-        globalLUFS: `${((await BackendAPI.getGlobalLUFS(trackId)) ?? -Infinity).toFixed(2)} LUFS`,
-        guardClipStats: await BackendAPI.getGuardClipStats(trackId),
-      };
-    })).then((trackSummaryArr) => {
-      setTrackSummaryArr(trackSummaryArr);
+    Promise.all(
+      trackIds.map(async (trackId) => {
+        const formatInfo = await BackendAPI.getFormatInfo(trackId);
+        return {
+          fileName: await BackendAPI.getFileName(trackId),
+          time: new Date((await BackendAPI.getLengthSec(trackId)) * 1000)
+            .toISOString()
+            .substring(11, 23),
+          formatName: formatInfo.name,
+          bitDepth: formatInfo.bitDepth,
+          bitrate: formatInfo.bitrate,
+          sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
+          globalLUFS: `${((await BackendAPI.getGlobalLUFS(trackId)) ?? -Infinity).toFixed(2)} LUFS`,
+          guardClipStats: await BackendAPI.getGuardClipStats(trackId),
+        };
+      }),
+    ).then((_trackSummaryArr) => {
+      setTrackSummaryArr(_trackSummaryArr);
     });
-  }, [trackIds, needRefreshTrackIdChArr]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trackIds, needRefreshTrackIdChArr]);
 
   // auto-scroll to the recently selected track
   const reducerForTrackInfoElemRange = useEvent(

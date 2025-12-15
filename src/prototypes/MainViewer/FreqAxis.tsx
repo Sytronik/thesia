@@ -206,7 +206,10 @@ function FreqAxis(props: FreqAxisProps) {
 
   const [hzRangeLabel, setHzRangeLabel] = useState<[string, string]>(["", ""]);
   useEffect(() => {
-    Promise.all([BackendAPI.hzToLabel(Math.min(hzRange[0], maxTrackHz)), BackendAPI.hzToLabel(Math.min(hzRange[1], maxTrackHz))]).then(([minHzLabel, maxHzLabel]) => {
+    Promise.all([
+      BackendAPI.hzToLabel(Math.min(hzRange[0], maxTrackHz)),
+      BackendAPI.hzToLabel(Math.min(hzRange[1], maxTrackHz)),
+    ]).then(([minHzLabel, maxHzLabel]) => {
       setHzRangeLabel([minHzLabel, maxHzLabel]);
     });
   }, [hzRange, maxTrackHz]);

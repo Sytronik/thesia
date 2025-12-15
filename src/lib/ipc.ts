@@ -1,26 +1,26 @@
 // import {BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions, app} from "electron";
 // import settings from "electron-settings";
-import { message, open } from '@tauri-apps/plugin-dialog';
-import { path } from '@tauri-apps/api';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import {message, open} from "@tauri-apps/plugin-dialog";
+import {path} from "@tauri-apps/api";
+import {invoke} from "@tauri-apps/api/core";
+import {listen, UnlistenFn} from "@tauri-apps/api/event";
 import {SUPPORTED_TYPES} from "src/prototypes/constants/constants";
 
 export async function showOpenDialog() {
   // get the default path
-  const projectRoot = await invoke<string | null>('get_project_root');
+  const projectRoot = await invoke<string | null>("get_project_root");
   const defaultPath = projectRoot ? await path.join(projectRoot, "samples/") : await path.homeDir();
   // const openDialogPath = ((await settings.get("openDialogPath")) as string) ?? defaultPath;
 
   // show the open dialog
-  const files = await open({ 
+  const files = await open({
     multiple: true,
-    directory: false, 
-    filters: [{ name: "Audio Files", extensions: SUPPORTED_TYPES }], 
-    title: "Select the audio files to be open", 
-    defaultPath, 
+    directory: false,
+    filters: [{name: "Audio Files", extensions: SUPPORTED_TYPES}],
+    title: "Select the audio files to be open",
+    defaultPath,
     canCreateDirectories: false,
-   });
+  });
 
   if (files && files.length > 0) {
     // find the common directory of the filepaths
@@ -54,17 +54,19 @@ export function addAppRenderedListener(pathsToOpen: string[]) {
   }); */
 }
 
-export function getOpenTracksHandler(callback: (files: string[]) => void | Promise<void>): () => Promise<void> {
+export function getOpenTracksHandler(
+  callback: (files: string[]) => void | Promise<void>,
+): () => Promise<void> {
   return async () => {
-    invoke('disable_play_menu');
+    invoke("disable_play_menu");
     const files = await showOpenDialog();
-    invoke('enable_play_menu');
+    invoke("enable_play_menu");
     if (files && files.length > 0) callback(files);
   };
 }
 
 export async function listenMenuOpenAudioTracks(handler: () => Promise<void>): Promise<UnlistenFn> {
-  return listen('menu-open-audio-tracks', handler);
+  return listen("menu-open-audio-tracks", handler);
 }
 
 const numFilesLabel = (numFiles: number) => (numFiles >= 5 ? ` (${numFiles} files)` : ``);
@@ -86,16 +88,16 @@ export async function showFileOpenErrorMsg(unsupportedPaths: string[], invalidPa
     : "";
   await message(
     "The following files could not be opened\n\n" +
-    `${msgUnsupported}` +
-    `${msgInvalid}` +
-    "Please ensure that the file properties are correct and that it is a supported file type.\n\n" +
-    `Only files with the following extensions are allowed:\n  ${SUPPORTED_TYPES.join(", ")}`,
-   { title: 'File Open Error', kind: 'error' });
+      `${msgUnsupported}` +
+      `${msgInvalid}` +
+      "Please ensure that the file properties are correct and that it is a supported file type.\n\n" +
+      `Only files with the following extensions are allowed:\n  ${SUPPORTED_TYPES.join(", ")}`,
+    {title: "File Open Error", kind: "error"},
+  );
 }
 
 export default function addIPCListeners() {
   // ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
-
   /* ipcMain.on("show-open-dialog", async (event) => {
     event.reply("remove-global-focusout-listener");
     mutateEditMenu((item) => {
@@ -115,7 +117,6 @@ export default function addIPCListeners() {
     if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
     event.reply("add-global-focusout-listener");
   }); */
-
   /* ipcMain.on("show-track-context-menu", (event) => {
     const menu = Menu.buildFromTemplate([
       {
@@ -129,7 +130,6 @@ export default function addIPCListeners() {
     ]);
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
   }); */
-
   /* ipcMain.on("show-axis-context-menu", (event, axisKind, id) => {
     const template: MenuItemConstructorOptions[] = [];
     if (axisKind === "ampAxis") {
@@ -158,7 +158,6 @@ export default function addIPCListeners() {
     const menu = Menu.buildFromTemplate(template);
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
   }); */
-
   /* ipcMain.on("show-edit-context-menu", (event) => {
     const menu = Menu.buildFromTemplate([
       {role: "undo"},
@@ -172,7 +171,6 @@ export default function addIPCListeners() {
     ]);
     menu.popup({window: BrowserWindow.fromWebContents(event.sender) ?? undefined});
   }); */
-
   /* ipcMain
     .on("enable-edit-menu", () => {
       mutateEditMenu((item) => {
@@ -188,7 +186,6 @@ export default function addIPCListeners() {
       const selectAllTracksMenu = Menu.getApplicationMenu()?.getMenuItemById("select-all-tracks");
       if (selectAllTracksMenu) selectAllTracksMenu.enabled = true;
     }); */
-
   /* ipcMain
      .on("enable-axis-zoom-menu", () => {
       const appMenu = Menu.getApplicationMenu();
@@ -206,7 +203,6 @@ export default function addIPCListeners() {
         if (menu) menu.enabled = false;
       });
     }); */
-
   /* ipcMain
     .on("enable-remove-track-menu", () => {
       const removeTrackMenu = Menu.getApplicationMenu()?.getMenuItemById("remove-selected-tracks");
@@ -216,7 +212,6 @@ export default function addIPCListeners() {
       const removeTrackMenu = Menu.getApplicationMenu()?.getMenuItemById("remove-selected-tracks");
       if (removeTrackMenu) removeTrackMenu.enabled = false;
     }); */
-
   /* ipcMain
     .on("show-play-menu", () => {
       const appMenu = Menu.getApplicationMenu();

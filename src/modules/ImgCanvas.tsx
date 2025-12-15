@@ -13,14 +13,14 @@ import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "src/contexts";
 
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, { FreqScale } from "../api";
-import { postMessageToWorker, NUM_WORKERS } from "../lib/worker-pool";
+import BackendAPI, {FreqScale} from "../api";
+import {postMessageToWorker, NUM_WORKERS} from "../lib/worker-pool";
 import SpecCanvas from "./SpecCanvas";
 
 const idChStrToWorkerIndex = (idChStr: string) => {
   const [id, ch] = idChStr.split("_");
   return (Number(id) + Number(ch) * 100) % NUM_WORKERS;
-}
+};
 
 type ImgCanvasProps = {
   idChStr: string;
@@ -84,13 +84,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
     if (!wavCanvasElem.current) return;
     const offscreenCanvas = wavCanvasElem.current.transferControlToOffscreen();
-    postMessageToWorker(
-      workerIndex,
-      {type: "init", data: {idChStr, canvas: offscreenCanvas}},
-      [offscreenCanvas],
-    );
+    postMessageToWorker(workerIndex, {type: "init", data: {idChStr, canvas: offscreenCanvas}}, [
+      offscreenCanvas,
+    ]);
   }, []);
-
 
   useEffect(() => {
     postMessageToWorker(workerIndex, {type: "setDevicePixelRatio", data: {devicePixelRatio}});
@@ -103,7 +100,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.max(2 - 2 * blend, 0)}`;
 
     postMessageToWorker(workerIndex, {
-      type: "drawWav", 
+      type: "drawWav",
       data: {
         idChStr,
         width,
@@ -143,14 +140,12 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
   useEffect(() => {
     if (!needRefresh) return; // Changing idChStr without needRefresh does not happen
-    
+
     BackendAPI.getWav(idChStr).then((wavInfo) => {
       if (wavInfo !== null) {
-        postMessageToWorker(
-          workerIndex,
-          { type: "setWav", data: { idChStr, wavInfo } },
-          [wavInfo.wavArr.buffer]
-        );
+        postMessageToWorker(workerIndex, {type: "setWav", data: {idChStr, wavInfo}}, [
+          wavInfo.wavArr.buffer,
+        ]);
         drawWavImageRef.current?.();
       }
     });

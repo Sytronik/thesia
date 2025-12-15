@@ -12,10 +12,12 @@ type AddTracksResultType = {
 };
 
 const getTrackIdChMap = async (trackIds: number[]) => {
-  const idChArrTuples: [number, IdChArr][] = await Promise.all(trackIds.map(async (id) => {
-    const idChArr = await getTrackIdChArr(id);
-    return [id, idChArr];
-  }));
+  const idChArrTuples: [number, IdChArr][] = await Promise.all(
+    trackIds.map(async (id) => {
+      const idChArr = await getTrackIdChArr(id);
+      return [id, idChArr];
+    }),
+  );
   return new Map(idChArrTuples);
 };
 
@@ -51,16 +53,16 @@ function useTracks(userSettings: UserSettings) {
   const [maxTrackHz, setMaxTrackHz] = useState<number>(0);
   const [trackIdChMap, setTrackIdChMap] = useState<IdChMap>(new Map());
   useEffect(() => {
-    Promise.all(
-      [BackendAPI.getLongestTrackLengthSec(), BackendAPI.getMaxTrackHz(), getTrackIdChMap(trackIds)]
-    ).then(([maxTrackSec, maxTrackHz, trackIdChMap]) => {
+    Promise.all([
+      BackendAPI.getLongestTrackLengthSec(),
+      BackendAPI.getMaxTrackHz(),
+      getTrackIdChMap(trackIds),
+    ]).then(([maxTrackSec, maxTrackHz, trackIdChMap]) => {
       setMaxTrackSec(maxTrackSec);
       setMaxTrackHz(maxTrackHz);
       setTrackIdChMap(trackIdChMap);
     });
-  }, [trackIds, needRefreshTrackIdChArr]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-
+  }, [trackIds, needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addTracks = useEvent(
     async (paths: string[], index: number | null = null): Promise<AddTracksResultType> => {

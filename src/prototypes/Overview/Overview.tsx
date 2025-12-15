@@ -75,10 +75,10 @@ function Overview(props: OverviewProps) {
   }, [devicePixelRatio]);
 
   useEffect(() => {
-    idChArr.forEach(idChStr => transferWavFromBackendToWasm(idChStr));
+    idChArr.forEach((idChStr) => transferWavFromBackendToWasm(idChStr));
 
     return () => {
-      idChArr.forEach(idChStr => WasmAPI.removeWav(idChStr));
+      idChArr.forEach((idChStr) => WasmAPI.removeWav(idChStr));
     };
   }, [idChArr]);
 

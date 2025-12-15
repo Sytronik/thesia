@@ -1,9 +1,9 @@
 import RendererWorker from "./worker?worker";
-import type { RendererWorkerMessage } from "./worker";
+import type {RendererWorkerMessage} from "./worker";
 
 export const NUM_WORKERS = navigator.hardwareConcurrency ?? 1;
 const workers = new Map<number, Worker>(
-  Array.from({length: NUM_WORKERS}, (_, i) => [i, new RendererWorker()])
+  Array.from({length: NUM_WORKERS}, (_, i) => [i, new RendererWorker()]),
 );
 
 const setSpectrogramDoneListeners = new Map<number, Map<string, () => void>>();
@@ -13,7 +13,7 @@ workers.forEach((worker, index) => {
   setSpectrogramDoneListeners.set(index, new Map());
   returnSpectrogramListeners.set(index, new Map());
   worker.onmessage = (event: MessageEvent<any>) => {
-    const { type, data } = event.data;
+    const {type, data} = event.data;
     switch (type) {
       case "setSpectrogramDone": {
         const listeners = setSpectrogramDoneListeners.get(index);
@@ -40,16 +40,12 @@ workers.forEach((worker, index) => {
 export const postMessageToWorker = (
   index: number,
   message: RendererWorkerMessage,
-  transferList: Transferable[] = []
+  transferList: Transferable[] = [],
 ) => {
   workers.get(index)?.postMessage(message, transferList);
 };
 
-export const onSetSpectrogramDone = (
-  index: number,
-  idChStr: string,
-  callback: () => void
-) => {
+export const onSetSpectrogramDone = (index: number, idChStr: string, callback: () => void) => {
   if (!setSpectrogramDoneListeners.has(index)) {
     setSpectrogramDoneListeners.set(index, new Map());
   }
@@ -62,7 +58,7 @@ export const onSetSpectrogramDone = (
 export const onReturnMipmap = (
   index: number,
   idChStr: string,
-  callback: (mipmap: Mipmap) => void
+  callback: (mipmap: Mipmap) => void,
 ) => {
   if (!returnSpectrogramListeners.has(index)) {
     returnSpectrogramListeners.set(index, new Map());
