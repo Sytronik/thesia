@@ -3,7 +3,7 @@ import {useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
 // import {ipcRenderer} from "electron";
 import {DndProvider} from "react-dnd";
-import {HTML5Backend} from "react-dnd-html5-backend";
+import {TouchBackend} from "react-dnd-touch-backend";
 import {UserSettings} from "src/api/backend-wrapper";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
@@ -190,7 +190,7 @@ function MyApp({userSettings}: AppProps) {
 
   return (
     <div id="App" className="App">
-      <DndProvider backend={HTML5Backend}>
+      <DndProvider backend={TouchBackend} options={{enableMouseEvents: true}}>
         <PlayerControl player={player} isTrackEmpty={trackIds.length === 0} />
         <div className="flex-container-row flex-item-auto">
           <Control

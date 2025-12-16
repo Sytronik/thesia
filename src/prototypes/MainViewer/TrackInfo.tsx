@@ -1,7 +1,6 @@
 import React, {forwardRef, useEffect, useImperativeHandle, useMemo, useRef} from "react";
 import type {Identifier, XYCoord} from "dnd-core";
 import {DragSourceMonitor, useDrag, useDrop} from "react-dnd";
-import {getEmptyImage} from "react-dnd-html5-backend";
 import {showTrackContextMenu} from "../../lib/ipc-sender";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
@@ -144,7 +143,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [index, onDnd],
   );
 
-  const [{isDragging}, drag, preview] = useDrag(
+  const [{isDragging}, drag] = useDrag(
     {
       type: DndItemTypes.TRACK,
       item: () => {
@@ -173,8 +172,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
 
   useEffect(() => {
     drag(drop(trackInfoElem));
-    preview(getEmptyImage(), {captureDraggingState: true});
-  }, [drag, drop, preview]);
+  }, [drag, drop]);
 
   return (
     <div
