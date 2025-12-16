@@ -6,10 +6,11 @@ import SplitView from "src/modules/SplitView";
 import useAxisMarkers from "src/hooks/useAxisMarkers";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
-import {Player} from "src/hooks/usePlayer";
-import Locator from "src/modules/Locator";
-// import {ipcRenderer} from "electron";
-import {DropTargetMonitor, XYCoord} from "react-dnd";
+import {DragDropEvent, getCurrentWindow} from "@tauri-apps/api/window";
+import {Event} from "@tauri-apps/api/event";
+
+import {Player} from "../../hooks/usePlayer";
+import Locator from "../../modules/Locator";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
 import ColorMap from "./ColorMap";
@@ -57,7 +58,7 @@ type MainViewerProps = {
   blend: number;
   player: Player;
   openAudioTracksHandler: () => Promise<void>;
-  addDroppedFile: (item: {files: File[]}, index: number) => Promise<void>;
+  addDroppedFile: (paths: string[], index: number) => Promise<void>;
   reloadTracks: (ids: number[]) => Promise<void>;
   refreshTracks: () => Promise<void>;
   ignoreError: (id: number) => void;
@@ -148,30 +149,44 @@ function MainViewer(props: MainViewerProps) {
     return result;
   }, [trackIds, fileDropIndex]);
 
-  const onFileHover = useEvent((item: any, monitor: DropTargetMonitor) => {
-    const clientOffset = monitor.getClientOffset();
-    if (clientOffset === null) return;
-
-    const notlast = trackIds.some((id, index) => {
+  const calculateDropIndex = useEvent((clientY: number) => {
+    let dropIndex = trackIds.length;
+    trackIds.some((id, index) => {
       const trackInfoElem = trackInfosRef.current[`${id}`];
       if (!trackInfoElem) return false;
       const rect = trackInfoElem.getBoundingClientRect();
       if (!rect) return false;
-      if ((clientOffset as XYCoord).y >= rect.y + rect.height / 2) {
+      if (clientY >= rect.y + rect.height / 2) {
         return false;
       }
-      setFileDropIndex(index);
+      dropIndex = index;
       return true;
     });
-    if (!notlast) setFileDropIndex(trackIds.length);
+    return dropIndex;
   });
 
-  const onFileHoverLeave = useEvent(() => setFileDropIndex(-1));
-
-  const onFileDrop = useEvent((item) => {
-    addDroppedFile(item, fileDropIndex);
-    setFileDropIndex(-1);
+  const onFileDragDropEvent = useEvent((event: Event<DragDropEvent>) => {
+    if (event.payload.type === "over") {
+      const {y} = event.payload.position;
+      const index = calculateDropIndex(y);
+      setFileDropIndex(index);
+    } else if (event.payload.type === "drop") {
+      addDroppedFile(event.payload.paths, fileDropIndex);
+      setFileDropIndex(-1);
+    } else if (event.payload.type === "leave") {
+      setFileDropIndex(-1);
+    }
   });
+
+  // Tauri drag & drop event handler
+  useEffect(() => {
+    const currentWindow = getCurrentWindow();
+    const unlisten = currentWindow.onDragDropEvent(onFileDragDropEvent);
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [onFileDragDropEvent]);
 
   const getIdChArr = useEvent(() => Array.from(trackIdChMap.values()).flat());
 
@@ -1006,9 +1021,6 @@ function MainViewer(props: MainViewerProps) {
           left={leftPane}
           right={rightPane}
           setCanvasWidth={setWidth}
-          onFileHover={onFileHover}
-          onFileHoverLeave={onFileHoverLeave}
-          onFileDrop={onFileDrop}
           onVerticalViewportChange={onVerticalViewportChange}
         />
         <Locator // on time axis

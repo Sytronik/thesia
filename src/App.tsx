@@ -17,7 +17,7 @@ import {
   removeGlobalFocusOutListener,
   showEditContextMenuIfEditableNode,
 } from "./lib/ipc-sender";
-import {SUPPORTED_MIME} from "./prototypes/constants/constants";
+import {SUPPORTED_TYPES} from "./prototypes/constants/constants";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
@@ -77,24 +77,19 @@ function MyApp({userSettings}: AppProps) {
 
   const prevTrackIds = useRef<number[]>([]); // includes hidden tracks
 
-  const addDroppedFile = useEvent(async (item: {files: File[]}, index: number) => {
-    const newPaths: string[] = [];
-    const unsupportedPaths: string[] = [];
-
-    if (item.files.length === 0) {
-      console.error("no file exists in dropzone");
+  const addDroppedFile = useEvent(async (paths: string[], index: number) => {
+    if (paths.length === 0) {
+      console.error("no file dropped");
       return;
     }
 
-    const droppedFiles = Array.from(item.files);
+    const newPaths: string[] = [];
+    const unsupportedPaths: string[] = [];
 
-    droppedFiles.forEach((file: File) => {
-      // TODO
-      // if (SUPPORTED_MIME.includes(file.type)) {
-      //   newPaths.push(file.path);
-      // } else {
-      unsupportedPaths.push(file.name);
-      // }
+    paths.forEach((path) => {
+      const extension = path.split(".").pop();
+      if (extension && SUPPORTED_TYPES.includes(extension)) newPaths.push(path);
+      else unsupportedPaths.push(path);
     });
 
     const {existingIds, invalidPaths} = await addTracks(newPaths, index);

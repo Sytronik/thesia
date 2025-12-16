@@ -9,8 +9,6 @@ import React, {
 } from "react";
 import useEvent from "react-use-event-hook";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT} from "src/prototypes/constants/tracks";
-import {NativeTypes} from "react-dnd-html5-backend";
-import {DropTargetMonitor, useDrop} from "react-dnd";
 import styles from "./SplitView.module.scss";
 
 const MARGIN = 2;
@@ -23,24 +21,11 @@ type SplitViewProps = {
   right: ReactNode;
   setCanvasWidth: (value: number) => void;
   className?: string;
-  onFileHover?: (item: any, monitor: DropTargetMonitor) => void;
-  onFileHoverLeave?: () => void;
-  onFileDrop?: (item: any) => void;
   onVerticalViewportChange?: () => void;
 };
 
 const SplitView = forwardRef(
-  (
-    {
-      className = "",
-      onFileHover = () => {},
-      onFileHoverLeave = () => {},
-      onFileDrop = () => {},
-      onVerticalViewportChange = () => {},
-      ...props
-    }: SplitViewProps,
-    ref,
-  ) => {
+  ({className = "", onVerticalViewportChange = () => {}, ...props}: SplitViewProps, ref) => {
     const {left, right, setCanvasWidth} = props;
 
     const [leftWidth, setLeftWidth] = useState<number>(INIT_WIDTH);
@@ -126,29 +111,6 @@ const SplitView = forwardRef(
         }),
       [onVerticalViewportChange, setNormalizedLeftWidth],
     );
-
-    const [{isOver}, drop] = useDrop({
-      accept: NativeTypes.FILE,
-      drop(item) {
-        onFileDrop(item);
-      },
-      hover(item: any, monitor) {
-        onFileHover(item, monitor);
-      },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
-    });
-
-    useEffect(() => {
-      drop(splitPaneElem);
-    }, [drop]);
-
-    useEffect(() => {
-      if (!isOver) {
-        onFileHoverLeave();
-      }
-    }, [isOver, onFileHoverLeave]);
 
     const imperativeInstanceRef = useRef<SplitViewHandleElement>({
       getBoundingClientRect: () => splitPaneElem.current?.getBoundingClientRect() ?? null,
