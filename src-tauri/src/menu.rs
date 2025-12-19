@@ -23,13 +23,7 @@ pub mod ids {
 
     pub const OPEN_AUDIO_TRACKS: &str = "open-audio-tracks";
 
-    pub const EDIT_UNDO: &str = "edit-undo";
-    pub const EDIT_REDO: &str = "edit-redo";
-    pub const EDIT_CUT: &str = "edit-cut";
-    pub const EDIT_COPY: &str = "edit-copy";
-    pub const EDIT_PASTE: &str = "edit-paste";
     pub const EDIT_DELETE: &str = "edit-delete";
-    pub const EDIT_SELECT_ALL: &str = "edit-select-all";
 
     pub const FREQ_ZOOM_IN: &str = "freq-zoom-in";
     pub const FREQ_ZOOM_OUT: &str = "freq-zoom-out";
@@ -113,32 +107,20 @@ fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
 }
 
 fn build_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let undo = MenuItem::with_id(app, ids::EDIT_UNDO, "Undo", false, Some("CmdOrCtrl+Z"))?;
-    let redo = MenuItem::with_id(
-        app,
-        ids::EDIT_REDO,
-        "Redo",
-        false,
-        Some("Shift+CmdOrCtrl+Z"),
-    )?;
+    let undo = PredefinedMenuItem::undo(app, None)?;
+    let redo = PredefinedMenuItem::redo(app, None)?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let cut = MenuItem::with_id(app, ids::EDIT_CUT, "Cut", false, Some("CmdOrCtrl+X"))?;
-    let copy = MenuItem::with_id(app, ids::EDIT_COPY, "Copy", false, Some("CmdOrCtrl+C"))?;
-    let paste = MenuItem::with_id(app, ids::EDIT_PASTE, "Paste", false, Some("CmdOrCtrl+V"))?;
-    let delete = MenuItem::with_id(app, ids::EDIT_DELETE, "Delete", false, None::<&str>)?;
-    let select_all = MenuItem::with_id(
-        app,
-        ids::EDIT_SELECT_ALL,
-        "Select All",
-        false,
-        Some("CmdOrCtrl+A"),
-    )?;
+    let cut = PredefinedMenuItem::cut(app, None)?;
+    let copy = PredefinedMenuItem::copy(app, None)?;
+    let paste = PredefinedMenuItem::paste(app, None)?;
+    let delete = MenuItem::with_id(app, ids::EDIT_DELETE, "Delete", true, None::<&str>)?; // TODO
+    let select_all = PredefinedMenuItem::select_all(app, None)?;
 
     Submenu::with_id_and_items(
         app,
         ids::EDIT,
         "Edit",
-        true,
+        false,
         &[
             &undo,
             &redo,
@@ -401,13 +383,7 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
     match id {
         ids::OPEN_AUDIO_TRACKS => emit_simple(app, "menu-open-audio-tracks"),
 
-        ids::EDIT_UNDO
-        | ids::EDIT_REDO
-        | ids::EDIT_CUT
-        | ids::EDIT_COPY
-        | ids::EDIT_PASTE
-        | ids::EDIT_DELETE
-        | ids::EDIT_SELECT_ALL => emit_simple(app, id),
+        ids::EDIT_DELETE => emit_simple(app, id),
 
         ids::FREQ_ZOOM_IN | ids::FREQ_ZOOM_OUT | ids::TIME_ZOOM_IN | ids::TIME_ZOOM_OUT => {
             emit_simple(app, id)
@@ -483,7 +459,7 @@ struct JumpPayload {
 }
 
 pub struct MenuController<R: Runtime> {
-    edit_items: Vec<MenuItem<R>>,
+    edit_menu: Submenu<R>,
     select_all_tracks: MenuItem<R>,
     axis_items: Vec<MenuItem<R>>,
     remove_selected_tracks: MenuItem<R>,
@@ -505,8 +481,6 @@ impl<R: Runtime> MenuController<R> {
         let tracks_menu = find_submenu(&menu, ids::TRACKS)?;
         let play_menu = find_submenu(&menu, ids::PLAY_MENU)?;
 
-        let edit_items = collect_menu_items(&edit_menu)?;
-
         let mut axis_items = Vec::new();
         for id in AXIS_MENU_ITEM_IDS {
             axis_items.push(find_menu_item(&axis_menu, id)?);
@@ -519,7 +493,7 @@ impl<R: Runtime> MenuController<R> {
         let play_items = collect_menu_items(&play_menu)?;
 
         Ok(Self {
-            edit_items,
+            edit_menu,
             select_all_tracks,
             axis_items,
             remove_selected_tracks,
@@ -532,10 +506,7 @@ impl<R: Runtime> MenuController<R> {
     }
 
     pub fn set_edit_menu_enabled(&self, enabled: bool) -> tauri::Result<()> {
-        for item in &self.edit_items {
-            item.set_enabled(enabled)?;
-        }
-        Ok(())
+        self.edit_menu.set_enabled(enabled)
     }
 
     pub fn set_select_all_tracks_enabled(&self, enabled: bool) -> tauri::Result<()> {
