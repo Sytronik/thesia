@@ -4,14 +4,13 @@ import useEvent from "react-use-event-hook";
 // import {ipcRenderer} from "electron";
 import {DndProvider} from "react-dnd";
 import {TouchBackend} from "react-dnd-touch-backend";
-import {UserSettings} from "src/api/backend-wrapper";
+import BackendAPI, {UserSettings} from "src/api";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {
   addGlobalFocusInListener,
   addGlobalFocusOutListener,
-  changeMenuDepsOnTrackExistence,
   notifyAppRendered,
   removeGlobalFocusInListener,
   removeGlobalFocusOutListener,
@@ -160,24 +159,12 @@ function MyApp({userSettings}: AppProps) {
   }, []);
 
   useEffect(() => {
-    // ipcRenderer.on("add-global-focusout-listener", addGlobalFocusOutListener);
-    // ipcRenderer.on(
-    //   "remove-global-focusout-listener",
-    //   removeGlobalFocusOutListener
-    // );
-    // return () => {
-    //   ipcRenderer.removeAllListeners("add-global-focusout-listener");
-    //   ipcRenderer.removeAllListeners("remove-global-focusout-listener");
-    // };
-  });
-
-  useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;
     const currTrackIdsCount = trackIds.length + hiddenTrackIds.length;
 
     if (prevTrackIdsCount === currTrackIdsCount) return;
 
-    changeMenuDepsOnTrackExistence(currTrackIdsCount > 0);
+    BackendAPI.changeMenuDepsOnTrackExistence(currTrackIdsCount > 0);
 
     if (prevTrackIdsCount < currTrackIdsCount) {
       selectTrackAfterAddTracks(prevTrackIds.current, trackIds);

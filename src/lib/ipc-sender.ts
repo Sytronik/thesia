@@ -1,4 +1,4 @@
-import {UserSettings} from "src/api/backend-wrapper";
+import BackendAPI, {UserSettings} from "src/api";
 // import {ipcRenderer} from "electron";
 
 export function notifyAppRendered() {
@@ -23,39 +23,6 @@ export function showAxisContextMenu(axisKind: AxisKind, id: number) {
 
 export function showEditContextMenu() {
   // ipcRenderer.send("show-edit-context-menu");
-}
-
-export function enableEditMenu() {
-  // ipcRenderer.send("enable-edit-menu");
-}
-
-export function disableEditMenu() {
-  // ipcRenderer.send("disable-edit-menu");
-}
-
-export function showPlayOrPauseMenu(isPlaying: boolean) {
-  // if (isPlaying) ipcRenderer.send("show-pause-menu");
-  // else ipcRenderer.send("show-play-menu");
-}
-
-export function enableTogglePlayMenu() {
-  // ipcRenderer.send("enable-toggle-play-menu");
-}
-
-export function disableTogglePlayMenu() {
-  // ipcRenderer.send("disable-toggle-play-menu");
-}
-
-export function changeMenuDepsOnTrackExistence(trackExists: boolean) {
-  // if (trackExists) {
-  //   ipcRenderer.send("enable-axis-zoom-menu");
-  //   ipcRenderer.send("enable-remove-track-menu");
-  //   ipcRenderer.send("enable-play-menu");
-  // } else {
-  //   ipcRenderer.send("disable-axis-zoom-menu");
-  //   ipcRenderer.send("disable-remove-track-menu");
-  //   ipcRenderer.send("disable-play-menu");
-  // }
 }
 
 function callDifferentFuncIfEditableNode(
@@ -84,14 +51,18 @@ export function showEditContextMenuIfEditableNode(e: MouseEvent) {
 }
 
 export function changeEditMenuForFocusIn(e: FocusEvent) {
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, enableEditMenu, disableEditMenu);
+  callDifferentFuncIfEditableNode(
+    e.target as HTMLElement | null,
+    BackendAPI.enableEditMenu,
+    BackendAPI.disableEditMenu,
+  );
 }
 
 export function changeEditMenuForFocusOut(e: FocusEvent) {
   callDifferentFuncIfEditableNode(
     e.relatedTarget as HTMLElement | null,
-    enableEditMenu,
-    disableEditMenu,
+    BackendAPI.enableEditMenu,
+    BackendAPI.disableEditMenu,
   );
 }
 

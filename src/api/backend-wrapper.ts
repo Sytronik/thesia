@@ -359,3 +359,65 @@ export async function pausePlayer(): Promise<void> {
 export async function resumePlayer(): Promise<void> {
   return invoke<void>("resume_player");
 }
+
+export async function enableEditMenu(): Promise<void> {
+  return invoke<void>("enable_edit_menu");
+}
+
+export async function disableEditMenu(): Promise<void> {
+  return invoke<void>("disable_edit_menu");
+}
+
+export async function enableAxisZoomMenu(): Promise<void> {
+  return invoke<void>("enable_axis_zoom_menu");
+}
+
+export async function disableAxisZoomMenu(): Promise<void> {
+  return invoke<void>("disable_axis_zoom_menu");
+}
+
+export async function enableRemoveTrackMenu(): Promise<void> {
+  return invoke<void>("enable_remove_track_menu");
+}
+
+export async function disableRemoveTrackMenu(): Promise<void> {
+  return invoke<void>("disable_remove_track_menu");
+}
+
+export async function enablePlayMenu(): Promise<void> {
+  return invoke<void>("enable_play_menu");
+}
+
+export async function disablePlayMenu(): Promise<void> {
+  return invoke<void>("disable_play_menu");
+}
+
+export async function enableTogglePlayMenu(): Promise<void> {
+  return invoke<void>("enable_toggle_play_menu");
+}
+
+export async function disableTogglePlayMenu(): Promise<void> {
+  return invoke<void>("disable_toggle_play_menu");
+}
+
+export async function showPlayMenu(): Promise<void> {
+  return invoke<void>("show_play_menu");
+}
+
+export async function showPauseMenu(): Promise<void> {
+  return invoke<void>("show_pause_menu");
+}
+
+export async function showPlayOrPauseMenu(isPlaying: boolean): Promise<void> {
+  if (isPlaying) return showPauseMenu();
+  return showPlayMenu();
+}
+
+export async function changeMenuDepsOnTrackExistence(
+  trackExists: boolean,
+): Promise<[void, void, void]> {
+  if (trackExists) {
+    return Promise.all([enableAxisZoomMenu(), enableRemoveTrackMenu(), enablePlayMenu()]);
+  }
+  return Promise.all([disableAxisZoomMenu(), disableRemoveTrackMenu(), disablePlayMenu()]);
+}

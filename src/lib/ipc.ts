@@ -5,6 +5,12 @@ import {path} from "@tauri-apps/api";
 import {invoke} from "@tauri-apps/api/core";
 import {listen, UnlistenFn} from "@tauri-apps/api/event";
 import {SUPPORTED_TYPES} from "src/prototypes/constants/constants";
+import {
+  enableEditMenu,
+  disableEditMenu,
+  enablePlayMenu,
+  disablePlayMenu,
+} from "src/api/backend-wrapper";
 
 export async function showOpenDialog() {
   // get the default path
@@ -58,9 +64,9 @@ export function getOpenTracksHandler(
   callback: (files: string[]) => void | Promise<void>,
 ): () => Promise<void> {
   return async () => {
-    invoke("disable_play_menu");
+    await Promise.all([disablePlayMenu(), enableEditMenu()]);
     const files = await showOpenDialog();
-    invoke("enable_play_menu");
+    await Promise.all([enablePlayMenu(), disableEditMenu()]);
     if (files && files.length > 0) callback(files);
   };
 }
