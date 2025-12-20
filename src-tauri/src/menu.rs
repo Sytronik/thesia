@@ -397,10 +397,10 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
         | ids::TOGGLE_PLAY
         | ids::REWIND_TO_FRONT => emit_simple(app, id),
 
-        ids::REWIND => emit_jump_event(app, -PLAY_JUMP_SEC),
-        ids::FAST_FORWARD => emit_jump_event(app, PLAY_JUMP_SEC),
-        ids::REWIND_BIG => emit_jump_event(app, -PLAY_BIG_JUMP_SEC),
-        ids::FAST_FORWARD_BIG => emit_jump_event(app, PLAY_BIG_JUMP_SEC),
+        ids::REWIND => emit_jump_event(app, JumpPlayerMode::Rewind),
+        ids::FAST_FORWARD => emit_jump_event(app, JumpPlayerMode::FastForward),
+        ids::REWIND_BIG => emit_jump_event(app, JumpPlayerMode::RewindBig),
+        ids::FAST_FORWARD_BIG => emit_jump_event(app, JumpPlayerMode::FastForwardBig),
 
         ids::RELOAD => with_main_window(app, |window| {
             let _ = window.reload();
@@ -448,15 +448,19 @@ fn emit_simple(app: &AppHandle<Wry>, event: &str) {
     });
 }
 
-fn emit_jump_event(app: &AppHandle<Wry>, amount: f64) {
-    with_main_window(app, |window| {
-        let _ = window.emit("jump-player", JumpPayload { amount });
-    });
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+enum JumpPlayerMode {
+    FastForward,
+    Rewind,
+    FastForwardBig,
+    RewindBig,
 }
 
-#[derive(Serialize, Clone)]
-struct JumpPayload {
-    amount: f64,
+fn emit_jump_event(app: &AppHandle<Wry>, mode: JumpPlayerMode) {
+    with_main_window(app, |window| {
+        let _ = window.emit("jump-player", mode);
+    });
 }
 
 pub struct MenuController<R: Runtime> {

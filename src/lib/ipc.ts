@@ -165,6 +165,22 @@ export async function listenTogglePlay(handler: () => void | Promise<void>): Pro
   return listen("toggle-play", handler);
 }
 
+export type JumpPlayerMode = "fast-forward" | "rewind" | "fast-forward-big" | "rewind-big";
+
+export async function listenJumpPlayer(
+  handler: (mode: JumpPlayerMode) => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen<JumpPlayerMode>("jump-player", (event) => {
+    handler(event.payload);
+  });
+}
+
+export async function listenRewindToFront(
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen("rewind-to-front", handler);
+}
+
 export default function addIPCListeners() {
   // ipcMain.on("set-setting", (_, key, value) => settings.set(key, value));
   /* ipcMain.on("show-open-dialog", async (event) => {

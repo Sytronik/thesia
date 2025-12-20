@@ -1,10 +1,9 @@
-// import {ipcRenderer} from "electron";
 import {RefObject, useEffect, useRef, useState} from "react";
 import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "src/prototypes/constants/constants";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import BackendAPI from "../api";
-import {listenTogglePlay} from "../lib/ipc";
+import {listenJumpPlayer, listenRewindToFront, listenTogglePlay} from "../lib/ipc";
 
 export type Player = {
   isPlaying: boolean;
@@ -94,20 +93,26 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     }
     setSelectSec((selectSecRef.current ?? 0) + jumpSec);
   });
-  useHotkeys(
-    "comma,period,shift+comma,shift+period",
-    (_, hotkey) => {
-      let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
-      if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
-      jump(jumpSec);
-    },
-    [jump],
-  );
   useEffect(() => {
-    // ipcRenderer.on("jump-player", (_, jumpSec) => jump(jumpSec));
-    // return () => {
-    //   ipcRenderer.removeAllListeners("jump-player");
-    // };
+    const promiseUnlisten = listenJumpPlayer((mode) => {
+      switch (mode) {
+        case "fast-forward":
+          jump(PLAY_JUMP_SEC);
+          break;
+        case "rewind":
+          jump(-PLAY_JUMP_SEC);
+          break;
+        case "fast-forward-big":
+          jump(PLAY_BIG_JUMP_SEC);
+          break;
+        case "rewind-big":
+          jump(-PLAY_BIG_JUMP_SEC);
+          break;
+      }
+    });
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
   }, [jump]);
 
   const rewindToFront = useEvent(async () => {
@@ -116,10 +121,10 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   });
   useHotkeys("enter", rewindToFront, {preventDefault: true}, [rewindToFront]);
   useEffect(() => {
-    // ipcRenderer.on("rewind-to-front", rewindToFront);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("rewind-to-front");
-    // };
+    const promiseUnlisten = listenRewindToFront(rewindToFront);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
   }, [rewindToFront]);
 
   useEffect(() => {
