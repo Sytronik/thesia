@@ -35,7 +35,7 @@ pub mod ids {
     pub const REMOVE_SELECTED_TRACKS: &str = "remove-selected-tracks";
     pub const SELECT_ALL_TRACKS: &str = "select-all-tracks";
 
-    pub const PLAY_TOGGLE: &str = "play";
+    pub const TOGGLE_PLAY: &str = "toggle-play";
     pub const REWIND: &str = "rewind";
     pub const FAST_FORWARD: &str = "fast-forward";
     pub const REWIND_BIG: &str = "rewind-big";
@@ -247,7 +247,7 @@ fn build_tracks_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
 }
 
 fn build_play_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let toggle_play = MenuItem::with_id(app, ids::PLAY_TOGGLE, "Play", false, Some("Space"))?;
+    let toggle_play = MenuItem::with_id(app, ids::TOGGLE_PLAY, "Play", false, Some("Space"))?;
     let rewind = MenuItem::with_id(
         app,
         ids::REWIND,
@@ -394,7 +394,7 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
         | ids::TIME_ZOOM_OUT
         | ids::REMOVE_SELECTED_TRACKS
         | ids::SELECT_ALL_TRACKS
-        | ids::PLAY_TOGGLE
+        | ids::TOGGLE_PLAY
         | ids::REWIND_TO_FRONT => emit_simple(app, id),
 
         ids::REWIND => emit_jump_event(app, -PLAY_JUMP_SEC),
@@ -490,7 +490,7 @@ impl<R: Runtime> MenuController<R> {
         let select_all_tracks = find_menu_item(&tracks_menu, ids::SELECT_ALL_TRACKS)?;
         let remove_selected_tracks = find_menu_item(&tracks_menu, ids::REMOVE_SELECTED_TRACKS)?;
 
-        let toggle_play_item = find_menu_item(&play_menu, ids::PLAY_TOGGLE)?;
+        let toggle_play_item = find_menu_item(&play_menu, ids::TOGGLE_PLAY)?;
         let play_items = collect_menu_items(&play_menu)?;
 
         Ok(Self {
@@ -529,7 +529,7 @@ impl<R: Runtime> MenuController<R> {
         self.play_menu_enabled.store(enabled, Ordering::SeqCst);
         for item in &self.play_items {
             let id = item.id();
-            if id == ids::PLAY_TOGGLE {
+            if id == ids::TOGGLE_PLAY {
                 continue;
             }
             item.set_enabled(enabled)?;

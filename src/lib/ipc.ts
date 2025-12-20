@@ -133,6 +133,22 @@ export async function listenEditMenuEvents() {
   return Promise.all([promiseUnlistenDelete, promiseUnlistenSelectAll]);
 }
 
+export async function listenFreqZoomIn(handler: () => void | Promise<void>): Promise<UnlistenFn> {
+  return listen("freq-zoom-in", handler);
+}
+
+export async function listenFreqZoomOut(handler: () => void | Promise<void>): Promise<UnlistenFn> {
+  return listen("freq-zoom-out", handler);
+}
+
+export async function listenTimeZoomIn(handler: () => void | Promise<void>): Promise<UnlistenFn> {
+  return listen("time-zoom-in", handler);
+}
+
+export async function listenTimeZoomOut(handler: () => void | Promise<void>): Promise<UnlistenFn> {
+  return listen("time-zoom-out", handler);
+}
+
 export async function listenMenuRemoveSelectedTracks(
   handler: () => Promise<void>,
 ): Promise<UnlistenFn> {
@@ -143,6 +159,10 @@ export async function listenMenuSelectAllTracks(
   handler: () => void | Promise<void>,
 ): Promise<UnlistenFn> {
   return listen("select-all-tracks", handler);
+}
+
+export async function listenTogglePlay(handler: () => void | Promise<void>): Promise<UnlistenFn> {
+  return listen("toggle-play", handler);
 }
 
 export default function addIPCListeners() {

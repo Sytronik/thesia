@@ -44,7 +44,13 @@ import {
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
 import TrackInfoDragLayer from "./TrackInfoDragLayer";
-import {listenMenuSelectAllTracks} from "src/lib/ipc";
+import {
+  listenFreqZoomIn,
+  listenFreqZoomOut,
+  listenMenuSelectAllTracks,
+  listenTimeZoomIn,
+  listenTimeZoomOut,
+} from "../../lib/ipc";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -541,12 +547,12 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
   useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
   useEffect(() => {
-    // ipcRenderer.on("freq-zoom-in", freqZoomIn);
-    // ipcRenderer.on("freq-zoom-out", freqZoomOut);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("freq-zoom-in");
-    //   ipcRenderer.removeAllListeners("freq-zoom-out");
-    // };
+    const promiseUnlistenFreqZoomIn = listenFreqZoomIn(freqZoomIn);
+    const promiseUnlistenFreqZoomOut = listenFreqZoomOut(freqZoomOut);
+    return () => {
+      promiseUnlistenFreqZoomIn.then((unlistenFn) => unlistenFn());
+      promiseUnlistenFreqZoomOut.then((unlistenFn) => unlistenFn());
+    };
   }, [freqZoomIn, freqZoomOut]);
 
   const zoomLens = useEvent((isZoomOut: boolean) => {
@@ -569,12 +575,12 @@ function MainViewer(props: MainViewerProps) {
     if (trackIds.length > 0) zoomLens(true);
   });
   useEffect(() => {
-    // ipcRenderer.on("time-zoom-in", timeZoomIn);
-    // ipcRenderer.on("time-zoom-out", timeZoomOut);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("time-zoom-in");
-    //   ipcRenderer.removeAllListeners("time-zoom-out");
-    // };
+    const promiseUnlistenTimeZoomIn = listenTimeZoomIn(timeZoomIn);
+    const promiseUnlistenTimeZoomOut = listenTimeZoomOut(timeZoomOut);
+    return () => {
+      promiseUnlistenTimeZoomIn.then((unlistenFn) => unlistenFn());
+      promiseUnlistenTimeZoomOut.then((unlistenFn) => unlistenFn());
+    };
   }, [timeZoomIn, timeZoomOut]);
 
   // Track Selection Hotkeys

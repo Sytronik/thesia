@@ -4,6 +4,7 @@ import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "src/prototypes/constants/constan
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import BackendAPI from "../api";
+import {listenTogglePlay} from "../lib/ipc";
 
 export type Player = {
   isPlaying: boolean;
@@ -79,12 +80,11 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
   // Player Hotkeys
-  useHotkeys("space", togglePlay, {preventDefault: true}, [togglePlay]);
   useEffect(() => {
-    // ipcRenderer.on("toggle-play", togglePlay);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("toggle-play");
-    // };
+    const promiseUnlisten = listenTogglePlay(togglePlay);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
   }, [togglePlay]);
 
   const jump = useEvent(async (jumpSec: number) => {
