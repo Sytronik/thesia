@@ -22,7 +22,13 @@ import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
-import {getOpenTracksHandler, listenMenuOpenAudioTracks, showFileOpenErrorMsg} from "./lib/ipc";
+import {
+  listenEditMenuEvents,
+  getOpenTracksHandler,
+  listenMenuOpenAudioTracks,
+  listenMenuRemoveSelectedTracks,
+  showFileOpenErrorMsg,
+} from "./lib/ipc";
 
 type AppProps = {userSettings: UserSettings};
 
@@ -136,10 +142,10 @@ function MyApp({userSettings}: AppProps) {
   });
 
   useEffect(() => {
-    // ipcRenderer.on("remove-selected-tracks", removeSelectedTracks);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("remove-selected-tracks");
-    // };
+    const promiseUnlisten = listenMenuRemoveSelectedTracks(removeSelectedTracks);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
   }, [removeSelectedTracks]);
 
   useEffect(() => {
@@ -152,9 +158,11 @@ function MyApp({userSettings}: AppProps) {
   useEffect(() => {
     addGlobalFocusInListener();
     addGlobalFocusOutListener();
+    const promiseUnlistens = listenEditMenuEvents();
     return () => {
       removeGlobalFocusInListener();
       removeGlobalFocusOutListener();
+      promiseUnlistens.then((unlistenFns) => unlistenFns.forEach((unlistenFn) => unlistenFn()));
     };
   }, []);
 

@@ -44,6 +44,7 @@ import {
 } from "../constants/tracks";
 import {isApple} from "../../utils/osSpecifics";
 import TrackInfoDragLayer from "./TrackInfoDragLayer";
+import {listenMenuSelectAllTracks} from "src/lib/ipc";
 
 type MainViewerProps = {
   trackIds: number[];
@@ -578,12 +579,11 @@ function MainViewer(props: MainViewerProps) {
 
   // Track Selection Hotkeys
   const selectAllTracksEvent = useEvent(() => selectAllTracks(trackIds));
-  useHotkeys("mod+a", selectAllTracksEvent, {preventDefault: true}, [selectAllTracksEvent]);
   useEffect(() => {
-    // ipcRenderer.on("select-all-tracks", selectAllTracksEvent);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("select-all-tracks");
-    // };
+    const promiseUnlisten = listenMenuSelectAllTracks(selectAllTracksEvent);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
   }, [selectAllTracksEvent]);
 
   useHotkeys(

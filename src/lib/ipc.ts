@@ -71,10 +71,6 @@ export function getOpenTracksHandler(
   };
 }
 
-export async function listenMenuOpenAudioTracks(handler: () => Promise<void>): Promise<UnlistenFn> {
-  return listen("menu-open-audio-tracks", handler);
-}
-
 const numFilesLabel = (numFiles: number) => (numFiles >= 5 ? ` (${numFiles} files)` : ``);
 const joinManyPaths = (paths: string[]) => {
   // join with newline if less than 5 elements, else show first 2 elems + ellipse + the last elem
@@ -100,6 +96,53 @@ export async function showFileOpenErrorMsg(unsupportedPaths: string[], invalidPa
       `Only files with the following extensions are allowed:\n  ${SUPPORTED_TYPES.join(", ")}`,
     {title: "File Open Error", kind: "error"},
   );
+}
+
+export async function listenMenuOpenAudioTracks(handler: () => Promise<void>): Promise<UnlistenFn> {
+  return listen("open-audio-tracks", handler);
+}
+
+export async function listenMenuEditDelete(
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen("edit-delete", handler);
+}
+
+export async function listenMenuEditSelectAll(
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen("edit-select-all", handler);
+}
+
+export async function listenEditMenuEvents() {
+  const promiseUnlistenDelete = listenMenuEditDelete(() => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+      if (activeElement.selectionStart === null || activeElement.selectionEnd === null) return;
+      const text = activeElement.value;
+      activeElement.value =
+        text.slice(0, activeElement.selectionStart) + text.slice(activeElement.selectionEnd);
+    }
+  });
+  const promiseUnlistenSelectAll = listenMenuEditSelectAll(() => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+      activeElement.select();
+    }
+  });
+  return Promise.all([promiseUnlistenDelete, promiseUnlistenSelectAll]);
+}
+
+export async function listenMenuRemoveSelectedTracks(
+  handler: () => Promise<void>,
+): Promise<UnlistenFn> {
+  return listen("remove-selected-tracks", handler);
+}
+
+export async function listenMenuSelectAllTracks(
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen("select-all-tracks", handler);
 }
 
 export default function addIPCListeners() {

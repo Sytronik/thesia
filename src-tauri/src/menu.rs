@@ -2,11 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::anyhow;
 use serde::Serialize;
-use tauri::Emitter;
-use tauri::{
-    AppHandle, Manager, Runtime, WebviewWindow, Wry,
-    menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu},
-};
+use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewWindow, Wry};
 use tauri_plugin_opener::OpenerExt;
 
 const PLAY_JUMP_SEC: f64 = 1.0;
@@ -23,6 +20,7 @@ pub mod ids {
 
     pub const OPEN_AUDIO_TRACKS: &str = "open-audio-tracks";
 
+    pub const SELECT_ALL: &str = "edit-select-all";
     pub const EDIT_DELETE: &str = "edit-delete";
 
     pub const FREQ_ZOOM_IN: &str = "freq-zoom-in";
@@ -113,8 +111,14 @@ fn build_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     let cut = PredefinedMenuItem::cut(app, None)?;
     let copy = PredefinedMenuItem::copy(app, None)?;
     let paste = PredefinedMenuItem::paste(app, None)?;
-    let delete = MenuItem::with_id(app, ids::EDIT_DELETE, "Delete", true, None::<&str>)?; // TODO
-    let select_all = PredefinedMenuItem::select_all(app, None)?;
+    let delete = MenuItem::with_id(app, ids::EDIT_DELETE, "&Delete", true, None::<&str>)?;
+    let select_all = MenuItem::with_id(
+        app,
+        ids::SELECT_ALL,
+        "Select &All",
+        true,
+        Some("CmdOrCtrl+A"),
+    )?; // Cannot be predefined menu item because this has the same accelerator as select-all-tracks
 
     Submenu::with_id_and_items(
         app,
@@ -381,25 +385,22 @@ pub fn init(app: &AppHandle<Wry>) -> tauri::Result<()> {
 pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
     let id = event.id().as_ref();
     match id {
-        ids::OPEN_AUDIO_TRACKS => emit_simple(app, "menu-open-audio-tracks"),
-
-        ids::EDIT_DELETE => emit_simple(app, id),
-
-        ids::FREQ_ZOOM_IN | ids::FREQ_ZOOM_OUT | ids::TIME_ZOOM_IN | ids::TIME_ZOOM_OUT => {
-            emit_simple(app, id)
-        }
-
-        ids::REMOVE_SELECTED_TRACKS => emit_simple(app, "remove-selected-tracks"),
-        ids::SELECT_ALL_TRACKS => emit_simple(app, "select-all-tracks"),
-
-        ids::PLAY_TOGGLE => emit_simple(app, "toggle-play"),
+        ids::OPEN_AUDIO_TRACKS
+        | ids::EDIT_DELETE
+        | ids::SELECT_ALL
+        | ids::FREQ_ZOOM_IN
+        | ids::FREQ_ZOOM_OUT
+        | ids::TIME_ZOOM_IN
+        | ids::TIME_ZOOM_OUT
+        | ids::REMOVE_SELECTED_TRACKS
+        | ids::SELECT_ALL_TRACKS
+        | ids::PLAY_TOGGLE
+        | ids::REWIND_TO_FRONT => emit_simple(app, id),
 
         ids::REWIND => emit_jump_event(app, -PLAY_JUMP_SEC),
         ids::FAST_FORWARD => emit_jump_event(app, PLAY_JUMP_SEC),
         ids::REWIND_BIG => emit_jump_event(app, -PLAY_BIG_JUMP_SEC),
         ids::FAST_FORWARD_BIG => emit_jump_event(app, PLAY_BIG_JUMP_SEC),
-
-        ids::REWIND_TO_FRONT => emit_simple(app, "rewind-to-front"),
 
         ids::RELOAD => with_main_window(app, |window| {
             let _ = window.reload();
