@@ -8,13 +8,13 @@ import React, {
 } from "react";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "../contexts";
-import {showAxisContextMenu} from "../lib/ipc-sender";
 import {
   AXIS_STYLE,
   LABEL_HEIGHT_ADJUSTMENT,
   VERTICAL_AXIS_PADDING,
 } from "../prototypes/constants/tracks";
 import styles from "./AxisCanvas.module.scss";
+import BackendAPI, {AxisKind} from "../api";
 
 const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
 
@@ -196,7 +196,7 @@ const AxisCanvas = forwardRef(
         style={{width, height}}
         onContextMenu={(e) => {
           e.preventDefault();
-          showAxisContextMenu(className, id);
+          BackendAPI.showAxisContextMenu(className, id);
         }}
         onClick={onClick}
       />

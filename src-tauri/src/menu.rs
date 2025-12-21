@@ -44,6 +44,11 @@ pub mod ids {
 
     pub const HELP_LEARN_MORE: &str = "help-learn-more";
     pub const HELP_SEARCH_ISSUES: &str = "help-search-issues";
+
+    pub const EDIT_AMP_RANGE: &str = "edit-amp-range";
+    pub const EDIT_FREQ_UPPER_LIMIT: &str = "edit-freq-upper-limit";
+    pub const EDIT_FREQ_LOWER_LIMIT: &str = "edit-freq-lower-limit";
+    pub const RESET_AXIS_RANGE: &str = "reset-axis-range";
 }
 
 pub mod labels {
@@ -437,7 +442,15 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
                 .open_url("https://github.com/Sytronik/thesia/issues", None::<&str>);
         }
 
-        _ => {}
+        _ if id.starts_with(ids::EDIT_AMP_RANGE)
+            || id.starts_with(ids::EDIT_FREQ_UPPER_LIMIT)
+            || id.starts_with(ids::EDIT_FREQ_LOWER_LIMIT)
+            || id.starts_with(ids::RESET_AXIS_RANGE) =>
+        {
+            emit_simple(app, id)
+        }
+
+        _ => log::warn!("unhandled menu event: {id}"),
     }
 }
 

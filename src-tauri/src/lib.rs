@@ -675,8 +675,6 @@ pub fn run() {
             pause_player,
             resume_player,
             get_player_state,
-            context_menu::show_edit_context_menu,
-            context_menu::show_track_context_menu,
             menu::enable_edit_menu,
             menu::disable_edit_menu,
             menu::enable_axis_zoom_menu,
@@ -688,7 +686,10 @@ pub fn run() {
             menu::enable_toggle_play_menu,
             menu::disable_toggle_play_menu,
             menu::show_play_menu,
-            menu::show_pause_menu
+            menu::show_pause_menu,
+            context_menu::show_edit_context_menu,
+            context_menu::show_axis_context_menu,
+            context_menu::show_track_context_menu,
         ]);
 
     builder

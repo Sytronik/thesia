@@ -4,7 +4,6 @@ import styles from "src/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "src/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "src/modules/FloatingUserInput";
-// import {ipcRenderer} from "electron";
 import {
   AMP_CANVAS_WIDTH,
   AMP_MARKER_POS,
@@ -14,6 +13,7 @@ import {
   VERTICAL_AXIS_PADDING,
   MIN_DIST_FROM_0_FOR_DRAG,
 } from "../constants/tracks";
+import {listenMenuEditAmpRange} from "../../lib/ipc";
 
 type AmpAxisProps = {
   id: number;
@@ -158,10 +158,10 @@ function AmpAxis(props: AmpAxisProps) {
   const onEditAxisRangeMenu = useEvent(() => setFloatingInputHidden(false));
 
   useEffect(() => {
-    // ipcRenderer.on(`edit-ampAxis-range-${id}`, onEditAxisRangeMenu);
-    // return () => {
-    //   ipcRenderer.removeListener(`edit-ampAxis-range-${id}`, onEditAxisRangeMenu);
-    // };
+    const promiseUnlisten = listenMenuEditAmpRange(id, onEditAxisRangeMenu);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
   }, [id, onEditAxisRangeMenu]);
 
   const axisCanvas = (

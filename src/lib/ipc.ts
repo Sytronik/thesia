@@ -10,6 +10,7 @@ import {
   disableEditMenu,
   enablePlayMenu,
   disablePlayMenu,
+  AxisKind,
 } from "src/api/backend-wrapper";
 
 export async function showOpenDialog() {
@@ -179,6 +180,37 @@ export async function listenRewindToFront(
   handler: () => void | Promise<void>,
 ): Promise<UnlistenFn> {
   return listen("rewind-to-front", handler);
+}
+
+export async function listenMenuEditAmpRange(
+  id: number,
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen(`edit-amp-range-${id}`, handler);
+}
+
+export async function listenMenuEditFreqUpperLimit(
+  id: number,
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen(`edit-freq-upper-limit-${id}`, handler);
+}
+
+export async function listenMenuEditFreqLowerLimit(
+  id: number,
+  handler: () => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen(`edit-freq-lower-limit-${id}`, handler);
+}
+
+export async function listenMenuResetAxisRange(
+  handlers: Map<AxisKind, () => void | Promise<void>>,
+): Promise<UnlistenFn[]> {
+  return Promise.all(
+    Array.from(handlers.entries()).map(([axisKind, handler]) =>
+      listen(`reset-axis-range-${axisKind}`, handler),
+    ),
+  );
 }
 
 export default function addIPCListeners() {

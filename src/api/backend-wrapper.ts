@@ -7,6 +7,8 @@ export async function getChannelCounts(trackId: number): Promise<1 | 2> {
   return 1;
 }
 
+export type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
+
 export type TickPxPosition = number;
 export type TickLabel = string;
 export type Markers = [TickPxPosition, TickLabel][];
@@ -362,6 +364,11 @@ export async function resumePlayer(): Promise<void> {
 
 export async function showEditContextMenu(): Promise<void> {
   return invoke<void>("show_edit_context_menu");
+}
+
+export async function showAxisContextMenu(axisKind: AxisKind, id: number): Promise<void> {
+  if (axisKind === "dBAxis") return;
+  return invoke<void>("show_axis_context_menu", {axisKind, id});
 }
 
 export async function showTrackContextMenu(): Promise<void> {

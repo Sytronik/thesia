@@ -12,11 +12,6 @@ export function setUserSetting<K extends keyof UserSettings>(
   // ipcRenderer.send("set-setting", key, value);
 }
 
-export function showAxisContextMenu(axisKind: AxisKind, id: number) {
-  if (axisKind === "dBAxis") return;
-  // ipcRenderer.send("show-axis-context-menu", axisKind, id);
-}
-
 function callDifferentFuncIfEditableNode(
   node: HTMLElement | null,
   funcForEditable: () => void,

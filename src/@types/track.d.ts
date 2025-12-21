@@ -36,8 +36,6 @@ type VScrollAnchorInfo = {
   cursorOffset: number;
 };
 
-type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
-
 type SplitViewHandleElement = {
   getBoundingClientRect: () => DOMRect | null;
   scrollTo: (option: ScrollToOptions) => void;

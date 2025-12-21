@@ -47,6 +47,7 @@ import TrackInfoDragLayer from "./TrackInfoDragLayer";
 import {
   listenFreqZoomIn,
   listenFreqZoomOut,
+  listenMenuResetAxisRange,
   listenMenuSelectAllTracks,
   listenTimeZoomIn,
   listenTimeZoomOut,
@@ -609,28 +610,18 @@ function MainViewer(props: MainViewerProps) {
   const resetHzRange = useEvent(() => setTimeout(() => setHzRange([0, Infinity])));
   const resetAmpRange = useEvent(() => setTimeout(() => setAmpRange([...DEFAULT_AMP_RANGE])));
   const resetTimeAxis = useEvent(() => setCanvasIsFit(true));
-  const resetAxisRange = useEvent((_, axisKind: AxisKind) => {
-    switch (axisKind) {
-      case "freqAxis":
-        resetHzRange();
-        break;
-      case "ampAxis":
-        resetAmpRange();
-        break;
-      case "timeRuler":
-        resetTimeAxis();
-        break;
-      default:
-        break;
-    }
-  });
-
   useEffect(() => {
-    // ipcRenderer.on("reset-axis-range", resetAxisRange);
-    // return () => {
-    //   ipcRenderer.removeAllListeners("reset-axis-range");
-    // };
-  }, [resetAxisRange]);
+    const promiseUnlisten = listenMenuResetAxisRange(
+      new Map([
+        ["freqAxis", resetHzRange],
+        ["ampAxis", resetAmpRange],
+        ["timeRuler", resetTimeAxis],
+      ]),
+    );
+    return () => {
+      promiseUnlisten.then((unlistenFns) => unlistenFns.forEach((unlistenFn) => unlistenFn()));
+    };
+  }, [resetHzRange, resetAmpRange, resetTimeAxis]);
 
   useLayoutEffect(() => {
     splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});

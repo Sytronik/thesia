@@ -4,7 +4,6 @@ import styles from "src/modules/AxisCanvas.module.scss";
 import Draggable, {CursorStateInfo} from "src/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "src/modules/FloatingUserInput";
-// import {ipcRenderer} from "electron";
 import {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
@@ -12,6 +11,7 @@ import {
   VERTICAL_AXIS_PADDING,
 } from "../constants/tracks";
 import BackendAPI from "../../api";
+import {listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit} from "../../lib/ipc";
 
 type FreqAxisProps = {
   id: number;
@@ -233,16 +233,18 @@ function FreqAxis(props: FreqAxisProps) {
   const onEndEditingMinHzInput = useEvent((v) => onEndEditingFloatingInput(v, 0));
   const onEndEditingMaxHzInput = useEvent((v) => onEndEditingFloatingInput(v, 1));
 
-  const onEditAxisRangeMenu = useEvent((_, minOrMax: "min" | "max") =>
-    minOrMax === "min" ? setMinHzInputHidden(false) : setMaxHzInputHidden(false),
-  );
-
   useEffect(() => {
-    // ipcRenderer.on(`edit-freqAxis-range-${id}`, onEditAxisRangeMenu);
-    // return () => {
-    //   ipcRenderer.removeListener(`edit-freqAxis-range-${id}`, onEditAxisRangeMenu);
-    // };
-  }, [id, onEditAxisRangeMenu]);
+    const promiseUnlistenUpperLimit = listenMenuEditFreqUpperLimit(id, () =>
+      setMaxHzInputHidden(false),
+    );
+    const promiseUnlistenLowerLimit = listenMenuEditFreqLowerLimit(id, () =>
+      setMinHzInputHidden(false),
+    );
+    return () => {
+      promiseUnlistenUpperLimit.then((unlistenFn) => unlistenFn());
+      promiseUnlistenLowerLimit.then((unlistenFn) => unlistenFn());
+    };
+  }, [id, setMinHzInputHidden, setMaxHzInputHidden]);
 
   const axisCanvas = (
     <>
