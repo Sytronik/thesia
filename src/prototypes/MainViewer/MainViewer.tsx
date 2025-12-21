@@ -514,7 +514,7 @@ function MainViewer(props: MainViewerProps) {
       if (trackIds.length === 0) return;
       const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
       let shiftSec = shiftPx / pxPerSec;
-      if (hotkey.keys?.join("") === "left") shiftSec = -shiftSec;
+      if (hotkey.keys?.join("").endsWith("left")) shiftSec = -shiftSec;
       updateLensParams({startSec: startSec + shiftSec});
     },
     [pxPerSec, startSec, trackIds, updateLensParams],
@@ -597,10 +597,9 @@ function MainViewer(props: MainViewerProps) {
     (e, hotkey) => {
       if (trackIds.length === 0) return;
       const recentSelectedIdx = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
-      const newSelectId =
-        hotkey.keys?.join("") === "down"
-          ? trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)]
-          : trackIds[Math.max(recentSelectedIdx - 1, 0)];
+      const newSelectId = hotkey.keys?.join("").endsWith("down")
+        ? trackIds[Math.min(recentSelectedIdx + 1, trackIds.length - 1)]
+        : trackIds[Math.max(recentSelectedIdx - 1, 0)];
       selectTrack(e, newSelectId, trackIds);
     },
     {preventDefault: true},

@@ -1,7 +1,6 @@
 import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
 import {useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
-// import {ipcRenderer} from "electron";
 import {DndProvider} from "react-dnd";
 import {TouchBackend} from "react-dnd-touch-backend";
 import BackendAPI, {UserSettings} from "src/api";
@@ -29,6 +28,7 @@ import {
   listenMenuRemoveSelectedTracks,
   showFileOpenErrorMsg,
 } from "./lib/ipc";
+import {useHotkeys} from "react-hotkeys-hook";
 
 type AppProps = {userSettings: UserSettings};
 
@@ -141,6 +141,7 @@ function MyApp({userSettings}: AppProps) {
     await refreshTracks();
   });
 
+  useHotkeys("delete", removeSelectedTracks, {preventDefault: true}, [removeSelectedTracks]);
   useEffect(() => {
     const promiseUnlisten = listenMenuRemoveSelectedTracks(removeSelectedTracks);
     return () => {
