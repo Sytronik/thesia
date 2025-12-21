@@ -1,7 +1,7 @@
 import React, {forwardRef, useEffect, useImperativeHandle, useMemo, useRef} from "react";
 import type {Identifier, XYCoord} from "dnd-core";
 import {DragSourceMonitor, useDrag, useDrop} from "react-dnd";
-import {showTrackContextMenu} from "../../lib/ipc-sender";
+import BackendAPI from "../../api";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
 import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
@@ -188,7 +188,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       onClick={(e) => selectTrack(e, id)}
       onContextMenu={(e) => {
         e.preventDefault();
-        showTrackContextMenu();
+        BackendAPI.showTrackContextMenu();
       }}
       style={{opacity: isDragging ? 0 : 1, ...style}}
       data-handler-id={handlerId}

@@ -12,17 +12,9 @@ export function setUserSetting<K extends keyof UserSettings>(
   // ipcRenderer.send("set-setting", key, value);
 }
 
-export function showTrackContextMenu() {
-  // ipcRenderer.send("show-track-context-menu");
-}
-
 export function showAxisContextMenu(axisKind: AxisKind, id: number) {
   if (axisKind === "dBAxis") return;
   // ipcRenderer.send("show-axis-context-menu", axisKind, id);
-}
-
-export function showEditContextMenu() {
-  // ipcRenderer.send("show-edit-context-menu");
 }
 
 function callDifferentFuncIfEditableNode(
@@ -47,7 +39,7 @@ function callDifferentFuncIfEditableNode(
 export function showEditContextMenuIfEditableNode(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
-  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, showEditContextMenu);
+  callDifferentFuncIfEditableNode(e.target as HTMLElement | null, BackendAPI.showEditContextMenu);
 }
 
 export function changeEditMenuForFocusIn(e: FocusEvent) {

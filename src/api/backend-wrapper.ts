@@ -360,6 +360,14 @@ export async function resumePlayer(): Promise<void> {
   return invoke<void>("resume_player");
 }
 
+export async function showEditContextMenu(): Promise<void> {
+  return invoke<void>("show_edit_context_menu");
+}
+
+export async function showTrackContextMenu(): Promise<void> {
+  return invoke<void>("show_track_context_menu");
+}
+
 export async function enableEditMenu(): Promise<void> {
   return invoke<void>("enable_edit_menu");
 }

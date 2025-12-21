@@ -46,6 +46,11 @@ pub mod ids {
     pub const HELP_SEARCH_ISSUES: &str = "help-search-issues";
 }
 
+pub mod labels {
+    pub const REMOVE_SELECTED_TRACKS: &str = "Remove Selected Tracks";
+    pub const SELECT_ALL_TRACKS: &str = "Select All Tracks";
+}
+
 const AXIS_MENU_ITEM_IDS: &[&str] = &[
     ids::FREQ_ZOOM_IN,
     ids::FREQ_ZOOM_OUT,
@@ -224,7 +229,7 @@ fn build_tracks_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
     let remove_selected_tracks = MenuItem::with_id(
         app,
         ids::REMOVE_SELECTED_TRACKS,
-        "Remove Selected Tracks",
+        labels::REMOVE_SELECTED_TRACKS,
         false,
         Some("Backspace"),
     )?;
@@ -232,7 +237,7 @@ fn build_tracks_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
     let select_all_tracks = MenuItem::with_id(
         app,
         ids::SELECT_ALL_TRACKS,
-        "Select All Tracks",
+        labels::SELECT_ALL_TRACKS,
         true,
         Some("CmdOrCtrl+A"),
     )?;

@@ -52,6 +52,7 @@ tiny-skia = "0.11.4"
 tokio = "1"
 tokio-rayon = "2.1.0"
 tauri-plugin-devtools = "2.0.0"
+const_format = "0.2.35"
 
 [dependencies.kittyaudio]
 git = "https://github.com/Sytronik/kittyaudio.git"

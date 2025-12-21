@@ -9,8 +9,10 @@ use serde_json::json;
 use tauri::Manager;
 
 mod backend;
+mod context_menu;
 mod interface;
 mod menu;
+mod os;
 mod player;
 
 use backend::*;
@@ -673,6 +675,8 @@ pub fn run() {
             pause_player,
             resume_player,
             get_player_state,
+            context_menu::show_edit_context_menu,
+            context_menu::show_track_context_menu,
             menu::enable_edit_menu,
             menu::disable_edit_menu,
             menu::enable_axis_zoom_menu,
