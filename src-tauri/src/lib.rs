@@ -273,28 +273,6 @@ fn get_limiter_gain(track_id: u32) -> Option<Vec<f32>> {
 }
 
 #[tauri::command]
-fn freq_pos_to_hz(y: f64, height: u32, hz_range: (f64, Option<f64>)) -> f64 {
-    assert!(height >= 1);
-
-    let hz_range = (
-        hz_range.0 as f32,
-        hz_range.1.unwrap_or(f64::INFINITY) as f32,
-    );
-    convert_freq_pos_to_hz(y as f32, height, hz_range) as f64
-}
-
-#[tauri::command]
-fn freq_hz_to_pos(hz: f64, height: u32, hz_range: (f64, Option<f64>)) -> f64 {
-    assert!(height >= 1);
-
-    let hz_range = (
-        hz_range.0 as f32,
-        hz_range.1.unwrap_or(f64::INFINITY) as f32,
-    );
-    convert_freq_hz_to_pos(hz as f32, height, hz_range) as f64
-}
-
-#[tauri::command]
 #[allow(non_snake_case)]
 fn get_max_dB() -> f64 {
     TM.read().max_dB as f64
@@ -455,32 +433,6 @@ async fn refresh_track_player() {
     player::send(PlayerCommand::SetTrack((None, None))).await;
 }
 
-#[inline]
-fn convert_freq_pos_to_hz(y: f32, height: u32, hz_range: (f32, f32)) -> f32 {
-    let hz_range = (
-        hz_range.0,
-        hz_range.1.min(TM.read().max_sr as f32 / 2.), // TODO: remove
-    );
-    let rel_freq = 1. - y / height as f32;
-    SPEC_SETTING
-        .read()
-        .freq_scale
-        .relative_freq_to_hz(rel_freq, hz_range)
-}
-
-#[inline]
-fn convert_freq_hz_to_pos(hz: f32, height: u32, hz_range: (f32, f32)) -> f32 {
-    let hz_range = (
-        hz_range.0,
-        hz_range.1.min(TM.read().max_sr as f32 / 2.), // TODO: remove
-    );
-    let rel_freq = SPEC_SETTING
-        .read()
-        .freq_scale
-        .hz_to_relative_freq(hz, hz_range);
-    (1. - rel_freq) * height as f32
-}
-
 #[tauri::command]
 fn is_dev() -> bool {
     tauri::is_dev()
@@ -549,8 +501,6 @@ pub fn run() {
             get_wav,
             find_id_by_path,
             get_limiter_gain,
-            freq_pos_to_hz,
-            freq_hz_to_pos,
             get_max_dB,
             get_min_dB,
             get_max_track_hz,

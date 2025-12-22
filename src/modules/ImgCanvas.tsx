@@ -13,7 +13,7 @@ import {throttle} from "throttle-debounce";
 import {DevicePixelRatioContext} from "src/contexts";
 
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, {FreqScale} from "../api";
+import BackendAPI, {FreqScale, WasmAPI} from "../api";
 import {postMessageToWorker, NUM_WORKERS} from "../lib/worker-pool";
 import SpecCanvas from "./SpecCanvas";
 
@@ -172,7 +172,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }, 500);
   }, [setLoadingDisplay]);
 
-  const getTooltipLines = useEvent(async (e: React.MouseEvent) => {
+  const getTooltipLines = useEvent((e: React.MouseEvent) => {
     if (!wavCanvasElem.current) return ["sec", "Hz"];
     const x = e.clientX - wavCanvasElem.current.getBoundingClientRect().left;
     const y = Math.min(
@@ -182,19 +182,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     // TODO: need better formatting (from backend?)
     const time = Math.min(Math.max(startSec + x / pxPerSec, 0), maxTrackSec);
     const timeStr = time.toFixed(6).slice(0, -3);
-    const hz = await BackendAPI.freqPosToHz(y, height, hzRange);
+    const hz = WasmAPI.freqPosToHz(freqScale, y, height, hzRange[0], hzRange[1], maxTrackHz);
     const hzStr = hz.toFixed(0);
     return [`${timeStr} sec`, `${hzStr} Hz`];
   });
 
   const onMouseMove = useMemo(
     () =>
-      throttle(1000 / 120, async (e: React.MouseEvent) => {
+      throttle(1000 / 120, (e: React.MouseEvent) => {
         if (initTooltipInfo === null || tooltipElem.current === null) return;
         const [left, top] = calcTooltipPos(e);
         tooltipElem.current.style.left = `${left}px`;
         tooltipElem.current.style.top = `${top}px`;
-        const lines = await getTooltipLines(e);
+        const lines = getTooltipLines(e);
         lines.forEach((v, i) => {
           const node = tooltipElem.current?.children.item(i) ?? null;
           if (node) node.innerHTML = v;
@@ -237,9 +237,9 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         className={styles.ImgCanvas}
         ref={wavCanvasElemCallback}
         style={{zIndex: 1}}
-        onMouseEnter={async (e) => {
+        onMouseEnter={(e) => {
           if (e.buttons !== 0) return;
-          setInitTooltipInfo({pos: calcTooltipPos(e), lines: await getTooltipLines(e)});
+          setInitTooltipInfo({pos: calcTooltipPos(e), lines: getTooltipLines(e)});
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}

@@ -961,6 +961,7 @@ function MainViewer(props: MainViewerProps) {
                     height={height}
                     markersAndLength={freqMarkersAndLength}
                     maxTrackHz={maxTrackHz}
+                    freqScale={freqScale}
                     hzRange={hzRange}
                     setHzRange={setHzRangeIfNotSame}
                     resetHzRange={resetHzRange}

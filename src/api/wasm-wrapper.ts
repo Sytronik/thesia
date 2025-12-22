@@ -19,6 +19,8 @@ import init, {
   timeLabelToSeconds,
   hzToLabel,
   freqLabelToHz,
+  freqPosToHz,
+  freqHzToPos,
 } from "thesia-wasm-renderer";
 import {FreqScale} from "./backend-wrapper";
 
@@ -207,4 +209,6 @@ export default {
   timeLabelToSeconds,
   hzToLabel,
   freqLabelToHz,
+  freqPosToHz,
+  freqHzToPos,
 };

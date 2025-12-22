@@ -405,6 +405,42 @@ fn _convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Err> 
     parsed.and_then(|x| if x >= 0. { Ok(x) } else { "err".parse() })
 }
 
+#[wasm_bindgen(js_name = freqPosToHz)]
+pub fn convert_freq_pos_to_hz(
+    freq_scale: JsValue,
+    y: f32,
+    height: u32,
+    hz_range_min: f32,
+    hz_range_max: f32,
+    max_track_hz: f32,
+) -> f32 {
+    assert!(height >= 1);
+
+    let hz_range = (hz_range_min, hz_range_max.min(max_track_hz));
+    let rel_freq = 1. - y / height as f32;
+    from_value::<FreqScale>(freq_scale)
+        .unwrap()
+        .relative_freq_to_hz(rel_freq, hz_range)
+}
+
+#[wasm_bindgen(js_name = freqHzToPos)]
+pub fn convert_freq_hz_to_pos(
+    freq_scale: JsValue,
+    hz: f32,
+    height: u32,
+    hz_range_min: f32,
+    hz_range_max: f32,
+    max_track_hz: f32,
+) -> f32 {
+    assert!(height >= 1);
+
+    let hz_range = (hz_range_min, hz_range_max.min(max_track_hz));
+    let rel_freq = from_value::<FreqScale>(freq_scale)
+        .unwrap()
+        .hz_to_relative_freq(hz, hz_range);
+    (1. - rel_freq) * height as f32
+}
+
 fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> AxisMarkers {
     if max_num_ticks == 2 {
         return vec![

@@ -10,7 +10,7 @@ import {
   MIN_HZ_RANGE,
   VERTICAL_AXIS_PADDING,
 } from "../constants/tracks";
-import BackendAPI, {WasmAPI} from "../../api";
+import {FreqScale, WasmAPI} from "../../api";
 import {listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit} from "../../lib/ipc";
 
 type FreqAxisProps = {
@@ -18,6 +18,7 @@ type FreqAxisProps = {
   height: number;
   markersAndLength: [Markers, number];
   maxTrackHz: number;
+  freqScale: FreqScale;
   hzRange: [number, number];
   setHzRange: (hzRange: [number, number]) => void;
   resetHzRange: () => void;
@@ -48,6 +49,7 @@ function FreqAxis(props: FreqAxisProps) {
     height,
     markersAndLength,
     maxTrackHz,
+    freqScale,
     hzRange,
     setHzRange,
     resetHzRange,
@@ -71,8 +73,15 @@ function FreqAxis(props: FreqAxisProps) {
       if (cursorState === "shift-hz-range") {
         const axisHeight = getAxisHeight(rect);
         const [zeroHzPos, maxTrackHzPos] = await Promise.all([
-          BackendAPI.freqHzToPos(0, axisHeight, hzRange),
-          BackendAPI.freqHzToPos(maxTrackHz, axisHeight, hzRange),
+          WasmAPI.freqHzToPos(freqScale, 0, axisHeight, hzRange[0], hzRange[1], maxTrackHz),
+          WasmAPI.freqHzToPos(
+            freqScale,
+            maxTrackHz,
+            axisHeight,
+            hzRange[0],
+            hzRange[1],
+            maxTrackHz,
+          ),
         ]);
         return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
       }
@@ -81,7 +90,7 @@ function FreqAxis(props: FreqAxisProps) {
   );
 
   const handleDragging = useEvent(
-    async (
+    (
       cursorState: FreqAxisCursorState,
       cursorPos: number,
       dragAnchorValue: FreqAxisDragAnchor,
@@ -97,15 +106,25 @@ function FreqAxis(props: FreqAxisProps) {
           const cursorRelFreq = Math.max(1 - cursorAxisPos / axisHeight, 0);
           const newMaxRelFreq = anchorRelFreq / cursorRelFreq;
           const newMaxAxisPos = (1 - newMaxRelFreq) * axisHeight;
-          const maxHz = await BackendAPI.freqPosToHz(newMaxAxisPos, axisHeight, anchorHzRange);
+          const maxHz = WasmAPI.freqPosToHz(
+            freqScale,
+            newMaxAxisPos,
+            axisHeight,
+            anchorHzRange[0],
+            anchorHzRange[1],
+            maxTrackHz,
+          );
           newHzRange[1] = clampMaxHz(maxHz, anchorHzRange[0]);
           break;
         }
         case "control-min-hz": {
-          const minHz = await BackendAPI.freqPosToHz(
+          const minHz = WasmAPI.freqPosToHz(
+            freqScale,
             anchorAxisPos,
             Math.max(cursorAxisPos, 1),
-            anchorHzRange,
+            anchorHzRange[0],
+            anchorHzRange[1],
+            maxTrackHz,
           );
           newHzRange[0] = clampMinHz(minHz, anchorHzRange[1]);
           break;
@@ -128,10 +147,24 @@ function FreqAxis(props: FreqAxisProps) {
             newHzRange = [0, Infinity];
             break;
           }
-          newHzRange = await Promise.all([
-            BackendAPI.freqPosToHz(minHzPos, axisHeight, anchorHzRange),
-            BackendAPI.freqPosToHz(maxHzPos, axisHeight, anchorHzRange),
-          ]);
+          newHzRange = [
+            WasmAPI.freqPosToHz(
+              freqScale,
+              minHzPos,
+              axisHeight,
+              anchorHzRange[0],
+              anchorHzRange[1],
+              maxTrackHz,
+            ),
+            WasmAPI.freqPosToHz(
+              freqScale,
+              maxHzPos,
+              axisHeight,
+              anchorHzRange[0],
+              anchorHzRange[1],
+              maxTrackHz,
+            ),
+          ];
           break;
         }
         default:
@@ -141,14 +174,21 @@ function FreqAxis(props: FreqAxisProps) {
     },
   );
 
-  const onWheel = useEvent(async (e: WheelEvent) => {
+  const onWheel = useEvent((e: WheelEvent) => {
     if (!enableInteraction) return;
     if (e.altKey) {
       e.preventDefault();
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
 
       // TODO: control minHz
-      const maxHz = await BackendAPI.freqPosToHz(e.deltaY, 500, hzRange);
+      const maxHz = WasmAPI.freqPosToHz(
+        freqScale,
+        e.deltaY,
+        500,
+        hzRange[0],
+        hzRange[1],
+        maxTrackHz,
+      );
       setHzRange([hzRange[0], clampMaxHz(maxHz, hzRange[0])]);
     }
   });

@@ -168,22 +168,6 @@ export async function findIdByPath(path: string): Promise<number> {
   return invoke<number>("find_id_by_path", {path});
 }
 
-export async function freqPosToHz(
-  y: number,
-  height: number,
-  hzRange: [number, number],
-): Promise<number> {
-  return invoke<number>("freq_pos_to_hz", {y, height, hzRange});
-}
-
-export async function freqHzToPos(
-  hz: number,
-  height: number,
-  hzRange: [number, number],
-): Promise<number> {
-  return invoke<number>("freq_hz_to_pos", {hz, height, hzRange});
-}
-
 export async function getMaxdB(): Promise<number> {
   return invoke<number>("get_max_dB");
 }
