@@ -47,15 +47,21 @@ const FloatRangeInput = forwardRef(
           } ${rangeRatio * 100}%)`;
     };
 
-    const getTextElemSize = () =>
-      textElem.current?.value.length || initialValue.toFixed(precision).length;
+    const getTextElemSize = () => {
+      if (!textElem.current)
+        return (
+          initialValue.toFixed(precision).length +
+          (initialValue.toFixed(precision).includes(".") ? 0.1 : 0.5)
+        );
+      return textElem.current.value.length + (textElem.current.value.includes(".") ? 0.1 : 0.5);
+    };
 
     const updateStyle = useEvent(() => {
       if (rangeElem.current) {
         rangeElem.current.style.background = getRangeBackground();
       }
       if (textElem.current) {
-        textElem.current.size = getTextElemSize();
+        textElem.current.style.width = `${getTextElemSize()}ch`;
       }
     });
 
@@ -170,7 +176,7 @@ const FloatRangeInput = forwardRef(
           id={`${id}Text`}
           type="text"
           inputMode="decimal"
-          size={getTextElemSize()}
+          style={{width: `${getTextElemSize()}ch`}}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onFocus={onTextFocus}

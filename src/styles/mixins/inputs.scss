@@ -80,7 +80,7 @@
 
   height: $height;
   width: $height;
-  margin-top: $offset;
+  // margin-top: $offset;  // not working in Webkit
   border-radius: 50%;
 }
 
