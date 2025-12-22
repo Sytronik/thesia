@@ -1,3 +1,4 @@
+mod axis;
 mod line_envelope;
 mod mem;
 mod overview;

@@ -17,20 +17,15 @@ pub use audio::AudioFormatInfo;
 pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingStats, NormalizeTarget};
 use simd::find_min_max;
 pub use spectrogram::SpecSetting;
+use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 pub use track::TrackList;
 pub use tuple_hasher::TupleIntMap;
 use tuple_hasher::TupleIntSet;
-pub use visualize::{
-    calc_amp_axis_markers, calc_dB_axis_markers, calc_freq_axis_markers, calc_time_axis_markers,
-    convert_freq_label_to_hz, convert_hz_to_label, convert_sec_to_label, convert_time_label_to_sec,
-};
 
 pub type IdCh = (usize, usize);
 pub type IdChVec = Vec<IdCh>;
 pub type IdChArr = [IdCh];
 pub type IdChMap<T> = TupleIntMap<IdCh, T>;
-
-use spectrogram::{SpectrogramAnalyzer, SrWinNfft};
 
 #[readonly::make]
 #[allow(non_snake_case)]

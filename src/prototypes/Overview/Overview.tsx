@@ -27,13 +27,6 @@ type OverviewProps = {
 
 type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 
-// Initialize WASM module
-try {
-  await WasmAPI.initWasm();
-} catch (error) {
-  console.error("Error occurred during WASM module initialization:", error);
-}
-
 const transferWavFromBackendToWasm = async (idChStr: string) => {
   const wavInfo = await BackendAPI.getWav(idChStr);
   if (wavInfo === null) return;

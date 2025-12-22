@@ -11,7 +11,16 @@ import init, {
   clearWav,
   drawOverview,
   removeWav,
+  calcTimeAxisMarkers as _calcTimeAxisMarkers,
+  calcFreqAxisMarkers as _calcFreqAxisMarkers,
+  calcAmpAxisMarkers as _calcAmpAxisMarkers,
+  calcDbAxisMarkers as _calcDbAxisMarkers,
+  secondsToLabel,
+  timeLabelToSeconds,
+  hzToLabel,
+  freqLabelToHz,
 } from "thesia-wasm-renderer";
+import {FreqScale} from "./backend-wrapper";
 
 let wasmInitialized = false;
 let memory: WebAssembly.Memory;
@@ -93,6 +102,87 @@ export function getMipmap(idChStr: string, width: number, height: number): Mipma
   };
 }
 
+export type TickPxPosition = number;
+export type TickLabel = string;
+export type Markers = [TickPxPosition, TickLabel][];
+export type MarkerDrawOption = {
+  startSec?: number;
+  endSec?: number;
+  maxSec?: number;
+  freqScale?: FreqScale;
+  hzRange?: [number, number];
+  maxTrackHz?: number;
+  ampRange?: [number, number];
+  mindB?: number;
+  maxdB?: number;
+};
+
+export function calcTimeAxisMarkers(
+  subTickSec: number,
+  subTickUnitCount: number,
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
+  const {startSec, endSec, maxSec} = markerDrawOptions || {};
+
+  if (startSec === undefined || endSec === undefined || maxSec === undefined) {
+    console.error("no markerDrawOptions for time axis exist");
+    return [];
+  }
+  return _calcTimeAxisMarkers(startSec, endSec, subTickSec, subTickUnitCount, maxSec);
+}
+
+/* track axis */
+export function calcFreqAxisMarkers(
+  maxNumTicks: number,
+  maxNumLabels: number,
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
+  const {maxTrackHz, freqScale, hzRange} = markerDrawOptions || {};
+
+  if (maxTrackHz === undefined || freqScale === undefined || hzRange === undefined) {
+    console.error("no markerDrawOptions for freq axis exist");
+    return [];
+  }
+  return _calcFreqAxisMarkers(
+    hzRange[0],
+    hzRange[1],
+    freqScale,
+    maxNumTicks,
+    maxNumLabels,
+    maxTrackHz,
+  );
+}
+
+export function calcAmpAxisMarkers(
+  maxNumTicks: number,
+  maxNumLabels: number,
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
+  const {ampRange} = markerDrawOptions || {};
+
+  if (!ampRange) {
+    console.error("no markerDrawOption for amp axis exist");
+    return [];
+  }
+
+  return _calcAmpAxisMarkers(maxNumTicks, maxNumLabels, ampRange[0], ampRange[1]);
+}
+
+export function calcDbAxisMarkers(
+  maxNumTicks: number,
+  maxNumLabels: number,
+  markerDrawOptions?: MarkerDrawOption,
+): Markers {
+  const {mindB, maxdB} = markerDrawOptions || {};
+
+  if (mindB === undefined || maxdB === undefined) {
+    console.error("no markerDrawOptions for dB axis exist");
+    return [];
+  }
+
+  return _calcDbAxisMarkers(maxNumTicks, maxNumLabels, mindB, maxdB);
+}
+
 // Named exports
 export {WasmFloat32Array, WasmU16Array, WasmU8Array};
 export default {
@@ -109,4 +199,12 @@ export default {
   clearWav,
   drawOverview,
   removeWav,
+  calcTimeAxisMarkers,
+  calcFreqAxisMarkers,
+  calcAmpAxisMarkers,
+  calcDbAxisMarkers,
+  secondsToLabel,
+  timeLabelToSeconds,
+  hzToLabel,
+  freqLabelToHz,
 };

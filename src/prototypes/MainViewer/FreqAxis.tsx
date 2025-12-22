@@ -10,7 +10,7 @@ import {
   MIN_HZ_RANGE,
   VERTICAL_AXIS_PADDING,
 } from "../constants/tracks";
-import BackendAPI from "../../api";
+import BackendAPI, {WasmAPI} from "../../api";
 import {listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit} from "../../lib/ipc";
 
 type FreqAxisProps = {
@@ -204,15 +204,7 @@ function FreqAxis(props: FreqAxisProps) {
     [handleDragging],
   );
 
-  const [hzRangeLabel, setHzRangeLabel] = useState<[string, string]>(["", ""]);
-  useEffect(() => {
-    Promise.all([
-      BackendAPI.hzToLabel(Math.min(hzRange[0], maxTrackHz)),
-      BackendAPI.hzToLabel(Math.min(hzRange[1], maxTrackHz)),
-    ]).then(([minHzLabel, maxHzLabel]) => {
-      setHzRangeLabel([minHzLabel, maxHzLabel]);
-    });
-  }, [hzRange, maxTrackHz]);
+  const hzRangeLabel = hzRange.map((hz) => WasmAPI.hzToLabel(Math.min(hz, maxTrackHz)));
 
   const onCursorStateChange = useEvent((cursorState) => {
     cursorStateRef.current = cursorState;
@@ -220,7 +212,7 @@ function FreqAxis(props: FreqAxisProps) {
 
   const onEndEditingFloatingInput = async (v: string | null, idx: number) => {
     if (v !== null) {
-      const hz = await BackendAPI.freqLabelToHz(v);
+      const hz = WasmAPI.freqLabelToHz(v);
       if (!Number.isNaN(hz)) {
         const newHzRange = [hzRange[0], hzRange[1]];
         newHzRange[idx] = idx === 0 ? clampMinHz(hz, newHzRange[1]) : clampMaxHz(hz, newHzRange[0]);

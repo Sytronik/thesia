@@ -1,10 +1,17 @@
 import ReactDOM from "react-dom/client";
 // import {ipcRenderer} from "electron";
 import {UserSettingsOptionals} from "src/api/backend-wrapper";
-import BackendAPI from "./api";
+import BackendAPI, {WasmAPI} from "./api";
 import {setUserSetting} from "./lib/ipc-sender";
 import {COLORMAP_RGBA8} from "./prototypes/constants/colors";
 import App from "./App";
+
+// Initialize WASM module
+try {
+  await WasmAPI.initWasm();
+} catch (error) {
+  console.error("Error occurred during WASM module initialization:", error);
+}
 
 const container = document.getElementById("root") as HTMLElement;
 const root = ReactDOM.createRoot(container);

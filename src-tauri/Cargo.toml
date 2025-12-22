@@ -20,10 +20,8 @@ tauri-build = {version = "2", features = []}
 
 [dependencies]
 anyhow = "1"
-approx = {workspace = true}
 atomic_float = {workspace = true}
 bytemuck = "1.24.0"
-chrono = "0.4.42"
 serde = {workspace = true}
 serde_json = {workspace = true}
 tauri = {version = "2", features = []}
@@ -93,5 +91,6 @@ openblas-src = {version = "0.10.13", features = ["cache", "cblas", "static"]}
 mimalloc = "0.1.48"
 
 [dev-dependencies]
+approx = {workspace = true}
 hound = "3.5.1"
 ndarray-rand = "0.15.0"

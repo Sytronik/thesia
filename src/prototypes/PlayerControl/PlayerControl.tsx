@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
-import BackendAPI from "src/api";
+import BackendAPI, {WasmAPI} from "src/api";
 import {Player} from "src/hooks/usePlayer";
 import FloatRangeInput from "src/modules/FloatRangeInput";
 import FloatingUserInput from "src/modules/FloatingUserInput";
@@ -33,7 +33,7 @@ function PlayerControl(props: PlayerControlProps) {
       !posInputElem.current.isEditing() &&
       Math.abs(prevPosSecRef.current - positionSec) > 1e-4
     ) {
-      const positionLabel = await BackendAPI.secondsToLabel(positionSec);
+      const positionLabel = WasmAPI.secondsToLabel(positionSec);
       posInputElem.current.setValue(positionLabel);
       prevPosSecRef.current = positionSec;
     }
@@ -47,7 +47,7 @@ function PlayerControl(props: PlayerControlProps) {
 
   const onEndEditing = useEvent(async (v: string | null) => {
     if (v === null) return;
-    const sec = await BackendAPI.timeLabelToSeconds(v);
+    const sec = WasmAPI.timeLabelToSeconds(v);
     if (Number.isNaN(sec)) return;
     if (player.isPlaying) player.seek(sec);
     else player.setSelectSec(sec);
@@ -58,19 +58,12 @@ function PlayerControl(props: PlayerControlProps) {
     [isTrackEmpty],
   );
 
-  const [secondsLabel, setSecondsLabel] = useState<string>("");
-  useEffect(() => {
-    BackendAPI.secondsToLabel(player.positionSecRef.current ?? 0).then((label) => {
-      setSecondsLabel(label);
-    });
-  }, [player.positionSecRef.current]);
-
   return (
     <div className={`flex-container-row ${styles.PlayerControl}`}>
       <FloatingUserInput
         ref={posInputElem}
         className={styles.positionInput}
-        value={secondsLabel}
+        value={WasmAPI.secondsToLabel(player.positionSecRef.current ?? 0)}
         onEndEditing={onEndEditing}
         hidden={false}
         focusOnShow={false}

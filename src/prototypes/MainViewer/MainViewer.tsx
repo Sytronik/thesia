@@ -21,7 +21,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import BackendAPI, {FreqScale} from "../../api";
+import BackendAPI, {FreqScale, WasmAPI} from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
@@ -205,7 +205,7 @@ function MainViewer(props: MainViewerProps) {
   const timeMarkersAndLength = useAxisMarkers({
     scaleTable: TIME_TICK_SIZE,
     boundaries: TIME_BOUNDARIES,
-    getMarkers: BackendAPI.getTimeAxisMarkers,
+    getMarkers: WasmAPI.calcTimeAxisMarkers,
     canvasLength: trackIds.length > 0 ? width : 0,
     scaleDeterminant: pxPerSec,
     drawOptions: timeMarkersDrawOptions,
@@ -222,7 +222,7 @@ function MainViewer(props: MainViewerProps) {
   const ampMarkersAndLength = useAxisMarkers({
     scaleTable: AMP_TICK_NUM,
     boundaries: AMP_BOUNDARIES,
-    getMarkers: BackendAPI.getAmpAxisMarkers,
+    getMarkers: WasmAPI.calcAmpAxisMarkers,
     canvasLength: imgHeight,
     scaleDeterminant: imgHeight,
     drawOptions: ampMarkersDrawOptions,
@@ -241,7 +241,7 @@ function MainViewer(props: MainViewerProps) {
   const freqMarkersAndLength = useAxisMarkers({
     scaleTable: FREQ_TICK_NUM,
     boundaries: FREQ_BOUNDARIES,
-    getMarkers: BackendAPI.getFreqAxisMarkers,
+    getMarkers: WasmAPI.calcFreqAxisMarkers,
     canvasLength: imgHeight,
     scaleDeterminant: imgHeight,
     drawOptions: freqMarkersDrawOptions,
@@ -255,7 +255,7 @@ function MainViewer(props: MainViewerProps) {
   const dBMarkersAndLength = useAxisMarkers({
     scaleTable: DB_TICK_NUM,
     boundaries: DB_BOUNDARIES,
-    getMarkers: BackendAPI.getdBAxisMarkers,
+    getMarkers: WasmAPI.calcDbAxisMarkers,
     canvasLength: trackIds.length > 0 ? colorBarHeight : 0,
     scaleDeterminant: colorBarHeight,
     drawOptions: minMaxdB,

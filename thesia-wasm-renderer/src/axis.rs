@@ -3,6 +3,8 @@ use std::str::FromStr;
 use approx::abs_diff_ne;
 use chrono::naive::NaiveTime;
 use num_traits::Zero;
+use serde_wasm_bindgen::{from_value, to_value};
+use wasm_bindgen::prelude::*;
 
 use thesia_common::{self as mel, FreqScale};
 
@@ -10,7 +12,28 @@ pub type AxisMarkers = Vec<(f32, String)>;
 
 const POSSIBLE_TEN_UNITS: [u32; 4] = [10, 20, 50, 100];
 
+#[wasm_bindgen(js_name = calcTimeAxisMarkers)]
 pub fn calc_time_axis_markers(
+    start_sec: f64,
+    end_sec: f64,
+    tick_unit: f64,
+    label_interval: u32,
+    max_sec: f64,
+) -> JsValue {
+    assert!(start_sec <= end_sec);
+    assert!(label_interval > 0);
+
+    to_value(&_calc_time_axis_markers(
+        start_sec,
+        end_sec,
+        tick_unit,
+        label_interval,
+        max_sec,
+    ))
+    .unwrap()
+}
+
+pub fn _calc_time_axis_markers(
     start_sec: f64,
     end_sec: f64,
     tick_unit: f64,
@@ -83,7 +106,30 @@ pub fn calc_time_axis_markers(
         .collect()
 }
 
+#[wasm_bindgen(js_name = calcFreqAxisMarkers)]
 pub fn calc_freq_axis_markers(
+    hz_range_min: f32,
+    hz_range_max: f32,
+    freq_scale: JsValue,
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    max_track_hz: f32,
+) -> JsValue {
+    assert_axis_params(max_num_ticks, max_num_labels);
+    assert!(hz_range_min < hz_range_max);
+
+    let hz_range = (hz_range_min, hz_range_max.min(max_track_hz));
+    let freq_scale = from_value(freq_scale).unwrap();
+    to_value(&_calc_freq_axis_markers(
+        hz_range,
+        freq_scale,
+        max_num_ticks,
+        max_num_labels,
+    ))
+    .unwrap()
+}
+
+fn _calc_freq_axis_markers(
     hz_range: (f32, f32),
     freq_scale: FreqScale,
     max_num_ticks: u32,
@@ -171,7 +217,26 @@ pub fn calc_freq_axis_markers(
     result
 }
 
+#[wasm_bindgen(js_name = calcAmpAxisMarkers)]
 pub fn calc_amp_axis_markers(
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    amp_range_min: f32,
+    amp_range_max: f32,
+) -> JsValue {
+    assert_axis_params(max_num_ticks, max_num_labels);
+    assert!(amp_range_min < amp_range_max);
+
+    let amp_range = (amp_range_min, amp_range_max);
+    to_value(&_calc_amp_axis_markers(
+        max_num_ticks,
+        max_num_labels,
+        amp_range,
+    ))
+    .unwrap()
+}
+
+fn _calc_amp_axis_markers(
     max_num_ticks: u32,
     max_num_labels: u32,
     amp_range: (f32, f32),
@@ -219,7 +284,27 @@ pub fn calc_amp_axis_markers(
 }
 
 #[allow(non_snake_case)]
+#[wasm_bindgen(js_name = calcDbAxisMarkers)]
 pub fn calc_dB_axis_markers(
+    max_num_ticks: u32,
+    max_num_labels: u32,
+    dB_range_min: f32,
+    dB_range_max: f32,
+) -> JsValue {
+    assert_axis_params(max_num_ticks, max_num_labels);
+    assert!(dB_range_min < dB_range_max);
+
+    let dB_range = (dB_range_min, dB_range_max);
+    to_value(&_calc_dB_axis_markers(
+        max_num_ticks,
+        max_num_labels,
+        dB_range,
+    ))
+    .unwrap()
+}
+
+#[allow(non_snake_case)]
+fn _calc_dB_axis_markers(
     max_num_ticks: u32,
     max_num_labels: u32,
     dB_range: (f32, f32),
@@ -231,6 +316,93 @@ pub fn calc_dB_axis_markers(
     let axis = calc_linear_axis(dB_range.0, dB_range.1, max_num_ticks);
     let len = axis.len();
     omit_labels_from_linear_axis(axis.into_iter(), len, max_num_labels).collect()
+}
+
+#[wasm_bindgen(js_name = secondsToLabel)]
+pub fn convert_sec_to_label(sec: f64) -> String {
+    let sec_floor = sec.floor() as u32;
+    let milli = (sec.mul_add(1000., -((sec_floor * 1000) as f64))).floor() as u32;
+    let sec_u32 = sec_floor + milli / 1000;
+    let milli = milli - milli / 1000 * 1000;
+    let nano: u32 = milli * 1_000_000;
+    NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
+        .unwrap()
+        .format("%H:%M:%S%.3f")
+        .to_string()
+}
+
+#[wasm_bindgen(js_name = timeLabelToSeconds)]
+pub fn convert_time_label_to_sec(label: &str) -> Result<f64, JsValue> {
+    _convert_time_label_to_sec(label).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+pub fn _convert_time_label_to_sec(label: &str) -> Result<f64, <f64 as FromStr>::Err> {
+    let split: Vec<_> = label.trim().rsplit(":").collect();
+    let mut parsed = split[0].parse::<f64>();
+    match split.len() {
+        1 => parsed,
+        2..=3 => {
+            for (i, split_item) in split.iter().enumerate().skip(1) {
+                parsed = parsed.and_then(|sec| {
+                    split_item
+                        .parse::<u32>()
+                        .map(|x| 60f64.powi(i as i32).mul_add(x as f64, sec))
+                        .or_else(|_| "err".parse::<f64>())
+                });
+            }
+            parsed
+        }
+        _ => "err".parse(),
+    }
+}
+
+#[wasm_bindgen(js_name = hzToLabel)]
+pub fn convert_hz_to_label(freq: f32) -> String {
+    let freq = freq.round().max(0.);
+    let freq_int = freq as usize;
+    if freq_int >= 1000 {
+        if freq_int.is_multiple_of(1000) {
+            format!("{}k", freq_int / 1000)
+        } else if freq_int.is_multiple_of(100) {
+            format!("{:.1}k", freq / 1000.)
+        } else if freq_int.is_multiple_of(10) {
+            format!("{:.2}k", freq / 1000.)
+        } else {
+            format!("{:.3}k", freq / 1000.)
+        }
+    } else {
+        format!("{}", freq_int)
+    }
+}
+
+#[wasm_bindgen(js_name = freqLabelToHz)]
+pub fn convert_freq_label_to_hz(label: &str) -> Result<f32, JsValue> {
+    _convert_freq_label_to_hz(label).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+fn _convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Err> {
+    let label = label.trim();
+    if label.starts_with("k")
+        || label.starts_with("-k")
+        || label.starts_with("K")
+        || label.starts_with("-K")
+        || label.starts_with(".")
+        || (label.contains("k") && label.contains("K"))
+    {
+        return "k".parse(); // Error
+    }
+    let parsed = if let Some(khz) = label.strip_suffix("k").or_else(|| label.strip_suffix("K")) {
+        khz.parse().map(|x: f32| x * 1000.)
+    } else if (label.contains("k") || label.contains("K")) && !label.contains(".") {
+        label
+            .replace("k", ".")
+            .replace("K", ".")
+            .parse()
+            .map(|x: f32| x * 1000.)
+    } else {
+        label.parse()
+    };
+    parsed.and_then(|x| if x >= 0. { Ok(x) } else { "err".parse() })
 }
 
 fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> AxisMarkers {
@@ -279,81 +451,6 @@ fn omit_labels_from_linear_axis<Y>(
     })
 }
 
-pub fn convert_sec_to_label(sec: f64) -> String {
-    let sec_floor = sec.floor() as u32;
-    let milli = (sec.mul_add(1000., -((sec_floor * 1000) as f64))).floor() as u32;
-    let sec_u32 = sec_floor + milli / 1000;
-    let milli = milli - milli / 1000 * 1000;
-    let nano: u32 = milli * 1_000_000;
-    NaiveTime::from_num_seconds_from_midnight_opt(sec_u32, nano)
-        .unwrap()
-        .format("%H:%M:%S%.3f")
-        .to_string()
-}
-
-pub fn convert_time_label_to_sec(label: &str) -> Result<f64, <f64 as FromStr>::Err> {
-    let split: Vec<_> = label.trim().rsplit(":").collect();
-    let mut parsed = split[0].parse::<f64>();
-    match split.len() {
-        1 => parsed,
-        2..=3 => {
-            for (i, split_item) in split.iter().enumerate().skip(1) {
-                parsed = parsed.and_then(|sec| {
-                    split_item
-                        .parse::<u32>()
-                        .map(|x| 60f64.powi(i as i32).mul_add(x as f64, sec))
-                        .or_else(|_| "err".parse::<f64>())
-                });
-            }
-            parsed
-        }
-        _ => "err".parse(),
-    }
-}
-
-pub fn convert_hz_to_label(freq: f32) -> String {
-    let freq = freq.round().max(0.);
-    let freq_int = freq as usize;
-    if freq_int >= 1000 {
-        if freq_int.is_multiple_of(1000) {
-            format!("{}k", freq_int / 1000)
-        } else if freq_int.is_multiple_of(100) {
-            format!("{:.1}k", freq / 1000.)
-        } else if freq_int.is_multiple_of(10) {
-            format!("{:.2}k", freq / 1000.)
-        } else {
-            format!("{:.3}k", freq / 1000.)
-        }
-    } else {
-        format!("{}", freq_int)
-    }
-}
-
-pub fn convert_freq_label_to_hz(label: &str) -> Result<f32, <f32 as FromStr>::Err> {
-    let label = label.trim();
-    if label.starts_with("k")
-        || label.starts_with("-k")
-        || label.starts_with("K")
-        || label.starts_with("-K")
-        || label.starts_with(".")
-        || (label.contains("k") && label.contains("K"))
-    {
-        return "k".parse(); // Error
-    }
-    let parsed = if let Some(khz) = label.strip_suffix("k").or_else(|| label.strip_suffix("K")) {
-        khz.parse().map(|x: f32| x * 1000.)
-    } else if (label.contains("k") || label.contains("K")) && !label.contains(".") {
-        label
-            .replace("k", ".")
-            .replace("K", ".")
-            .parse()
-            .map(|x: f32| x * 1000.)
-    } else {
-        label.parse()
-    };
-    parsed.and_then(|x| if x >= 0. { Ok(x) } else { "err".parse() })
-}
-
 fn format_ticklabel(value: f32, unit_exponent: impl Into<Option<i32>>) -> String {
     if value.is_zero() {
         return "0".into();
@@ -377,6 +474,13 @@ fn format_ticklabel(value: f32, unit_exponent: impl Into<Option<i32>>) -> String
             }
         }
     }
+}
+
+#[inline]
+fn assert_axis_params(max_num_ticks: u32, max_num_labels: u32) {
+    assert!(max_num_ticks >= 2);
+    assert!(max_num_labels >= 2);
+    assert!(max_num_ticks >= max_num_labels);
 }
 
 #[cfg(test)]
@@ -404,9 +508,9 @@ mod tests {
 
     #[test]
     fn time_axis_works() {
-        dbg!(calc_time_axis_markers(1.999, 2.0015, 0.0005, 1, 59.));
+        dbg!(_calc_time_axis_markers(1.999, 2.0015, 0.0005, 1, 59.));
         assert_axis_eq(
-            &calc_time_axis_markers(1.999, 2.0015, 0.0005, 1, 59.),
+            &_calc_time_axis_markers(1.999, 2.0015, 0.0005, 1, 59.),
             &[
                 (-0.2, "1.998"),
                 (0.0, "1.999"),
@@ -418,7 +522,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_time_axis_markers(1.999, 2.001, 0.001, 1, 60.),
+            &_calc_time_axis_markers(1.999, 2.001, 0.001, 1, 60.),
             &[
                 (-0.5, "00:01.998"),
                 (0.0, "00:01.999"),
@@ -431,11 +535,11 @@ mod tests {
     #[test]
     fn freq_axis_works() {
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 2, 2),
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 2, 2),
             &[(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 8, 8),
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 8, 8),
             &[
                 (1., "0"),
                 (5. / 6., "2k"),
@@ -447,15 +551,15 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 24, 24)[..3],
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 24, 24)[..3],
             &[(1., "0"), (11. / 12., "1k"), (10. / 12., "2k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 25, 25)[..3],
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Linear, 25, 25)[..3],
             &[(1., "0"), (23. / 24., "500"), (22. / 24., "1k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 11025.), FreqScale::Linear, 24, 24)[20..],
+            &_calc_freq_axis_markers((0., 11025.), FreqScale::Linear, 24, 24)[20..],
             &[
                 (1. - 10000. / 11025., "10k"),
                 (1. - 10500. / 11025., "10.5k"),
@@ -463,11 +567,11 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 2, 2),
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 2, 2),
             &[(1., "0"), (0., "12k")],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 3, 3),
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 3, 3),
             &[
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(12000.), "1k"),
@@ -475,7 +579,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 1500.), FreqScale::Mel, 4, 4),
+            &_calc_freq_axis_markers((0., 1500.), FreqScale::Mel, 4, 4),
             &[
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(1500.), "500"),
@@ -484,7 +588,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 8, 8),
+            &_calc_freq_axis_markers((0., 12000.), FreqScale::Mel, 8, 8),
             &[
                 (1., "0"),
                 (1. - mel::from_hz(500.) / mel::from_hz(12000.), "500"),
@@ -496,7 +600,7 @@ mod tests {
             ],
         );
         assert_axis_eq(
-            &calc_freq_axis_markers((0., 48000.), FreqScale::Mel, 6, 6),
+            &_calc_freq_axis_markers((0., 48000.), FreqScale::Mel, 6, 6),
             &[
                 (1., "0"),
                 (1. - mel::MIN_LOG_MEL as f32 / mel::from_hz(48000.), "1k"),
@@ -511,15 +615,15 @@ mod tests {
     #[allow(non_snake_case)]
     fn dB_axis_works() {
         assert_axis_eq(
-            &calc_dB_axis_markers(2, 2, (-100., 0.)),
+            &_calc_dB_axis_markers(2, 2, (-100., 0.)),
             &[(0., "0"), (1., "-100")],
         );
         assert_axis_eq(
-            &calc_dB_axis_markers(3, 3, (-12., 0.)),
+            &_calc_dB_axis_markers(3, 3, (-12., 0.)),
             &[(0., "0"), (-5. / -12., "-5"), (-10. / -12., "-10")],
         );
         assert_axis_eq(
-            &calc_dB_axis_markers(3, 3, (-2., -1.1)),
+            &_calc_dB_axis_markers(3, 3, (-2., -1.1)),
             &[((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
         );
     }

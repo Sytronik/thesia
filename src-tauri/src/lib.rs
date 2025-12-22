@@ -295,95 +295,6 @@ fn freq_hz_to_pos(hz: f64, height: u32, hz_range: (f64, Option<f64>)) -> f64 {
 }
 
 #[tauri::command]
-fn seconds_to_label(sec: f64) -> String {
-    convert_sec_to_label(sec)
-}
-
-#[tauri::command]
-fn time_label_to_seconds(label: String) -> f64 {
-    convert_time_label_to_sec(&label).unwrap_or(f64::NAN)
-}
-
-#[tauri::command]
-fn hz_to_label(hz: f64) -> String {
-    convert_hz_to_label(hz as f32)
-}
-
-#[tauri::command]
-fn freq_label_to_hz(label: String) -> f64 {
-    convert_freq_label_to_hz(&label).unwrap_or(f32::NAN) as f64
-}
-
-#[tauri::command]
-fn get_time_axis_markers(
-    start_sec: f64,
-    end_sec: f64,
-    tick_unit: f64,
-    label_interval: u32,
-    max_sec: f64,
-) -> serde_json::Value {
-    assert!(start_sec <= end_sec);
-    assert!(label_interval > 0);
-    json!(calc_time_axis_markers(
-        start_sec,
-        end_sec,
-        tick_unit,
-        label_interval,
-        max_sec
-    ))
-}
-
-#[tauri::command]
-fn get_freq_axis_markers(
-    max_num_ticks: u32,
-    max_num_labels: u32,
-    hz_range: (f64, Option<f64>),
-    max_track_hz: f64,
-) -> serde_json::Value {
-    assert_axis_params(max_num_ticks, max_num_labels);
-
-    json!(calc_freq_axis_markers(
-        (hz_range.0 as f32, hz_range.1.unwrap_or(max_track_hz) as f32),
-        SPEC_SETTING.read().freq_scale,
-        max_num_ticks,
-        max_num_labels
-    ))
-}
-
-#[tauri::command]
-fn get_amp_axis_markers(
-    max_num_ticks: u32,
-    max_num_labels: u32,
-    amp_range: (f64, f64),
-) -> serde_json::Value {
-    assert_axis_params(max_num_ticks, max_num_labels);
-    assert!(amp_range.0 < amp_range.1);
-
-    json!(calc_amp_axis_markers(
-        max_num_ticks,
-        max_num_labels,
-        (amp_range.0 as f32, amp_range.1 as f32),
-    ))
-}
-
-#[tauri::command]
-#[allow(non_snake_case)]
-fn get_dB_axis_markers(
-    max_num_ticks: u32,
-    max_num_labels: u32,
-    min_dB: f64,
-    max_dB: f64,
-) -> serde_json::Value {
-    assert_axis_params(max_num_ticks, max_num_labels);
-
-    json!(calc_dB_axis_markers(
-        max_num_ticks,
-        max_num_labels,
-        (min_dB as f32, max_dB as f32)
-    ))
-}
-
-#[tauri::command]
 #[allow(non_snake_case)]
 fn get_max_dB() -> f64 {
     TM.read().max_dB as f64
@@ -540,13 +451,6 @@ fn get_player_state() -> PlayerState {
 }
 
 #[inline]
-pub fn assert_axis_params(max_num_ticks: u32, max_num_labels: u32) {
-    assert!(max_num_ticks >= 2);
-    assert!(max_num_labels >= 2);
-    assert!(max_num_ticks >= max_num_labels);
-}
-
-#[inline]
 async fn refresh_track_player() {
     player::send(PlayerCommand::SetTrack((None, None))).await;
 }
@@ -647,14 +551,6 @@ pub fn run() {
             get_limiter_gain,
             freq_pos_to_hz,
             freq_hz_to_pos,
-            seconds_to_label,
-            time_label_to_seconds,
-            hz_to_label,
-            freq_label_to_hz,
-            get_time_axis_markers,
-            get_freq_axis_markers,
-            get_amp_axis_markers,
-            get_dB_axis_markers,
             get_max_dB,
             get_min_dB,
             get_max_track_hz,

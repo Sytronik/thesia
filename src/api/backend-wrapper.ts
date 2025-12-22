@@ -9,20 +9,6 @@ export async function getChannelCounts(trackId: number): Promise<1 | 2> {
 
 export type AxisKind = "timeRuler" | "ampAxis" | "freqAxis" | "dBAxis";
 
-export type TickPxPosition = number;
-export type TickLabel = string;
-export type Markers = [TickPxPosition, TickLabel][];
-export type MarkerDrawOption = {
-  startSec?: number;
-  endSec?: number;
-  maxSec?: number;
-  hzRange?: [number, number];
-  maxTrackHz?: number;
-  ampRange?: [number, number];
-  mindB?: number;
-  maxdB?: number;
-};
-
 export interface AudioFormatInfo {
   name: string;
   sampleRate: number;
@@ -68,80 +54,6 @@ export interface UserSettingsOptionals {
   dBRange?: number;
   commonGuardClipping?: GuardClippingMode;
   commonNormalize?: any;
-}
-
-/* draw tracks */
-/* time axis */
-export async function getTimeAxisMarkers(
-  subTickSec: number,
-  subTickUnitCount: number,
-  markerDrawOptions?: MarkerDrawOption,
-): Promise<Markers> {
-  const {startSec, endSec, maxSec} = markerDrawOptions || {};
-
-  if (startSec === undefined || endSec === undefined || maxSec === undefined) {
-    console.error("no markerDrawOptions for time axis exist");
-    return [];
-  }
-  return invoke<Markers>("get_time_axis_markers", {
-    startSec,
-    endSec,
-    tickUnit: subTickSec,
-    labelInterval: subTickUnitCount,
-    maxSec,
-  });
-}
-
-/* track axis */
-export async function getFreqAxisMarkers(
-  maxNumTicks: number,
-  maxNumLabels: number,
-  markerDrawOptions?: MarkerDrawOption,
-): Promise<Markers> {
-  const {maxTrackHz, hzRange} = markerDrawOptions || {};
-
-  if (maxTrackHz === undefined || hzRange === undefined) {
-    console.error("no markerDrawOptions for freq axis exist");
-    return [];
-  }
-  return invoke<Markers>("get_freq_axis_markers", {maxNumTicks, maxNumLabels, hzRange, maxTrackHz});
-}
-
-export async function getAmpAxisMarkers(
-  maxNumTicks: number,
-  maxNumLabels: number,
-  markerDrawOptions?: MarkerDrawOption,
-): Promise<Markers> {
-  const {ampRange} = markerDrawOptions || {};
-
-  if (!ampRange) {
-    console.error("no markerDrawOption for amp axis exist");
-    return [];
-  }
-
-  return invoke<Markers>("get_amp_axis_markers", {maxNumTicks, maxNumLabels, ampRange});
-}
-
-/* dB Axis */
-
-export async function getdBAxisMarkers(
-  maxNumTicks: number,
-  maxNumLabels: number,
-  markerDrawOptions?: MarkerDrawOption,
-): Promise<Markers> {
-  const {mindB, maxdB} = markerDrawOptions || {};
-
-  if (mindB === undefined || maxdB === undefined) {
-    console.error("no markerDrawOptions for dB axis exist");
-    return [];
-  }
-
-  return invoke<Markers>("get_dB_axis_markers", {
-    maxNumTicks,
-    maxNumLabels,
-    minDB: mindB,
-    maxDB: maxdB,
-  });
 }
 
 // IdChannel is form of id#_ch#
@@ -270,22 +182,6 @@ export async function freqHzToPos(
   hzRange: [number, number],
 ): Promise<number> {
   return invoke<number>("freq_hz_to_pos", {hz, height, hzRange});
-}
-
-export async function secondsToLabel(sec: number): Promise<string> {
-  return invoke<string>("seconds_to_label", {sec});
-}
-
-export async function timeLabelToSeconds(label: string): Promise<number> {
-  return invoke<number>("time_label_to_seconds", {label});
-}
-
-export async function hzToLabel(hz: number): Promise<string> {
-  return invoke<string>("hz_to_label", {hz});
-}
-
-export async function freqLabelToHz(label: string): Promise<number> {
-  return invoke<number>("freq_label_to_hz", {label});
 }
 
 export async function getMaxdB(): Promise<number> {
