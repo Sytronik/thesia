@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use ndarray::ScalarOperand;
 use ndarray::prelude::*;
 use num_traits::{AsPrimitive, Float, NumAssignOps};
+use serde::{Deserialize, Serialize};
 
 #[allow(clippy::excessive_precision)]
 pub const MEL_DIFF_2K_1K: f32 = 10.081880157308321; // from_hz(2000) - from_hz(1000)
@@ -98,6 +99,63 @@ pub fn calc_mel_fb_default(sr: u32, n_fft: usize) -> Array2<f32> {
             break mel_fb;
         }
         n_mel -= 1;
+    }
+}
+
+#[derive(Debug, PartialEq, Hash, Eq, Serialize, Deserialize, Clone, Copy)]
+pub enum FreqScale {
+    Linear,
+    Mel,
+}
+
+impl FreqScale {
+    #[inline]
+    pub fn relative_freq_to_hz(&self, rel_freq: f32, hz_range: (f32, f32)) -> f32 {
+        match self {
+            FreqScale::Linear => (hz_range.1 - hz_range.0).mul_add(rel_freq, hz_range.0),
+            FreqScale::Mel => {
+                let mel_range = (from_hz(hz_range.0), from_hz(hz_range.1));
+                to_hz((mel_range.1 - mel_range.0).mul_add(rel_freq, mel_range.0))
+            }
+        }
+    }
+
+    #[inline]
+    pub fn hz_to_relative_freq(&self, hz: f32, hz_range: (f32, f32)) -> f32 {
+        match self {
+            FreqScale::Linear => (hz - hz_range.0) / (hz_range.1 - hz_range.0),
+            FreqScale::Mel => {
+                let mel_range = (from_hz(hz_range.0), from_hz(hz_range.1));
+                (from_hz(hz) - mel_range.0) / (mel_range.1 - mel_range.0)
+            }
+        }
+    }
+
+    #[inline]
+    fn calc_ratio_to_max_freq(&self, hz: f32, sr: u32) -> f32 {
+        let half_sr = sr as f32 / 2.;
+        match self {
+            FreqScale::Linear => hz / half_sr,
+            FreqScale::Mel => from_hz(hz) / from_hz(half_sr),
+        }
+    }
+
+    #[inline]
+    pub fn hz_range_to_idx(
+        &self,
+        hz_range: (f32, f32),
+        sr: u32,
+        n_freqs_or_mels: usize,
+    ) -> (usize, usize) {
+        if hz_range.0 >= hz_range.1 {
+            return (0, 0);
+        }
+        let min_ratio = self.calc_ratio_to_max_freq(hz_range.0, sr);
+        let max_ratio = self.calc_ratio_to_max_freq(hz_range.1, sr);
+        let min_idx = ((min_ratio * n_freqs_or_mels as f32).floor() as usize).max(0);
+        let max_idx = (max_ratio * n_freqs_or_mels as f32).ceil() as usize;
+
+        (min_idx, max_idx)
     }
 }
 

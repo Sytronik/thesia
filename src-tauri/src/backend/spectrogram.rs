@@ -6,76 +6,19 @@ use rayon::prelude::*;
 use realfft::{RealFftPlanner, RealToComplex};
 use serde::{Deserialize, Serialize};
 
-pub mod mel;
 mod stft;
 
 use super::dynamics::decibel::DeciBelInplace;
 use super::tuple_hasher::{TupleIntMap, TupleIntSet};
 use super::windows::{WindowType, calc_normalized_win};
 use stft::perform_stft;
+use thesia_common::{self as mel, FreqScale};
 
 const DEFAULT_WINTYPE: WindowType = WindowType::Hann;
 
 type FramingParams = (usize, usize, usize); // hop, win, n_fft
 type WinNfft = (usize, usize);
 type SrNfft = (u32, usize);
-
-#[derive(Debug, PartialEq, Hash, Eq, Serialize, Deserialize, Clone, Copy)]
-pub enum FreqScale {
-    Linear,
-    Mel,
-}
-
-impl FreqScale {
-    #[inline]
-    pub fn relative_freq_to_hz(&self, rel_freq: f32, hz_range: (f32, f32)) -> f32 {
-        match self {
-            FreqScale::Linear => (hz_range.1 - hz_range.0).mul_add(rel_freq, hz_range.0),
-            FreqScale::Mel => {
-                let mel_range = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
-                mel::to_hz((mel_range.1 - mel_range.0).mul_add(rel_freq, mel_range.0))
-            }
-        }
-    }
-
-    #[inline]
-    pub fn hz_to_relative_freq(&self, hz: f32, hz_range: (f32, f32)) -> f32 {
-        match self {
-            FreqScale::Linear => (hz - hz_range.0) / (hz_range.1 - hz_range.0),
-            FreqScale::Mel => {
-                let mel_range = (mel::from_hz(hz_range.0), mel::from_hz(hz_range.1));
-                (mel::from_hz(hz) - mel_range.0) / (mel_range.1 - mel_range.0)
-            }
-        }
-    }
-
-    #[inline]
-    fn calc_ratio_to_max_freq(&self, hz: f32, sr: u32) -> f32 {
-        let half_sr = sr as f32 / 2.;
-        match self {
-            FreqScale::Linear => hz / half_sr,
-            FreqScale::Mel => mel::from_hz(hz) / mel::from_hz(half_sr),
-        }
-    }
-
-    #[inline]
-    pub fn hz_range_to_idx(
-        &self,
-        hz_range: (f32, f32),
-        sr: u32,
-        n_freqs_or_mels: usize,
-    ) -> (usize, usize) {
-        if hz_range.0 >= hz_range.1 {
-            return (0, 0);
-        }
-        let min_ratio = self.calc_ratio_to_max_freq(hz_range.0, sr);
-        let max_ratio = self.calc_ratio_to_max_freq(hz_range.1, sr);
-        let min_idx = ((min_ratio * n_freqs_or_mels as f32).floor() as usize).max(0);
-        let max_idx = (max_ratio * n_freqs_or_mels as f32).ceil() as usize;
-
-        (min_idx, max_idx)
-    }
-}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SrWinNfft {

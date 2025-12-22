@@ -5653,6 +5653,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "thesia-common"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "itertools 0.14.0",
+ "ndarray",
+ "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "thesia-tauri"
 version = "0.1.0"
 dependencies = [
@@ -5695,6 +5707,7 @@ dependencies = [
  "tauri-plugin-devtools",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "thesia-common",
  "tiny-skia",
  "tokio",
  "tokio-rayon",
