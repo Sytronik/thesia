@@ -4,7 +4,6 @@ extern crate blas_src;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use fast_image_resize::pixels;
 use parking_lot::RwLock;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, Window, Wry};
@@ -231,21 +230,18 @@ async fn get_spectrogram(id_ch_str: String) -> tauri::Result<serde_json::Value> 
         }
     };
 
-    let out = {
-        let tm = TM.read();
-        tm.get_spectrogram((id, ch)).map(|spec| {
+    let tm = TM.read();
+    tm.get_spectrogram((id, ch))
+        .map_or(Ok(serde_json::Value::Null), |spec| {
             let (height, width) = (spec.shape()[0], spec.shape()[1]);
-            let arr =
-                unsafe { std::mem::transmute::<&[pixels::U16], &[u16]>(spec.as_slice().unwrap()) };
-            Spectrogram {
+            let arr = spec.as_slice().unwrap();
+            Ok(json!(Spectrogram {
                 arr,
                 width: width as u32,
                 height: height as u32,
                 track_sec,
-            }
+            }))
         })
-    };
-    Ok(json!(out))
 }
 
 #[tauri::command]

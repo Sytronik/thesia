@@ -1,4 +1,3 @@
-use fast_image_resize::pixels;
 use identity_hash::IntSet;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -33,7 +32,7 @@ pub struct TrackManager {
     pub max_dB: f32,
     pub min_dB: f32,
     pub max_sr: u32,
-    pub spec_imgs: IdChMap<Array2<pixels::U16>>,
+    pub spec_imgs: IdChMap<Array2<u16>>,
     pub setting: SpecSetting,
     pub dB_range: f32,
     pub colormap_length: u32,
@@ -129,7 +128,7 @@ impl TrackManager {
         self.update_mipmaps(tracklist, true);
     }
 
-    pub fn get_spectrogram(&'_ self, (id, ch): IdCh) -> Option<ArrayView2<'_, pixels::U16>> {
+    pub fn get_spectrogram(&'_ self, (id, ch): IdCh) -> Option<ArrayView2<'_, u16>> {
         self.spec_imgs.get(&(id, ch)).map(|spec| spec.view())
     }
 

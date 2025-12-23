@@ -1,4 +1,3 @@
-use fast_image_resize::pixels;
 use ndarray::prelude::*;
 
 #[allow(non_snake_case)]
@@ -7,7 +6,7 @@ pub fn convert_spectrogram_to_img(
     i_freq_range: (usize, usize),
     dB_range: (f32, f32),
     colormap_length: Option<u32>,
-) -> Array2<pixels::U16> {
+) -> Array2<u16> {
     // spec: T x F
     // return: image with F x T
     let (i_freq_start, i_freq_end) = i_freq_range;
@@ -22,9 +21,9 @@ pub fn convert_spectrogram_to_img(
         if i_freq < spec.raw_dim()[1] {
             let zero_to_one = (spec[[j, i_freq]] - dB_range.0) / dB_span;
             let u16_min_to_max = zero_to_one * u16_span + min_value as f32;
-            pixels::U16::new(u16_min_to_max.round().clamp(0., u16::MAX as f32) as u16)
+            u16_min_to_max.round().clamp(0., u16::MAX as f32) as u16
         } else {
-            pixels::U16::new(0)
+            0
         }
     })
 }

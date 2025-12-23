@@ -27,7 +27,6 @@ cpal = "0.16.0"
 crossbeam-channel = "0.5.15"
 dunce = "1.0.5"
 ebur128 = "0.1.10"
-fast_image_resize = "5.3.0"
 identity-hash = "0.1.0"
 itertools = { workspace = true }
 log = "0.4"

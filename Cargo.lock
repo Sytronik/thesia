@@ -5535,7 +5535,6 @@ dependencies = [
  "crossbeam-channel",
  "dunce",
  "ebur128",
- "fast_image_resize",
  "hound",
  "identity-hash",
  "itertools 0.14.0",
