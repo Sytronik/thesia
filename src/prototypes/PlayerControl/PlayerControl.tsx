@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI, {WasmAPI} from "src/api";
 import {Player} from "src/hooks/usePlayer";

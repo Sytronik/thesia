@@ -423,13 +423,15 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
         }),
 
         ids::TOGGLE_DEVTOOLS => with_main_window(app, |window| {
-            if window.is_devtools_open() {
-                window.close_devtools();
-            } else {
-                window.open_devtools();
+            #[cfg(debug_assertions)]
+            {
+                if window.is_devtools_open() {
+                    window.close_devtools();
+                } else {
+                    window.open_devtools();
+                }
             }
         }),
-
         ids::HELP_LEARN_MORE => {
             let _ = app
                 .opener()

@@ -34,7 +34,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     enableInteraction,
   } = props;
   const calcDragAnchor = useEvent(
-    (cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
+    (_cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
       const sec = startSec + (cursorRatio * rect.width) / pxPerSec;
       return {cursorRatio, sec} as TimeAxisDragAnchor;
@@ -43,7 +43,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
 
   const handleDragging = useEvent(
     (
-      cursorState: TimeAxisCursorState,
+      _cursorState: TimeAxisCursorState,
       cursorPos: number,
       dragAnchorValue: TimeAxisDragAnchor,
       rect: DOMRect,

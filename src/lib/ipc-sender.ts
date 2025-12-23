@@ -2,8 +2,8 @@ import BackendAPI, {UserSettings} from "src/api";
 // import {ipcRenderer} from "electron";
 
 export function setUserSetting<K extends keyof UserSettings>(
-  key: K,
-  value: NonNullable<UserSettings[K]>,
+  _key: K,
+  _value: NonNullable<UserSettings[K]>,
 ) {
   // ipcRenderer.send("set-setting", key, value);
 }

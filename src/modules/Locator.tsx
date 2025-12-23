@@ -53,7 +53,7 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
     },
   );
 
-  const draw = useEvent((time, request: boolean = true) => {
+  const draw = useEvent((_time: number, request: boolean = true) => {
     const locatorPos = calcLocatorPos();
     const leftWidth = getBoundingLeftWidth();
 

@@ -1,4 +1,4 @@
-import React, {useRef, useState} from "react";
+import {useRef, useState} from "react";
 import ReactDOM from "react-dom";
 import {debounce} from "throttle-debounce";
 import useEvent from "react-use-event-hook";

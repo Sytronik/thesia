@@ -200,9 +200,9 @@ function Overview(props: OverviewProps) {
       cursor: RESIZE_CURSOR,
       cursorClassNameForBody: "colResizeCursor",
       handleDragging: (
-        _: OverviewCursorState,
+        _cursorState: OverviewCursorState,
         cursorX: number,
-        anchorValue: number,
+        _anchorValue: number,
         rect: DOMRect,
       ) => {
         resizeLensFunc(calcSecFromX(cursorX, rect));

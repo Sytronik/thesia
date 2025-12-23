@@ -2,7 +2,7 @@ import ReactDOM from "react-dom/client";
 // import {ipcRenderer} from "electron";
 import {UserSettingsOptionals} from "src/api/backend-wrapper";
 import BackendAPI, {WasmAPI} from "./api";
-import {setUserSetting} from "./lib/ipc-sender";
+// import {setUserSetting} from "./lib/ipc-sender";
 import {COLORMAP_RGBA8} from "./prototypes/constants/colors";
 import App from "./App";
 

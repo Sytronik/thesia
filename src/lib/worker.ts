@@ -193,5 +193,10 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
   }
 };
 
-await WasmAPI.initWasm();
-initialized = true;
+WasmAPI.initWasm()
+  .then(() => {
+    initialized = true;
+  })
+  .catch((error) => {
+    console.error("failed to initialize WASM module", error);
+  });

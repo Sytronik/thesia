@@ -1,6 +1,5 @@
-import React, {createContext, useEffect} from "react";
+import React, {createContext} from "react";
 import {useDevicePixelRatio} from "use-device-pixel-ratio";
-import {WasmAPI} from "./api";
 
 export const DevicePixelRatioContext = createContext(1);
 
