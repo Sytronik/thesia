@@ -22,7 +22,6 @@ tauri-build = { version = "2", features = ["codegen"] }
 # console-subscriber = "0.4.0"
 anyhow = "1"
 atomic_float = { workspace = true }
-bytemuck = "1.24.0"
 const_format = "0.2.35"
 cpal = "0.16.0"
 crossbeam-channel = "0.5.15"
@@ -32,9 +31,7 @@ fast_image_resize = "5.3.0"
 identity-hash = "0.1.0"
 itertools = { workspace = true }
 log = "0.4"
-memmap2 = "0.9.9"
 ndarray = { workspace = true, features = ["approx", "blas", "rayon"] }
-ndarray-npy = "0.9.1"
 ndarray-stats = "0.6.0"
 num-traits = { workspace = true }
 num_cpus = "1.17.0"
@@ -49,7 +46,6 @@ tauri-plugin-devtools = "2.0.0"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 thesia-common = { path = "../src-common" }
-tiny-skia = "0.11.4"
 tokio = "1"
 tokio-rayon = "2.1.0"
 
