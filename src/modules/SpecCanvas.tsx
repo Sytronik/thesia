@@ -61,9 +61,11 @@ const SpecCanvas = (props: SpecCanvasProps) => {
 
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
-  const endSec = startSec + width / (pxPerSec + 1e-8);
-
   const trackSecRef = useRef<number>(0);
+  const calcEndSec = useEvent(() =>
+    Math.min(startSec + width / (pxPerSec + 1e-8), trackSecRef.current),
+  );
+
   const mipmapSizeArrRef = useRef<[number, number][][]>([]);
   const [mipmapSize, setMipmapSize] = useState<[number, number] | null>(null);
   const nextMipmapSizeRef = useRef<[number, number] | null>(null);
@@ -122,7 +124,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   );
 
   const calcMipmapSizeAndRequestMipmapForcely = useEvent(() =>
-    calcMipmapSizeAndRequestMipmap(startSec, endSec, hzRange, true),
+    calcMipmapSizeAndRequestMipmap(startSec, calcEndSec(), hzRange, true),
   );
 
   const setSpectrogram = useEvent((_idChStr: string, _workerIndex: number) => {
@@ -171,8 +173,8 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   useEffect(() => {
     if (mipmapIsNotNeeded) return;
 
-    calcMipmapSizeAndRequestMipmap(startSec, endSec, hzRange);
-  }, [startSec, endSec, hzRange, calcMipmapSizeAndRequestMipmap, mipmapIsNotNeeded]);
+    calcMipmapSizeAndRequestMipmap(startSec, calcEndSec(), hzRange);
+  }, [startSec, calcEndSec, hzRange, calcMipmapSizeAndRequestMipmap, mipmapIsNotNeeded]);
 
   const renderSpecHighQuality = useEvent(
     (slicedMipmap, srcLeft, srcTop, srcW, srcH, dstW, dstH, _blend) => {
@@ -240,7 +242,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
         mipmap.width,
         mipmap.height,
         trackSecRef.current,
-        [startSec, endSec],
+        [startSec, calcEndSec()],
         [0, maxTrackHz],
         hzRange,
         MARGIN_FOR_RESIZE,
@@ -271,8 +273,10 @@ const SpecCanvas = (props: SpecCanvasProps) => {
       let srcW = width * (sliceArgs.pxPerSec / pxPerSec);
       let dstW = width * _devicePixelRatio;
 
-      if (startSec + width / (pxPerSec + 1e-8) > trackSecRef.current)
+      if (startSec + width / (pxPerSec + 1e-8) > trackSecRef.current) {
+        srcW = (trackSecRef.current - startSec) * sliceArgs.pxPerSec;
         dstW = (trackSecRef.current - startSec) * pxPerSec * _devicePixelRatio;
+      }
 
       srcW = Math.max(0.5, srcW);
       dstW = Math.max(0.5, dstW);
@@ -312,7 +316,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
     const requestId = requestAnimationFrame(() =>
       draw(
         startSec,
-        endSec,
+        calcEndSec(),
         hzRange,
         pxPerSec,
         width,
@@ -330,7 +334,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   }, [
     draw,
     startSec,
-    endSec,
+    calcEndSec,
     hzRange,
     pxPerSec,
     width,
