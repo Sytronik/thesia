@@ -48,19 +48,6 @@ export async function showOpenDialog() {
   return files;
 }
 
-export function addAppRenderedListener(pathsToOpen: string[]) {
-  /* ipcMain.once("app-rendered", (event) => {
-    if (
-      process.platform === "win32" &&
-      process.env.NODE_ENV !== "development" &&
-      process.argv.length > 1
-    )
-      event.reply("open-files", process.argv.slice(1));
-    else if (process.platform === "darwin" && pathsToOpen.length > 0)
-      event.reply("open-files", pathsToOpen);
-  }); */
-}
-
 export function getOpenTracksHandler(
   callback: (files: string[]) => void | Promise<void>,
 ): () => Promise<void> {
@@ -97,6 +84,14 @@ export async function showFileOpenErrorMsg(unsupportedPaths: string[], invalidPa
       `Only files with the following extensions are allowed:\n  ${SUPPORTED_TYPES.join(", ")}`,
     {title: "File Open Error", kind: "error"},
   );
+}
+
+export async function listenOpenFiles(
+  handler: (files: string[]) => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen("open-files", (event) => {
+    handler(event.payload as string[]);
+  });
 }
 
 export async function listenMenuOpenAudioTracks(handler: () => Promise<void>): Promise<UnlistenFn> {

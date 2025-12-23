@@ -113,6 +113,10 @@ export async function init(userSettings: UserSettingsOptionals): Promise<UserSet
   return invoke<UserSettings>("init", {userSettings});
 }
 
+export async function notifyAppRendered(): Promise<void> {
+  return invoke<void>("notify_app_rendered");
+}
+
 export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {
   return invoke<number[]>("add_tracks", {trackIds, paths});
 }

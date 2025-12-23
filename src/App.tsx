@@ -10,7 +10,6 @@ import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import {
   addGlobalFocusInListener,
   addGlobalFocusOutListener,
-  notifyAppRendered,
   removeGlobalFocusInListener,
   removeGlobalFocusOutListener,
   showEditContextMenuIfEditableNode,
@@ -27,6 +26,7 @@ import {
   listenMenuOpenAudioTracks,
   listenMenuRemoveSelectedTracks,
   showFileOpenErrorMsg,
+  listenOpenFiles,
 } from "./lib/ipc";
 import {useHotkeys} from "react-hotkeys-hook";
 
@@ -122,6 +122,13 @@ function MyApp({userSettings}: AppProps) {
     }
     await refreshTracks();
   });
+
+  useEffect(() => {
+    const promiseUnlisten = listenOpenFiles(openAudioTracks);
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
+  }, [openAudioTracks]);
 
   const openAudioTracksHandler = useMemo(
     () => getOpenTracksHandler(openAudioTracks),
@@ -236,7 +243,9 @@ function MyApp({userSettings}: AppProps) {
 }
 
 export default function App({userSettings}: AppProps) {
-  useEffect(notifyAppRendered, []);
+  useEffect(() => {
+    BackendAPI.notifyAppRendered();
+  }, []);
 
   return (
     <Router>

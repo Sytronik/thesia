@@ -20,7 +20,10 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true
+      }
     }
   },
   "bundle": {
@@ -32,6 +35,40 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["aac"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["flac"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["m4a"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["mp3"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["oga"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["ogg"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["opus"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["wav"],
+        "role": "Viewer"
+      }
     ]
   }
 }

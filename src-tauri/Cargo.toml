@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 name = "thesia_tauri_lib"
 
 [build-dependencies]
-tauri-build = {version = "2", features = []}
+tauri-build = {version = "2", features = ["codegen"]}
 
 [dependencies]
 anyhow = "1"
@@ -24,7 +24,7 @@ atomic_float = {workspace = true}
 bytemuck = "1.24.0"
 serde = {workspace = true}
 serde_json = {workspace = true}
-tauri = {version = "2", features = []}
+tauri = {version = "2", features = ["protocol-asset"]}
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 # console-subscriber = "0.4.0"
