@@ -8,11 +8,7 @@ import React, {
 } from "react";
 import useEvent from "react-use-event-hook";
 import {DevicePixelRatioContext} from "../contexts";
-import {
-  AXIS_STYLE,
-  LABEL_HEIGHT_ADJUSTMENT,
-  VERTICAL_AXIS_PADDING,
-} from "../prototypes/constants/tracks";
+import {AXIS_STYLE, VERTICAL_AXIS_PADDING} from "../prototypes/constants/tracks";
 import styles from "./AxisCanvas.module.scss";
 import BackendAPI, {AxisKind} from "../api";
 
@@ -20,13 +16,6 @@ const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
 
 export const getAxisHeight = (rect: DOMRect) => rect.height - 2 * VERTICAL_AXIS_PADDING;
 export const getAxisPos = (pos: number) => pos - VERTICAL_AXIS_PADDING;
-
-type MarkerPosition = {
-  MAJOR_TICK_POS: number;
-  MINOR_TICK_POS: number;
-  LABEL_POS: number;
-  LABEL_LEFT_MARGIN: number;
-};
 
 type AxisCanvasProps = {
   id: number;
@@ -95,7 +84,7 @@ const AxisCanvas = forwardRef(
       ctx.strokeStyle = TICK_COLOR;
       ctx.lineWidth = LINE_WIDTH;
       ctx.font = LABEL_FONT;
-      ctx.textBaseline = "hanging";
+      ctx.textBaseline = direction === "H" ? "alphabetic" : "middle";
       ctx.save();
       ctx.fillStyle = bgColor.current;
       ctx.fillRect(0, 0, width, height);
@@ -103,7 +92,12 @@ const AxisCanvas = forwardRef(
 
       const [markers, lenForMarkers] = markersAndLength;
       if (markers.length > 0) {
-        const {MAJOR_TICK_POS, MINOR_TICK_POS, LABEL_POS, LABEL_LEFT_MARGIN} = markerPos;
+        const {
+          MAJOR_TICK_POS,
+          MINOR_TICK_POS,
+          LABEL_POS,
+          LABEL_ADJUSTMENT: LABEL_MARGIN,
+        } = markerPos;
 
         const axisLength = (direction === "H" ? width : height) - 2 * axisPadding;
         const ratioToPx = shiftWhenResize ? lenForMarkers : axisLength;
@@ -119,7 +113,7 @@ const AxisCanvas = forwardRef(
 
             ctx.beginPath();
             if (label) {
-              ctx.fillText(label, pxPosition + LABEL_LEFT_MARGIN, LABEL_POS);
+              ctx.fillText(label, pxPosition + LABEL_MARGIN, LABEL_POS);
               ctx.moveTo(pxPosition, MAJOR_TICK_POS);
             } else {
               ctx.moveTo(pxPosition, MINOR_TICK_POS);
@@ -140,11 +134,7 @@ const AxisCanvas = forwardRef(
 
             ctx.beginPath();
             if (label) {
-              ctx.fillText(
-                label,
-                LABEL_POS + LABEL_LEFT_MARGIN,
-                pxPosition - LABEL_HEIGHT_ADJUSTMENT,
-              );
+              ctx.fillText(label, LABEL_POS, pxPosition + LABEL_MARGIN);
               ctx.moveTo(MAJOR_TICK_POS, pxPosition);
             } else {
               ctx.moveTo(MINOR_TICK_POS, pxPosition);

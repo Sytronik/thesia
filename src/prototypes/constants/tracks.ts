@@ -22,7 +22,7 @@ export const AXIS_STYLE = {
   LINE_WIDTH: 1,
   TICK_COLOR: WHITE,
   LABEL_COLOR: WHITE,
-  LABEL_FONT: "11px sans-serif",
+  LABEL_FONT: "10.5px Pretendard",
 };
 
 export const OVERVIEW_LENS_STYLE = {
@@ -34,11 +34,11 @@ export const OVERVIEW_LENS_STYLE = {
 };
 
 export const TIME_CANVAS_HEIGHT = 16;
-export const TIME_MARKER_POS = {
+export const TIME_MARKER_POS: MarkerPosition = {
   MAJOR_TICK_POS: 2, // LENGTH: 14px, 16px - 14px
   MINOR_TICK_POS: 13, // LENGTH: 3px, 16px - 13px
-  LABEL_POS: 2,
-  LABEL_LEFT_MARGIN: 4,
+  LABEL_POS: 8,
+  LABEL_ADJUSTMENT: 4,
 };
 
 export const TIME_TICK_SIZE: TickScaleTable = {
@@ -78,13 +78,12 @@ export const TIME_TICK_SIZE: TickScaleTable = {
 };
 export const TIME_BOUNDARIES = createBoundaries(TIME_TICK_SIZE);
 
-export const LABEL_HEIGHT_ADJUSTMENT = 4;
 export const AMP_CANVAS_WIDTH = 45;
-export const AMP_MARKER_POS = {
+export const AMP_MARKER_POS: MarkerPosition = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,
-  LABEL_POS: 4,
-  LABEL_LEFT_MARGIN: 3,
+  LABEL_POS: 8,
+  LABEL_ADJUSTMENT: -0.5,
 };
 export const AMP_TICK_NUM: TickScaleTable = {
   // height: [max_number_of_ticks, max_number_of_labels]
@@ -124,11 +123,11 @@ export const AMP_TICK_NUM: TickScaleTable = {
 export const AMP_BOUNDARIES = createBoundaries(AMP_TICK_NUM);
 
 export const FREQ_CANVAS_WIDTH = 45;
-export const FREQ_MARKER_POS = {
+export const FREQ_MARKER_POS: MarkerPosition = {
   MAJOR_TICK_POS: 4, // LENGTH: 4px
   MINOR_TICK_POS: 3, // LENGTH: 3px,
-  LABEL_POS: 4, // same as MAJOR_TICK_POS
-  LABEL_LEFT_MARGIN: 3,
+  LABEL_POS: 8,
+  LABEL_ADJUSTMENT: -0.5,
 };
 export const FREQ_TICK_NUM: TickScaleTable = {
   // height: [max_number_of_ticks, max_number_of_labels]
@@ -162,11 +161,11 @@ export const COLORBAR_CANVAS_WIDTH = 16;
 export const SLIDE_ICON_HEIGHT = 18;
 
 export const DB_CANVAS_WIDTH = 32;
-export const DB_MARKER_POS = {
+export const DB_MARKER_POS: MarkerPosition = {
   MAJOR_TICK_POS: 4,
   MINOR_TICK_POS: 3,
-  LABEL_POS: 4,
-  LABEL_LEFT_MARGIN: 3,
+  LABEL_POS: 8,
+  LABEL_ADJUSTMENT: -0.5,
 };
 export const DB_TICK_NUM: TickScaleTable = {
   80: [4, 4],

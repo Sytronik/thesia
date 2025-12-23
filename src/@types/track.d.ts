@@ -29,6 +29,13 @@ type TickScaleTable = {
   [key: number]: [number, number];
 };
 
+type MarkerPosition = {
+  MAJOR_TICK_POS: number;
+  MINOR_TICK_POS: number;
+  LABEL_POS: number; // distance from the axis line to the label
+  LABEL_ADJUSTMENT: number; // distance from the marker position to the label
+};
+
 type VScrollAnchorInfo = {
   clientY: number;
   imgIndex: number;
