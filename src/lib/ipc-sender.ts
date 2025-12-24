@@ -1,12 +1,4 @@
-import BackendAPI, {UserSettings} from "src/api";
-// import {ipcRenderer} from "electron";
-
-export function setUserSetting<K extends keyof UserSettings>(
-  _key: K,
-  _value: NonNullable<UserSettings[K]>,
-) {
-  // ipcRenderer.send("set-setting", key, value);
-}
+import BackendAPI from "src/api";
 
 function callDifferentFuncIfEditableNode(
   node: HTMLElement | null,

@@ -1,7 +1,6 @@
 import {useRef, useState, useEffect} from "react";
 import {difference} from "src/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
-import {setUserSetting} from "src/lib/ipc-sender";
 import update from "immutability-helper";
 import {UserSettings} from "src/api/backend-wrapper";
 import BackendAPI from "../api";
@@ -189,14 +188,14 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setSpecSetting(v);
     const specSetting = await BackendAPI.getSpecSetting();
     setCurrentSpecSetting(specSetting);
-    setUserSetting("specSetting", specSetting);
+    await BackendAPI.setUserSettings({specSetting});
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     setIsLoading(false);
   });
 
   const setBlendAndSetUserSetting = useEvent((v: number) => {
     setBlend(v);
-    setUserSetting("blend", v);
+    BackendAPI.setUserSettings({blend: v});
   });
 
   const setdBRange = useEvent(async (v: number) => {
@@ -204,7 +203,7 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setdBRange(v);
     const dBRange = await BackendAPI.getdBRange();
     setCurrentdBRange(dBRange);
-    setUserSetting("dBRange", dBRange);
+    await BackendAPI.setUserSettings({dBRange});
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     setIsLoading(false);
   });
@@ -214,7 +213,7 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setCommonGuardClipping(v);
     const commonGuardClipping = await BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
-    setUserSetting("commonGuardClipping", commonGuardClipping);
+    await BackendAPI.setUserSettings({commonGuardClipping});
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
     setNeedRefreshTrackIdChArr(allIdChArr);
     setIsLoading(false);
@@ -225,7 +224,7 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setCommonNormalize(v);
     const commonNormalize = await BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
-    setUserSetting("commonNormalize", commonNormalize);
+    await BackendAPI.setUserSettings({commonNormalize});
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
     setNeedRefreshTrackIdChArr(allIdChArr);
     setIsLoading(false);

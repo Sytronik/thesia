@@ -15,6 +15,7 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-store": "^2.4.1",
     "immutability-helper": "^3.1.1",
     "react": "^19.1.4",
     "react-dnd": "^16.0.1",

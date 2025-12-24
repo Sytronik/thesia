@@ -1,12 +1,14 @@
 // need to statically link OpenBLAS on Windows
 extern crate blas_src;
 
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use parking_lot::RwLock;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, Window, Wry};
+use tauri_plugin_store::StoreExt;
 
 mod backend;
 mod context_menu;
@@ -36,7 +38,8 @@ static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackMa
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
 #[tauri::command]
-fn init(user_settings: UserSettingsOptionals) -> tauri::Result<UserSettings> {
+fn init(app: AppHandle) -> tauri::Result<UserSettings> {
+    let user_settings = get_user_settings(&app)?;
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
         let mut tm = TM.write();
@@ -44,19 +47,18 @@ fn init(user_settings: UserSettingsOptionals) -> tauri::Result<UserSettings> {
             *tracklist = TrackList::new();
             *tm = TrackManager::new();
         }
-        if let Some(setting) = user_settings.spec_setting {
-            tm.set_setting(&tracklist, &setting);
+        if let Some(setting) = &user_settings.spec_setting {
+            tm.set_setting(&tracklist, setting);
         }
         #[allow(non_snake_case)]
-        if let Some(dB_range) = user_settings.dB_range {
-            tm.set_dB_range(&tracklist, dB_range as f32);
+        if let Some(dB_range) = &user_settings.dB_range {
+            tm.set_dB_range(&tracklist, *dB_range as f32);
         }
-        if let Some(mode) = user_settings.common_guard_clipping {
-            tracklist.set_common_guard_clipping(mode);
+        if let Some(mode) = &user_settings.common_guard_clipping {
+            tracklist.set_common_guard_clipping(*mode);
         }
-        if let Some(target) = user_settings.common_normalize {
-            let target = serde_json::from_value(target)?;
-            tracklist.set_common_normalize(target);
+        if let Some(target) = &user_settings.common_normalize {
+            tracklist.set_common_normalize(*target);
         }
         UserSettings {
             spec_setting: tm.setting.clone(),
@@ -68,6 +70,9 @@ fn init(user_settings: UserSettingsOptionals) -> tauri::Result<UserSettings> {
     };
     SPEC_SETTING.write().clone_from(&user_settings.spec_setting);
 
+    let settings_json = json!(user_settings);
+    set_user_settings(app, settings_json)?;
+
     player::spawn_task();
     Ok(user_settings)
 }
@@ -77,6 +82,49 @@ async fn notify_app_rendered(window: Window<Wry>) {
     let mut files = OPENED_FILES.write();
     let _ = window.emit("open-files", files.as_slice());
     files.clear();
+}
+
+fn get_user_settings(app: &AppHandle) -> tauri::Result<UserSettingsOptionals> {
+    let store = app.store("settings.json").unwrap();
+    let user_settings_entries = store.entries();
+    let default_json = json!(UserSettingsOptionals::default());
+    let keys = default_json
+        .as_object()
+        .unwrap()
+        .keys()
+        .collect::<HashSet<_>>();
+    let user_settings = user_settings_entries
+        .into_iter()
+        .filter_map(|(key, value)| {
+            if keys.contains(&key) {
+                Some((key, value))
+            } else {
+                log::warn!("Store has unexpected key: {}", key);
+                None
+            }
+        })
+        .collect::<HashMap<_, _>>();
+    let user_settings: UserSettingsOptionals = serde_json::from_value(json!(user_settings))?;
+
+    Ok(user_settings)
+}
+
+#[tauri::command]
+fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Result<()> {
+    let store = app.store("settings.json").unwrap();
+    for (key, value) in settings.as_object().unwrap() {
+        if value.is_null() {
+            continue;
+        }
+        if !store.has(key) {
+            return Err(tauri::Error::Anyhow(anyhow::anyhow!(
+                "Key {} not found in store",
+                key
+            )));
+        }
+        store.set(key, value.clone());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -494,11 +542,21 @@ pub fn run() {
     }
     builder = builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| menu::handle_menu_event(app, event))
         .setup(|app| {
             let handle = app.handle();
             menu::init(&handle)?;
+
+            let _ = app.store("settings.json")?; // just put the store in the app's resource table 
+            log::info!(
+                "settings store path: {}",
+                tauri_plugin_store::resolve_store_path(app.handle(), "settings.json")
+                    .unwrap()
+                    .display()
+            );
 
             #[cfg(any(windows, target_os = "linux"))]
             {
@@ -535,10 +593,10 @@ pub fn run() {
 
             Ok(())
         })
-        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             init,
             notify_app_rendered,
+            set_user_settings,
             is_dev,
             get_project_root,
             add_tracks,

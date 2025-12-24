@@ -6,7 +6,7 @@ use crossbeam_channel::{Sender, unbounded};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
-use crate::{GuardClippingMode, SpecSetting};
+use crate::{GuardClippingMode, NormalizeTarget, SpecSetting};
 
 static WRITE_LOCK_WORKER: LazyLock<WriteLockWorker> = LazyLock::new(WriteLockWorker::new);
 
@@ -54,7 +54,7 @@ where
     async move { rx.await.expect("write lock worker terminated unexpectedly") }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 #[serde(rename_all = "camelCase")]
 pub struct UserSettingsOptionals {
@@ -62,7 +62,7 @@ pub struct UserSettingsOptionals {
     pub blend: Option<f64>,
     pub dB_range: Option<f64>,
     pub common_guard_clipping: Option<GuardClippingMode>,
-    pub common_normalize: Option<serde_json::Value>,
+    pub common_normalize: Option<NormalizeTarget>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

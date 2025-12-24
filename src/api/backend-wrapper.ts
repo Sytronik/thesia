@@ -20,6 +20,15 @@ export type FreqScale = "Linear" | "Mel";
 
 export type GuardClippingMode = "Clip" | "ReduceGlobalLevel" | "Limiter";
 
+export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
+export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
+export type NormalizeTarget =
+  | {type: "Off"}
+  | {
+      type: NormalizeOnType;
+      target: number;
+    };
+
 export interface PlayerState {
   isPlaying: boolean;
   positionSec: number;
@@ -45,7 +54,7 @@ export interface UserSettings {
   blend: number;
   dBRange: number;
   commonGuardClipping: GuardClippingMode;
-  commonNormalize: any;
+  commonNormalize: NormalizeTarget;
 }
 
 export interface UserSettingsOptionals {
@@ -53,7 +62,7 @@ export interface UserSettingsOptionals {
   blend?: number;
   dBRange?: number;
   commonGuardClipping?: GuardClippingMode;
-  commonNormalize?: any;
+  commonNormalize?: NormalizeTarget;
 }
 
 // IdChannel is form of id#_ch#
@@ -81,15 +90,6 @@ export async function getLimiterGainSeq(trackId: number): Promise<Float32Array |
   return new Float32Array(gainSeq);
 }
 
-export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
-export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
-export type NormalizeTarget =
-  | {type: "Off"}
-  | {
-      type: NormalizeOnType;
-      target: number;
-    };
-
 export async function getCommonNormalize(): Promise<NormalizeTarget> {
   const commonNormalize = await invoke<NormalizeTarget>("get_common_normalize");
   return commonNormalize;
@@ -109,12 +109,16 @@ export async function getPlayerState(): Promise<PlayerState> {
   return invoke<PlayerState>("get_player_state");
 }
 
-export async function init(userSettings: UserSettingsOptionals): Promise<UserSettings> {
-  return invoke<UserSettings>("init", {userSettings});
+export async function init(): Promise<UserSettings> {
+  return invoke<UserSettings>("init");
 }
 
 export async function notifyAppRendered(): Promise<void> {
   return invoke<void>("notify_app_rendered");
+}
+
+export async function setUserSettings(settings: UserSettingsOptionals): Promise<void> {
+  return invoke<void>("set_user_settings", {settings});
 }
 
 export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {
