@@ -1,10 +1,9 @@
-import React, {useEffect, useMemo, useRef} from "react";
+import React, {useContext, useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import BackendAPI, {WasmAPI} from "src/api";
 import {Player} from "src/hooks/usePlayer";
 import FloatRangeInput from "src/modules/FloatRangeInput";
 import FloatingUserInput from "src/modules/FloatingUserInput";
-import {PLAY_JUMP_SEC} from "src/prototypes/constants/tracks";
 import styles from "./PlayerControl.module.scss";
 import playIcon from "src/assets/buttons/play.svg";
 import pauseIcon from "src/assets/buttons/pause.svg";
@@ -13,6 +12,7 @@ import rewindForwardIcon from "src/assets/buttons/rewind-forward.svg";
 import skipToBeginningIcon from "src/assets/buttons/skip-to-beginning.svg";
 import volumeIcon from "src/assets/buttons/volume.svg";
 import {MIN_VOLUME_dB} from "../constants/tracks";
+import {BackendConstantsContext} from "src/contexts";
 
 type PlayerControlProps = {
   player: Player;
@@ -21,6 +21,7 @@ type PlayerControlProps = {
 
 function PlayerControl(props: PlayerControlProps) {
   const {player, isTrackEmpty} = props;
+  const {PLAY_JUMP_SEC} = useContext(BackendConstantsContext);
   const prevPosSecRef = useRef<number>(0);
   const posInputElem = useRef<FloatingUserInputElement | null>(null);
   const requestRef = useRef<number>(0);

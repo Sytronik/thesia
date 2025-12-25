@@ -6,8 +6,7 @@ use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Sub
 use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewWindow, Wry};
 use tauri_plugin_opener::OpenerExt;
 
-const PLAY_JUMP_SEC: f64 = 1.0;
-const PLAY_BIG_JUMP_SEC: f64 = 5.0;
+use crate::player::{PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC};
 
 pub mod ids {
     pub const FILE: &str = "file-menu";

@@ -65,6 +65,16 @@ export interface UserSettingsOptionals {
   commonNormalize?: NormalizeTarget;
 }
 
+export interface BackendConstants {
+  PLAY_JUMP_SEC: number;
+  PLAY_BIG_JUMP_SEC: number;
+}
+
+export interface ConstsAndUserSettings {
+  constants: BackendConstants;
+  userSettings: UserSettings;
+}
+
 // IdChannel is form of id#_ch#
 export type IdChannel = string;
 export type IdChArr = IdChannel[];
@@ -109,8 +119,8 @@ export async function getPlayerState(): Promise<PlayerState> {
   return invoke<PlayerState>("get_player_state");
 }
 
-export async function init(colormapLength: number): Promise<UserSettings> {
-  return invoke<UserSettings>("init", {colormapLength});
+export async function init(colormapLength: number): Promise<ConstsAndUserSettings> {
+  return invoke<ConstsAndUserSettings>("init", {colormapLength});
 }
 
 export async function notifyAppRendered(): Promise<void> {

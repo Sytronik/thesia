@@ -6,6 +6,7 @@ use crossbeam_channel::{Sender, unbounded};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
+use crate::player::{PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC};
 use crate::{GuardClippingMode, NormalizeTarget, SpecSetting};
 
 static WRITE_LOCK_WORKER: LazyLock<WriteLockWorker> = LazyLock::new(WriteLockWorker::new);
@@ -74,6 +75,29 @@ pub struct UserSettings {
     pub dB_range: f64,
     pub common_guard_clipping: GuardClippingMode,
     pub common_normalize: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct BackendConstants {
+    pub play_jump_sec: f64,
+    pub play_big_jump_sec: f64,
+}
+
+impl Default for BackendConstants {
+    fn default() -> Self {
+        Self {
+            play_jump_sec: PLAY_JUMP_SEC,
+            play_big_jump_sec: PLAY_BIG_JUMP_SEC,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConstsAndUserSettings {
+    pub constants: BackendConstants,
+    pub user_settings: UserSettings,
 }
 
 #[derive(Serialize, Deserialize)]

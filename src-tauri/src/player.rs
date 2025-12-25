@@ -13,6 +13,8 @@ use tokio::sync::watch;
 
 use crate::{DeciBel, TRACK_LIST};
 
+pub const PLAY_JUMP_SEC: f64 = 1.0;
+pub const PLAY_BIG_JUMP_SEC: f64 = 5.0;
 const PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
 
 static COMMAND_TX: OnceLock<mpsc::Sender<PlayerCommand>> = OnceLock::new();

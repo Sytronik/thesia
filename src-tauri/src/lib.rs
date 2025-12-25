@@ -38,7 +38,7 @@ static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackMa
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
 #[tauri::command]
-fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<UserSettings> {
+fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSettings> {
     let user_settings = get_user_settings(&app)?;
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
@@ -75,7 +75,10 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<UserSettings> {
     set_user_settings(app, settings_json)?;
 
     player::spawn_task();
-    Ok(user_settings)
+    Ok(ConstsAndUserSettings {
+        constants: Default::default(),
+        user_settings,
+    })
 }
 
 #[tauri::command]

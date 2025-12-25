@@ -1,9 +1,9 @@
-import {RefObject, useEffect, useRef, useState} from "react";
-import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "src/prototypes/constants/tracks";
+import {RefObject, useContext, useEffect, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import BackendAPI from "../api";
 import {listenJumpPlayer, listenRewindToFront, listenTogglePlay} from "../lib/ipc";
+import {BackendConstantsContext} from "src/contexts";
 
 export type Player = {
   isPlaying: boolean;
@@ -17,6 +17,7 @@ export type Player = {
 };
 
 function usePlayer(selectedTrackId: number, maxTrackSec: number) {
+  const {PLAY_JUMP_SEC, PLAY_BIG_JUMP_SEC} = useContext(BackendConstantsContext);
   const [currentPlayingTrack, setCurrentPlayingTrack] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const deviceErrorRef = useRef<string | null>(null);
@@ -113,7 +114,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     return () => {
       promiseUnlisten.then((unlistenFn) => unlistenFn());
     };
-  }, [jump]);
+  }, [jump, PLAY_JUMP_SEC, PLAY_BIG_JUMP_SEC]);
 
   const rewindToFront = useEvent(async () => {
     if (isPlaying) await BackendAPI.seekPlayer(0);

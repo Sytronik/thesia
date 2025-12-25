@@ -4,10 +4,6 @@ import {WHITE, BG_COLOR_RGB, BORDER_COLOR} from "./colors";
 // keep ascending order
 export const SUPPORTED_TYPES = ["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav"];
 
-// TODO: get from backend
-export const PLAY_JUMP_SEC = 1.0; // sec
-export const PLAY_BIG_JUMP_SEC = 5.0; // sec
-
 // audio file
 export const CHANNEL = [
   [], // Unreachable
