@@ -13,10 +13,6 @@ try {
 const container = document.getElementById("root") as HTMLElement;
 const root = ReactDOM.createRoot(container);
 
-// ipcRenderer.once("render-with-settings", async (_, settings, tempDirectory) => {
-
-const userSettings = await BackendAPI.init();
-BackendAPI.setColormapLength(COLORMAP_RGBA8.length / 4);
+const userSettings = await BackendAPI.init(COLORMAP_RGBA8.length / 4);
 
 root.render(<App userSettings={userSettings} />);
-// });

@@ -38,7 +38,7 @@ static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackMa
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
 #[tauri::command]
-fn init(app: AppHandle) -> tauri::Result<UserSettings> {
+fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<UserSettings> {
     let user_settings = get_user_settings(&app)?;
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
@@ -47,6 +47,7 @@ fn init(app: AppHandle) -> tauri::Result<UserSettings> {
             *tracklist = TrackList::new();
             *tm = TrackManager::new();
         }
+        tm.set_colormap_length(&tracklist, colormap_length);
         if let Some(setting) = &user_settings.spec_setting {
             tm.set_setting(&tracklist, setting);
         }
@@ -202,16 +203,6 @@ async fn set_dB_range(dB_range: f64) {
     spawn_write_lock_task(move || {
         let tracklist = TRACK_LIST.read();
         TM.write().set_dB_range(&tracklist, dB_range as f32)
-    })
-    .await;
-}
-
-#[tauri::command]
-async fn set_colormap_length(colormap_length: u32) {
-    assert!(colormap_length > 0);
-    spawn_write_lock_task(move || {
-        let tracklist = TRACK_LIST.read();
-        TM.write().set_colormap_length(&tracklist, colormap_length)
     })
     .await;
 }
@@ -605,7 +596,6 @@ pub fn run() {
             apply_track_list_changes,
             get_dB_range,
             set_dB_range,
-            set_colormap_length,
             get_spec_setting,
             set_spec_setting,
             get_common_guard_clipping,

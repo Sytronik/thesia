@@ -109,8 +109,8 @@ export async function getPlayerState(): Promise<PlayerState> {
   return invoke<PlayerState>("get_player_state");
 }
 
-export async function init(): Promise<UserSettings> {
-  return invoke<UserSettings>("init");
+export async function init(colormapLength: number): Promise<UserSettings> {
+  return invoke<UserSettings>("init", {colormapLength});
 }
 
 export async function notifyAppRendered(): Promise<void> {
@@ -143,10 +143,6 @@ export async function getdBRange(): Promise<number> {
 
 export async function setdBRange(dBRange: number): Promise<void> {
   return invoke<void>("set_dB_range", {dBRange});
-}
-
-export async function setColormapLength(colormapLength: number): Promise<void> {
-  return invoke<void>("set_colormap_length", {colormapLength});
 }
 
 export async function getSpecSetting(): Promise<SpecSetting> {
