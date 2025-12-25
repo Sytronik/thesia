@@ -119,6 +119,11 @@ function MyApp({userSettings}: AppProps) {
   });
 
   useEffect(() => {
+    const openedFiles: string[] | undefined = (window as any).openedFiles;
+    if (openedFiles) {
+      openAudioTracks(openedFiles);
+    }
+    delete (window as any).openedFiles;
     const promiseUnlisten = listenOpenFiles(openAudioTracks);
     return () => {
       promiseUnlisten.then((unlistenFn) => unlistenFn());
@@ -227,10 +232,6 @@ function MyApp({userSettings}: AppProps) {
 }
 
 export default function App({userSettings}: AppProps) {
-  useEffect(() => {
-    BackendAPI.notifyAppRendered();
-  }, []);
-
   return (
     <Router>
       <Routes>

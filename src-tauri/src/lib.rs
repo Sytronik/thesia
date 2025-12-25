@@ -7,7 +7,8 @@ use std::sync::LazyLock;
 
 use parking_lot::RwLock;
 use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager, Window, Wry};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 
 mod backend;
@@ -30,7 +31,6 @@ use player::{PlayerCommand, PlayerNotification};
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-static OPENED_FILES: LazyLock<RwLock<Vec<PathBuf>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 static TRACK_LIST: LazyLock<RwLock<TrackList>> = LazyLock::new(|| RwLock::new(TrackList::new()));
 static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackManager::new()));
 
@@ -86,13 +86,6 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSett
         constants: Default::default(),
         user_settings,
     })
-}
-
-#[tauri::command]
-async fn notify_app_rendered(window: Window<Wry>) {
-    let mut files = OPENED_FILES.write();
-    let _ = window.emit("open-files", files.as_slice());
-    files.clear();
 }
 
 fn get_user_settings(app: &AppHandle) -> tauri::Result<UserSettingsOptionals> {
@@ -516,7 +509,35 @@ fn get_project_root() -> PathBuf {
     curr_dir.parent().unwrap().to_owned()
 }
 
-fn handle_file_associations(app: AppHandle, files: Vec<PathBuf>) {
+#[cfg(any(windows, target_os = "linux"))]
+fn parse_args(args: impl IntoIterator<Item = String>) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+
+    // NOTICE: `args` may include URL protocol (`your-app-protocol://`)
+    // or arguments (`--`) if your app supports them.
+    // files may also be passed as `file://path/to/file`
+    for maybe_file in args.into_iter().skip(1) {
+        // skip flags like -f or --flag
+        if maybe_file.starts_with('-') {
+            continue;
+        }
+
+        // handle `file://` path urls and skip other urls
+        if let Ok(url) = tauri::Url::parse(&maybe_file) {
+            if let Ok(path) = url.to_file_path() {
+                files.push(path);
+            }
+        } else {
+            files.push(PathBuf::from(maybe_file))
+        }
+    }
+    files
+}
+
+fn handle_file_associations(app: &AppHandle, files: Vec<PathBuf>, by_event: bool) {
+    if files.is_empty() {
+        return;
+    }
     // -- Scope handling start --
 
     // You can remove this block if you only want to know about the paths, but not actually "use" them in the frontend.
@@ -538,16 +559,32 @@ fn handle_file_associations(app: AppHandle, files: Vec<PathBuf>) {
 
     // -- Scope handling end --
 
-    OPENED_FILES.write().extend(files.into_iter());
+    let window = app.get_webview_window("main").unwrap();
+    if by_event {
+        let _ = window.emit("open-files", files.as_slice());
+    } else {
+        let files = files
+            .iter()
+            .map(|f| {
+                let file = f.to_string_lossy().replace('\\', "\\\\"); // escape backslash
+                format!("\"{file}\"",) // wrap in quotes for JS array
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let _ = window.eval(format!("window.openedFiles=[{files}]"));
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let mut _dev_default_open_path: Option<PathBuf> = None;
+
     #[cfg(debug_assertions)]
     {
-        OPENED_FILES.write().push(PathBuf::from(
+        _dev_default_open_path = Some(PathBuf::from(
             get_project_root().join("samples/stereo/sample_48k.wav"),
-        ))
+        ));
     }
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
@@ -556,19 +593,35 @@ pub fn run() {
     // console_subscriber::init();
 
     let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let window = app.get_webview_window("main").expect("no main window");
+            // TODO: need to check
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                let mut files = parse_args(_args);
+                handle_file_associations(app.handle(), files, true);
+            }
+            let _ = window.set_focus();
+        }));
+    }
+
     #[cfg(debug_assertions)]
     {
         let devtools = tauri_plugin_devtools::init();
         builder = builder.plugin(devtools);
     }
     builder = builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| menu::handle_menu_event(app, event))
         .setup(|app| {
-            let handle = app.handle();
+            let handle = app.handle().clone();
             menu::init(&handle)?;
 
             // just put the store in the app's resource table
@@ -577,35 +630,57 @@ pub fn run() {
 
             log::info!(
                 "settings store path: {}",
-                tauri_plugin_store::resolve_store_path(app.handle(), "settings.json")
+                tauri_plugin_store::resolve_store_path(&handle, "settings.json")
                     .unwrap()
                     .display()
             );
 
+            // TODO: need to check
             #[cfg(any(windows, target_os = "linux"))]
             {
-                let mut files = Vec::new();
-
-                // NOTICE: `args` may include URL protocol (`your-app-protocol://`)
-                // or arguments (`--`) if your app supports them.
-                // files may also be passed as `file://path/to/file`
-                for maybe_file in std::env::args().skip(1) {
-                    // skip flags like -f or --flag
-                    if maybe_file.starts_with('-') {
-                        continue;
-                    }
-
-                    // handle `file://` path urls and skip other urls
-                    if let Ok(url) = url::Url::parse(&maybe_file) {
-                        if let Ok(path) = url.to_file_path() {
-                            files.push(path);
-                        }
-                    } else {
-                        files.push(PathBuf::from(maybe_file))
+                let mut files = parse_args(std::env::args());
+                #[cfg(debug_assertions)]
+                {
+                    if let Some(default_open_path) = _dev_default_open_path
+                        && files.is_empty()
+                    {
+                        files.push(default_open_path);
                     }
                 }
+                handle_file_associations(&handle, files, false);
+            }
 
-                handle_file_associations(app.handle().clone(), files);
+            #[cfg(target_os = "macos")]
+            {
+                // Note that get_current's return value will also get updated every time on_open_url gets triggered.
+                let start_urls = app.deep_link().get_current()?;
+                let mut files = start_urls.map_or_else(Vec::new, |urls| {
+                    // app was likely started by a deep link
+                    urls.into_iter()
+                        .filter_map(|url| url.to_file_path().ok())
+                        .collect::<Vec<_>>()
+                });
+
+                #[cfg(debug_assertions)]
+                {
+                    if let Some(default_open_path) = _dev_default_open_path
+                        && files.is_empty()
+                    {
+                        files.push(default_open_path);
+                    }
+                }
+                handle_file_associations(&handle, files, false);
+
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    let files = event
+                        .urls()
+                        .into_iter()
+                        .filter_map(|url| url.to_file_path().ok())
+                        .collect::<Vec<_>>();
+
+                    handle_file_associations(&handle, files, true);
+                });
             }
 
             #[cfg(debug_assertions)]
@@ -620,7 +695,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             is_dev,
             init,
-            notify_app_rendered,
             set_user_settings,
             get_open_files_dialog_path,
             set_open_files_dialog_path,
@@ -678,17 +752,6 @@ pub fn run() {
         ]);
 
     builder
-        .build(tauri::generate_context!())
+        .run(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|app, event| {
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            if let tauri::RunEvent::Opened { urls } = event {
-                let files = urls
-                    .into_iter()
-                    .filter_map(|url| url.to_file_path().ok())
-                    .collect::<Vec<_>>();
-
-                handle_file_associations(app.clone(), files);
-            }
-        })
 }

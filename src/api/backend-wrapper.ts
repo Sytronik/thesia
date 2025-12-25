@@ -123,10 +123,6 @@ export async function init(colormapLength: number): Promise<ConstsAndUserSetting
   return invoke<ConstsAndUserSettings>("init", {colormapLength});
 }
 
-export async function notifyAppRendered(): Promise<void> {
-  return invoke<void>("notify_app_rendered");
-}
-
 export async function setUserSettings(settings: UserSettingsOptionals): Promise<void> {
   return invoke<void>("set_user_settings", {settings});
 }

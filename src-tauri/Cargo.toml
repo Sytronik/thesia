@@ -41,6 +41,7 @@ realfft = "3.5.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-deep-link = "2"
 tauri-plugin-devtools = "2.0.0"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
@@ -85,6 +86,9 @@ openblas-src = { version = "0.10.13", features = ["cache", "cblas", "static"] }
 
 [target.'cfg(all(any(windows, unix), target_arch = "x86_64", not(target_env = "musl")))'.dependencies]
 mimalloc = "0.1.48"
+
+[target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 [dev-dependencies]
 approx = { workspace = true }
