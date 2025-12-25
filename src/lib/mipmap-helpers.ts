@@ -1,19 +1,4 @@
-import {FreqScale} from "../api";
-
-// Mel scale 변환 함수
-function melFromHz(hz: number): number {
-  return 2595 * Math.log10(1 + hz / 700);
-}
-
-function hzToRelativeFreq(freqScale: FreqScale, hz: number, hzRange: [number, number]): number {
-  if (freqScale === "Linear") {
-    return (hz - hzRange[0]) / (hzRange[1] - hzRange[0]);
-  } else {
-    // Mel
-    const melRange: [number, number] = [melFromHz(hzRange[0]), melFromHz(hzRange[1])];
-    return (melFromHz(hz) - melRange[0]) / (melRange[1] - melRange[0]);
-  }
-}
+import {FreqScale, WasmAPI} from "../api";
 
 function addPrePostMargin(
   start: number,
@@ -68,8 +53,26 @@ export function createSpectrogramSliceArgs(
     marginPx,
   );
 
-  const topF64 = hzToRelativeFreq(freqScale, hzRangeClamped[0], specHzRange) * nFreqs;
-  const bottomF64 = hzToRelativeFreq(freqScale, hzRangeClamped[1], specHzRange) * nFreqs;
+  const topF64 =
+    nFreqs -
+    WasmAPI.freqHzToPos(
+      freqScale,
+      hzRangeClamped[0],
+      nFreqs,
+      specHzRange[0],
+      specHzRange[1],
+      specHzRange[1],
+    );
+  const bottomF64 =
+    nFreqs -
+    WasmAPI.freqHzToPos(
+      freqScale,
+      hzRangeClamped[1],
+      nFreqs,
+      specHzRange[0],
+      specHzRange[1],
+      specHzRange[1],
+    );
   const heightF64 = bottomF64 - topF64;
 
   const [topWMarginClipped, heightWMarginClipped, topMargin, bottomMargin] = addPrePostMargin(
