@@ -1,14 +1,11 @@
 import {message, open} from "@tauri-apps/plugin-dialog";
 import {path} from "@tauri-apps/api";
-import {invoke} from "@tauri-apps/api/core";
 import {SUPPORTED_TYPES} from "../prototypes/constants/tracks";
-import {enableEditMenu, disableEditMenu, enablePlayMenu, disablePlayMenu} from "../api";
+import BackendAPI, {enableEditMenu, disableEditMenu, enablePlayMenu, disablePlayMenu} from "../api";
 
 export async function showOpenFilesDialog() {
   // get the default path
-  const projectRoot = await invoke<string | null>("get_project_root");
-  const defaultPath = projectRoot ? await path.join(projectRoot, "samples/") : await path.homeDir();
-  // const openDialogPath = ((await settings.get("openDialogPath")) as string) ?? defaultPath;
+  const defaultPath = await BackendAPI.getOpenFilesDialogPath();
 
   // show the open dialog
   const files = await open({
@@ -33,7 +30,7 @@ export async function showOpenFilesDialog() {
     }
 
     // save the common directory to settings
-    // await settings.set("openDialogPath", commonDir);
+    BackendAPI.setOpenFilesDialogPath(commonDir);
   }
 
   return files;

@@ -131,6 +131,14 @@ export async function setUserSettings(settings: UserSettingsOptionals): Promise<
   return invoke<void>("set_user_settings", {settings});
 }
 
+export async function getOpenFilesDialogPath(): Promise<string> {
+  return invoke<string>("get_open_files_dialog_path");
+}
+
+export async function setOpenFilesDialogPath(path: string): Promise<void> {
+  return invoke<void>("set_open_files_dialog_path", {path});
+}
+
 export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {
   return invoke<number[]>("add_tracks", {trackIds, paths});
 }

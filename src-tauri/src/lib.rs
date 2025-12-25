@@ -37,6 +37,13 @@ static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackMa
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
 
+const OPEN_FILES_DIALOG_PATH_KEY: &str = "openFilesDialogPath";
+
+#[tauri::command]
+fn is_dev() -> bool {
+    tauri::is_dev()
+}
+
 #[tauri::command]
 fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSettings> {
     let user_settings = get_user_settings(&app)?;
@@ -129,6 +136,30 @@ fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Resu
         store.set(key, value.clone());
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn get_open_files_dialog_path(app: AppHandle) -> String {
+    let store = app.store("paths.json").unwrap();
+    if !store.has(OPEN_FILES_DIALOG_PATH_KEY) {
+        let path = if tauri::is_dev() {
+            get_project_root().join("samples")
+        } else {
+            std::env::home_dir().unwrap_or_default()
+        };
+        store.set(
+            OPEN_FILES_DIALOG_PATH_KEY,
+            path.to_string_lossy().to_owned(),
+        );
+    }
+    let path = store.get(OPEN_FILES_DIALOG_PATH_KEY).unwrap();
+    path.to_string()
+}
+
+#[tauri::command]
+async fn set_open_files_dialog_path(app: AppHandle, path: String) {
+    let store = app.store("paths.json").unwrap();
+    store.set(OPEN_FILES_DIALOG_PATH_KEY, path);
 }
 
 #[tauri::command]
@@ -480,19 +511,9 @@ async fn refresh_track_player() {
     player::send(PlayerCommand::SetTrack((None, None))).await;
 }
 
-#[tauri::command]
-fn is_dev() -> bool {
-    tauri::is_dev()
-}
-
-#[tauri::command]
-fn get_project_root() -> Option<String> {
-    if !tauri::is_dev() {
-        return None;
-    }
-    std::env::current_dir()
-        .ok()
-        .map(|path| path.parent().unwrap().to_str().unwrap().to_string())
+fn get_project_root() -> PathBuf {
+    let curr_dir = std::env::current_dir().unwrap();
+    curr_dir.parent().unwrap().to_owned()
 }
 
 fn handle_file_associations(app: AppHandle, files: Vec<PathBuf>) {
@@ -544,7 +565,10 @@ pub fn run() {
             let handle = app.handle();
             menu::init(&handle)?;
 
-            let _ = app.store("settings.json")?; // just put the store in the app's resource table 
+            // just put the store in the app's resource table
+            let _ = app.store("settings.json")?;
+            let _ = app.store("paths.json")?;
+
             log::info!(
                 "settings store path: {}",
                 tauri_plugin_store::resolve_store_path(app.handle(), "settings.json")
@@ -588,11 +612,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            is_dev,
             init,
             notify_app_rendered,
             set_user_settings,
-            is_dev,
-            get_project_root,
+            get_open_files_dialog_path,
+            set_open_files_dialog_path,
             add_tracks,
             reload_tracks,
             remove_tracks,
