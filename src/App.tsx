@@ -3,7 +3,14 @@ import {useEffect, useMemo, useRef} from "react";
 import useEvent from "react-use-event-hook";
 import {DndProvider} from "react-dnd";
 import {TouchBackend} from "react-dnd-touch-backend";
-import BackendAPI, {UserSettings} from "src/api";
+import BackendAPI, {
+  UserSettings,
+  listenEditMenuEvents,
+  listenMenuOpenAudioTracks,
+  listenMenuRemoveSelectedTracks,
+  listenOpenFiles,
+} from "./api";
+import {useHotkeys} from "react-hotkeys-hook";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
@@ -13,16 +20,8 @@ import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
-import {
-  listenEditMenuEvents,
-  getOpenTracksHandler,
-  listenMenuOpenAudioTracks,
-  listenMenuRemoveSelectedTracks,
-  showFileOpenErrorMsg,
-  listenOpenFiles,
-} from "./lib/ipc";
-import {useHotkeys} from "react-hotkeys-hook";
 import {useGlobalEvents} from "./hooks/useGlobalEvents";
+import {showFileOpenErrorMsg, getOpenFilesDialogHandler} from "./lib/open-files-dialog";
 
 type AppProps = {userSettings: UserSettings};
 
@@ -127,7 +126,7 @@ function MyApp({userSettings}: AppProps) {
   }, [openAudioTracks]);
 
   const openAudioTracksHandler = useMemo(
-    () => getOpenTracksHandler(openAudioTracks),
+    () => getOpenFilesDialogHandler(openAudioTracks),
     [openAudioTracks],
   );
 

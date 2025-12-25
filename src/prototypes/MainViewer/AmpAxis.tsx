@@ -13,7 +13,7 @@ import {
   VERTICAL_AXIS_PADDING,
   MIN_DIST_FROM_0_FOR_DRAG,
 } from "../constants/tracks";
-import {listenMenuEditAmpRange} from "../../lib/ipc";
+import {listenMenuEditAmpRange} from "../../api";
 
 type AmpAxisProps = {
   id: number;

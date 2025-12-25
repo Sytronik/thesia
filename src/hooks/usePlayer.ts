@@ -2,8 +2,8 @@ import {RefObject, useContext, useEffect, useRef, useState} from "react";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import BackendAPI from "../api";
-import {listenJumpPlayer, listenRewindToFront, listenTogglePlay} from "../lib/ipc";
-import {BackendConstantsContext} from "src/contexts";
+import {listenJumpPlayer, listenRewindToFront, listenTogglePlay} from "../api";
+import {BackendConstantsContext} from "../contexts";
 
 export type Player = {
   isPlaying: boolean;

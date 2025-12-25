@@ -11,7 +11,7 @@ import {
   VERTICAL_AXIS_PADDING,
 } from "../constants/tracks";
 import {FreqScale, WasmAPI} from "../../api";
-import {listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit} from "../../lib/ipc";
+import {listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit} from "../../api";
 
 type FreqAxisProps = {
   id: number;

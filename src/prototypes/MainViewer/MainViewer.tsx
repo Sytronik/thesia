@@ -51,7 +51,7 @@ import {
   listenMenuSelectAllTracks,
   listenTimeZoomIn,
   listenTimeZoomOut,
-} from "../../lib/ipc";
+} from "../../api";
 
 type MainViewerProps = {
   trackIds: number[];
