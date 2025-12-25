@@ -1,4 +1,5 @@
-import BackendAPI from "src/api";
+import {useEffect} from "react";
+import BackendAPI from "../api";
 
 function callDifferentFuncIfEditableNode(
   node: HTMLElement | null,
@@ -41,16 +42,23 @@ export function changeEditMenuForFocusOut(e: FocusEvent) {
   );
 }
 
-export function addGlobalFocusInListener() {
+export function addGlobalEventListeners() {
+  document.body.addEventListener("contextmenu", showEditContextMenuIfEditableNode);
   document.body.addEventListener("focusin", changeEditMenuForFocusIn);
-}
-export function removeGlobalFocusInListener() {
-  document.body.removeEventListener("focusin", changeEditMenuForFocusIn);
-}
-
-export function addGlobalFocusOutListener() {
   document.body.addEventListener("focusout", changeEditMenuForFocusOut);
 }
-export function removeGlobalFocusOutListener() {
+
+export function removeGlobalEventListeners() {
+  document.body.removeEventListener("contextmenu", showEditContextMenuIfEditableNode);
+  document.body.removeEventListener("focusin", changeEditMenuForFocusIn);
   document.body.removeEventListener("focusout", changeEditMenuForFocusOut);
+}
+
+export function useGlobalEvents() {
+  useEffect(() => {
+    addGlobalEventListeners();
+    return () => {
+      removeGlobalEventListeners();
+    };
+  }, []);
 }

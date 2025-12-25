@@ -7,13 +7,6 @@ import BackendAPI, {UserSettings} from "src/api";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
-import {
-  addGlobalFocusInListener,
-  addGlobalFocusOutListener,
-  removeGlobalFocusInListener,
-  removeGlobalFocusOutListener,
-  showEditContextMenuIfEditableNode,
-} from "./lib/ipc-sender";
 import {SUPPORTED_TYPES} from "./prototypes/constants/tracks";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
@@ -29,6 +22,7 @@ import {
   listenOpenFiles,
 } from "./lib/ipc";
 import {useHotkeys} from "react-hotkeys-hook";
+import {useGlobalEvents} from "./hooks/useGlobalEvents";
 
 type AppProps = {userSettings: UserSettings};
 
@@ -71,6 +65,8 @@ function MyApp({userSettings}: AppProps) {
     selectTrackAfterAddTracks,
     selectTrackAfterRemoveTracks,
   } = useSelectedTracks();
+
+  useGlobalEvents();
 
   const player = usePlayer(
     selectedTrackIds.length > 0 &&
@@ -157,19 +153,8 @@ function MyApp({userSettings}: AppProps) {
   }, [removeSelectedTracks]);
 
   useEffect(() => {
-    document.body.addEventListener("contextmenu", showEditContextMenuIfEditableNode);
-    return () => {
-      document.body.removeEventListener("contextmenu", showEditContextMenuIfEditableNode);
-    };
-  }, []);
-
-  useEffect(() => {
-    addGlobalFocusInListener();
-    addGlobalFocusOutListener();
     const promiseUnlistens = listenEditMenuEvents();
     return () => {
-      removeGlobalFocusInListener();
-      removeGlobalFocusOutListener();
       promiseUnlistens.then((unlistenFns) => unlistenFns.forEach((unlistenFn) => unlistenFn()));
     };
   }, []);
