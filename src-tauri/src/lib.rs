@@ -543,6 +543,12 @@ fn handle_file_associations(app: AppHandle, files: Vec<PathBuf>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(debug_assertions)]
+    {
+        OPENED_FILES.write().push(PathBuf::from(
+            get_project_root().join("samples/stereo/sample_48k.wav"),
+        ))
+    }
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
         .build_global()
