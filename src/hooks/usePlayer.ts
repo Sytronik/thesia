@@ -1,5 +1,5 @@
 import {RefObject, useEffect, useRef, useState} from "react";
-import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "src/prototypes/constants/constants";
+import {PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC} from "src/prototypes/constants/tracks";
 import useEvent from "react-use-event-hook";
 import {useHotkeys} from "react-hotkeys-hook";
 import BackendAPI from "../api";

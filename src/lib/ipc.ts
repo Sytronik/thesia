@@ -4,7 +4,7 @@ import {message, open} from "@tauri-apps/plugin-dialog";
 import {path} from "@tauri-apps/api";
 import {invoke} from "@tauri-apps/api/core";
 import {listen, UnlistenFn} from "@tauri-apps/api/event";
-import {SUPPORTED_TYPES} from "src/prototypes/constants/constants";
+import {SUPPORTED_TYPES} from "src/prototypes/constants/tracks";
 import {
   enableEditMenu,
   disableEditMenu,

@@ -4,7 +4,7 @@ import BackendAPI, {WasmAPI} from "src/api";
 import {Player} from "src/hooks/usePlayer";
 import FloatRangeInput from "src/modules/FloatRangeInput";
 import FloatingUserInput from "src/modules/FloatingUserInput";
-import {PLAY_JUMP_SEC} from "src/prototypes/constants/constants";
+import {PLAY_JUMP_SEC} from "src/prototypes/constants/tracks";
 import styles from "./PlayerControl.module.scss";
 import playIcon from "src/assets/buttons/play.svg";
 import pauseIcon from "src/assets/buttons/pause.svg";

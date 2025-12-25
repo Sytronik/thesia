@@ -14,7 +14,7 @@ import {
   removeGlobalFocusOutListener,
   showEditContextMenuIfEditableNode,
 } from "./lib/ipc-sender";
-import {SUPPORTED_TYPES} from "./prototypes/constants/constants";
+import {SUPPORTED_TYPES} from "./prototypes/constants/tracks";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
 import {DevicePixelRatioProvider} from "./contexts";
