@@ -17,8 +17,9 @@ function useRefs<T>(): [
 
   const register = useCallback((refName: string) => {
     if (!registerRefFns.current[refName])
-      registerRefFns.current[refName] = (ref: T) => {
-        refs.current[refName] = ref;
+      registerRefFns.current[refName] = (ref: T | null) => {
+        if (ref === null) delete refs.current[refName];
+        else refs.current[refName] = ref;
       };
     return registerRefFns.current[refName];
   }, []);
