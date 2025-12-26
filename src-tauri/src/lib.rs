@@ -613,11 +613,13 @@ pub fn run() {
         let devtools = tauri_plugin_devtools::init();
         builder = builder.plugin(devtools);
     }
+
     builder = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_os::init())
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| menu::handle_menu_event(app, event))
         .setup(|app| {

@@ -1,8 +1,9 @@
 import {Hotkey} from "react-hotkeys-hook/packages/react-hotkeys-hook/dist/types";
+import {platform} from "@tauri-apps/plugin-os";
 
 export function isApple() {
-  const expression = /(Mac|iPhone|iPod|iPad)/i;
-  return expression.test(navigator.platform);
+  const currentPlatform = platform();
+  return currentPlatform === "macos" || currentPlatform === "ios";
 }
 
 export function isCommand(event: MouseOrKeyboardEvent) {
