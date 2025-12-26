@@ -1,4 +1,7 @@
-@import "../styles/index.scss";
+@use "../styles/index.scss";
+@use "../styles/variables/colors";
+@use "../styles/variables/layout";
+@use "../styles/variables/typography";
 
 .imgCanvasWrapper {
   overflow: hidden;
@@ -43,12 +46,12 @@
   position: fixed;
   z-index: 256;
   pointer-events: none;
-  background-color: rgba($bg-primary, 0.6);
-  font-size: $body-font-size-xsmall;
+  background-color: rgba(colors.$bg-primary, 0.6);
+  font-size: typography.$body-font-size-xsmall;
   line-height: 1.5;
-  min-width: $spacer * 10;
-  padding: $spacer $spacer-3;
-  border-radius: 0 $spacer-1 $spacer-1 $spacer-1;
+  min-width: layout.$spacer * 10;
+  padding: layout.$spacer layout.$spacer-3;
+  border-radius: 0 layout.$spacer-1 layout.$spacer-1 layout.$spacer-1;
 
   &::after {
     content: "";

@@ -1,7 +1,13 @@
-@mixin basic-input-setting($unit: $spacer, $margin-right: $spacer) {
+@use "../variables/box-sizes";
+@use "../variables/color-system";
+@use "../variables/colors";
+@use "../variables/layout";
+@use "../variables/typography";
+
+@mixin basic-input-setting($unit: layout.$spacer, $margin-right: layout.$spacer) {
   /* reset default font*/
-  font-family: $body-font;
-  font-size: $body-font-size-small;
+  font-family: typography.$body-font;
+  font-size: typography.$body-font-size-small;
   color: white;
 
   margin-right: $margin-right;
@@ -10,16 +16,16 @@
   text-align: left;
 }
 
-@mixin basic-input-box($unit: $spacer) {
-  @include basic-input-setting($unit, $spacer);
-  background-color: $bg-primary-light;
+@mixin basic-input-box($unit: layout.$spacer) {
+  @include basic-input-setting($unit, layout.$spacer);
+  background-color: colors.$bg-primary-light;
 
   min-width: $unit * 9;
   height: $unit * 3.5;
-  border-radius: $spacer-1;
+  border-radius: layout.$spacer-1;
 }
 
-@mixin select-basic($unit: $spacer) {
+@mixin select-basic($unit: layout.$spacer) {
   @include basic-input-box($unit);
 
   -webkit-appearance: none;
@@ -34,11 +40,11 @@
 
   &:hover,
   &:focus {
-    background-color: $bg-primary-lighter;
+    background-color: colors.$bg-primary-lighter;
   }
 }
 
-@mixin input-text-basic($unit: $spacer, $width: $unit * 9) {
+@mixin input-text-basic($unit: layout.$spacer, $width: $unit * 9) {
   @include basic-input-box($unit);
 
   width: $width;
@@ -46,25 +52,25 @@
 
   &:hover,
   &:focus {
-    background-color: $bg-primary-lighter;
+    background-color: colors.$bg-primary-lighter;
   }
 }
 
-@mixin input-text-transparent($unit: $spacer) {
-  @include basic-input-setting($unit, $tiny-spacer);
+@mixin input-text-transparent($unit: layout.$spacer) {
+  @include basic-input-setting($unit, box-sizes.$tiny-spacer);
 
   background-color: transparent;
   margin: auto 0;
 }
 
-@mixin input-range-base($height: $spacer) {
+@mixin input-range-base($height: layout.$spacer) {
   -webkit-appearance: none;
-  background-color: $bg-primary-lighter;
+  background-color: colors.$bg-primary-lighter;
   cursor: pointer;
 
-  width: $spacer * 12;
+  width: layout.$spacer * 12;
   height: $height;
-  margin: auto $spacer auto 0;
+  margin: auto layout.$spacer auto 0;
   border-radius: $height * 0.5;
 
   &:focus {
@@ -73,7 +79,7 @@
   }
 }
 
-@mixin input-range-thumb($color: $white, $height: $spacer, $offset: 0) {
+@mixin input-range-thumb($color: color-system.$white, $height: layout.$spacer, $offset: 0) {
   -webkit-appearance: none;
   appearance: none;
   background-color: $color;
@@ -84,7 +90,7 @@
   border-radius: 50%;
 }
 
-@mixin input-switch-base($unit: $spacer) {
+@mixin input-switch-base($unit: layout.$spacer) {
   @include basic-input-box($unit);
 
   -webkit-appearance: none;
@@ -95,24 +101,24 @@
   width: $unit * 20;
 }
 
-@mixin input-switch-thumb-box($unit: $spacer) {
+@mixin input-switch-thumb-box($unit: layout.$spacer) {
   display: inline-block;
   width: $unit * 10; // half of input width
   height: $unit * 3.5 - 1; // same as basic-input-box which switch-base uses
 }
 
-@mixin input-switch-thumb($unit: $spacer) {
+@mixin input-switch-thumb($unit: layout.$spacer) {
   @include input-switch-thumb-box($unit);
   position: absolute;
-  background-color: $primary-400;
+  background-color: color-system.$primary-400;
   transition: 0.4s;
 
   left: $unit * 10;
-  border-radius: 0 $spacer-1 $spacer-1 0;
+  border-radius: 0 layout.$spacer-1 layout.$spacer-1 0;
 }
-@mixin input-switch-thumb-moved($unit: $spacer) {
+@mixin input-switch-thumb-moved($unit: layout.$spacer) {
   transform: translateX(-$unit * 10); // same as input thumb box width
-  border-radius: $spacer-1 0 0 $spacer-1;
+  border-radius: layout.$spacer-1 0 0 layout.$spacer-1;
 }
 
 @mixin input-switch-active() {
@@ -120,20 +126,20 @@
   fill: white;
 }
 @mixin input-switch-inactive() {
-  color: $gray-600;
-  fill: $gray-600;
+  color: color-system.$gray-600;
+  fill: color-system.$gray-600;
 }
 
 @mixin floating-input {
-  @include input-text-basic($spacer-1, 2em);
+  @include input-text-basic(layout.$spacer-1, 2em);
   position: absolute;
   z-index: 255;
 
   border: 0px;
-  font-size: $body-font-size-xsmall;
+  font-size: typography.$body-font-size-xsmall;
 
   min-width: 2em;
-  margin: 0 ($spacer-2 - 2px) 2px ($spacer-2 - 2px);
+  margin: 0 (layout.$spacer-2 - 2px) 2px (layout.$spacer-2 - 2px);
 
-  padding: 0 0 0 $em-spacer-2;
+  padding: 0 0 0 layout.$em-spacer-2;
 }

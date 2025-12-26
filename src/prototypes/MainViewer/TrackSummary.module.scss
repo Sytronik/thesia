@@ -1,11 +1,15 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography" as mixins-typography;
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+@use "../../styles/variables/typography" as variables-typography;
 
 .pathName {
   display: flex;
   position: relative;
-  margin-bottom: $spacer-3;
+  margin-bottom: layout.$spacer-3;
 
-  @include body-title;
+  @include mixins-typography.body-title;
 
   & span {
     overflow: hidden;
@@ -18,10 +22,10 @@
   position: fixed;
   z-index: 256;
   pointer-events: none;
-  background-color: $bg-primary-light;
-  font-size: $body-font-size;
-  padding: $spacer $spacer-3;
-  border-radius: $spacer-1;
+  background-color: colors.$bg-primary-light;
+  font-size: variables-typography.$body-font-size;
+  padding: layout.$spacer layout.$spacer-3;
+  border-radius: layout.$spacer-1;
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.15),
     0 2px 2px rgba(0, 0, 0, 0.15),
@@ -29,7 +33,7 @@
     0 8px 8px rgba(0, 0, 0, 0.15);
 }
 
-$path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
+$path-min: variables-typography.$body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
 .path {
   min-width: $path-min;
   flex: 0 1 auto;
@@ -51,7 +55,7 @@ $path-min: $body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
 .time,
 .sampleFormatRate,
 .loudness {
-  margin-bottom: $spacer;
+  margin-bottom: layout.$spacer;
 
-  @include body-assist;
+  @include mixins-typography.body-assist;
 }

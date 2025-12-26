@@ -1,11 +1,12 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/variables/box-sizes";
 
 .Overview {
   flex: 0 0 auto;
   position: relative;
   cursor: text;
-  height: $overview-height;
-  margin: $component-gap * 0.5;
+  height: box-sizes.$overview-height;
+  margin: box-sizes.$component-gap * 0.5;
 }
 
 .OverviewLens {

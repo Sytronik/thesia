@@ -1,8 +1,10 @@
-@import "../styles/index.scss";
+@use "../styles/index.scss";
+@use "../styles/variables/box-sizes";
+@use "../styles/variables/colors";
 
 .SplitView {
-  width: calc(100% - #{$colorbar-width + $component-gap * 2});
-  margin: $component-gap * 0.5;
+  width: calc(100% - #{box-sizes.$colorbar-width + box-sizes.$component-gap * 2});
+  margin: box-sizes.$component-gap * 0.5;
 
   overflow-y: scroll;
 }
@@ -20,10 +22,10 @@
   flex-direction: column;
   flex: 0 0 auto;
   z-index: 4;
-  background-color: $bg-main;
+  background-color: colors.$bg-main;
 
   > div {
-    background-color: $bg-primary;
+    background-color: colors.$bg-primary;
   }
 }
 
@@ -33,7 +35,7 @@
 
 .dividerLine {
   height: 100%;
-  border-left: 3px solid $bg-main;
+  border-left: 3px solid colors.$bg-main;
   border-right: 1px solid transparent;
   z-index: 4;
 }

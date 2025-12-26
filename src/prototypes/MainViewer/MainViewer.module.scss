@@ -1,7 +1,11 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
 
 .mainViewerWrapper {
-  width: calc(100% - #{$track-control-width} - #{$component-gap});
+  width: calc(100% - #{box-sizes.$track-control-width} - #{box-sizes.$component-gap});
 }
 
 .MainViewer {
@@ -11,37 +15,37 @@
 
 .fileDropIndicator {
   margin: 4px 0;
-  border-top: 2.5px dashed $border-primary-light;
-  background-color: $bg-primary-semilight !important;
+  border-top: 2.5px dashed colors.$border-primary-light;
+  background-color: colors.$bg-primary-semilight !important;
 }
 
 /* Track Control */
 
 .trackControl {
-  background-color: $bg-primary;
-  min-width: $track-control-width;
-  padding: $spacer-3;
-  margin: $component-gap * 0.5;
+  background-color: colors.$bg-primary;
+  min-width: box-sizes.$track-control-width;
+  padding: layout.$spacer-3;
+  margin: box-sizes.$component-gap * 0.5;
 }
 
 .stickyHeader {
   position: absolute;
   z-index: 4;
-  background-color: $bg-main;
+  background-color: colors.$bg-main;
   width: inherit;
-  height: $time-ruler-height + $track-margin;
+  height: box-sizes.$time-ruler-height + box-sizes.$track-margin;
   min-width: 1px;
   display: flex;
 }
 
 .dummyBoxForStickyHeader {
-  height: $time-ruler-height;
-  margin-bottom: $track-margin;
+  height: box-sizes.$time-ruler-height;
+  margin-bottom: box-sizes.$track-margin;
   flex: none;
 }
 
 .axisLabelSection {
-  @include body-label;
+  @include typography.body-label;
 
   flex: 0 0 auto;
   width: 45px;
@@ -54,7 +58,7 @@
 /* Right Track Elements */
 .trackRightHeader {
   // supporting sticky header + preventing pops out when RightPane is resized
-  right: $colorbar-width + $component-gap * 1.5;
+  right: box-sizes.$colorbar-width + box-sizes.$component-gap * 1.5;
   z-index: 3;
 }
 

@@ -1,11 +1,11 @@
 // variables
-@import "./variables/typography.scss";
-@import "./variables/colors.scss";
-@import "./variables/layout.scss";
-@import "./variables/misc.scss";
-@import "./variables/box-sizes.scss";
+@use "variables/typography.scss";
+@use "variables/colors.scss";
+@use "variables/layout.scss";
+@use "variables/misc.scss";
+@use "variables/box-sizes.scss";
 
 //mixins
-@import "./mixins/buttons.scss";
-@import "./mixins/inputs.scss";
-@import "./mixins/typography.scss";
+@use "mixins/buttons.scss";
+@use "mixins/inputs.scss";
+@use "mixins/typography.scss" as typography2;

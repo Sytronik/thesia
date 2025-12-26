@@ -1,12 +1,14 @@
+@use "../variables/typography";
+
 // Basic typography
 @mixin body-title {
-  font-size: $body-font-size-large;
+  font-size: typography.$body-font-size-large;
 }
 
 @mixin body-assist {
-  font-size: $body-font-size-small;
+  font-size: typography.$body-font-size-small;
 }
 
 @mixin body-label {
-  font-size: $body-font-size-xsmall;
+  font-size: typography.$body-font-size-xsmall;
 }

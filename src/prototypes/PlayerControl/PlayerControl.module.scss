@@ -1,32 +1,36 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/mixins/inputs";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/typography";
 
 .PlayerControl {
-  background-color: $bg-primary;
-  height: $player-control-height;
-  margin: $component-gap * 0.5;
+  background-color: colors.$bg-primary;
+  height: box-sizes.$player-control-height;
+  margin: box-sizes.$component-gap * 0.5;
   align-items: center;
   justify-content: center;
 }
 
 .volumeIcon {
-  margin-left: $component-gap;
-  margin-right: $component-gap * 0.5;
+  margin-left: box-sizes.$component-gap;
+  margin-right: box-sizes.$component-gap * 0.5;
 
   width: 20px;
   height: 20px;
 }
 
 .positionInput {
-  @include input-text-transparent();
+  @include inputs.input-text-transparent();
 
-  margin: $component-gap;
+  margin: box-sizes.$component-gap;
   width: 6.1em;
 
-  font-size: $body-font-size-large;
+  font-size: typography.$body-font-size-large;
 }
 
 .playerButton {
-  margin: $component-gap;
+  margin: box-sizes.$component-gap;
 
   button {
     width: 30px;
@@ -41,6 +45,6 @@
 
 .volumeRangeInput {
   label {
-    font-size: $body-font-size-small;
+    font-size: typography.$body-font-size-small;
   }
 }

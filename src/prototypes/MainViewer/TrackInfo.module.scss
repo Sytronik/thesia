@@ -1,11 +1,15 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
 
 .TrackInfo {
   display: flex;
   flex: 0 0 auto;
   position: relative;
   user-select: none;
-  scroll-margin-top: $spacer-3 + 5px;
+  scroll-margin-top: layout.$spacer-3 + 5px;
   scroll-margin-bottom: 5px;
 }
 
@@ -13,7 +17,7 @@
 .TrackSummary {
   overflow: hidden;
   flex: 1 1;
-  padding: $spacer-3;
+  padding: layout.$spacer-3;
 
   > span:not(:first-child) {
     display: inline-block;
@@ -23,10 +27,10 @@
 
 .selected {
   .TrackSummary {
-    background-color: $bg-primary-semilight;
+    background-color: colors.$bg-primary-semilight;
   }
   .ch {
-    background-color: $bg-primary-light;
+    background-color: colors.$bg-primary-light;
   }
 }
 
@@ -36,7 +40,7 @@
   flex-direction: column;
   flex: 0 0 auto;
   justify-content: space-between;
-  width: $channel-width;
+  width: box-sizes.$channel-width;
 }
 
 .ch {
@@ -45,10 +49,10 @@
   justify-content: center;
 
   width: 100%;
-  background-color: $bg-primary-semilight;
+  background-color: colors.$bg-primary-semilight;
   text-align: center;
 
   > span {
-    @include body-assist;
+    @include typography.body-assist;
   }
 }

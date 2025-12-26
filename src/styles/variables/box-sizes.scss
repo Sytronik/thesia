@@ -1,29 +1,30 @@
-@import "layout.scss";
+@use "sass:math";
+@use "layout.scss";
 
-$component-gap: $spacer;
-$tiny-spacer: round($spacer-1 * 0.5); // 2px
+$component-gap: layout.$spacer;
+$tiny-spacer: math.round(layout.$spacer-1 * 0.5); // 2px
 
 // Components container
-$player-control-height: $spacer * 8;
-$overview-height: $spacer * 6;
-$track-control-width: $spacer * 27;
+$player-control-height: layout.$spacer * 8;
+$overview-height: layout.$spacer * 6;
+$track-control-width: layout.$spacer * 27;
 
 // Components
 $colorbar-width: 65px;
 $slidebar-width: $colorbar-width + 93px;
 
 // Control
-$range-input-height: $spacer-3;
+$range-input-height: layout.$spacer-3;
 $range-track-height: 2px;
-$range-thumb-height: $spacer;
+$range-thumb-height: layout.$spacer;
 
 // MainViewer
-$time-ruler-height: $spacer-3;
-$emptytrack-height: $spacer * 10;
+$time-ruler-height: layout.$spacer-3;
+$emptytrack-height: layout.$spacer * 10;
 $track-margin: 2px;
 
 // Channels
 $channel-width: 32px;
 
 // Buttons
-$button-size: $spacer-3;
+$button-size: layout.$spacer-3;

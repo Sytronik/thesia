@@ -1,18 +1,20 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography";
+@use "../../styles/variables/box-sizes";
 
 .colorMap {
   display: flex;
   flex-direction: column;
 
   flex: 0 0 auto;
-  width: $colorbar-width;
-  margin: $component-gap * 0.5;
+  width: box-sizes.$colorbar-width;
+  margin: box-sizes.$component-gap * 0.5;
 }
 
 .colorMapHeader {
-  @include body-label;
+  @include typography.body-label;
 
-  height: $time-ruler-height; // + $track-margin; // TEMP
+  height: box-sizes.$time-ruler-height; // + $track-margin; // TEMP
   text-align: center;
   margin-left: 1.5em;
 }

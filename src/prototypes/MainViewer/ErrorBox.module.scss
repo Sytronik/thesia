@@ -1,4 +1,8 @@
-@import "../../styles/index.scss";
+@use "../../styles/index.scss";
+@use "../../styles/mixins/buttons";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+@use "../../styles/variables/typography";
 
 // error box
 .errorBox {
@@ -8,11 +12,11 @@
   position: absolute;
   // width: 100%;
   height: 100%;
-  background-color: $bg-main-transparent;
+  background-color: colors.$bg-main-transparent;
 
   > p {
-    margin-bottom: $spacer-4;
-    font-size: $body-font-size-xlarge;
+    margin-bottom: layout.$spacer-4;
+    font-size: typography.$body-font-size-xlarge;
     text-align: center;
   }
 
@@ -21,8 +25,8 @@
   }
 
   & button {
-    @include btn-medium;
-    @include btn-outline($button-white, $button-white);
-    margin: $spacer-2;
+    @include buttons.btn-medium;
+    @include buttons.btn-outline(colors.$button-white, colors.$button-white);
+    margin: layout.$spacer-2;
   }
 }
