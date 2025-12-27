@@ -701,16 +701,16 @@ function MainViewer(props: MainViewerProps) {
   }, [updateByPlayerStatus]);
 
   // locator
-  const getLocatorBoundingLeftWidth: () => [number, number] | null = useEvent(() => {
+  const getTimeAxisBoundingLeftWidthTop = useEvent(() => {
     const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return null;
-    return [rect.left, rect.width];
+    return [rect.left, rect.width, rect.top] as [number, number, number];
   });
 
   // select locator
   const getSelectLocatorTopBottom: () => [number, number] = useEvent(() => [
-    TINY_MARGIN * 2,
-    (splitViewElem.current?.getBoundingClientRect()?.height ?? 500) + TINY_MARGIN * 2,
+    0,
+    splitViewElem.current?.getBoundingClientRect()?.height ?? 500,
   ]);
   const calcSelectLocatorPos = useEvent(
     () => ((player.selectSecRef.current ?? 0) - startSec) * pxPerSec,
@@ -721,9 +721,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   // playhead
-  const getTimeAxisPlayheadTopBottom = useEvent(
-    () => [TINY_MARGIN * 2, TIME_CANVAS_HEIGHT + TINY_MARGIN * 2] as [number, number],
-  );
+  const getTimeAxisPlayheadTopBottom = useEvent(() => [0, TIME_CANVAS_HEIGHT] as [number, number]);
   const getTrackPlayheadTopBottom: () => [number, number] = useEvent(() => {
     const idChArr = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1]);
     if (idChArr === undefined) return [0, 0];
@@ -1014,8 +1012,8 @@ function MainViewer(props: MainViewerProps) {
       })}
       <Locator // on track img
         locatorStyle="playhead"
-        getTopBottom={getTrackPlayheadTopBottom}
-        getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+        getLineTopBottom={getTrackPlayheadTopBottom}
+        getBoundingLeftWidthTop={getTimeAxisBoundingLeftWidthTop}
         calcLocatorPos={calcPlayheadPos}
         zIndex={1}
       />
@@ -1061,15 +1059,15 @@ function MainViewer(props: MainViewerProps) {
         />
         <Locator // on time axis
           locatorStyle="playhead"
-          getTopBottom={getTimeAxisPlayheadTopBottom}
-          getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+          getLineTopBottom={getTimeAxisPlayheadTopBottom}
+          getBoundingLeftWidthTop={getTimeAxisBoundingLeftWidthTop}
           calcLocatorPos={calcPlayheadPos}
         />
         <Locator
           ref={selectLocatorElem}
           locatorStyle="selection"
-          getTopBottom={getSelectLocatorTopBottom}
-          getBoundingLeftWidth={getLocatorBoundingLeftWidth}
+          getLineTopBottom={getSelectLocatorTopBottom}
+          getBoundingLeftWidthTop={getTimeAxisBoundingLeftWidthTop}
           calcLocatorPos={calcSelectLocatorPos}
         />
         <ColorMap

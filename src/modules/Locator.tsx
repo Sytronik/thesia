@@ -5,14 +5,14 @@ import styles from "./Locator.module.scss";
 
 type LocatorProps = {
   locatorStyle: "selection" | "playhead";
-  getTopBottom: () => [number, number];
-  getBoundingLeftWidth: () => [number, number] | null;
+  getLineTopBottom: () => [number, number];
+  getBoundingLeftWidthTop: () => [number, number, number] | null;
   calcLocatorPos: () => number;
   zIndex?: number;
 };
 
 const Locator = forwardRef((props: LocatorProps, ref) => {
-  const {locatorStyle, getTopBottom, getBoundingLeftWidth, calcLocatorPos, zIndex} = props;
+  const {locatorStyle, getLineTopBottom, getBoundingLeftWidthTop, calcLocatorPos, zIndex} = props;
   const locatorElem = useRef<HTMLCanvasElement | null>(null);
   const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
@@ -21,7 +21,7 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
   }, []);
   const requestRef = useRef<number>(0);
   const prevLocatorPos = useRef<number>(-1);
-  const prevLeftWidth = useRef<[number, number]>([-1, -1]);
+  const prevLeftWidthTop = useRef<[number, number, number]>([-1, -1, -1]);
   const prevBoundingRect = useRef<DOMRect>(new DOMRect());
 
   const lineWidth = locatorStyle === "selection" ? 2 : 1;
@@ -52,17 +52,17 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
 
   const draw = useEvent((_time: number, request: boolean = true) => {
     const locatorPos = calcLocatorPos();
-    const leftWidth = getBoundingLeftWidth();
+    const leftWidthTop = getBoundingLeftWidthTop();
 
     if (locatorElem.current !== null) {
       const rect = locatorElem.current.getBoundingClientRect();
       if (
-        leftWidth !== null &&
+        leftWidthTop !== null &&
         (Math.abs(locatorPos - prevLocatorPos.current) > 1e-3 ||
-          leftWidth.some((v, i) => Math.abs(v - prevLeftWidth.current[i]) > 1e-1) ||
+          leftWidthTop.some((v, i) => Math.abs(v - prevLeftWidthTop.current[i]) > 1e-1) ||
           !areDOMRectsEqual(rect, prevBoundingRect.current))
       ) {
-        const [left, width] = leftWidth;
+        const [left, width, top] = leftWidthTop;
 
         if (
           locatorPos <= -lineOffset - lineWidth / 2 ||
@@ -71,13 +71,15 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
           if (locatorElem.current.style.visibility !== "hidden")
             locatorElem.current.style.visibility = "hidden";
         } else {
-          const [lineTop, lineBottom] = getTopBottom();
+          const [lineTop, lineBottom] = getLineTopBottom();
           if (locatorElem.current.style.visibility !== "")
             locatorElem.current.style.visibility = "";
           const leftOffset = Math.floor(lineWidth / 2);
           const styleLeft = `${left - leftOffset}px`;
           if (locatorElem.current.style.left !== styleLeft)
             locatorElem.current.style.left = styleLeft;
+          const styleTop = `${top}px`;
+          if (locatorElem.current.style.top !== styleTop) locatorElem.current.style.top = styleTop;
           locatorElem.current.width = rect.width * devicePixelRatio;
           locatorElem.current.height = rect.height * devicePixelRatio;
           const ctx = locatorCtxRef.current;
@@ -87,7 +89,7 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
       prevBoundingRect.current = rect;
     }
     prevLocatorPos.current = locatorPos;
-    if (leftWidth) prevLeftWidth.current = leftWidth;
+    if (leftWidthTop) prevLeftWidthTop.current = leftWidthTop;
     if (request) requestRef.current = requestAnimationFrame(draw);
   });
 
