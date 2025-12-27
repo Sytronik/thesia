@@ -6,6 +6,7 @@ use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Sub
 use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewWindow, Wry};
 use tauri_plugin_opener::OpenerExt;
 
+use crate::os::os_label;
 use crate::player::{PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC};
 
 pub mod ids {
@@ -155,11 +156,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         ids::FREQ_ZOOM_IN,
         "Frequency Zoom In",
         false,
-        Some(if cfg!(target_os = "macos") {
-            "Command+Down"
-        } else {
-            "Ctrl+Down"
-        }),
+        Some("CmdOrCtrl+Down"),
     )?;
     menu.append(&freq_zoom_in)?;
 
@@ -168,11 +165,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         ids::FREQ_ZOOM_OUT,
         "Frequency Zoom Out",
         false,
-        Some(if cfg!(target_os = "macos") {
-            "Command+Up"
-        } else {
-            "Ctrl+Up"
-        }),
+        Some("CmdOrCtrl+Up"),
     )?;
     menu.append(&freq_zoom_out)?;
 
@@ -181,11 +174,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         ids::TIME_ZOOM_IN,
         "Time Zoom In",
         false,
-        Some(if cfg!(target_os = "macos") {
-            "Command+Right"
-        } else {
-            "Ctrl+Right"
-        }),
+        Some("CmdOrCtrl+Right"),
     )?;
     menu.append(&time_zoom_in)?;
 
@@ -194,11 +183,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         ids::TIME_ZOOM_OUT,
         "Time Zoom Out",
         false,
-        Some(if cfg!(target_os = "macos") {
-            "Command+Left"
-        } else {
-            "Ctrl+Left"
-        }),
+        Some("CmdOrCtrl+Left"),
     )?;
     menu.append(&time_zoom_out)?;
 
@@ -215,11 +200,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
             ids::TOGGLE_DEVTOOLS,
             "Toggle Developer Tools",
             true,
-            Some(if cfg!(target_os = "macos") {
-                "Alt+Command+I"
-            } else {
-                "Ctrl+Shift+I"
-            }),
+            Some(os_label("Alt+Command+I", "Ctrl+Shift+I")),
         )?;
         menu.append(&toggle_devtools)?;
     } /* else {
@@ -377,11 +358,7 @@ fn build_fullscreen_menu_item<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<M
         ids::TOGGLE_FULLSCREEN,
         "Toggle Full Screen",
         true,
-        Some(if cfg!(target_os = "macos") {
-            "Ctrl+Command+F"
-        } else {
-            "F11"
-        }),
+        Some(os_label("Ctrl+Command+F", "F11")),
     )
 }
 
