@@ -13,6 +13,7 @@ type TimeAxisProps = {
   moveLens: (sec: number, dragAnchor: number) => void;
   resetTimeAxis: () => void;
   enableInteraction: boolean;
+  onClickWithoutMods: (e: React.MouseEvent) => void;
 };
 type TimeAxisCursorState = "drag";
 type TimeAxisDragAnchor = {
@@ -32,6 +33,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     moveLens,
     resetTimeAxis,
     enableInteraction,
+    onClickWithoutMods: onClickWithoutMods,
   } = props;
   const calcDragAnchor = useEvent(
     (_cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
@@ -67,6 +69,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
   const onClick = useEvent((e: React.MouseEvent) => {
     if (!enableInteraction) return;
     if (e.altKey && e.button === 0 && e.detail === 1) resetTimeAxis();
+    else onClickWithoutMods(e);
   });
 
   const axis = (

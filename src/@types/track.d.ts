@@ -59,9 +59,7 @@ type AxisCanvasHandleElement = {
 };
 
 type LocatorHandleElement = {
-  enableInteraction: () => void;
-  disableInteraction: () => void;
-  draw: () => void;
+  isOnLocator: (clientX: number) => boolean;
 };
 
 type FloatRangeInputElement = {

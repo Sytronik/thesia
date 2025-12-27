@@ -268,10 +268,7 @@ function MainViewer(props: MainViewerProps) {
     });
   }, [trackIds, needRefreshTrackIdChArr]);
 
-  const setSelectSec = useEvent((sec) => {
-    player.setSelectSec(sec);
-    selectLocatorElem.current?.draw();
-  });
+  const setSelectSec = useEvent(player.setSelectSec);
   const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, setSelectSec), [setSelectSec]);
 
   const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
@@ -377,10 +374,46 @@ function MainViewer(props: MainViewerProps) {
 
     if (!splitViewElem.current?.hasScrollBar()) updateVScrollAnchorInfo();
   });
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
+    if (rect === null) return;
+    if (e.clientY < rect.bottom) return; // click on TimeAxis fires the other event
+    const _isOnLocator = selectLocatorElem.current?.isOnLocator(e.clientX) ?? false;
+
+    if (_isOnLocator) {
+      changeLocatorByMouse(e, false, false);
+      onSelectLocatorMouseDown();
+    } else {
+      changeLocatorByMouse(e, player.isPlaying, false);
+    }
+  };
+
   const onMouseMove = (e: React.MouseEvent) => {
-    if (Math.abs(e.clientY - prevCursorClientY.current) < 1e-3) return;
-    updateVScrollAnchorInfo(e.clientY);
-    prevCursorClientY.current = e.clientY;
+    if (Math.abs(e.clientY - prevCursorClientY.current) >= 1e-3) {
+      updateVScrollAnchorInfo(e.clientY);
+      prevCursorClientY.current = e.clientY;
+    }
+    if (mainViewerElem.current === null) return;
+    if (selectLocatorElem.current?.isOnLocator(e.clientX) ?? false) {
+      mainViewerElem.current.style.cursor = "col-resize";
+    } else {
+      mainViewerElem.current.style.cursor = "default";
+
+      // if on one of ImgCanvases, cursor should be crosshair
+      const imgCanvases = imgCanvasesRef.current;
+      for (const imgCanvas of Object.values(imgCanvases)) {
+        if (
+          imgCanvas.getBoundingClientRect().left <= e.clientX &&
+          e.clientX <= imgCanvas.getBoundingClientRect().right &&
+          imgCanvas.getBoundingClientRect().top <= e.clientY &&
+          e.clientY <= imgCanvas.getBoundingClientRect().bottom
+        ) {
+          mainViewerElem.current.style.cursor = "crosshair";
+          break;
+        }
+      }
+    }
   };
 
   const handleWheel = useEvent((e: WheelEvent) => {
@@ -403,8 +436,6 @@ function MainViewer(props: MainViewerProps) {
 
     if (!e.altKey && !isApplePinch && !horizontal) {
       // vertical scroll (native)
-      selectLocatorElem.current?.disableInteraction();
-      setTimeout(() => selectLocatorElem.current?.enableInteraction(), 1000 / 60);
       updateVScrollAnchorInfo(e.clientY);
       return;
     }
@@ -498,11 +529,19 @@ function MainViewer(props: MainViewerProps) {
           }
         }
       }
+
+      if (mainViewerElem.current === null) return;
+      mainViewerElem.current.style.cursor = "col-resize";
+
       const sec = startSec + cursorX / pxPerSec;
       if (isPlayhead) player.seek(sec);
       else throttledSetSelectSec(sec);
     },
   );
+
+  const changeLocatorByMouseNotAllowOutside = useEvent((e: React.MouseEvent) => {
+    changeLocatorByMouse(e, player.isPlaying, false);
+  });
 
   const endSelectLocatorDrag = useEvent(() => {
     document.removeEventListener("mousemove", changeLocatorByMouse);
@@ -663,8 +702,7 @@ function MainViewer(props: MainViewerProps) {
 
   // locator
   const getLocatorBoundingLeftWidth: () => [number, number] | null = useEvent(() => {
-    if (timeAxisCanvasElem.current === null) return null;
-    const rect = timeAxisCanvasElem.current.getBoundingClientRect();
+    const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return null;
     return [rect.left, rect.width];
   });
@@ -896,6 +934,7 @@ function MainViewer(props: MainViewerProps) {
           moveLens={moveLens}
           resetTimeAxis={resetTimeAxis}
           enableInteraction={trackIds.length > 0}
+          onClickWithoutMods={changeLocatorByMouseNotAllowOutside}
         />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
@@ -1009,8 +1048,8 @@ function MainViewer(props: MainViewerProps) {
       <div
         className={`flex-container-row flex-item-auto ${styles.MainViewer}`}
         ref={mainViewerElemCallback}
+        onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
-        onClick={(e) => changeLocatorByMouse(e, player.isPlaying, false)}
         role="presentation"
       >
         <SplitView
@@ -1032,7 +1071,6 @@ function MainViewer(props: MainViewerProps) {
           getTopBottom={getSelectLocatorTopBottom}
           getBoundingLeftWidth={getLocatorBoundingLeftWidth}
           calcLocatorPos={calcSelectLocatorPos}
-          onMouseDown={onSelectLocatorMouseDown}
         />
         <ColorMap
           height={colorMapHeight}

@@ -8,13 +8,11 @@ type LocatorProps = {
   getTopBottom: () => [number, number];
   getBoundingLeftWidth: () => [number, number] | null;
   calcLocatorPos: () => number;
-  onMouseDown?: (e: React.MouseEvent) => void;
   zIndex?: number;
 };
 
 const Locator = forwardRef((props: LocatorProps, ref) => {
-  const {locatorStyle, getTopBottom, getBoundingLeftWidth, calcLocatorPos, onMouseDown, zIndex} =
-    props;
+  const {locatorStyle, getTopBottom, getBoundingLeftWidth, calcLocatorPos, zIndex} = props;
   const locatorElem = useRef<HTMLCanvasElement | null>(null);
   const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
@@ -28,7 +26,6 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
 
   const lineWidth = locatorStyle === "selection" ? 2 : 1;
   const lineOffset = lineWidth % 2 === 0 ? 0 : 0.5;
-  const moveElem = onMouseDown !== undefined;
 
   const drawLine = useEvent(
     (ctx: CanvasRenderingContext2D, drawPos: number, lineTop: number, lineBottom: number) => {
@@ -74,18 +71,17 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
           if (locatorElem.current.style.visibility !== "hidden")
             locatorElem.current.style.visibility = "hidden";
         } else {
-          const locatorElemPos = moveElem ? Math.floor(locatorPos) - 1 : 0;
-          const drawPos = locatorPos - locatorElemPos;
           const [lineTop, lineBottom] = getTopBottom();
           if (locatorElem.current.style.visibility !== "")
             locatorElem.current.style.visibility = "";
-          const styleLeft = `${locatorElemPos + left}px`;
+          const leftOffset = Math.floor(lineWidth / 2);
+          const styleLeft = `${left - leftOffset}px`;
           if (locatorElem.current.style.left !== styleLeft)
             locatorElem.current.style.left = styleLeft;
           locatorElem.current.width = rect.width * devicePixelRatio;
           locatorElem.current.height = rect.height * devicePixelRatio;
           const ctx = locatorCtxRef.current;
-          if (ctx !== null) drawLine(ctx, drawPos, lineTop, lineBottom);
+          if (ctx !== null) drawLine(ctx, locatorPos + leftOffset, lineTop, lineBottom);
         }
       }
       prevBoundingRect.current = rect;
@@ -101,24 +97,18 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
   }, [draw]);
 
   const imperativeHandleRef = useRef<LocatorHandleElement>({
-    enableInteraction: () => {
-      if (locatorElem.current) locatorElem.current.style.pointerEvents = "auto";
+    isOnLocator: (clientX: number) => {
+      const rect = locatorElem.current?.getBoundingClientRect() ?? null;
+      if (rect === null) return false;
+      return (
+        rect.left + prevLocatorPos.current - lineWidth / 2 - 2 <= clientX &&
+        clientX <= rect.left + prevLocatorPos.current + lineWidth / 2 + 2
+      ); // TODO: fine tune
     },
-    disableInteraction: () => {
-      if (locatorElem.current) locatorElem.current.style.pointerEvents = "none";
-    },
-    draw: () => draw(0, false),
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 
-  return (
-    <canvas
-      ref={locatorElemCallback}
-      className={onMouseDown ? styles.interactiveLocator : styles.nonInteractiveLocator}
-      onMouseDown={onMouseDown}
-      style={{zIndex}}
-    />
-  );
+  return <canvas ref={locatorElemCallback} className={styles.locator} style={{zIndex}} />;
 });
 
 Locator.displayName = "Locator";

@@ -1,19 +1,7 @@
-@mixin locator {
+.locator {
+  width: 100%;
   height: 100%;
   position: fixed;
   z-index: 3;
-}
-
-.interactiveLocator {
-  @include locator;
-
-  cursor: col-resize;
-  width: 5px;
-}
-
-.nonInteractiveLocator {
-  @include locator;
-
   pointer-events: none;
-  width: 100%;
 }
