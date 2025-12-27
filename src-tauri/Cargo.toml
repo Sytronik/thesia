@@ -91,6 +91,9 @@ mimalloc = "0.1.48"
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
+
 [dev-dependencies]
 approx = { workspace = true }
 hound = "3.5.1"

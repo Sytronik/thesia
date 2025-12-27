@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use parking_lot::RwLock;
 use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 
@@ -21,6 +21,7 @@ mod player;
 use backend::*;
 use interface::*;
 use player::{PlayerCommand, PlayerNotification};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags, WindowExt};
 
 #[cfg(all(
     any(windows, unix),
@@ -620,6 +621,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| menu::handle_menu_event(app, event))
         .setup(|app| {
@@ -627,8 +629,8 @@ pub fn run() {
             menu::init(&handle)?;
 
             // just put the store in the app's resource table
-            let _ = app.store("settings.json")?;
-            let _ = app.store("paths.json")?;
+            app.store("settings.json")?;
+            app.store("paths.json")?;
 
             log::info!(
                 "settings store path: {}",
@@ -685,14 +687,20 @@ pub fn run() {
                 });
             }
 
-            #[cfg(debug_assertions)]
-            {
-                if let Some(window) = handle.get_webview_window("main") {
+            if let Some(window) = handle.get_webview_window("main") {
+                let _ = window.restore_state(StateFlags::all());
+                #[cfg(debug_assertions)]
+                {
                     window.open_devtools();
                 }
             }
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                let _ = window.app_handle().save_window_state(StateFlags::all());
+            }
         })
         .invoke_handler(tauri::generate_handler![
             is_dev,
