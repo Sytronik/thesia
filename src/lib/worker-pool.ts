@@ -10,15 +10,20 @@ export const NUM_WORKERS = navigator.hardwareConcurrency ?? 1;
 const setSpectrogramDoneListeners = new Map<number, Map<string, OnSetSpectrogramDoneCallback>>();
 const returnSpectrogramListeners = new Map<number, Map<string, OnReturnMipmapCallback>>();
 
-const workers = new Map<number, Worker>(
-  Array.from({length: NUM_WORKERS}, (_, i) => {
-    const worker = new RendererWorker();
-    setSpectrogramDoneListeners.set(i, new Map());
-    returnSpectrogramListeners.set(i, new Map());
-    worker.onmessage = (event) => onmessage(i, event);
-    return [i, worker];
-  }),
-);
+let workers: Map<number, Worker>;
+initializeWorkerPool();
+
+export function initializeWorkerPool() {
+  workers = new Map<number, Worker>(
+    Array.from({length: NUM_WORKERS}, (_, i) => {
+      const worker = new RendererWorker();
+      if (!setSpectrogramDoneListeners.has(i)) setSpectrogramDoneListeners.set(i, new Map());
+      if (!returnSpectrogramListeners.has(i)) returnSpectrogramListeners.set(i, new Map());
+      worker.onmessage = (event) => onmessage(i, event);
+      return [i, worker];
+    }),
+  );
+}
 
 export const postMessageToWorker = (
   index: number,
