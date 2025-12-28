@@ -142,7 +142,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   }, [drawWavImage, width, height, needHideWav, workerIndex, idChStr]);
 
   useEffect(() => {
-    if (!needRefresh) return; // Changing idChStr without needRefresh does not happen
+    const cleanup = () => postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
+    if (!needRefresh) return cleanup; // Changing idChStr without needRefresh does not happen
 
     BackendAPI.getWav(idChStr).then((wavInfo) => {
       if (wavInfo !== null) {
@@ -152,9 +153,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         drawWavImageRef.current?.();
       }
     });
-    return () => {
-      postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
-    };
+    return cleanup;
   }, [idChStr, needRefresh, workerIndex]);
 
   const setLoadingDisplay = useCallback(() => {
