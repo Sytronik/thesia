@@ -90,6 +90,23 @@ export type RendererWorkerMessage =
   | DrawWavMessage
   | ClearWavMessage;
 
+export type OnSetSpectrogramDoneCallback = () => void;
+export type OnReturnMipmapCallback = (mipmap: Mipmap | null) => void;
+export type RendererWorkerEventMessage =
+  | {
+      type: "setSpectrogramDone";
+      data: {
+        idChStr: IdChannel;
+      };
+    }
+  | {
+      type: "returnMipmap";
+      data: {
+        idChStr: IdChannel;
+        mipmap: Mipmap | null;
+      };
+    };
+
 let initialized = false;
 const canvases: Map<string, OffscreenCanvas> = new Map();
 const ctxs: Map<string, OffscreenCanvasRenderingContext2D> = new Map();
