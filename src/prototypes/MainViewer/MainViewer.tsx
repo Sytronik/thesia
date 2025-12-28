@@ -1024,12 +1024,16 @@ function MainViewer(props: MainViewerProps) {
     trackIds.length > 0 && selectedTrackIds.length > 0
       ? selectedTrackIds[selectedTrackIds.length - 1]
       : null;
+  const overviewIdChArr = useMemo(() => {
+    if (overviewTrackId === null) return [];
+    return trackIdChMap.get(overviewTrackId) || [];
+  }, [overviewTrackId, trackIdChMap]);
   return (
     <div className={`flex-container-column flex-item-auto ${styles.mainViewerWrapper}`}>
       {trackIds.length ? (
         <Overview
           trackId={overviewTrackId}
-          idChArr={overviewTrackId !== null ? trackIdChMap.get(overviewTrackId) || [] : []}
+          idChArr={overviewIdChArr}
           maxTrackSec={maxTrackSec}
           startSec={startSec}
           lensDurationSec={width / pxPerSec}
