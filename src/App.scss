@@ -51,6 +51,8 @@ body {
   font-family: typography.$body-font;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  position: fixed;
 }
 
 #root {
