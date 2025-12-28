@@ -123,7 +123,7 @@ function MainViewer(props: MainViewerProps) {
   });
 
   const [width, setWidth] = useState(600);
-  const endSec = startSec + width / (pxPerSec + 1e-8);
+  const endSec = startSec + width / Math.max(pxPerSec, 1e-8);
 
   const [height, setHeight] = useState(250);
   const [scrollTop, setScrollTop] = useState(0);
@@ -271,14 +271,14 @@ function MainViewer(props: MainViewerProps) {
   const setSelectSec = useEvent(player.setSelectSec);
   const throttledSetSelectSec = useMemo(() => throttle(1000 / 70, setSelectSec), [setSelectSec]);
 
-  const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) => {
-    return Math.min(Math.max(_startSec, 0), Math.max(maxEndSec - width / _pxPerSec, 0));
-  });
+  const normalizeStartSec = useEvent((_startSec, _pxPerSec, maxEndSec) =>
+    Math.min(Math.max(_startSec, 0), Math.max(maxEndSec - width / Math.max(_pxPerSec, 1e-8), 0)),
+  );
 
   const normalizePxPerSec = useEvent((_pxPerSec, _startSec) =>
     Math.min(
-      Math.max(_pxPerSec, width / (maxTrackSec - _startSec)),
-      Math.max(MAX_PX_PER_SEC, width / (maxTrackSec - _startSec)),
+      Math.max(_pxPerSec, width / Math.max(maxTrackSec - _startSec, 1e-8), 1e-8),
+      Math.max(MAX_PX_PER_SEC, width / Math.max(maxTrackSec - _startSec, 1e-8), 1e-8),
     ),
   );
 
@@ -310,7 +310,10 @@ function MainViewer(props: MainViewerProps) {
 
   const resizeLensLeft = useEvent((sec: number) => {
     const newStartSec = normalizeStartSec(sec, MAX_PX_PER_SEC, endSec);
-    const newPxPerSec = normalizePxPerSec(width / (endSec - newStartSec), newStartSec);
+    const newPxPerSec = normalizePxPerSec(
+      width / Math.max(endSec - newStartSec, 1e-8),
+      newStartSec,
+    );
 
     updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
   });
@@ -842,7 +845,7 @@ function MainViewer(props: MainViewerProps) {
         : normalizeStartSec(startSec, pxPerSec, maxTrackSec);
     const newPxPerSec =
       prevTrackCountRef.current === 0 || _CanvasIsFit
-        ? newWidth / maxTrackSec
+        ? newWidth / Math.max(maxTrackSec, 1e-8)
         : normalizePxPerSec(pxPerSec, startSec);
     updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec}, false);
   });

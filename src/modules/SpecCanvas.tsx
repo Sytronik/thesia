@@ -63,7 +63,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
 
   const trackSecRef = useRef<number>(0);
   const calcEndSec = useEvent(() =>
-    Math.min(startSec + width / (pxPerSec + 1e-8), trackSecRef.current),
+    Math.min(startSec + width / Math.max(pxPerSec, 1e-8), trackSecRef.current),
   );
 
   const mipmapSizeArrRef = useRef<[number, number][][]>([]);
@@ -273,7 +273,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
       let srcW = width * (sliceArgs.pxPerSec / pxPerSec);
       let dstW = width * _devicePixelRatio;
 
-      if (startSec + width / (pxPerSec + 1e-8) > trackSecRef.current) {
+      if (startSec + width / Math.max(pxPerSec, 1e-8) > trackSecRef.current) {
         srcW = (trackSecRef.current - startSec) * sliceArgs.pxPerSec;
         dstW = (trackSecRef.current - startSec) * pxPerSec * _devicePixelRatio;
       }
