@@ -102,10 +102,14 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
     isOnLocator: (clientX: number) => {
       const rect = locatorElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return false;
+      const [clientLeft, width] = prevLeftWidthTop.current;
+      const clientRight = clientLeft + width;
+      const locatorClientX = rect.left + prevLocatorPos.current;
+      const margin = lineWidth / 2 + 2;
       return (
-        rect.left + prevLocatorPos.current - lineWidth / 2 - 2 <= clientX &&
-        clientX <= rect.left + prevLocatorPos.current + lineWidth / 2 + 2
-      ); // TODO: fine tune
+        Math.max(locatorClientX - margin, clientLeft) <= clientX &&
+        clientX < Math.min(locatorClientX + margin, clientRight)
+      );
     },
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);

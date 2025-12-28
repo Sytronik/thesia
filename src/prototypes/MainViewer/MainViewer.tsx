@@ -379,9 +379,8 @@ function MainViewer(props: MainViewerProps) {
     const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
     if (e.clientY < rect.bottom) return; // click on TimeAxis fires the other event
-    const _isOnLocator = selectLocatorElem.current?.isOnLocator(e.clientX) ?? false;
 
-    if (_isOnLocator) {
+    if (selectLocatorElem.current?.isOnLocator(e.clientX) ?? false) {
       changeLocatorByMouse(e, false, false);
       onSelectLocatorMouseDown();
     } else {
