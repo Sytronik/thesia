@@ -80,6 +80,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
   // Player Hotkeys
+  useHotkeys("space", togglePlay, {preventDefault: true}, [togglePlay]);
   useEffect(() => {
     const promiseUnlisten = listenTogglePlay(togglePlay);
     return () => {
