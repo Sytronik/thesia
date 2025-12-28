@@ -20,7 +20,6 @@ pub mod ids {
 
     pub const OPEN_AUDIO_TRACKS: &str = "open-audio-tracks";
 
-    pub const SELECT_ALL: &str = "edit-select-all";
     pub const EDIT_DELETE: &str = "edit-delete";
 
     pub const FREQ_ZOOM_IN: &str = "freq-zoom-in";
@@ -122,29 +121,14 @@ fn build_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     let copy = PredefinedMenuItem::copy(app, None)?;
     let paste = PredefinedMenuItem::paste(app, None)?;
     let delete = MenuItem::with_id(app, ids::EDIT_DELETE, "&Delete", true, None::<&str>)?;
-    let select_all = MenuItem::with_id(
-        app,
-        ids::SELECT_ALL,
-        "Select &All",
-        true,
-        Some("CmdOrCtrl+A"),
-    )?; // Cannot be predefined menu item because this has the same accelerator as select-all-tracks
+    // select_all is added/removed dynamically by MenuController
 
     Submenu::with_id_and_items(
         app,
         ids::EDIT,
         "Edit",
         false,
-        &[
-            &undo,
-            &redo,
-            &separator,
-            &cut,
-            &copy,
-            &paste,
-            &delete,
-            &select_all,
-        ],
+        &[&undo, &redo, &separator, &cut, &copy, &paste, &delete],
     )
 }
 
@@ -373,7 +357,6 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
     match id {
         ids::OPEN_AUDIO_TRACKS
         | ids::EDIT_DELETE
-        | ids::SELECT_ALL
         | ids::FREQ_ZOOM_IN
         | ids::FREQ_ZOOM_OUT
         | ids::TIME_ZOOM_IN
@@ -398,13 +381,13 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
             }
         }),
 
-        ids::TOGGLE_DEVTOOLS => with_main_window(app, |window| {
+        ids::TOGGLE_DEVTOOLS => with_main_window(app, |_window| {
             #[cfg(debug_assertions)]
             {
-                if window.is_devtools_open() {
-                    window.close_devtools();
+                if _window.is_devtools_open() {
+                    _window.close_devtools();
                 } else {
-                    window.open_devtools();
+                    _window.open_devtools();
                 }
             }
         }),
@@ -461,6 +444,8 @@ fn emit_jump_event(app: &AppHandle<Wry>, mode: JumpPlayerMode) {
 
 pub struct MenuController<R: Runtime> {
     edit_menu: Submenu<R>,
+    select_all: PredefinedMenuItem<R>,
+    tracks_menu: Submenu<R>,
     select_all_tracks: MenuItem<R>,
     axis_items: Vec<MenuItem<R>>,
     remove_selected_tracks: MenuItem<R>,
@@ -482,6 +467,9 @@ impl<R: Runtime> MenuController<R> {
         let tracks_menu = find_submenu(&menu, ids::TRACKS)?;
         let play_menu = find_submenu(&menu, ids::PLAY_MENU)?;
 
+        // Create select_all PredefinedMenuItem for dynamic add/remove
+        let select_all = PredefinedMenuItem::select_all(app, None)?;
+
         let mut axis_items = Vec::new();
         for id in AXIS_MENU_ITEM_IDS {
             axis_items.push(find_menu_item(&axis_menu, id)?);
@@ -495,6 +483,8 @@ impl<R: Runtime> MenuController<R> {
 
         Ok(Self {
             edit_menu,
+            select_all,
+            tracks_menu,
             select_all_tracks,
             axis_items,
             remove_selected_tracks,
@@ -507,11 +497,17 @@ impl<R: Runtime> MenuController<R> {
     }
 
     pub fn set_edit_menu_enabled(&self, enabled: bool) -> tauri::Result<()> {
-        self.edit_menu.set_enabled(enabled)
-    }
-
-    pub fn set_select_all_tracks_enabled(&self, enabled: bool) -> tauri::Result<()> {
-        self.select_all_tracks.set_enabled(enabled)
+        self.edit_menu.set_enabled(enabled)?;
+        if enabled {
+            // Show select_all in edit menu, hide select_all_tracks in tracks menu
+            self.edit_menu.append(&self.select_all)?;
+            self.tracks_menu.remove(&self.select_all_tracks)?;
+        } else {
+            // Hide select_all from edit menu, show select_all_tracks in tracks menu
+            let _ = self.edit_menu.remove(&self.select_all); // ignore error if not present
+            self.tracks_menu.append(&self.select_all_tracks)?;
+        }
+        Ok(())
     }
 
     pub fn set_axis_zoom_menu_enabled(&self, enabled: bool) -> tauri::Result<()> {
@@ -612,19 +608,15 @@ fn collect_menu_items<R: Runtime>(submenu: &Submenu<R>) -> tauri::Result<Vec<Men
 
 #[tauri::command]
 pub fn enable_edit_menu(controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
-    let controller = controller.inner();
     controller
         .set_edit_menu_enabled(true)
-        .and_then(|_| controller.set_select_all_tracks_enabled(false))
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn disable_edit_menu(controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
-    let controller = controller.inner();
     controller
         .set_edit_menu_enabled(false)
-        .and_then(|_| controller.set_select_all_tracks_enabled(true))
         .map_err(|e| e.to_string())
 }
 

@@ -5,7 +5,6 @@ import {DndProvider} from "react-dnd";
 import {TouchBackend} from "react-dnd-touch-backend";
 import BackendAPI, {
   UserSettings,
-  listenEditMenuEvents,
   listenMenuOpenAudioTracks,
   listenMenuRemoveSelectedTracks,
   listenOpenFiles,
@@ -156,13 +155,6 @@ function MyApp({userSettings}: AppProps) {
       promiseUnlisten.then((unlistenFn) => unlistenFn());
     };
   }, [removeSelectedTracks]);
-
-  useEffect(() => {
-    const promiseUnlistens = listenEditMenuEvents();
-    return () => {
-      promiseUnlistens.then((unlistenFns) => unlistenFns.forEach((unlistenFn) => unlistenFn()));
-    };
-  }, []);
 
   useEffect(() => {
     const prevTrackIdsCount = prevTrackIds.current.length;

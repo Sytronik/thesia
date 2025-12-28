@@ -19,31 +19,6 @@ export async function listenMenuEditDelete(
   return listen("edit-delete", handler);
 }
 
-export async function listenMenuEditSelectAll(
-  handler: () => void | Promise<void>,
-): Promise<UnlistenFn> {
-  return listen("edit-select-all", handler);
-}
-
-export async function listenEditMenuEvents() {
-  const promiseUnlistenDelete = listenMenuEditDelete(() => {
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
-      if (activeElement.selectionStart === null || activeElement.selectionEnd === null) return;
-      const text = activeElement.value;
-      activeElement.value =
-        text.slice(0, activeElement.selectionStart) + text.slice(activeElement.selectionEnd);
-    }
-  });
-  const promiseUnlistenSelectAll = listenMenuEditSelectAll(() => {
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
-      activeElement.select();
-    }
-  });
-  return Promise.all([promiseUnlistenDelete, promiseUnlistenSelectAll]);
-}
-
 export async function listenFreqZoomIn(handler: () => void | Promise<void>): Promise<UnlistenFn> {
   return listen("freq-zoom-in", handler);
 }

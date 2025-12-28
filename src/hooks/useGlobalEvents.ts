@@ -1,5 +1,5 @@
 import {useEffect} from "react";
-import BackendAPI from "../api";
+import BackendAPI, {listenMenuEditDelete} from "../api";
 
 function callDifferentFuncIfEditableNode(
   node: HTMLElement | null,
@@ -42,6 +42,18 @@ export function changeEditMenuForFocusOut(e: FocusEvent) {
   );
 }
 
+export async function deleteTextByMenu() {
+  return listenMenuEditDelete(() => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+      if (activeElement.selectionStart === null || activeElement.selectionEnd === null) return;
+      const text = activeElement.value;
+      activeElement.value =
+        text.slice(0, activeElement.selectionStart) + text.slice(activeElement.selectionEnd);
+    }
+  });
+}
+
 export function addGlobalEventListeners() {
   document.body.addEventListener("contextmenu", showEditContextMenuIfEditableNode);
   document.body.addEventListener("focusin", changeEditMenuForFocusIn);
@@ -57,8 +69,10 @@ export function removeGlobalEventListeners() {
 export function useGlobalEvents() {
   useEffect(() => {
     addGlobalEventListeners();
+    const promiseUnlisten = deleteTextByMenu();
     return () => {
       removeGlobalEventListeners();
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
     };
   }, []);
 }
