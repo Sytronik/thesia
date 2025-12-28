@@ -384,10 +384,10 @@ function MainViewer(props: MainViewerProps) {
     if (e.clientY < rect.bottom) return; // click on TimeAxis fires the other event
 
     if (selectLocatorElem.current?.isOnLocator(e.clientX) ?? false) {
-      changeLocatorByMouse(e, false, false);
+      changeLocatorByMouse(e, false, false, false);
       onSelectLocatorMouseDown();
     } else {
-      changeLocatorByMouse(e, player.isPlaying, false);
+      changeLocatorByMouse(e, player.isPlaying, false, false);
     }
   };
 
@@ -512,11 +512,12 @@ function MainViewer(props: MainViewerProps) {
       e: React.MouseEvent | MouseEvent,
       isPlayhead: boolean = false,
       allowOutside: boolean = true,
+      preventDefault: boolean = true,
     ) => {
       const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
       if (rect === null) return;
       if (e.clientY < rect.bottom && e.altKey) return; // alt+click on TimeAxis fires the other event
-      e.preventDefault();
+      if (preventDefault) e.preventDefault();
       if (trackIds.length === 0) return;
       if (e.clientY < rect.top) return; // when cursor is between Overview and TimeAxis
       const cursorX = e.clientX - rect.left;
