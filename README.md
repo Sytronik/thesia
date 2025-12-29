@@ -12,7 +12,7 @@ This project is in a beta stage.
    - Common
      - [Rust](https://www.rust-lang.org/tools/install)
      - [node.js](https://nodejs.org/en/download/current) >= v22
-       - The most recent version tested: v22.21.1
+       - The most recent version tested: v24.12.0
    - macOS
      - Xcode
        - `xcode-select --install` to install Command Line Tools for Xcode
