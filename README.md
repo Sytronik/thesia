@@ -17,14 +17,16 @@ This project is in a beta stage.
      - Xcode
        - `xcode-select --install` to install Command Line Tools for Xcode
    - Windows
-     - Dependencies for Tauri
-       - Follow the instructions in [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/#windows)
+    - Webview2
+      - need to install only on Windows < 10
+      - see [Tauri's prerequisites](https://v2.tauri.app/ko/start/prerequisites/#webview2-%EC%84%A4%EC%B9%98)
      - vcpkg & OpenBLAS
        ```powershell
        git clone https://github.com/microsoft/vcpkg
        .\vcpkg\bootstrap-vcpkg.bat
        .\vcpkg\vcpkg integrate install
-       vcpkg install openblas --triplet x64-windows-static-md
+       # add vcpkg directory to PATH and restart the terminal, then run:
+       vcpkg install openblas --triplet x64-windows-static
        ```
    - Linux
      - ALSA
