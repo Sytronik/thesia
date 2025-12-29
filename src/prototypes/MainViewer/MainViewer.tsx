@@ -275,12 +275,15 @@ function MainViewer(props: MainViewerProps) {
     Math.min(Math.max(_startSec, 0), Math.max(maxEndSec - width / Math.max(_pxPerSec, 1e-8), 0)),
   );
 
-  const normalizePxPerSec = useEvent((_pxPerSec, _startSec) =>
-    Math.min(
-      Math.max(_pxPerSec, width / Math.max(maxTrackSec - _startSec, 1e-8), 1e-8),
-      Math.max(MAX_PX_PER_SEC, width / Math.max(maxTrackSec - _startSec, 1e-8), 1e-8),
-    ),
-  );
+  const normalizePxPerSec = useEvent((_pxPerSec, _startSec) => {
+    if (maxTrackSec - _startSec < 1e-6) {
+      return Math.min(_pxPerSec, MAX_PX_PER_SEC, 1e-8);
+    }
+    return Math.min(
+      Math.max(_pxPerSec, width / (maxTrackSec - _startSec), 1e-8),
+      Math.max(MAX_PX_PER_SEC, width / (maxTrackSec - _startSec)),
+    );
+  });
 
   const updateLensParams = useEvent(
     (params: OptionalLensParams, turnOffFollowCursor: boolean = true) => {
