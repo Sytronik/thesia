@@ -156,6 +156,16 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return cleanup;
   }, [idChStr, needRefresh, workerIndex]);
 
+  const onVisibilityChange = useEvent(() => {
+    if (document.visibilityState === "visible" && !needHideWav) drawWavImageRef.current?.();
+  });
+
+  // on Webkit, canvas is cleared when the page is hidden, so we need to redraw the canvas when the page is visible
+  useEffect(() => {
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [onVisibilityChange]);
+
   const setLoadingDisplay = useCallback(() => {
     if (!loadingElem.current) return;
     loadingElem.current.style.display = isLoading ? "block" : "none";
