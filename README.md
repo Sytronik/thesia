@@ -40,6 +40,7 @@ This project is in a beta stage.
 ## Run in Dev Mode
 
 ```bash
+# if you need the WASM build for debugging, run `npm run build:wasm.debug` first
 npm run tauri dev
 ```
 
