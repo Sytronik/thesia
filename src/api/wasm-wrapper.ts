@@ -37,7 +37,6 @@ export async function initWasm(): Promise<void> {
     memory = wasm.memory;
 
     wasmInitialized = true;
-    console.log("WASM module has been initialized.");
   }
 }
 
