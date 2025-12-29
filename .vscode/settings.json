@@ -1,0 +1,45 @@
+{
+  "evenBetterToml.taplo.configFile.path": ".taplo.toml",
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[sass]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "prettier.prettier-vscode"
+  },
+  "search.exclude": {
+    ".git": true,
+    "target": true,
+    "node_modules": true,
+    "thesia-wasm-renderer/pkg": true,
+    "package-lock.json": true,
+    "*.{css,sass,scss}.d.ts": true
+  },
+  "editor.formatOnSave": true,
+}

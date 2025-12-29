@@ -1,0 +1,9 @@
+[formatting]
+allowed_blank_lines = 1
+array_auto_collapse = false
+array_trailing_comma = true
+column_width = 100
+compact_arrays = true
+compact_inline_tables = false
+reorder_arrays = true
+reorder_keys = true

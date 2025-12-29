@@ -69,7 +69,7 @@
       {
         "files": [
           ".prettierrc",
-          ".eslintrc"
+          ".eslint.config.js"
         ],
         "options": {
           "parser": "json"
