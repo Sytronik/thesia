@@ -39,6 +39,7 @@
     "node_modules": true,
     "thesia-wasm-renderer/pkg": true,
     "package-lock.json": true,
+    "Cargo.lock": true,
     "*.{css,sass,scss}.d.ts": true
   },
   "editor.formatOnSave": true,
