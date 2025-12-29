@@ -71,11 +71,7 @@
   }
 
   input[type="range"]::-webkit-slider-thumb {
-    @include inputs.input-range-thumb(
-      color-system.$white,
-      box-sizes.$range-thumb-height,
-      box-sizes.$range-track-height - box-sizes.$range-input-height
-    );
+    @include inputs.input-range-thumb(color-system.$white, box-sizes.$range-thumb-height);
     transition: 0.2s ease-in-out;
 
     &:hover {

@@ -49,6 +49,14 @@ html {
 
 body {
   background-color: colors.$bg-main;
+
+  // Platform-specific CSS variable for range input thumb
+  // Windows Webview requires margin-top for thumb to be centered
+  // macOS Webkit doesn't need margin-top for thumb to be centered
+  --range-thumb-margin-top: 0;
+  &.platform-windows {
+    --range-thumb-margin-top: #{box-sizes.$range-track-height - box-sizes.$range-input-height};
+  }
 }
 
 body {

@@ -79,15 +79,18 @@
   }
 }
 
-@mixin input-range-thumb($color: color-system.$white, $height: layout.$spacer, $offset: 0) {
+@mixin input-range-thumb($color: color-system.$white, $height: layout.$spacer) {
   -webkit-appearance: none;
   appearance: none;
   background-color: $color;
 
   height: $height;
   width: $height;
-  // margin-top: $offset;  // not working in Webkit
   border-radius: 50%;
+
+  // Use CSS variable for platform-specific margin-top
+  // Variable is set in App.scss based on platform
+  margin-top: var(--range-thumb-margin-top);
 }
 
 @mixin input-switch-base($unit: layout.$spacer) {

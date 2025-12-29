@@ -6,6 +6,11 @@ export function isApple() {
   return currentPlatform === "macos" || currentPlatform === "ios";
 }
 
+export function isWindows() {
+  const currentPlatform = platform();
+  return currentPlatform === "windows";
+}
+
 export function isCommand(event: MouseOrKeyboardEvent) {
   // Returns true if Ctrl or cmd keys were pressed.
   if (isApple()) {
