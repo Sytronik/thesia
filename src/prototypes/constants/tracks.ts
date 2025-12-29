@@ -183,7 +183,7 @@ export const MIN_TICK_SCALE_BOUNDARY = 80;
 export const MIN_HEIGHT = MIN_TICK_SCALE_BOUNDARY + 73;
 export const MAX_HEIGHT = 5000;
 
-export const VERTICAL_AXIS_PADDING = 4;
+export const VERTICAL_AXIS_PADDING = 5;
 export const HORIZONTAL_AXIS_PADDING = 0;
 
 export const MAX_PX_PER_SEC = 384000;
