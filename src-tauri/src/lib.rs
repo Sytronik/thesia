@@ -8,6 +8,7 @@ use std::sync::LazyLock;
 use parking_lot::RwLock;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+#[cfg(target_os = "macos")]
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 
@@ -531,14 +532,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Vec<PathBuf> {
             continue;
         }
 
-        // handle `file://` path urls and skip other urls
-        if let Ok(url) = tauri::Url::parse(&maybe_file) {
-            if let Ok(path) = url.to_file_path() {
-                files.push(path);
-            }
-        } else {
-            files.push(PathBuf::from(maybe_file))
-        }
+        files.push(PathBuf::from(maybe_file))
     }
     files
 }
@@ -607,11 +601,11 @@ pub fn run() {
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let window = app.get_webview_window("main").expect("no main window");
-            // TODO: need to check
             #[cfg(any(windows, target_os = "linux"))]
             {
-                let mut files = parse_args(_args);
-                handle_file_associations(app.handle(), files, true);
+                // Open files when the app is already running
+                let files = parse_args(_args);
+                handle_file_associations(app.app_handle(), files, true);
             }
             let _ = window.set_focus();
         }));
@@ -623,8 +617,12 @@ pub fn run() {
         builder = builder.plugin(devtools);
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.plugin(tauri_plugin_deep_link::init());
+    }
+
     builder = builder
-        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -647,9 +645,9 @@ pub fn run() {
                     .display()
             );
 
-            // TODO: need to check
             #[cfg(any(windows, target_os = "linux"))]
             {
+                // Open files when the app is started
                 let mut files = parse_args(std::env::args());
                 #[cfg(debug_assertions)]
                 {
@@ -664,7 +662,8 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             {
-                // Note that get_current's return value will also get updated every time on_open_url gets triggered.
+                // on macOS, file associations are handled by the deep link plugin
+                // open files when the app is started
                 let start_urls = app.deep_link().get_current()?;
                 let mut files = start_urls.map_or_else(Vec::new, |urls| {
                     // app was likely started by a deep link
@@ -685,6 +684,7 @@ pub fn run() {
 
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
+                    // open files when the app is already running
                     let files = event
                         .urls()
                         .into_iter()
