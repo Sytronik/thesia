@@ -1,6 +1,6 @@
 # Thesia: Multi-track Spectrogram / Waveform Viewer
 
-This project is in a very early stage.
+This project is in a beta stage.
 
 ## Design Draft
 
@@ -11,10 +11,15 @@ This project is in a very early stage.
 1. Install prerequisites
    - Common
      - [Rust](https://www.rust-lang.org/tools/install)
-     - [node.js](https://nodejs.org/en/download/current) v16.20.2 ~ v21
-       - The most recent version tested: v21.7.3
+     - [node.js](https://nodejs.org/en/download/current) >= v22
+       - The most recent version tested: v22.21.1
+   - macOS
+     - Xcode
+       - `xcode-select --install` to install Command Line Tools for Xcode
    - Windows
-     - vcpkg & OpenbLAS
+     - Dependencies for Tauri
+       - Follow the instructions in [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/#windows)
+     - vcpkg & OpenBLAS
        ```powershell
        git clone https://github.com/microsoft/vcpkg
        .\vcpkg\bootstrap-vcpkg.bat
@@ -27,8 +32,7 @@ This project is in a very early stage.
 2. Install npm packages & build
    ```bash
    # clone thesia repo & cd to the directory
-   npm install -g @napi-rs/cli wasm-pack
-   npm run build:backend
+   npm install -g wasm-pack
    npm run build:wasm
    npm install
    ```
@@ -36,16 +40,16 @@ This project is in a very early stage.
 ## Run in Dev Mode
 
 ```bash
-npm run start
+npm run tauri dev
 ```
 
 ## Packaging into an executable binary
 
 ```bash
-npm run package
+npm run tauri build [--debug]
 ```
 
-The target binary is under `release/build/<os>/thesia.app`.
+The target binary is under `target/release/bundle/<os>/thesia.app`.
 
 ## Plan
 
