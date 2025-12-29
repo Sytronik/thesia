@@ -80,7 +80,7 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSett
     SPEC_SETTING.write().clone_from(&user_settings.spec_setting);
 
     let settings_json = json!(user_settings);
-    set_user_settings(app, settings_json)?;
+    _set_user_settings(&app, settings_json, false)?;
 
     player::spawn_task();
     Ok(ConstsAndUserSettings {
@@ -114,14 +114,17 @@ fn get_user_settings(app: &AppHandle) -> tauri::Result<UserSettingsOptionals> {
     Ok(user_settings)
 }
 
-#[tauri::command]
-fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Result<()> {
+fn _set_user_settings(
+    app: &AppHandle,
+    settings: serde_json::Value,
+    validate_keys: bool,
+) -> tauri::Result<()> {
     let store = app.store("settings.json").unwrap();
     for (key, value) in settings.as_object().unwrap() {
         if value.is_null() {
             continue;
         }
-        if !store.has(key) {
+        if validate_keys && !store.has(key) {
             return Err(tauri::Error::Anyhow(anyhow::anyhow!(
                 "Key {} not found in store",
                 key
@@ -130,6 +133,11 @@ fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Resu
         store.set(key, value.clone());
     }
     Ok(())
+}
+
+#[tauri::command]
+fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Result<()> {
+    _set_user_settings(&app, settings, true)
 }
 
 #[tauri::command]
