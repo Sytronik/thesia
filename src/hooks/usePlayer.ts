@@ -95,6 +95,16 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     }
     setSelectSec((selectSecRef.current ?? 0) + jumpSec);
   });
+  useHotkeys(
+    "comma,period,shift+comma,shift+period",
+    (_, hotkey) => {
+      let jumpSec = hotkey.shift ? PLAY_BIG_JUMP_SEC : PLAY_JUMP_SEC;
+      if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
+      jump(jumpSec);
+    },
+    {preventDefault: true},
+    [jump],
+  );
   useEffect(() => {
     const promiseUnlisten = listenJumpPlayer((mode) => {
       switch (mode) {

@@ -562,6 +562,7 @@ function MainViewer(props: MainViewerProps) {
   useHotkeys(
     "right, left, shift+right, shift+left",
     (_, hotkey) => {
+      if (hotkey.mod) return;
       if (trackIds.length === 0) return;
       const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
       let shiftSec = shiftPx / pxPerSec;
@@ -625,6 +626,15 @@ function MainViewer(props: MainViewerProps) {
   const timeZoomOut = useEvent(() => {
     if (trackIds.length > 0) zoomLens(true);
   });
+  useHotkeys(
+    "mod+left, mod+right",
+    (_, hotkey) => {
+      if (hotkey.keys?.join("").endsWith("left")) timeZoomOut();
+      else timeZoomIn();
+    },
+    {preventDefault: true},
+    [timeZoomIn, timeZoomOut],
+  );
   useEffect(() => {
     const promiseUnlistenTimeZoomIn = listenTimeZoomIn(timeZoomIn);
     const promiseUnlistenTimeZoomOut = listenTimeZoomOut(timeZoomOut);
@@ -636,6 +646,7 @@ function MainViewer(props: MainViewerProps) {
 
   // Track Selection Hotkeys
   const selectAllTracksEvent = useEvent(() => selectAllTracks(trackIds));
+  useHotkeys("mod+a", selectAllTracksEvent, {preventDefault: true}, [selectAllTracksEvent]);
   useEffect(() => {
     const promiseUnlisten = listenMenuSelectAllTracks(selectAllTracksEvent);
     return () => {

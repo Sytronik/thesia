@@ -149,7 +149,9 @@ function MyApp({userSettings}: AppProps) {
     await refreshTracks();
   });
 
-  useHotkeys("delete", removeSelectedTracks, {preventDefault: true}, [removeSelectedTracks]);
+  useHotkeys("backspace, delete", removeSelectedTracks, {preventDefault: true}, [
+    removeSelectedTracks,
+  ]);
   useEffect(() => {
     const promiseUnlisten = listenMenuRemoveSelectedTracks(removeSelectedTracks);
     return () => {
