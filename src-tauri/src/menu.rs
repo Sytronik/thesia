@@ -11,11 +11,17 @@ use crate::player::{PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC};
 
 pub mod ids {
     pub const FILE: &str = "file-menu";
+
+    #[cfg(target_os = "macos")]
     pub const EDIT: &str = "edit-menu";
+
     pub const VIEW: &str = "view-menu";
     pub const TRACKS: &str = "tracks-menu";
     pub const PLAY_MENU: &str = "play-menu";
+
+    #[cfg(target_os = "macos")]
     pub const WINDOW: &str = "window-menu";
+
     pub const HELP: &str = "help-menu";
 
     pub const OPEN_AUDIO_TRACKS: &str = "open-audio-tracks";
@@ -28,7 +34,6 @@ pub mod ids {
     pub const TIME_ZOOM_OUT: &str = "time-zoom-out";
 
     pub const RELOAD: &str = "reload";
-    pub const TOGGLE_FULLSCREEN: &str = "toggle-full-screen";
     pub const TOGGLE_DEVTOOLS: &str = "toggle-devtools";
 
     pub const REMOVE_SELECTED_TRACKS: &str = "remove-selected-tracks";
@@ -63,33 +68,70 @@ const AXIS_MENU_ITEM_IDS: &[&str] = &[
 ];
 
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
+    #[cfg(target_os = "macos")]
+    let app_menu = build_app_menu(app)?;
+
     let file_menu = build_file_menu(app)?;
+
+    #[cfg(target_os = "macos")]
     let edit_menu = build_edit_menu(app)?;
+
     let view_menu = build_view_menu(app)?;
     let tracks_menu = build_tracks_menu(app)?;
     let play_menu = build_play_menu(app)?;
-    let window_menu = build_window_menu(app)?;
-    let help_menu = build_help_menu(app)?;
 
     #[cfg(target_os = "macos")]
-    let app_menu = build_app_menu(app)?;
+    let window_menu = build_window_menu(app)?;
+
+    let help_menu = build_help_menu(app)?;
 
     let mut top_level: Vec<&dyn IsMenuItem<R>> = Vec::new();
 
     #[cfg(target_os = "macos")]
-    {
-        top_level.push(&app_menu);
-    }
+    top_level.push(&app_menu);
 
     top_level.push(&file_menu);
+
+    #[cfg(target_os = "macos")]
     top_level.push(&edit_menu);
+
     top_level.push(&view_menu);
     top_level.push(&tracks_menu);
     top_level.push(&play_menu);
+
+    #[cfg(target_os = "macos")]
     top_level.push(&window_menu);
+
     top_level.push(&help_menu);
 
     Menu::with_items(app, &top_level)
+}
+
+#[cfg(target_os = "macos")]
+fn build_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
+    let about = PredefinedMenuItem::about(app, None, None)?;
+    let services = PredefinedMenuItem::services(app, None)?;
+    let hide = PredefinedMenuItem::hide(app, None)?;
+    let hide_others = PredefinedMenuItem::hide_others(app, None)?;
+    let show_all = PredefinedMenuItem::show_all(app, None)?;
+    let quit = PredefinedMenuItem::quit(app, None)?;
+
+    Submenu::with_items(
+        app,
+        app.package_info().name.clone(),
+        true,
+        &[
+            &about,
+            &PredefinedMenuItem::separator(app)?,
+            &services,
+            &PredefinedMenuItem::separator(app)?,
+            &hide,
+            &hide_others,
+            &show_all,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
+    )
 }
 
 fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
@@ -113,6 +155,7 @@ fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     )
 }
 
+#[cfg(target_os = "macos")]
 fn build_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let undo = PredefinedMenuItem::undo(app, None)?;
     let redo = PredefinedMenuItem::redo(app, None)?;
@@ -276,6 +319,7 @@ fn build_play_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     )
 }
 
+#[cfg(target_os = "macos")]
 fn build_window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let minimize = PredefinedMenuItem::minimize(app, None)?;
     let maximize = PredefinedMenuItem::maximize(app, None)?;
@@ -309,43 +353,6 @@ fn build_help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     Submenu::with_id_and_items(app, ids::HELP, "Help", true, &[&learn_more, &search_issues])
 }
 
-#[cfg(target_os = "macos")]
-fn build_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let about = PredefinedMenuItem::about(app, None, None)?;
-    let services = PredefinedMenuItem::services(app, None)?;
-    let hide = PredefinedMenuItem::hide(app, None)?;
-    let hide_others = PredefinedMenuItem::hide_others(app, None)?;
-    let show_all = PredefinedMenuItem::show_all(app, None)?;
-    let quit = PredefinedMenuItem::quit(app, None)?;
-
-    Submenu::with_items(
-        app,
-        app.package_info().name.clone(),
-        true,
-        &[
-            &about,
-            &PredefinedMenuItem::separator(app)?,
-            &services,
-            &PredefinedMenuItem::separator(app)?,
-            &hide,
-            &hide_others,
-            &show_all,
-            &PredefinedMenuItem::separator(app)?,
-            &quit,
-        ],
-    )
-}
-
-fn build_fullscreen_menu_item<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<MenuItem<R>> {
-    MenuItem::with_id(
-        app,
-        ids::TOGGLE_FULLSCREEN,
-        "Toggle Full Screen",
-        true,
-        Some(os_label("Ctrl+Command+F", "F11")),
-    )
-}
-
 pub fn init(app: &AppHandle<Wry>) -> tauri::Result<()> {
     let controller = MenuController::new(app)?;
     app.manage(controller);
@@ -373,12 +380,6 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
 
         ids::RELOAD => with_main_window(app, |window| {
             let _ = window.reload();
-        }),
-
-        ids::TOGGLE_FULLSCREEN => with_main_window(app, |window| {
-            if let Ok(is_fullscreen) = window.is_fullscreen() {
-                let _ = window.set_fullscreen(!is_fullscreen);
-            }
         }),
 
         ids::TOGGLE_DEVTOOLS => with_main_window(app, |_window| {
@@ -443,9 +444,13 @@ fn emit_jump_event(app: &AppHandle<Wry>, mode: JumpPlayerMode) {
 }
 
 pub struct MenuController<R: Runtime> {
+    #[cfg(target_os = "macos")]
     edit_menu: Submenu<R>,
+    #[cfg(target_os = "macos")]
     select_all: PredefinedMenuItem<R>,
+    #[cfg(target_os = "macos")]
     tracks_menu: Submenu<R>,
+    #[cfg(target_os = "macos")]
     select_all_tracks: MenuItem<R>,
     axis_items: Vec<MenuItem<R>>,
     remove_selected_tracks: MenuItem<R>,
@@ -462,11 +467,13 @@ impl<R: Runtime> MenuController<R> {
             .menu()
             .ok_or_else(|| tauri::Error::Anyhow(anyhow!("application menu not initialized")))?;
 
+        #[cfg(target_os = "macos")]
         let edit_menu = find_submenu(&menu, ids::EDIT)?;
         let axis_menu = find_submenu(&menu, ids::VIEW)?;
         let tracks_menu = find_submenu(&menu, ids::TRACKS)?;
         let play_menu = find_submenu(&menu, ids::PLAY_MENU)?;
 
+        #[cfg(target_os = "macos")]
         // Create select_all PredefinedMenuItem for dynamic add/remove
         let select_all = PredefinedMenuItem::select_all(app, None)?;
 
@@ -475,16 +482,21 @@ impl<R: Runtime> MenuController<R> {
             axis_items.push(find_menu_item(&axis_menu, id)?);
         }
 
-        let select_all_tracks = find_menu_item(&tracks_menu, ids::SELECT_ALL_TRACKS)?;
         let remove_selected_tracks = find_menu_item(&tracks_menu, ids::REMOVE_SELECTED_TRACKS)?;
+        #[cfg(target_os = "macos")]
+        let select_all_tracks = find_menu_item(&tracks_menu, ids::SELECT_ALL_TRACKS)?;
 
         let toggle_play_item = find_menu_item(&play_menu, ids::TOGGLE_PLAY)?;
         let play_items = collect_menu_items(&play_menu)?;
 
         Ok(Self {
+            #[cfg(target_os = "macos")]
             edit_menu,
+            #[cfg(target_os = "macos")]
             select_all,
+            #[cfg(target_os = "macos")]
             tracks_menu,
+            #[cfg(target_os = "macos")]
             select_all_tracks,
             axis_items,
             remove_selected_tracks,
@@ -496,6 +508,7 @@ impl<R: Runtime> MenuController<R> {
         })
     }
 
+    #[cfg(target_os = "macos")]
     pub fn set_edit_menu_enabled(&self, enabled: bool) -> tauri::Result<()> {
         self.edit_menu.set_enabled(enabled)?;
         if enabled {
@@ -607,17 +620,27 @@ fn collect_menu_items<R: Runtime>(submenu: &Submenu<R>) -> tauri::Result<Vec<Men
 }
 
 #[tauri::command]
-pub fn enable_edit_menu(controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
-    controller
-        .set_edit_menu_enabled(true)
-        .map_err(|e| e.to_string())
+pub fn enable_edit_menu(_controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        return _controller
+            .set_edit_menu_enabled(true)
+            .map_err(|e| e.to_string());
+    }
+    #[cfg(not(target_os = "macos"))]
+    Ok(())
 }
 
 #[tauri::command]
-pub fn disable_edit_menu(controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
-    controller
-        .set_edit_menu_enabled(false)
-        .map_err(|e| e.to_string())
+pub fn disable_edit_menu(_controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        return _controller
+            .set_edit_menu_enabled(false)
+            .map_err(|e| e.to_string());
+    }
+    #[cfg(not(target_os = "macos"))]
+    Ok(())
 }
 
 #[tauri::command]
