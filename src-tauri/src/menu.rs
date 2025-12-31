@@ -340,12 +340,17 @@ fn build_window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
 }
 
 fn build_help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let learn_more =
-        MenuItem::with_id(app, ids::HELP_LEARN_MORE, "Learn More", true, None::<&str>)?;
+    let learn_more = MenuItem::with_id(
+        app,
+        ids::HELP_LEARN_MORE,
+        "Learn More...",
+        true,
+        None::<&str>,
+    )?;
     let search_issues = MenuItem::with_id(
         app,
         ids::HELP_SEARCH_ISSUES,
-        "Search Issues",
+        "Search Issues...",
         true,
         None::<&str>,
     )?;
