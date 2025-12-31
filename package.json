@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "build:wasm": "wasm-pack build thesia-wasm-renderer --release --target web",
-    "build:wasm.debug": "wasm-pack build thesia-wasm-renderer --dev --target web"
+    "build:wasm.debug": "wasm-pack build thesia-wasm-renderer --dev --target web",
+    "clean": "cargo clean && shx rm -rf thesia-wasm-renderer/pkg"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -53,6 +54,7 @@
     "react-devtools-core": "^7.0.1",
     "sass": "^1.97.1",
     "sass-embedded": "^1.97.1",
+    "shx": "^0.4.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.0"
   },
