@@ -29,7 +29,7 @@
 }
 
 .stickyHeader {
-  position: absolute;
+  position: fixed;
   z-index: 4;
   background-color: colors.$bg-main;
   width: inherit;
@@ -58,7 +58,7 @@
 /* Right Track Elements */
 .trackRightHeader {
   // supporting sticky header + preventing pops out when RightPane is resized
-  right: box-sizes.$colorbar-width + box-sizes.$component-gap * 1.5;
+  right: box-sizes.$colorbar-width + box-sizes.$component-gap * 2;
   z-index: 3;
 }
 

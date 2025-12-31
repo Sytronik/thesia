@@ -2,6 +2,7 @@
 @use "styles/variables/box-sizes";
 @use "styles/variables/colors";
 @use "styles/variables/typography";
+@import "overlayscrollbars/overlayscrollbars.css";
 
 // Type Selector Reset
 // prettier-ignore
@@ -75,7 +76,6 @@ body {
 .App {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   position: relative;
 
   width: 100%;
@@ -122,4 +122,26 @@ body.nResizeCursor * {
 
 body.sResizeCursor * {
   cursor: s-resize !important;
+}
+
+.os-theme-custom.os-scrollbar {
+  --os-size: 9px;
+  --os-padding-perpendicular: 0px;
+  --os-padding-axis: 0px;
+}
+
+.os-theme-custom.os-scrollbar .os-scrollbar-track {
+  background: rgba(0, 0, 0, 0);
+  border-radius: 5px;
+}
+
+.os-theme-custom.os-scrollbar .os-scrollbar-handle {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(230, 231, 255, 0.24);
+  border-radius: 5px;
+  transition: background-color 0.2s ease;
+}
+
+.os-theme-custom.os-scrollbar .os-scrollbar-handle:hover {
+  background: rgba(0, 0, 0, 0.7);
 }

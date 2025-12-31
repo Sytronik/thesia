@@ -149,25 +149,23 @@ const SplitView = forwardRef(
     }, [resizeObserver]);
 
     return (
-      <div
-        className={`${styles.SplitView} ${className}`}
-        ref={splitPaneElem}
-        onScroll={onVerticalViewportChange}
-      >
-        <div className={styles.Scrolled}>
-          <div className={styles.LeftPane} style={{width: leftWidth}}>
-            {left}
-          </div>
-          <div
-            role="presentation"
-            className={styles.divider}
-            onMouseDown={onMouseDown}
-            onTouchStart={onTouchStart}
-          >
-            <div className={styles.dividerLine} />
-          </div>
-          <div className={styles.RightPane} ref={rightPaneElem}>
-            {right}
+      <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
+        <div className={`${styles.Scrollbox} overflow-y-auto`} onScroll={onVerticalViewportChange}>
+          <div className={styles.Scrolled}>
+            <div className={styles.LeftPane} style={{width: leftWidth}}>
+              {left}
+            </div>
+            <div
+              role="presentation"
+              className={styles.divider}
+              onMouseDown={onMouseDown}
+              onTouchStart={onTouchStart}
+            >
+              <div className={styles.dividerLine} />
+            </div>
+            <div className={styles.RightPane} ref={rightPaneElem}>
+              {right}
+            </div>
           </div>
         </div>
       </div>

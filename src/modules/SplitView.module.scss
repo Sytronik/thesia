@@ -5,8 +5,10 @@
 .SplitView {
   width: calc(100% - #{box-sizes.$colorbar-width + box-sizes.$component-gap * 2});
   margin: box-sizes.$component-gap * 0.5;
+}
 
-  overflow-y: scroll;
+.Scrollbox {
+  height: 100%;
 }
 
 .Scrolled {

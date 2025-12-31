@@ -176,7 +176,7 @@ function Control(props: ControlProps) {
 
   return (
     <div className={`flex-item-fixed ${styles.Control}`}>
-      <div className={styles.scrollBox}>
+      <div className={`overflow-y-auto ${styles.scrollBox}`}>
         <div className={styles.sectionContainer}>
           <div className={styles.itemContainer}>
             <label htmlFor="blend">Blend</label>

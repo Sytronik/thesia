@@ -22,6 +22,7 @@ import "./App.scss";
 import {useGlobalEvents} from "./hooks/useGlobalEvents";
 import {showFileOpenErrorMsg, getOpenFilesDialogHandler} from "./lib/open-files-dialog";
 import {initializeWorkerPool} from "./lib/worker-pool";
+import {useOverlayScrollbars} from "./hooks/useOverlayScrollbars";
 
 type AppProps = {userSettings: UserSettings};
 
@@ -174,6 +175,8 @@ function MyApp({userSettings}: AppProps) {
 
     prevTrackIds.current = trackIds.concat(hiddenTrackIds);
   }, [trackIds, hiddenTrackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
+
+  useOverlayScrollbars();
 
   return (
     <div id="App" className="App">
