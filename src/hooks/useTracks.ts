@@ -56,10 +56,10 @@ function useTracks(userSettings: UserSettings) {
       BackendAPI.getLongestTrackLengthSec(),
       BackendAPI.getMaxTrackHz(),
       getTrackIdChMap(trackIds),
-    ]).then(([maxTrackSec, maxTrackHz, trackIdChMap]) => {
-      setMaxTrackSec(maxTrackSec);
-      setMaxTrackHz(maxTrackHz);
-      setTrackIdChMap(trackIdChMap);
+    ]).then(([_maxTrackSec, _maxTrackHz, _trackIdChMap]) => {
+      setMaxTrackSec(_maxTrackSec);
+      setMaxTrackHz(_maxTrackHz);
+      setTrackIdChMap(_trackIdChMap);
     });
   }, [trackIds, needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
 

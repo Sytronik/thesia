@@ -2,11 +2,7 @@ import {COLORMAP_RGBA8} from "../prototypes/constants/colors";
 
 export const MAX_WEBGL_RESOURCES = 16;
 
-const canvas = document.createElement("canvas");
-const gl = canvas.getContext("webgl2");
-if (!gl) throw new Error("WebGL2 is not supported");
-export const MAX_TEXTURE_SIZE = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-gl.getExtension("WEBGL_lose_context")?.loseContext();
+export const MAX_TEXTURE_SIZE = getMaxTextureSize();
 
 export const MARGIN_FOR_RESIZE = 5; // at least 3 for Lanczos-3 kernel
 
@@ -257,6 +253,15 @@ void main() {
     vec3 finalRgb = mix(c.rgb, vec3(0.0), uOverlayAlpha);
     fragColor = vec4(finalRgb, 1.0);           // solid alpha
 }`;
+
+function getMaxTextureSize() {
+  const canvas = document.createElement("canvas");
+  const gl = canvas.getContext("webgl2");
+  if (!gl) throw new Error("WebGL2 is not supported");
+  const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  gl.getExtension("WEBGL_lose_context")?.loseContext();
+  return maxTextureSize;
+}
 
 function createShader(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
   const s = gl.createShader(type);

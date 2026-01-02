@@ -14,6 +14,7 @@ export default [
       "node_modules/**",
       "package-lock.json",
       // Build outputs
+      "dist/**",
       "target/**",
       "thesia-wasm-renderer/pkg/**",
       // Generated files

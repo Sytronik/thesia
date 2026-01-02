@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "build:wasm": "wasm-pack build thesia-wasm-renderer --release --target web",
     "build:wasm.debug": "wasm-pack build thesia-wasm-renderer --dev --target web",
-    "clean": "cargo clean && shx rm -rf thesia-wasm-renderer/pkg"
+    "clean": "cargo clean && shx rm -rf thesia-wasm-renderer/pkg",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

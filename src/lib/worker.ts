@@ -133,7 +133,7 @@ self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
   if (!initialized) return;
 
   while (msgQueue.length > 0) {
-    const message = msgQueue.shift();
+    const message = msgQueue.shift(); // eslint-disable-line @typescript-eslint/no-shadow
     if (!message) break;
     switch (message.type) {
       case "setSpectrogram": {
