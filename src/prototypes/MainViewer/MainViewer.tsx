@@ -74,7 +74,7 @@ type MainViewerProps = {
   hideTracks: (dragId: number, ids: number[]) => number;
   changeTrackOrder: (dragIndex: number, hoverIndex: number) => void;
   showHiddenTracks: (hoverIndex: number) => void;
-  selectTrack: (e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => void;
+  selectTrack: (e: MouseOrKeyboardEvent | null, id: number, trackIds: number[]) => number[];
   selectAllTracks: (trackIds: number[]) => void;
   finishRefreshTracks: () => void;
 };

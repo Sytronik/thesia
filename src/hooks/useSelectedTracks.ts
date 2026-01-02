@@ -7,29 +7,30 @@ function useSelectedTracks() {
   const [selectionIsAdded, setSelectionIsAdded] = useState<boolean>(false);
   const [pivotId, setPivotId] = useState<number>(0);
 
-  const selectTrack = useEvent((e: MouseOrKeyboardEvent, id: number, trackIds: number[]) => {
+  const selectTrack = useEvent((e: MouseOrKeyboardEvent | null, id: number, trackIds: number[]) => {
     setSelectionIsAdded(false); // by default, consider selection not added
 
-    if (isCommand(e)) {
+    if (e && isCommand(e)) {
       const idxInSelectedIds = selectedTrackIds.indexOf(id);
       if (idxInSelectedIds === -1) {
         // add id
+        const newSelected = selectedTrackIds.concat([id]);
         setPivotId(id);
-        setSelectedTrackIds(selectedTrackIds.concat([id]));
+        setSelectedTrackIds(newSelected);
         setSelectionIsAdded(true);
-        return;
+        return newSelected;
       }
-      if (selectedTrackIds.length === 1) return;
+      if (selectedTrackIds.length === 1) return selectedTrackIds;
       // remove id
       const newSelected = selectedTrackIds
         .slice(0, idxInSelectedIds)
         .concat(selectedTrackIds.slice(idxInSelectedIds + 1, undefined));
       if (pivotId === id) setPivotId(newSelected[newSelected.length - 1]);
       setSelectedTrackIds(newSelected);
-      return;
+      return newSelected;
     }
-    if (e.shiftKey) {
-      if (id === selectedTrackIds[selectedTrackIds.length - 1]) return;
+    if (e && e.shiftKey) {
+      if (id === selectedTrackIds[selectedTrackIds.length - 1]) return selectedTrackIds;
       // const indexOfRecent = trackIds.indexOf(selectedTrackIds[selectedTrackIds.length - 1]);
       const indexOfId = trackIds.indexOf(id);
       const indexOfPivot = trackIds.indexOf(pivotId);
@@ -46,15 +47,18 @@ function useSelectedTracks() {
         .concat(addingIds);
       setSelectedTrackIds(newSelected);
       if (addingIds.length > 0) setSelectionIsAdded(true);
-      return;
+      return newSelected;
     }
     // with nothing pressed
     if (selectedTrackIds.length === 1 && selectedTrackIds[0] === id) {
-      return;
+      return selectedTrackIds;
     }
+    // just select the id
+    const newSelected = [id];
     setPivotId(id);
-    setSelectedTrackIds([id]);
+    setSelectedTrackIds(newSelected);
     setSelectionIsAdded(true);
+    return newSelected;
   });
 
   const selectAllTracks = useEvent((trackIds: number[]) => {

@@ -18,7 +18,7 @@ type TrackInfoProps = {
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
-  selectTrack: (e: React.MouseEvent, id: number) => void;
+  selectTrack: (e: React.MouseEvent | null, id: number) => number[];
   hideImage: (id: number) => void;
   hideTracks: (dragId: number, ids: number[]) => number;
   onDnd: (dragIndex: number, hoverIndex: number) => void;
@@ -143,11 +143,15 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [index, onDnd],
   );
 
+  const hasDragged = useRef<boolean>(false);
   const [{isDragging}, drag] = useDrag(
     {
       type: DndItemTypes.TRACK,
       item: () => {
-        const hiddenIds = selectedTrackIds.filter((selectedId) => id !== selectedId);
+        hasDragged.current = true;
+        let _selectedTrackIds = selectedTrackIds;
+        if (!_selectedTrackIds.includes(id)) _selectedTrackIds = selectTrack(null, id);
+        const hiddenIds = _selectedTrackIds.filter((selectedId) => id !== selectedId);
         hideImage(id);
         return {
           id,
@@ -180,12 +184,13 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
       role="presentation"
       className={`${styles.TrackInfo} ${isSelected ? styles.selected : ""}`}
       onMouseDown={(e) => {
+        hasDragged.current = false;
         if (e.button === 2 && !selectedTrackIds.includes(id)) selectTrack(e, id);
       }}
-      onDragStart={(e) => {
-        if (e.button === 0 && !selectedTrackIds.includes(id)) selectTrack(e, id);
+      onMouseUp={(e) => {
+        if (!hasDragged.current) selectTrack(e, id);
+        hasDragged.current = false;
       }}
-      onClick={(e) => selectTrack(e, id)}
       onContextMenu={(e) => {
         e.preventDefault();
         BackendAPI.showTrackContextMenu();
