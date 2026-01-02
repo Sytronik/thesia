@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, console};
 
 use crate::line_envelope::WavLinePoints;
 use crate::mem::WasmFloat32Array;
@@ -43,6 +43,10 @@ pub fn draw_overview(
             .iter()
             .any(|id_ch| wav_caches.get(id_ch).is_none())
     {
+        console::error_2(
+            &JsValue::from_str("Wav not found"),
+            &JsValue::from_str(&id_ch_arr.join(",")),
+        );
         return Ok(());
     }
 

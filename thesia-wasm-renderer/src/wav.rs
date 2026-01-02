@@ -6,7 +6,7 @@ use atomic_float::AtomicF32;
 use parking_lot::RwLock;
 use wasm_bindgen::prelude::*;
 use web_sys::{
-    CanvasRenderingContext2d, OffscreenCanvas, OffscreenCanvasRenderingContext2d, Path2d,
+    CanvasRenderingContext2d, OffscreenCanvas, OffscreenCanvasRenderingContext2d, Path2d, console,
 };
 
 use crate::line_envelope::{
@@ -82,6 +82,10 @@ pub fn draw_wav(
         match wav_caches.get(id_ch_str) {
             Some(wav_cache) => wav_cache.is_clipped,
             None => {
+                console::error_2(
+                    &JsValue::from_str("Wav not found"),
+                    &JsValue::from_str(id_ch_str),
+                );
                 return Ok(());
             }
         }

@@ -141,19 +141,19 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return () => cancelAnimationFrame(requestId);
   }, [drawWavImage, width, height, needHideWav, workerIndex, idChStr]);
 
+  const prevNeedRefreshRef = useRef(needRefresh);
   useEffect(() => {
-    const cleanup = () => postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
-    if (!needRefresh) return cleanup; // Changing idChStr without needRefresh does not happen
-
-    BackendAPI.getWav(idChStr).then((wavInfo) => {
-      if (wavInfo !== null) {
+    if (needRefresh || (!needRefresh && needRefresh === prevNeedRefreshRef.current)) {
+      BackendAPI.getWav(idChStr).then((wavInfo) => {
+        if (wavInfo === null) return;
         postMessageToWorker(workerIndex, {type: "setWav", data: {idChStr, wavInfo}}, [
           wavInfo.wavArr.buffer,
         ]);
         drawWavImageRef.current?.();
-      }
-    });
-    return cleanup;
+      });
+    }
+    prevNeedRefreshRef.current = needRefresh;
+    return () => postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
   }, [idChStr, needRefresh, workerIndex]);
 
   const onVisibilityChange = useEvent(() => {
