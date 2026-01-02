@@ -46,6 +46,20 @@ This project is in a beta stage.
 npm run tauri dev
 ```
 
+### DevTools
+
+You can use the system webview's developer tools in dev mode.
+
+#### React DevTools (for frontend)
+```bash
+npm install -g react-devtools
+npx react-devtools
+# run thesia in dev mode
+```
+
+#### Tauri DevTools (for backend)
+When you run `npm run tauri dev`, the address of the Tauri devtools is displayed in the terminal (not the web console).
+
 ## Packaging into an executable binary
 
 ```bash
