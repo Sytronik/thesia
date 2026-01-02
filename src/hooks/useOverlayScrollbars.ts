@@ -1,6 +1,43 @@
-import {OverlayScrollbars} from "overlayscrollbars";
-import {useEffect} from "react";
+import {OverlayScrollbars, PartialOptions} from "overlayscrollbars";
+import {RefObject, useEffect} from "react";
 
+const DEFAULT_OPTIONS: PartialOptions = {
+  scrollbars: {
+    theme: "os-theme-custom",
+    autoHide: "scroll",
+  },
+};
+
+/**
+ * Hook to apply OverlayScrollbars to a single element with optional onScroll handler
+ * You don't need to add the class "overflow-y-auto" to the element.
+ * If you want to apply OverlayScrollbars globally (w/o onScroll handler), use useOverlayScrollbars hook instead.
+ */
+export const useOverlayScrollbar = (ref: RefObject<HTMLElement | null>, onScroll?: () => void) => {
+  useEffect(() => {
+    if (!ref.current) return;
+
+    const osInstance = OverlayScrollbars(ref.current, DEFAULT_OPTIONS);
+    const viewport = osInstance.elements().viewport;
+
+    if (onScroll) {
+      viewport.addEventListener("scroll", onScroll);
+    }
+
+    return () => {
+      if (onScroll) {
+        viewport.removeEventListener("scroll", onScroll);
+      }
+      osInstance.destroy();
+    };
+  }, [ref, onScroll]);
+};
+
+/**
+ * Hook to automatically apply OverlayScrollbars to all scrollable elements in the document
+ * To make an element scrollable, add the class "overflow-y-auto" to the element
+ * You can't use onScroll event handler with this hook.
+ */
 export const useOverlayScrollbars = () => {
   useEffect(() => {
     // Initialize OverlayScrollbars on all scrollable elements
@@ -16,12 +53,7 @@ export const useOverlayScrollbars = () => {
       scrollableElements.forEach((element) => {
         const htmlElement = element as HTMLElement;
         if (htmlElement && !htmlElement.hasAttribute("data-overlayscrollbars-initialize")) {
-          OverlayScrollbars(htmlElement, {
-            scrollbars: {
-              theme: "os-theme-custom",
-              autoHide: "scroll",
-            },
-          });
+          OverlayScrollbars(htmlElement, DEFAULT_OPTIONS);
           htmlElement.setAttribute("data-overlayscrollbars-initialize", "true");
         }
       });

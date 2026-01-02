@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import useEvent from "react-use-event-hook";
+import {useOverlayScrollbar} from "src/hooks/useOverlayScrollbars";
 import {AXIS_SPACE, TIME_CANVAS_HEIGHT} from "src/prototypes/constants/tracks";
 import styles from "./SplitView.module.scss";
 
@@ -32,6 +33,7 @@ const SplitView = forwardRef(
     const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
 
     const splitPaneElem = useRef<HTMLDivElement>(null);
+    const scrollBoxElem = useRef<HTMLDivElement>(null);
     const rightPaneElem = useRef<HTMLDivElement>(null);
 
     const setNormalizedLeftWidth = useEvent((value: number) => {
@@ -148,9 +150,11 @@ const SplitView = forwardRef(
       };
     }, [resizeObserver]);
 
+    useOverlayScrollbar(scrollBoxElem, onVerticalViewportChange);
+
     return (
       <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
-        <div className={`${styles.Scrollbox} overflow-y-auto`} onScroll={onVerticalViewportChange}>
+        <div className={styles.Scrollbox} ref={scrollBoxElem}>
           <div className={styles.Scrolled}>
             <div className={styles.LeftPane} style={{width: leftWidth}}>
               {left}
