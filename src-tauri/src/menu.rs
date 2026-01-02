@@ -515,15 +515,17 @@ impl<R: Runtime> MenuController<R> {
 
     #[cfg(target_os = "macos")]
     pub fn set_edit_menu_enabled(&self, enabled: bool) -> tauri::Result<()> {
-        self.edit_menu.set_enabled(enabled)?;
-        if enabled {
-            // Show select_all in edit menu, hide select_all_tracks in tracks menu
-            self.edit_menu.append(&self.select_all)?;
-            self.tracks_menu.remove(&self.select_all_tracks)?;
-        } else {
-            // Hide select_all from edit menu, show select_all_tracks in tracks menu
-            let _ = self.edit_menu.remove(&self.select_all); // ignore error if not present
-            self.tracks_menu.append(&self.select_all_tracks)?;
+        if enabled != self.edit_menu.is_enabled()? {
+            self.edit_menu.set_enabled(enabled)?;
+            if enabled {
+                // Show select_all in edit menu, hide select_all_tracks in tracks menu
+                self.edit_menu.append(&self.select_all)?;
+                self.tracks_menu.remove(&self.select_all_tracks)?;
+            } else {
+                // Hide select_all from edit menu, show select_all_tracks in tracks menu
+                let _ = self.edit_menu.remove(&self.select_all); // ignore error if not present
+                self.tracks_menu.append(&self.select_all_tracks)?;
+            }
         }
         Ok(())
     }
