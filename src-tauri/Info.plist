@@ -8,7 +8,7 @@
             <dict>
                 <key>CFBundleURLName</key>
                 <!-- Obviously needs to be replaced with your app's bundle identifier -->
-                <string>com.sytronik.thesia-tauri</string>
+                <string>com.sytronik.thesia</string>
                 <key>CFBundleURLSchemes</key>
                 <array>
                     <!-- register the myapp:// and myscheme:// schemes -->

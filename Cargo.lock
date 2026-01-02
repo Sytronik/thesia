@@ -5722,19 +5722,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "thesia-common"
-version = "0.1.0"
-dependencies = [
- "approx",
- "itertools 0.14.0",
- "ndarray",
- "num-traits",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "thesia-tauri"
+name = "thesia"
 version = "0.1.0"
 dependencies = [
  "accelerate-src",
@@ -5779,6 +5767,18 @@ dependencies = [
  "thesia-common",
  "tokio",
  "tokio-rayon",
+]
+
+[[package]]
+name = "thesia-common"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "itertools 0.14.0",
+ "ndarray",
+ "num-traits",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
