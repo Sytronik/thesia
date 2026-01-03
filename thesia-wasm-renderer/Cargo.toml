@@ -1,26 +1,35 @@
 [package]
-authors = {workspace = true}
+authors = { workspace = true }
 description = "Thesia's waveform renderer module compiled to WASM."
-edition = {workspace = true}
-license-file = {workspace = true}
+edition = { workspace = true }
+license-file = { workspace = true }
 name = "thesia-wasm-renderer"
-repository = {workspace = true}
-version = {workspace = true}
+repository = { workspace = true }
+version = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-atomic_float = {workspace = true}
+approx = { workspace = true }
+atomic_float = { workspace = true }
+chrono = "0.4.42"
+fast_image_resize = "5.3.0"
 js-sys = "0.3.82"
-parking_lot = {workspace = true}
+ndarray = { workspace = true }
+num-traits = { workspace = true }
+parking_lot = { workspace = true }
 rubato = "0.16.2"
+serde-wasm-bindgen = "0.6.5"
+thesia-common = { path = "../src-common" }
 wasm-bindgen = "0.2.105"
 
 [dependencies.web-sys]
 features = [
   "CanvasRenderingContext2d",
   "HtmlCanvasElement",
+  "OffscreenCanvas",
+  "OffscreenCanvasRenderingContext2d",
   "Path2d",
   "console",
 ]

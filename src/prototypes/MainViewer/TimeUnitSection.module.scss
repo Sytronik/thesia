@@ -1,0 +1,20 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+
+.timeUnitSection {
+  @include typography.body-label;
+
+  position: relative;
+  flex: 1 1 auto;
+  height: box-sizes.$time-ruler-height + box-sizes.$track-margin;
+  border-bottom: solid box-sizes.$track-margin colors.$bg-main;
+
+  p {
+    position: absolute;
+    right: layout.$spacer;
+    bottom: 2px;
+  }
+}

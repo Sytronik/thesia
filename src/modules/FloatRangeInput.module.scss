@@ -1,0 +1,59 @@
+@use "../styles/index.scss";
+@use "../styles/mixins/inputs";
+@use "../styles/variables/box-sizes";
+@use "../styles/variables/color-system";
+@use "../styles/variables/colors";
+@use "../styles/variables/layout";
+
+.FloatRangeInput {
+  display: flex;
+  justify-content: flex-start;
+
+  height: box-sizes.$range-input-height;
+
+  label {
+    margin: auto 0;
+  }
+
+  input[type="text"] {
+    @include inputs.input-text-transparent(layout.$spacer);
+
+    &:disabled,
+    &:disabled + label {
+      color: colors.$text-gray;
+    }
+  }
+
+  $effect-color: color-system.$primary-400;
+
+  input[type="range"] {
+    @include inputs.input-range-base(box-sizes.$range-track-height);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @include inputs.input-range-thumb(color-system.$white, box-sizes.$range-thumb-height);
+    transition: 0.2s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0 0 box-sizes.$range-thumb-height rgba($effect-color, 0.1);
+    }
+  }
+
+  input[type="range"]:disabled::-webkit-slider-thumb {
+    background-color: colors.$bg-primary-lighter;
+
+    &:hover {
+      box-shadow: none;
+    }
+  }
+
+  input[type="range"]:active::-webkit-slider-thumb,
+  input[type="range"]:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 box-sizes.$range-thumb-height * 1.2 rgba($effect-color, 0.2);
+  }
+
+  input[type="range"]:disabled:active::-webkit-slider-thumb,
+  input[type="range"]:disabled:focus::-webkit-slider-thumb {
+    box-shadow: none;
+  }
+}

@@ -1,0 +1,59 @@
+@use "../styles/index.scss";
+@use "../styles/mixins/inputs";
+@use "../styles/variables/box-sizes";
+@use "../styles/variables/colors";
+@use "../styles/variables/layout";
+
+.timeRuler {
+  height: layout.$spacer-3;
+  margin-bottom: box-sizes.$track-margin;
+  background-color: colors.$bg-main;
+}
+
+.ampAxisWrapper {
+  display: flex;
+  margin-right: box-sizes.$tiny-spacer;
+  position: relative;
+}
+
+.ampFloatingInput {
+  @include inputs.floating-input;
+
+  top: 0px;
+  left: 0px;
+}
+
+.ampAxis {
+  flex: 0 0 auto;
+  background-color: colors.$bg-main;
+}
+
+.freqAxisWrapper {
+  position: relative;
+}
+
+.minHzFloatingInput {
+  @include inputs.floating-input;
+
+  bottom: 0%;
+  left: 0px;
+  width: 3.3em;
+}
+
+.maxHzFloatingInput {
+  @include inputs.floating-input;
+
+  top: 0%;
+  left: 0px;
+  width: 3.3em;
+}
+
+.freqAxis {
+  flex: 0 0 auto;
+  background-color: colors.$bg-main;
+}
+
+.dBAxis {
+  flex: 0 0 auto;
+  background-color: colors.$bg-main;
+}

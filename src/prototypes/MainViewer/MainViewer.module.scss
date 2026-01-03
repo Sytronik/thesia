@@ -1,0 +1,79 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+
+.mainViewerWrapper {
+  width: calc(100% - #{box-sizes.$track-control-width} - #{box-sizes.$component-gap});
+}
+
+.MainViewer {
+  position: relative;
+  height: 0;
+}
+
+.fileDropIndicator {
+  margin: 4px 0;
+  border-top: 2.5px dashed colors.$border-primary-light;
+  background-color: colors.$bg-primary-semilight !important;
+}
+
+/* Track Control */
+
+.trackControl {
+  background-color: colors.$bg-primary;
+  min-width: box-sizes.$track-control-width;
+  padding: layout.$spacer-3;
+  margin: box-sizes.$component-gap * 0.5;
+}
+
+.stickyHeader {
+  position: fixed;
+  z-index: 4;
+  background-color: colors.$bg-main;
+  width: inherit;
+  height: box-sizes.$time-ruler-height + box-sizes.$track-margin;
+  min-width: 1px;
+  display: flex;
+}
+
+.dummyBoxForStickyHeader {
+  height: box-sizes.$time-ruler-height;
+  margin-bottom: box-sizes.$track-margin;
+  flex: none;
+}
+
+.axisLabelSection {
+  @include typography.body-label;
+
+  flex: 0 0 auto;
+  width: 45px;
+  padding-left: 7px;
+  &:not(:nth-last-of-type(1)) {
+    margin-right: 2px;
+  }
+}
+
+/* Right Track Elements */
+.trackRightHeader {
+  // supporting sticky header + preventing pops out when RightPane is resized
+  right: box-sizes.$colorbar-width + box-sizes.$component-gap * 2;
+  z-index: 3;
+}
+
+.trackRight {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chCanvases {
+  display: flex;
+  align-items: center;
+
+  canvas {
+    display: block;
+  }
+}

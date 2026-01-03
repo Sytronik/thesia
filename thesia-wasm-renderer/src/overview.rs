@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, console};
 
 use crate::line_envelope::WavLinePoints;
 use crate::mem::WasmFloat32Array;
@@ -38,10 +38,15 @@ pub fn draw_overview(
     ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
 
     let wav_caches = WAV_CACHES.read();
-    if id_ch_arr
-        .iter()
-        .any(|id_ch| wav_caches.get(id_ch).is_none())
+    if id_ch_arr.is_empty()
+        || id_ch_arr
+            .iter()
+            .any(|id_ch| wav_caches.get(id_ch).is_none())
     {
+        console::error_2(
+            &JsValue::from_str("Wav not found"),
+            &JsValue::from_str(&id_ch_arr.join(",")),
+        );
         return Ok(());
     }
 
@@ -145,8 +150,9 @@ fn calc_limiter_gain_envelopes(
     let wav_to_y = |v: f32| v.mul_add(y_scale, y_offset);
 
     let y_unity_gain = wav_to_y(gain_range.1);
-    let mut current_envlp = WavLinePoints::new();
-    let mut envelopes = Vec::new();
+    let mut n_estimated_points = width as usize + 10;
+    let mut current_envlp = WavLinePoints::with_capacity(n_estimated_points);
+    let mut envelopes = Vec::with_capacity(10);
 
     let mut i = 0;
     while i < gain_seq.len() {
@@ -188,8 +194,9 @@ fn calc_limiter_gain_envelopes(
                 // finish the recent envelope
                 current_envlp.push(x_floor, y_unity_gain);
 
+                n_estimated_points -= current_envlp.len();
                 envelopes.push(current_envlp);
-                current_envlp = WavLinePoints::new();
+                current_envlp = WavLinePoints::with_capacity(n_estimated_points);
             }
         }
         i = i_next;

@@ -1,0 +1,26 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/buttons";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+
+.trackAddButtonSection {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: box-sizes.$emptytrack-height;
+  height: 100%;
+  margin-top: box-sizes.$track-margin;
+
+  > button {
+    @include buttons.btn-square(layout.$spacer-3);
+
+    display: inline-block;
+    position: absolute;
+    top: layout.$spacer-3;
+    right: layout.$spacer-3;
+  }
+}
+
+.btnPlus {
+  @include buttons.plus-btn(colors.$button-white, layout.$spacer-2, 1px);
+}

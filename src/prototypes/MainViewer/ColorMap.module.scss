@@ -1,0 +1,26 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography";
+@use "../../styles/variables/box-sizes";
+
+.colorMap {
+  display: flex;
+  flex-direction: column;
+
+  flex: 0 0 auto;
+  width: box-sizes.$colorbar-width;
+  margin: box-sizes.$component-gap * 0.5;
+}
+
+.colorMapHeader {
+  @include typography.body-label;
+
+  height: box-sizes.$time-ruler-height; // + $track-margin; // TEMP
+  text-align: center;
+  margin-left: 1.5em;
+}
+
+.colorMapBody {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

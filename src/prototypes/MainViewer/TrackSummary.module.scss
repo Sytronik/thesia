@@ -1,0 +1,61 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/typography" as mixins-typography;
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+@use "../../styles/variables/typography" as variables-typography;
+
+.pathName {
+  display: flex;
+  position: relative;
+  margin-bottom: layout.$spacer-3;
+
+  @include mixins-typography.body-title;
+
+  & span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.pathNameTooltip {
+  position: fixed;
+  z-index: 256;
+  pointer-events: none;
+  background-color: colors.$bg-primary-light;
+  font-size: variables-typography.$body-font-size;
+  padding: layout.$spacer layout.$spacer-3;
+  border-radius: layout.$spacer-1;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.15),
+    0 2px 2px rgba(0, 0, 0, 0.15),
+    0 4px 4px rgba(0, 0, 0, 0.15),
+    0 8px 8px rgba(0, 0, 0, 0.15);
+}
+
+$path-min: variables-typography.$body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
+.path {
+  min-width: $path-min;
+  flex: 0 1 auto;
+}
+
+.name {
+  flex: 0 0 auto;
+  max-width: 100%;
+
+  &.withPath {
+    max-width: calc(100% - #{$path-min});
+
+    &::before {
+      content: "/";
+    }
+  }
+}
+
+.time,
+.sampleFormatRate,
+.loudness {
+  margin-bottom: layout.$spacer;
+
+  @include mixins-typography.body-assist;
+}

@@ -1,0 +1,24 @@
+@use "../../styles/index.scss";
+@use "../../styles/variables/box-sizes";
+
+.Overview {
+  flex: 0 0 auto;
+  position: relative;
+  cursor: text;
+  height: box-sizes.$overview-height;
+  margin: box-sizes.$component-gap * 0.5;
+}
+
+.OverviewLens {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.OverviewBackground {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+}

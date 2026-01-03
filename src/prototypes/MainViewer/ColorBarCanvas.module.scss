@@ -1,0 +1,7 @@
+@use "../../styles/index.scss";
+@use "../../styles/variables/box-sizes";
+
+.ColorBarCanvas {
+  flex: 0 0 auto;
+  margin-right: box-sizes.$tiny-spacer;
+}

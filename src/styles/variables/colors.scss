@@ -1,0 +1,25 @@
+@use "sass:color";
+@use "color-system.scss";
+// Color variables
+
+// Border colors
+$border-gray-light: color-system.$gray-400 !default;
+$border-primary-light: color-system.$primary-400 !default;
+
+// Background colors
+$bg-main: color-system.$primary-900 !default;
+$bg-primary: color-system.$primary-800 !default;
+$bg-primary-semilight: color-system.$primary-750 !default;
+$bg-primary-light: color-system.$primary-700 !default;
+$bg-primary-lighter: color-system.$primary-600 !default;
+
+// transparent
+$bg-main-transparent: color.adjust($bg-main, $alpha: -0.2);
+
+// Text colors
+$text-main: color-system.$primary-900 !default;
+$text-white: color-system.$white !default;
+$text-gray: color-system.$primary-600 !default;
+
+// Button colors
+$button-white: color-system.$white !default;

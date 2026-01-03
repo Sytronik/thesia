@@ -1,0 +1,11 @@
+// variables
+@use "variables/typography.scss";
+@use "variables/colors.scss";
+@use "variables/layout.scss";
+@use "variables/misc.scss";
+@use "variables/box-sizes.scss";
+
+//mixins
+@use "mixins/buttons.scss";
+@use "mixins/inputs.scss";
+@use "mixins/typography.scss" as typography2;

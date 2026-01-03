@@ -1,0 +1,50 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/inputs";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/typography";
+
+.PlayerControl {
+  background-color: colors.$bg-primary;
+  height: box-sizes.$player-control-height;
+  margin: box-sizes.$component-gap * 0.5;
+  align-items: center;
+  justify-content: center;
+}
+
+.volumeIcon {
+  margin-left: box-sizes.$component-gap;
+  margin-right: box-sizes.$component-gap * 0.5;
+
+  width: 20px;
+  height: 20px;
+}
+
+.positionInput {
+  @include inputs.input-text-transparent();
+
+  margin: box-sizes.$component-gap;
+  width: 6.1em;
+
+  font-size: typography.$body-font-size-large;
+}
+
+.playerButton {
+  margin: box-sizes.$component-gap;
+
+  button {
+    width: 30px;
+    height: 30px;
+
+    img {
+      width: 15px;
+      height: 15px;
+    }
+  }
+}
+
+.volumeRangeInput {
+  label {
+    font-size: typography.$body-font-size-small;
+  }
+}

@@ -17,7 +17,13 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Setup Rust Environment
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -28,7 +34,7 @@ jobs:
       - name: Install Node.js and NPM
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 24
           cache: npm
 
       - if: matrix.os == 'ubuntu-latest'
@@ -46,19 +52,13 @@ jobs:
       - if: matrix.os == 'windows-latest'
         name: Install OpenBLAS
         run: |
-          .\.vcpkg\vcpkg install openblas --triplet x64-windows-static-md
+          .\.vcpkg\vcpkg install openblas:x64-windows-static openblas:x64-windows-static-md
 
       - name: cargo clippy
         run: |
           cargo clippy
 
-      - if: matrix.os == 'windows-latest'
-        name: cargo test
-        run: | # TODO: remove the option if napi fix this
-          cargo test --config profile.test.debug-assertions=false
-
-      - if: matrix.os != 'windows-latest'
-        name: cargo test
+      - name: cargo test
         run: |
           cargo test
 
@@ -72,7 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm run package
+          npm run tauri build
           npm run lint
           npm exec tsc
         # npm test

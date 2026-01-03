@@ -1,0 +1,11 @@
+@use "colors";
+
+// Miscellaneous variables
+
+// Border
+$border-width: 1px !default;
+$border-color: colors.$border-gray-light !default; // temp
+$border-style: solid !default;
+$border: $border-width $border-color $border-style !default;
+
+// Border Radius

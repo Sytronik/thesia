@@ -133,6 +133,7 @@ pub(crate) struct WavEnvelope {
 
 impl WavEnvelope {
     #[inline(always)]
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
             xs: Vec::new(),
@@ -376,10 +377,11 @@ pub(crate) fn calc_line_envelope_points(
     }
 
     // Estimate capacity based on downsampling: each pixel might need 1-2 points
-    let estimated_points = (options.width / options.scale).ceil() as usize * 2;
-    let mut line_points = WavLinePoints::with_capacity(estimated_points);
-    let mut current_envlp = WavEnvelope::new();
-    let mut envelopes = Vec::new();
+    let n_estimated_points = (options.width / options.scale).ceil() as usize;
+    let mut n_estimated_envelope_points = n_estimated_points + 10;
+    let mut line_points = WavLinePoints::with_capacity(n_estimated_points * 2);
+    let mut current_envlp = WavEnvelope::with_capacity(n_estimated_envelope_points);
+    let mut envelopes = Vec::with_capacity(10);
 
     let mut i = i_start;
     let mut i_prev = i;
@@ -433,8 +435,9 @@ pub(crate) fn calc_line_envelope_points(
                 // finish the recent envelope
                 current_envlp.push(x_floor, y, y);
 
+                n_estimated_envelope_points -= current_envlp.len();
                 envelopes.push(current_envlp);
-                current_envlp = WavEnvelope::new();
+                current_envlp = WavEnvelope::with_capacity(n_estimated_envelope_points);
 
                 let prev_y = if i > 0 { wav_to_y(wav[i - 1]) } else { y };
                 line_points.push(x_mid - 1.0, prev_y);

@@ -1,0 +1,68 @@
+@use "../styles/index.scss";
+@use "../styles/variables/colors";
+@use "../styles/variables/layout";
+@use "../styles/variables/typography";
+
+.imgCanvasWrapper {
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.loading {
+  position: absolute;
+  margin: auto;
+  height: 50px;
+  width: 50px;
+  border-radius: 50%;
+  border: dashed 5px white;
+  animation-name: spin;
+  animation-duration: 2s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  z-index: 2;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ImgCanvas {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 256;
+  pointer-events: none;
+  background-color: rgba(colors.$bg-primary, 0.6);
+  font-size: typography.$body-font-size-xsmall;
+  line-height: 1.5;
+  min-width: layout.$spacer * 10;
+  padding: layout.$spacer layout.$spacer-3;
+  border-radius: 0 layout.$spacer-1 layout.$spacer-1 layout.$spacer-1;
+
+  &::after {
+    content: "";
+    display: block;
+    margin: 0 auto;
+    width: 0;
+    height: 0;
+    border: 5px solid transparent;
+    border-bottom: 5px solid rgba(31, 33, 51, 0.6);
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(0%, -100%);
+  }
+}

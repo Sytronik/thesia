@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "thesia",
+  "version": "0.1.0",
+  "identifier": "com.sytronik.thesia",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build:wasm && npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "thesia",
+        "width": 1280,
+        "height": 768,
+        "minWidth": 640,
+        "minHeight": 400,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["thesia"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["aac"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["flac"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["m4a"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["mp3"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["oga"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["ogg"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["opus"],
+        "role": "Viewer"
+      },
+      {
+        "ext": ["wav"],
+        "role": "Viewer"
+      }
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+@use "../../styles/index.scss";
+@use "../../styles/mixins/inputs";
+@use "../../styles/variables/box-sizes";
+@use "../../styles/variables/color-system";
+@use "../../styles/variables/colors";
+@use "../../styles/variables/layout";
+@use "../../styles/variables/typography";
+
+.Control {
+  display: flex;
+  flex-direction: column;
+  width: box-sizes.$track-control-width;
+  margin: box-sizes.$component-gap * 0.5;
+
+  background-color: colors.$bg-primary;
+  font-size: typography.$body-font-size-small;
+  font-weight: 500;
+
+  select {
+    @include inputs.select-basic(layout.$spacer);
+  }
+
+  *:focus {
+    box-shadow: 0 0 box-sizes.$tiny-spacer box-sizes.$tiny-spacer rgba(colors.$bg-primary-lighter, 0.5);
+    outline: none;
+  }
+}
+
+.scrollBox {
+  flex: 1 1 0;
+  padding: 0 layout.$spacer-3;
+}
+
+.sectionContainer {
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(colors.$border-gray-light, 0.5);
+  }
+}
+.itemContainer {
+  display: block;
+  margin: layout.$spacer-4 layout.$spacer-2;
+
+  > label {
+    display: block;
+    margin-left: 1px;
+    font-size: typography.$body-font-size-xsmall;
+    opacity: 0.7;
+  }
+
+  > *:not(:last-child) {
+    margin-bottom: layout.$spacer;
+  }
+}
+
+.slideBar {
+  display: flex;
+  justify-content: stretch;
+  align-items: center;
+
+  height: layout.$spacer-3;
+
+  svg {
+    flex: 0 0 auto;
+    height: layout.$spacer * 1.5;
+  }
+
+  input[type="range"] {
+    @include inputs.input-range-base(box-sizes.$range-track-height);
+    margin: auto layout.$spacer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @include inputs.input-range-thumb(color-system.$white, box-sizes.$range-thumb-height);
+    transition: 0.2s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0 0 box-sizes.$range-thumb-height rgba(color-system.$primary-400, 0.1);
+    }
+  }
+}
+
+.winMillisecInput {
+  @include inputs.input-text-basic(layout.$spacer);
+}
+
+$switch-scale: layout.$spacer;
+
+.changeFreqScaleBtn {
+  display: none;
+}
+
+.freqScaleSwitchBox {
+  @include inputs.input-switch-base($switch-scale);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+
+  .freqScaleToggle {
+    @include inputs.input-switch-thumb($switch-scale);
+  }
+  .freqScaleLabelBox {
+    display: inline-flex;
+    align-self: center;
+    justify-content: center;
+    z-index: 4;
+
+    width: layout.$spacer * 7;
+
+    > svg {
+      position: relative;
+      top: 0.125em;
+      margin-right: layout.$spacer-1;
+    }
+  }
+  .freqScaleLinear {
+    @include inputs.input-switch-inactive();
+  }
+  .freqScaleMel {
+    @include inputs.input-switch-active();
+  }
+}
+
+.changeFreqScaleBtn:checked + .freqScaleSwitchBox {
+  .freqScaleToggle {
+    @include inputs.input-switch-thumb-moved();
+  }
+  .freqScaleLinear {
+    @include inputs.input-switch-active();
+  }
+  .freqScaleMel {
+    @include inputs.input-switch-inactive();
+  }
+}

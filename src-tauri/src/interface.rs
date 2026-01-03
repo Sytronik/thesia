@@ -1,0 +1,142 @@
+//! interfaces to communicate with JS world
+
+use std::{sync::LazyLock, thread};
+
+use crossbeam_channel::{Sender, unbounded};
+use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
+
+use crate::player::{PLAY_BIG_JUMP_SEC, PLAY_JUMP_SEC};
+use crate::{GuardClippingMode, NormalizeTarget, SpecSetting};
+
+static WRITE_LOCK_WORKER: LazyLock<WriteLockWorker> = LazyLock::new(WriteLockWorker::new);
+
+type WriteLockJob = Box<dyn FnOnce() + Send + 'static>;
+
+struct WriteLockWorker {
+    sender: Sender<WriteLockJob>,
+}
+
+impl WriteLockWorker {
+    fn new() -> Self {
+        let (sender, receiver) = unbounded::<WriteLockJob>();
+        thread::Builder::new()
+            .name("write-lock-worker".into())
+            .spawn(move || {
+                while let Ok(job) = receiver.recv() {
+                    job();
+                }
+                log::error!("write lock worker channel closed; exiting thread");
+            })
+            .expect("Failed to spawn write lock worker");
+        Self { sender }
+    }
+
+    fn spawn<F>(&self, job: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        if let Err(err) = self.sender.send(Box::new(job)) {
+            log::error!("Failed to submit write lock job: {err}");
+        }
+    }
+}
+
+pub fn spawn_write_lock_task<F, R>(f: F) -> impl std::future::Future<Output = R>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    let (tx, rx) = oneshot::channel();
+    WRITE_LOCK_WORKER.spawn(move || {
+        let result = f();
+        let _ = tx.send(result);
+    });
+    async move { rx.await.expect("write lock worker terminated unexpectedly") }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+#[allow(non_snake_case)]
+#[serde(rename_all = "camelCase")]
+pub struct UserSettingsOptionals {
+    pub spec_setting: Option<SpecSetting>,
+    pub blend: Option<f64>,
+    pub dB_range: Option<f64>,
+    pub common_guard_clipping: Option<GuardClippingMode>,
+    pub common_normalize: Option<NormalizeTarget>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[allow(non_snake_case)]
+#[serde(rename_all = "camelCase")]
+pub struct UserSettings {
+    pub spec_setting: SpecSetting,
+    pub blend: f64,
+    pub dB_range: f64,
+    pub common_guard_clipping: GuardClippingMode,
+    pub common_normalize: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct BackendConstants {
+    pub play_jump_sec: f64,
+    pub play_big_jump_sec: f64,
+}
+
+impl Default for BackendConstants {
+    fn default() -> Self {
+        Self {
+            play_jump_sec: PLAY_JUMP_SEC,
+            play_big_jump_sec: PLAY_BIG_JUMP_SEC,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConstsAndUserSettings {
+    pub constants: BackendConstants,
+    pub user_settings: UserSettings,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerState {
+    pub is_playing: bool,
+    pub position_sec: f64,
+    pub err: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Spectrogram<'a> {
+    pub arr: &'a [u16],
+    pub width: u32,
+    pub height: u32,
+    pub track_sec: f64,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WavInfo {
+    pub wav: Vec<f32>,
+    pub sr: u32,
+    pub is_clipped: bool,
+}
+
+#[inline]
+pub fn format_id_ch(id: usize, ch: usize) -> String {
+    format!("{}_{}", id, ch)
+}
+
+#[inline]
+pub fn parse_id_ch_str(id_ch_str: &str) -> anyhow::Result<(usize, usize)> {
+    let mut iter = id_ch_str.split('_').map(|x| x.parse::<usize>());
+    match (iter.next(), iter.next()) {
+        (Some(Ok(id)), Some(Ok(ch))) => Ok((id, ch)),
+        _ => Err(anyhow::anyhow!(
+            "The array element should be \"{{unsigned_int}}_{{unsigned_int}}\".",
+        )),
+    }
+}

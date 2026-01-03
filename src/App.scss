@@ -1,0 +1,147 @@
+@use "styles/index.scss";
+@use "styles/variables/box-sizes";
+@use "styles/variables/colors";
+@use "styles/variables/typography";
+@import "overlayscrollbars/overlayscrollbars.css";
+
+// Type Selector Reset
+// prettier-ignore
+html, body {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	font-size: 100%;
+}
+
+// prettier-ignore
+div, dl, dt, dd, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, code, form, fieldset, legend, input, textarea, p, blockquote, th, td, figure, span {
+	margin: 0;
+	padding: 0;
+}
+
+// prettier-ignore
+header, footer, section, article, aside, nav, hgroup, details, menu, figure, figcaption {
+	display: block;
+}
+
+button {
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+// Box-Sizing
+html {
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-app-region: no-drag;
+}
+
+body {
+  background-color: colors.$bg-main;
+
+  // Platform-specific CSS variable for range input thumb
+  // Windows Webview requires margin-top for thumb to be centered
+  // macOS Webkit doesn't need margin-top for thumb to be centered
+  --range-thumb-margin-top: 0;
+  &.platform-windows {
+    --range-thumb-margin-top: #{box-sizes.$range-track-height - box-sizes.$range-input-height};
+  }
+}
+
+body {
+  font-family: typography.$body-font;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  position: fixed;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+
+  width: 100%;
+  height: 100vh;
+  padding: box-sizes.$component-gap * 0.5;
+  color: colors.$text-white;
+}
+
+.flex-container {
+  &-row {
+    display: flex;
+    flex-direction: row;
+  }
+  &-column {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.flex-item {
+  &-fixed {
+    flex: 0 0 auto;
+  }
+  &-auto {
+    flex: 1 1 auto;
+  }
+}
+
+body.textCursor * {
+  cursor: text !important;
+}
+
+body.rowResizeCursor * {
+  cursor: row-resize !important;
+}
+
+body.colResizeCursor * {
+  cursor: col-resize !important;
+}
+
+body.nResizeCursor * {
+  cursor: n-resize !important;
+}
+
+body.sResizeCursor * {
+  cursor: s-resize !important;
+}
+
+.os-theme-custom.os-scrollbar {
+  --os-size: 9px;
+  --os-padding-perpendicular: 0px;
+  --os-padding-axis: 0px;
+}
+
+.os-theme-custom.os-scrollbar .os-scrollbar-track {
+  background: rgba(0, 0, 0, 0);
+  border-radius: 5px;
+}
+
+.os-theme-custom.os-scrollbar .os-scrollbar-handle {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(230, 231, 255, 0.24);
+  border-radius: 5px;
+  transition: background-color 0.2s ease;
+}
+
+.os-theme-custom.os-scrollbar .os-scrollbar-handle:hover {
+  background: rgba(0, 0, 0, 0.7);
+}

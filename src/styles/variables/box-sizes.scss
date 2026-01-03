@@ -1,0 +1,30 @@
+@use "sass:math";
+@use "layout.scss";
+
+$component-gap: layout.$spacer;
+$tiny-spacer: math.round(layout.$spacer-1 * 0.5); // 2px
+
+// Components container
+$player-control-height: layout.$spacer * 8;
+$overview-height: layout.$spacer * 6;
+$track-control-width: layout.$spacer * 27;
+
+// Components
+$colorbar-width: 65px;
+$slidebar-width: $colorbar-width + 93px;
+
+// Control
+$range-input-height: layout.$spacer-3;
+$range-track-height: 2px;
+$range-thumb-height: layout.$spacer;
+
+// MainViewer
+$time-ruler-height: layout.$spacer-3;
+$emptytrack-height: layout.$spacer * 10;
+$track-margin: 2px;
+
+// Channels
+$channel-width: 32px;
+
+// Buttons
+$button-size: layout.$spacer-3;

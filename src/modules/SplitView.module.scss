@@ -1,0 +1,50 @@
+@use "../styles/index.scss";
+@use "../styles/variables/box-sizes";
+@use "../styles/variables/colors";
+
+.SplitView {
+  width: calc(100% - #{box-sizes.$colorbar-width + box-sizes.$component-gap * 2});
+  margin: box-sizes.$component-gap * 0.5;
+}
+
+.Scrollbox {
+  height: 100%;
+}
+
+.Scrolled {
+  display: flex;
+  align-items: stretch;
+  height: fit-content;
+  min-height: 100%;
+}
+
+.LeftPane {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  z-index: 4;
+  background-color: colors.$bg-main;
+
+  > div {
+    background-color: colors.$bg-primary;
+  }
+}
+
+.divider {
+  cursor: col-resize;
+}
+
+.dividerLine {
+  height: 100%;
+  border-left: 3px solid colors.$bg-main;
+  border-right: 1px solid transparent;
+  z-index: 4;
+}
+
+.RightPane {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}

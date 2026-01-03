@@ -5,7 +5,9 @@ use std::sync::atomic::Ordering;
 use atomic_float::AtomicF32;
 use parking_lot::RwLock;
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, Path2d};
+use web_sys::{
+    CanvasRenderingContext2d, OffscreenCanvas, OffscreenCanvasRenderingContext2d, Path2d, console,
+};
 
 use crate::line_envelope::{
     CalcLineEnvelopePointsResult, TransformParams, WavEnvelope, WavLinePoints,
@@ -33,6 +35,9 @@ pub(crate) static DEVICE_PIXEL_RATIO: AtomicF32 = AtomicF32::new(1.0);
 
 #[wasm_bindgen(js_name = setDevicePixelRatio)]
 pub fn set_device_pixel_ratio(device_pixel_ratio: f32) {
+    if device_pixel_ratio == DEVICE_PIXEL_RATIO.load(Ordering::Acquire) {
+        return;
+    }
     DEVICE_PIXEL_RATIO.store(device_pixel_ratio, Ordering::Release);
     for wav_cache in WAV_CACHES.write().values_mut() {
         wav_cache.update_cache();
@@ -46,17 +51,15 @@ pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool
 }
 
 #[wasm_bindgen(js_name = removeWav)]
-pub fn remove_wav(track_id: u32) {
-    WAV_CACHES
-        .write()
-        .retain(|id_ch_str, _| !id_ch_str.starts_with(&format!("{}_", track_id)));
+pub fn remove_wav(id_ch_str: &str) {
+    WAV_CACHES.write().retain(|k, _| k != id_ch_str);
 }
 
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = drawWav)]
 pub fn draw_wav(
-    canvas: &HtmlCanvasElement,
-    ctx: &CanvasRenderingContext2d,
+    canvas: &OffscreenCanvas,
+    ctx: &OffscreenCanvasRenderingContext2d,
     id_ch_str: &str,
     css_width: u32,
     css_height: u32,
@@ -79,6 +82,10 @@ pub fn draw_wav(
         match wav_caches.get(id_ch_str) {
             Some(wav_cache) => wav_cache.is_clipped,
             None => {
+                console::error_2(
+                    &JsValue::from_str("Wav not found"),
+                    &JsValue::from_str(id_ch_str),
+                );
                 return Ok(());
             }
         }
@@ -93,7 +100,7 @@ pub fn draw_wav(
             amp_range: (amp_range_min, amp_range_max),
             ..Default::default()
         };
-        draw_wav_internal(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR, None)?
+        draw_wav_internal_offscreen(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR, None)?
     } else {
         ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
         None
@@ -109,15 +116,15 @@ pub fn draw_wav(
         need_border_for_envelope: !is_clipped,
         ..Default::default()
     };
-    draw_wav_internal(ctx, id_ch_str, &options, WAV_COLOR, upsampled_wav_sr)?;
+    draw_wav_internal_offscreen(ctx, id_ch_str, &options, WAV_COLOR, upsampled_wav_sr)?;
 
     Ok(())
 }
 
 #[wasm_bindgen(js_name = clearWav)]
 pub fn clear_wav(
-    canvas: Option<HtmlCanvasElement>,
-    ctx: Option<CanvasRenderingContext2d>,
+    canvas: Option<OffscreenCanvas>,
+    ctx: Option<OffscreenCanvasRenderingContext2d>,
     css_width: u32,
     css_height: u32,
 ) {
@@ -138,82 +145,92 @@ pub fn clear_wav(
     }
 }
 
-pub(crate) fn draw_wav_internal(
-    ctx: &CanvasRenderingContext2d,
-    id_ch_str: &str,
-    options: &WavDrawingOptions,
-    color: &str,
-    upsampled_wav_sr: Option<(Vec<f32>, u32)>,
-) -> Result<Option<(Vec<f32>, u32)>, JsValue> {
-    let line_width = options.line_width();
+macro_rules! def_draw_wav_internal {
+    ($ctxtype:ty, $name:ident) => {
+        pub(crate) fn $name(
+            ctx: &$ctxtype,
+            id_ch_str: &str,
+            options: &WavDrawingOptions,
+            color: &str,
+            upsampled_wav_sr: Option<(Vec<f32>, u32)>,
+        ) -> Result<Option<(Vec<f32>, u32)>, JsValue> {
+            let line_width = options.line_width();
 
-    let result = {
-        let wav_caches = WAV_CACHES.read();
-        let wav_cache = wav_caches
-            .get(id_ch_str)
-            .ok_or_else(|| JsValue::from_str("Wav not found"))?;
-        if options.px_per_sec() >= CACHE_PX_PER_SEC {
-            let WavCache { wav, sr, .. } = wav_cache;
-            calc_line_envelope_points(wav, *sr, options, upsampled_wav_sr)
-        } else {
-            let (line_points, envelopes) = wav_cache.transform_line_envelopes(options);
-            CalcLineEnvelopePointsResult {
-                line_points,
-                envelopes,
-                upsampled_wav_sr: None,
+            let result = {
+                let wav_caches = WAV_CACHES.read();
+                let wav_cache = wav_caches
+                    .get(id_ch_str)
+                    .ok_or_else(|| JsValue::from_str("Wav not found"))?;
+                if options.px_per_sec() >= CACHE_PX_PER_SEC {
+                    let WavCache { wav, sr, .. } = wav_cache;
+                    calc_line_envelope_points(wav, *sr, options, upsampled_wav_sr)
+                } else {
+                    let (line_points, envelopes) = wav_cache.transform_line_envelopes(options);
+                    CalcLineEnvelopePointsResult {
+                        line_points,
+                        envelopes,
+                        upsampled_wav_sr: None,
+                    }
+                }
+            };
+
+            let line_path = result.line_points.try_into_path()?;
+            let envelope_path = result
+                .envelopes
+                .map(|envelopes| -> Result<Path2d, JsValue> {
+                    let path = Path2d::new()?;
+                    for envelope in envelopes {
+                        envelope.record_on_path(&path, line_width)?;
+                    }
+                    Ok(path)
+                })
+                .transpose()?;
+
+            let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
+
+            // Draw borders for line
+            if options.need_border_for_line {
+                ctx.set_line_cap("round");
+                ctx.set_line_join("round");
+                ctx.set_stroke_style_str(WAV_BORDER_COLOR);
+                ctx.set_line_width((line_width + 2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
+                ctx.stroke_with_path(&line_path);
             }
+
+            // Draw borders for envelopes
+            if options.need_border_for_envelope
+                && let Some(ref envelope_path) = envelope_path
+            {
+                ctx.set_line_cap("round");
+                ctx.set_line_join("round");
+                ctx.set_stroke_style_str(WAV_BORDER_COLOR);
+                ctx.set_line_width((2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
+                ctx.stroke_with_path(envelope_path);
+            }
+
+            // Draw main line
+            ctx.set_line_cap("round");
+            ctx.set_line_join("round");
+            ctx.set_stroke_style_str(color);
+            ctx.set_line_width(line_width as f64);
+            ctx.stroke_with_path(&line_path);
+
+            // Fill envelopes
+            if let Some(ref envelope_path) = envelope_path {
+                ctx.set_fill_style_str(color);
+                ctx.fill_with_path_2d(envelope_path);
+            }
+
+            Ok(result.upsampled_wav_sr)
         }
     };
-
-    let line_path = result.line_points.try_into_path()?;
-    let envelope_path = result
-        .envelopes
-        .map(|envelopes| -> Result<Path2d, JsValue> {
-            let path = Path2d::new()?;
-            for envelope in envelopes {
-                envelope.record_on_path(&path, line_width)?;
-            }
-            Ok(path)
-        })
-        .transpose()?;
-
-    let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
-
-    // Draw borders for line
-    if options.need_border_for_line {
-        ctx.set_line_cap("round");
-        ctx.set_line_join("round");
-        ctx.set_stroke_style_str(WAV_BORDER_COLOR);
-        ctx.set_line_width((line_width + 2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
-        ctx.stroke_with_path(&line_path);
-    }
-
-    // Draw borders for envelopes
-    if options.need_border_for_envelope
-        && let Some(ref envelope_path) = envelope_path
-    {
-        ctx.set_line_cap("round");
-        ctx.set_line_join("round");
-        ctx.set_stroke_style_str(WAV_BORDER_COLOR);
-        ctx.set_line_width((2.0 * BORDER_WIDTH_CSS_PX * dpr) as f64);
-        ctx.stroke_with_path(envelope_path);
-    }
-
-    // Draw main line
-    ctx.set_line_cap("round");
-    ctx.set_line_join("round");
-    ctx.set_stroke_style_str(color);
-    ctx.set_line_width(line_width as f64);
-    ctx.stroke_with_path(&line_path);
-
-    // Fill envelopes
-    if let Some(ref envelope_path) = envelope_path {
-        ctx.set_fill_style_str(color);
-        ctx.fill_with_path_2d(envelope_path);
-    }
-
-    Ok(result.upsampled_wav_sr)
 }
+
+def_draw_wav_internal!(CanvasRenderingContext2d, draw_wav_internal);
+def_draw_wav_internal!(
+    OffscreenCanvasRenderingContext2d,
+    draw_wav_internal_offscreen
+);
 
 pub(crate) struct WavDrawingOptions {
     pub(crate) width: f32,
