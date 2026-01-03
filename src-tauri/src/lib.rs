@@ -12,14 +12,14 @@ use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 
-mod backend;
 mod context_menu;
+mod core;
 mod interface;
 mod menu;
 mod os;
 mod player;
 
-use backend::*;
+use core::*;
 use interface::*;
 use player::{PlayerCommand, PlayerNotification};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags, WindowExt};

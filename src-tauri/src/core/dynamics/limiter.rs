@@ -260,7 +260,7 @@ impl LimiterManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::audio::open_audio_file;
+    use crate::core::audio::open_audio_file;
 
     #[test]
     fn limiter_works() {
