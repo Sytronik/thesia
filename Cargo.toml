@@ -26,7 +26,7 @@ version = "0.1.0"
 approx = "0.5.1"
 atomic_float = "1.1.0"
 itertools = "0.14.0"
-ndarray = "0.16.1"
+ndarray = "0.17.1"
 num-traits = "0.2.19"
 parking_lot = "0.12.5"
 serde = { version = "1", features = ["derive"] }

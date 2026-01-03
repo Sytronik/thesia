@@ -509,17 +509,20 @@ where
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
-    use ndarray_rand::{RandomExt, rand::prelude::*, rand_distr::Uniform};
+    use ndarray_rand::rand::prelude::*;
+    use ndarray_rand::rand_distr::Uniform;
+    use ndarray_rand::{RandomExt, rand};
 
     #[test]
     fn box_sum_works() {
         let length = 1000;
         let max_box_len = 100;
-        let mut rng = thread_rng();
-        let signal = Array1::random_using(length, Uniform::new_inclusive(-1., 1.), &mut rng);
+        let mut rng = rand::rng();
+        let signal =
+            Array1::random_using(length, Uniform::new_inclusive(-1., 1.).unwrap(), &mut rng);
         let mut box_sum = BoxSum::new(max_box_len);
         let mut box_filter = BoxFilter::new(max_box_len);
-        let rng_box_len = Uniform::new_inclusive(1, max_box_len);
+        let rng_box_len = Uniform::new_inclusive(1, max_box_len).unwrap();
 
         for i in 0..length {
             let box_len = rng_box_len.sample(&mut rng);
@@ -552,10 +555,10 @@ mod tests {
     #[test]
     fn box_sum_drift_works() {
         let max_box_len = 100;
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let mut box_sum = BoxSum::new(max_box_len);
 
-        let rng_x = Uniform::new_inclusive(1e6, 2e6);
+        let rng_x = Uniform::new_inclusive(1e6, 2e6).unwrap();
         for _ in 0..10 {
             for _ in 0..10000 {
                 box_sum.write(rng_x.sample(&mut rng));
@@ -566,7 +569,7 @@ mod tests {
                 box_sum.write(x);
             }
 
-            let rng_box_len = Uniform::new_inclusive(25, 100);
+            let rng_box_len = Uniform::new_inclusive(25, 100).unwrap();
             for _ in 0..10 {
                 let box_len = rng_box_len.sample(&mut rng);
                 let expected = if box_len % 2 == 1 { 1. } else { 0. };
@@ -598,8 +601,8 @@ mod tests {
         let mut stack = BoxStackFilter::<f32>::with_num_layers(50, 1);
         let ratios = arr1(&[6., 3., 1.]);
         stack.resize(101, ratios);
-        let mut rng = thread_rng();
-        let rng_x = Uniform::new_inclusive(-1., 1.);
+        let mut rng = rand::rng();
+        let rng_x = Uniform::new_inclusive(-1., 1.).unwrap();
 
         for _ in 0..1000 {
             let x = rng_x.sample(&mut rng);

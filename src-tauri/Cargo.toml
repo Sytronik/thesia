@@ -31,7 +31,7 @@ identity-hash = "0.1.0"
 itertools = { workspace = true }
 log = "0.4"
 ndarray = { workspace = true, features = ["approx", "blas", "rayon"] }
-ndarray-stats = "0.6.0"
+ndarray-stats = "0.7.0"
 num-traits = { workspace = true }
 num_cpus = "1.17.0"
 parking_lot = { workspace = true }
@@ -97,4 +97,4 @@ tauri-plugin-window-state = "2"
 [dev-dependencies]
 approx = { workspace = true }
 hound = "3.5.1"
-ndarray-rand = "0.15.0"
+ndarray-rand = "0.16.0"

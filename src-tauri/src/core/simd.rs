@@ -921,7 +921,7 @@ mod tests {
 
     // A simple pseudo-random number generator for test data
     fn generate_random_data(size: usize) -> Vec<f32> {
-        let arr = Array1::random(size, Uniform::new(-100.0, 100.0));
+        let arr = Array1::random(size, Uniform::new(-100.0, 100.0).unwrap());
         let (vec, _) = arr.into_raw_vec_and_offset();
         vec
     }
