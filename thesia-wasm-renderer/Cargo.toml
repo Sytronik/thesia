@@ -40,6 +40,3 @@ wasm-opt = ["--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enab
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-simd", "-O4"]
-
-[profile.dev.package.thesia-wasm-renderer]
-opt-level = 0
