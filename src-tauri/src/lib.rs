@@ -152,7 +152,7 @@ async fn get_open_files_dialog_path(app: AppHandle) -> String {
         };
         store.set(
             OPEN_FILES_DIALOG_PATH_KEY,
-            path.to_string_lossy().to_owned(),
+            path.to_string_lossy().into_owned(),
         );
     }
     let path = store.get(OPEN_FILES_DIALOG_PATH_KEY).unwrap();
@@ -585,9 +585,7 @@ pub fn run() {
 
     #[cfg(debug_assertions)]
     {
-        _dev_default_open_path = Some(PathBuf::from(
-            get_project_root().join("samples/stereo/sample_48k.wav"),
-        ));
+        _dev_default_open_path = Some(get_project_root().join("samples/stereo/sample_48k.wav"));
     }
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
@@ -628,8 +626,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .menu(|app| menu::build(app))
-        .on_menu_event(|app, event| menu::handle_menu_event(app, event))
+        .menu(menu::build)
+        .on_menu_event(menu::handle_menu_event)
         .setup(|app| {
             let handle = app.handle().clone();
             menu::init(&handle)?;

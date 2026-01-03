@@ -85,24 +85,21 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 
     let help_menu = build_help_menu(app)?;
 
-    let mut top_level: Vec<&dyn IsMenuItem<R>> = Vec::new();
-
     #[cfg(target_os = "macos")]
-    top_level.push(&app_menu);
+    let top_level: Vec<&dyn IsMenuItem<R>> = vec![
+        &app_menu,
+        &file_menu,
+        &edit_menu,
+        &view_menu,
+        &tracks_menu,
+        &play_menu,
+        &window_menu,
+        &help_menu,
+    ];
 
-    top_level.push(&file_menu);
-
-    #[cfg(target_os = "macos")]
-    top_level.push(&edit_menu);
-
-    top_level.push(&view_menu);
-    top_level.push(&tracks_menu);
-    top_level.push(&play_menu);
-
-    #[cfg(target_os = "macos")]
-    top_level.push(&window_menu);
-
-    top_level.push(&help_menu);
+    #[cfg(not(target_os = "macos"))]
+    let top_level: Vec<&dyn IsMenuItem<R>> =
+        vec![&file_menu, &view_menu, &tracks_menu, &play_menu, &help_menu];
 
     Menu::with_items(app, &top_level)
 }
@@ -630,9 +627,9 @@ fn collect_menu_items<R: Runtime>(submenu: &Submenu<R>) -> tauri::Result<Vec<Men
 pub fn enable_edit_menu(_controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        return _controller
+        _controller
             .set_edit_menu_enabled(true)
-            .map_err(|e| e.to_string());
+            .map_err(|e| e.to_string())
     }
     #[cfg(not(target_os = "macos"))]
     Ok(())
@@ -642,9 +639,9 @@ pub fn enable_edit_menu(_controller: tauri::State<MenuController<Wry>>) -> Resul
 pub fn disable_edit_menu(_controller: tauri::State<MenuController<Wry>>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        return _controller
+        _controller
             .set_edit_menu_enabled(false)
-            .map_err(|e| e.to_string());
+            .map_err(|e| e.to_string())
     }
     #[cfg(not(target_os = "macos"))]
     Ok(())

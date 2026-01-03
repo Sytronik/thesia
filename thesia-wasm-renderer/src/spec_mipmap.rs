@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::LazyLock;
-use std::u8;
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
@@ -44,7 +43,7 @@ fn serialize_2d_array(array: ArrayView2<f32>) -> WasmU8Array {
         Vec::with_capacity(2 * size_of::<u32>() + array.len() * size_of::<f32>());
     buf.extend_from_slice(&array.shape()[0].to_le_bytes());
     buf.extend_from_slice(&array.shape()[1].to_le_bytes());
-    buf.extend_from_slice(to_byte_slice(&array.as_slice().unwrap()));
+    buf.extend_from_slice(to_byte_slice(array.as_slice().unwrap()));
     WasmU8Array::from_vec(buf)
 }
 
@@ -104,6 +103,6 @@ fn u16_to_f32(x: pixels::U16) -> f32 {
     (x.0 as f32) / u16::MAX as f32
 }
 
-fn to_byte_slice<'a>(floats: &'a [f32]) -> &'a [u8] {
+fn to_byte_slice(floats: &[f32]) -> &[u8] {
     unsafe { std::slice::from_raw_parts(floats.as_ptr() as *const _, floats.len() * 4) }
 }
