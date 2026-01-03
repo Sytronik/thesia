@@ -79,7 +79,7 @@ type ClearWavMessage = {
   };
 };
 
-export type RendererWorkerMessage =
+export type WasmWorkerMessage =
   | InitMessage
   | SetSpectrogramMessage
   | RemoveSpectrogramMessage
@@ -92,7 +92,7 @@ export type RendererWorkerMessage =
 
 export type OnSetSpectrogramDoneCallback = () => void;
 export type OnReturnMipmapCallback = (mipmap: Mipmap | null) => void;
-export type RendererWorkerEventMessage =
+export type WasmWorkerEventMessage =
   | {
       type: "setSpectrogramDone";
       data: {
@@ -110,9 +110,9 @@ export type RendererWorkerEventMessage =
 let initialized = false;
 const canvases: Map<string, OffscreenCanvas> = new Map();
 const ctxs: Map<string, OffscreenCanvasRenderingContext2D> = new Map();
-const msgQueue: RendererWorkerMessage[] = [];
+const msgQueue: WasmWorkerMessage[] = [];
 
-self.onmessage = (event: MessageEvent<RendererWorkerMessage>) => {
+self.onmessage = (event: MessageEvent<WasmWorkerMessage>) => {
   const message = event.data;
   if (message.type === "init") {
     const {idChStr, canvas, alpha} = message.data;

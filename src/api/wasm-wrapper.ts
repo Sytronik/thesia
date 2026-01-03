@@ -21,7 +21,7 @@ import init, {
   freqLabelToHz,
   freqPosToHz,
   freqHzToPos,
-} from "thesia-wasm-renderer";
+} from "thesia-wasm-module";
 import {FreqScale} from "./backend-wrapper";
 
 let wasmInitialized = false;

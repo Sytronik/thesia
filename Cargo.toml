@@ -2,7 +2,7 @@
 members = [
   "src-common",
   "src-tauri",
-  "thesia-wasm-renderer",
+  "src-wasm",
 ]
 resolver = "2"
 
@@ -35,7 +35,7 @@ serde_json = "1"
 [profile.dev]
 opt-level = 3
 
-[profile.dev.package.thesia-wasm-renderer]
+[profile.dev.package.thesia-wasm-module]
 opt-level = 0
 
 [profile.test]

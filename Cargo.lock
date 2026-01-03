@@ -5782,7 +5782,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "thesia-wasm-renderer"
+name = "thesia-wasm-module"
 version = "0.1.0"
 dependencies = [
  "approx",

@@ -27,4 +27,4 @@ dist-ssr
 *.png
 
 /target
-/thesia-wasm-renderer/pkg
+/src-wasm/pkg

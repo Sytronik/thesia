@@ -37,7 +37,7 @@
     ".git": true,
     "target": true,
     "node_modules": true,
-    "thesia-wasm-renderer/pkg": true,
+    "src-wasm/pkg": true,
     "package-lock.json": true,
     "Cargo.lock": true,
     "*.{css,sass,scss}.d.ts": true

@@ -1,9 +1,9 @@
 [package]
 authors = { workspace = true }
-description = "Thesia's waveform renderer module compiled to WASM."
+description = "Thesia's WASM module."
 edition = { workspace = true }
 license-file = { workspace = true }
-name = "thesia-wasm-renderer"
+name = "thesia-wasm-module"
 repository = { workspace = true }
 version = { workspace = true }
 

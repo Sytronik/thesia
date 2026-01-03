@@ -16,7 +16,7 @@ export default [
       // Build outputs
       "dist/**",
       "target/**",
-      "thesia-wasm-renderer/pkg/**",
+      "src-wasm/pkg/**",
       // Generated files
       "**/*.scss.d.ts",
       "**/*.d.ts",
@@ -27,7 +27,7 @@ export default [
       // Rust source files
       "**/*.rs",
       "src-tauri/**",
-      "thesia-wasm-renderer/**",
+      "src-wasm/**",
       // Config files
       "Cargo.toml",
       "Cargo.lock",

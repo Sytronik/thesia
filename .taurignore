@@ -1,4 +1,4 @@
-thesia-wasm-renderer/
-!thesia-wasm-renderer/pkg
+src-wasm/
+!src-wasm/pkg
 src-tauri/Info.plist
 samples

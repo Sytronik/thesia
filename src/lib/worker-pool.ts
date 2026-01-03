@@ -1,7 +1,7 @@
-import RendererWorker from "./worker?worker";
+import WasmWorker from "./worker?worker";
 import type {
-  RendererWorkerEventMessage,
-  RendererWorkerMessage,
+  WasmWorkerEventMessage,
+  WasmWorkerMessage,
   OnReturnMipmapCallback,
   OnSetSpectrogramDoneCallback,
 } from "./worker";
@@ -16,7 +16,7 @@ initializeWorkerPool();
 export function initializeWorkerPool() {
   workers = new Map<number, Worker>(
     Array.from({length: NUM_WORKERS}, (_, i) => {
-      const worker = new RendererWorker();
+      const worker = new WasmWorker();
       if (!setSpectrogramDoneListeners.has(i)) setSpectrogramDoneListeners.set(i, new Map());
       if (!returnSpectrogramListeners.has(i)) returnSpectrogramListeners.set(i, new Map());
       worker.onmessage = (event) => onmessage(i, event);
@@ -27,7 +27,7 @@ export function initializeWorkerPool() {
 
 export const postMessageToWorker = (
   index: number,
-  message: RendererWorkerMessage,
+  message: WasmWorkerMessage,
   transferList: Transferable[] = [],
 ) => {
   workers.get(index)?.postMessage(message, transferList);
@@ -61,7 +61,7 @@ export const onReturnMipmap = (
   };
 };
 
-function onmessage(index: number, event: MessageEvent<RendererWorkerEventMessage>) {
+function onmessage(index: number, event: MessageEvent<WasmWorkerEventMessage>) {
   const {type, data} = event.data;
   switch (type) {
     case "setSpectrogramDone": {

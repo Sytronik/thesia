@@ -8,9 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build:wasm": "wasm-pack build thesia-wasm-renderer --release --target web",
-    "build:wasm.debug": "wasm-pack build thesia-wasm-renderer --dev --target web",
-    "clean": "cargo clean && shx rm -rf thesia-wasm-renderer/pkg",
+    "build:wasm": "wasm-pack build src-wasm --release --target web",
+    "build:wasm.debug": "wasm-pack build src-wasm --dev --target web",
+    "clean": "cargo clean && shx rm -rf src-wasm/pkg",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -27,7 +27,7 @@
     "react-router-dom": "^7.11.0",
     "react-tooltip": "^5.30.0",
     "react-use-event-hook": "^0.9.6",
-    "thesia-wasm-renderer": "file:./thesia-wasm-renderer/pkg",
+    "thesia-wasm-module": "file:./src-wasm/pkg",
     "throttle-debounce": "^5.0.2",
     "use-device-pixel-ratio": "^1.1.2"
   },
