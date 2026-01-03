@@ -26,7 +26,7 @@ This project is in a beta stage.
        .\vcpkg\bootstrap-vcpkg.bat
        .\vcpkg\vcpkg integrate install
        # add vcpkg directory to PATH and restart the terminal, then run:
-       vcpkg install openblas --triplet x64-windows-static
+       vcpkg install openblas:x64-windows-static openblas:x64-windows-static-md
        ```
    - Linux
      - ALSA
