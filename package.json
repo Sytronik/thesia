@@ -51,8 +51,6 @@
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "prettier": "^3.7.4",
-    "react-devtools": "^7.0.1",
-    "react-devtools-core": "^7.0.1",
     "sass": "^1.97.1",
     "sass-embedded": "^1.97.1",
     "shx": "^0.4.0",
