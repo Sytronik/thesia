@@ -2,7 +2,7 @@ use ndarray::prelude::*;
 
 #[allow(non_snake_case)]
 pub fn convert_spectrogram_to_img(
-    spec: ArrayView2<f32>,
+    spec: &ArrayRef2<f32>,
     i_freq_range: (usize, usize),
     dB_range: (f32, f32),
     colormap_length: Option<u32>,

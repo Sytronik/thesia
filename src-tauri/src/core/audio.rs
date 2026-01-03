@@ -53,9 +53,9 @@ impl Audio {
         stat_calculator: &mut StatCalculator,
         guard_clipping_mode: GuardClippingMode,
     ) where
-        F: Fn(ArrayViewMut2<f32>),
+        F: Fn(&mut ArrayRef2<f32>),
     {
-        f(self.wavs.view_mut());
+        f(&mut self.wavs);
         let guard_clip_result = self.guard_clipping(guard_clipping_mode);
         self.guard_clip_stats = (&guard_clip_result).into();
         self.guard_clip_result = guard_clip_result;
@@ -168,7 +168,7 @@ impl GuardClipping<Ix2> for Audio {
         let gain_seq = if peak > 1. {
             let gain_seq = LIMITER_MANAGER.with_borrow_mut(|manager| {
                 let limiter = manager.get_or_insert(self.sr);
-                limiter.process_inplace(self.wavs.view_mut())
+                limiter.process_inplace(&mut self.wavs)
             });
             gain_seq.into_shape_with_order(gain_shape).unwrap()
         } else {

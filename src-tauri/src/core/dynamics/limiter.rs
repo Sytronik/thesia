@@ -89,10 +89,10 @@ impl PerfectLimiter {
     }
 
     /// process one sample, and returns (delayed_output, gain)
-    pub fn _step(&mut self, frame: ArrayView1<f32>) -> (Array1<f32>, f32) {
+    pub fn _step(&mut self, frame: &ArrayRef1<f32>) -> (Array1<f32>, f32) {
         let mut delayed = self.buffer.slice(s![self.i_buf, ..]).to_owned();
         let gain = self.calc_gain(frame);
-        azip!((y in &mut self.buffer.slice_mut(s![self.i_buf, ..]), x in &frame) *y = *x as f64);
+        azip!((y in &mut self.buffer.slice_mut(s![self.i_buf, ..]), x in frame) *y = *x as f64);
         self.i_buf = (self.i_buf + 1) % self.buffer.shape()[0];
         // println!("i={} d={} g={}", value, delayed, gain);
         delayed *= gain;
@@ -107,7 +107,7 @@ impl PerfectLimiter {
     }
 
     /// apply limiter to wav inplace , return gain array. parallel over channel axis (=Axis(0))
-    pub fn process_inplace(&mut self, mut wavs: ArrayViewMut2<f32>) -> Array1<f32> {
+    pub fn process_inplace(&mut self, wavs: &mut ArrayRef2<f32>) -> Array1<f32> {
         self.reset(0);
 
         let zero = Array1::zeros(wavs.shape()[0]);
@@ -116,7 +116,7 @@ impl PerfectLimiter {
             wavs.lanes(Axis(0)),
             itertools::repeat_n(zero.view(), attack),
         )
-        .map(|x| self.calc_gain(x))
+        .map(|x| self.calc_gain(&x))
         .skip(attack)
         .collect();
 
@@ -136,13 +136,13 @@ impl PerfectLimiter {
 
     /// apply limiter to wav, return (output, gain array)
     #[inline]
-    pub fn _process(&mut self, wavs: ArrayView2<f32>) -> (Array2<f32>, Array1<f32>) {
+    pub fn _process(&mut self, wavs: &ArrayRef2<f32>) -> (Array2<f32>, Array1<f32>) {
         let mut out = wavs.to_owned();
-        let gain_seq = self.process_inplace(out.view_mut());
+        let gain_seq = self.process_inplace(&mut out);
         (out, gain_seq)
     }
 
-    fn calc_gain(&mut self, frame: ArrayView1<f32>) -> f64 {
+    fn calc_gain(&mut self, frame: &ArrayRef1<f32>) -> f64 {
         // max abs over all channels
         let v_abs = frame.iter().map(|x| x.abs()).reduce(f32::max).unwrap() as f64;
         let raw_gain = if v_abs > self.threshold {
@@ -208,7 +208,7 @@ impl SimpleLimiter {
         }
     }
 
-    pub fn process_inplace(&mut self, mut wav: ArrayViewMut1<f32>) {
+    pub fn process_inplace(&mut self, wav: &mut ArrayRef1<f32>) {
         let mut delay_index = 0;
         let mut gain = 1.;
         let mut envelope = 0.;
@@ -236,9 +236,9 @@ impl SimpleLimiter {
         }
     }
 
-    pub fn process(&mut self, wav: ArrayView1<f32>) -> Array1<f32> {
+    pub fn process(&mut self, wav: &ArrayRef1<f32>) -> Array1<f32> {
         let mut out = wav.to_owned();
-        self.process_inplace(out.view_mut());
+        self.process_inplace(&mut out);
         out
     }
 }
@@ -268,7 +268,7 @@ mod tests {
         let (mut wavs, format_info) = open_audio_file(path).unwrap();
         let mut limiter = PerfectLimiter::new(format_info.sr, 1., 5., 15., 40.);
         wavs *= 8.;
-        let gain_seq = limiter.process_inplace(wavs.view_mut());
+        let gain_seq = limiter.process_inplace(&mut wavs);
         assert!(
             gain_seq.iter().all(|x| (0.0..=1.0).contains(x)),
             "cnt of gain>1: {}, cnt of gain<0: {}",

@@ -186,7 +186,7 @@ impl SpectrogramAnalyzer {
 
     pub fn calc_spec(
         &self,
-        wav: ArrayView1<f32>,
+        wav: &ArrayRef1<f32>,
         sr: u32,
         setting: &SpecSetting,
         parallel: bool,

@@ -35,10 +35,10 @@ pub fn get_mipmap(id_ch_str: &str, width: u32, height: u32) -> Option<WasmU8Arra
     SPEC_MIPMAPS
         .read()
         .get(id_ch_str)
-        .map(|mipmaps| serialize_2d_array(mipmaps.get_mipmap(width, height).view()))
+        .map(|mipmaps| serialize_2d_array(&mipmaps.get_mipmap(width, height)))
 }
 
-fn serialize_2d_array(array: ArrayView2<f32>) -> WasmU8Array {
+fn serialize_2d_array(array: &ArrayRef2<f32>) -> WasmU8Array {
     let mut buf: Vec<u8> =
         Vec::with_capacity(2 * size_of::<u32>() + array.len() * size_of::<f32>());
     buf.extend_from_slice(&array.shape()[0].to_le_bytes());
@@ -64,7 +64,7 @@ impl Mipmaps {
         let (orig_height, orig_width) = (self.orig_img.shape()[0], self.orig_img.shape()[1]);
         let mipmap: CowArray<pixels::U16, Ix2> =
             if width != orig_width as u32 || height != orig_height as u32 {
-                let mipmap = resize(self.orig_img.view(), width, height);
+                let mipmap = resize(&self.orig_img, width, height);
                 mipmap.into()
             } else {
                 self.orig_img.view().into()
@@ -73,7 +73,7 @@ impl Mipmaps {
     }
 }
 
-fn resize(img: ArrayView2<pixels::U16>, width: u32, height: u32) -> Array2<pixels::U16> {
+fn resize(img: &ArrayRef2<pixels::U16>, width: u32, height: u32) -> Array2<pixels::U16> {
     static RESIZE_OPT: LazyLock<ResizeOptions> = LazyLock::new(|| {
         ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3))
     });

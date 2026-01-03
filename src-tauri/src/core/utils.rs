@@ -5,7 +5,7 @@ use std::path::{self, Path, PathBuf};
 use identity_hash::IntMap;
 use itertools::Itertools;
 use ndarray::prelude::*;
-use ndarray::{Data, OwnedRepr, RemoveAxis};
+use ndarray::{OwnedRepr, RemoveAxis};
 use num_traits::Num;
 
 pub fn unique_filenames(paths: IntMap<usize, PathBuf>) -> IntMap<usize, String> {
@@ -74,10 +74,9 @@ pub trait Pad<A> {
     fn pad(&self, n_pads: (usize, usize), axis: Axis, mode: PadMode<A>) -> Self::WithOwnedA;
 }
 
-impl<A, S, D> Pad<A> for ArrayBase<S, D>
+impl<A, D> Pad<A> for ArrayRef<A, D>
 where
     A: Copy,
-    S: Data<Elem = A>,
     D: Dimension + RemoveAxis,
 {
     type WithOwnedA = ArrayBase<OwnedRepr<A>, D>;
@@ -146,9 +145,8 @@ pub trait Planes<A> {
     fn planes(&self) -> Vec<&[A]>;
 }
 
-impl<A, S, D> Planes<A> for ArrayBase<S, D>
+impl<A, D> Planes<A> for ArrayRef<A, D>
 where
-    S: Data<Elem = A>,
     D: Dimension + RemoveAxis,
 {
     fn planes(&self) -> Vec<&[A]> {

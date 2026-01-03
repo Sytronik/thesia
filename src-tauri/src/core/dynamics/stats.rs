@@ -1,8 +1,8 @@
 use std::fmt::{self, Display};
 
 use ebur128::{EbuR128, Mode as LoudnessMode};
+use ndarray::RemoveAxis;
 use ndarray::prelude::*;
-use ndarray::{Data, RemoveAxis};
 use ndarray_stats::MaybeNan;
 use num_traits::{AsPrimitive, Float};
 use rayon::prelude::*;
@@ -71,9 +71,8 @@ pub trait MaxPeak<A> {
     fn max_peak(&self) -> A;
 }
 
-impl<S, D> MaxPeak<f64> for ArrayBase<S, D>
+impl<D> MaxPeak<f64> for ArrayRef<f64, D>
 where
-    S: Data<Elem = f64>,
     D: Dimension,
 {
     fn max_peak(&self) -> f64 {
@@ -82,9 +81,8 @@ where
     }
 }
 
-impl<S, D> MaxPeak<f32> for ArrayBase<S, D>
+impl<D> MaxPeak<f32> for ArrayRef<f32, D>
 where
-    S: Data<Elem = f32>,
     D: Dimension,
 {
     fn max_peak(&self) -> f32 {
@@ -116,11 +114,11 @@ impl Display for GuardClippingStats {
 }
 
 impl GuardClippingStats {
-    pub fn from_wav_before_clip<'a, A, D>(wav_before_clip: ArrayView<'a, A, D>) -> Self
+    pub fn from_wav_before_clip<A, D>(wav_before_clip: &ArrayRef<A, D>) -> Self
     where
         A: Float + AsPrimitive<f32> + DeciBel,
         D: Dimension,
-        ArrayView<'a, A, D>: MaxPeak<A>,
+        ArrayRef<A, D>: MaxPeak<A>,
     {
         let max_peak = wav_before_clip.max_peak();
         if max_peak > A::one() {
@@ -143,13 +141,12 @@ impl GuardClippingStats {
         }
     }
 
-    pub fn from_gain_seq<'a, A, S, D>(gain_seq: ArrayView<'a, A, D>) -> Self
+    pub fn from_gain_seq<A, D>(gain_seq: &ArrayRef<A, D>) -> Self
     where
         A: Float + MaybeNan + DeciBel + AsPrimitive<f32>,
         <A as MaybeNan>::NotNan: Ord,
-        S: Data<Elem = A>,
         D: Dimension,
-        ArrayView<'a, A, D>: MinSIMD<A, S, D>,
+        ArrayRef<A, D>: MinSIMD<A, D>,
     {
         GuardClippingStats {
             max_reduction_gain_dB: gain_seq.min_simd().dB_from_amp_default().as_(),
@@ -168,7 +165,7 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
                 let vec = before_clip
                     .axis_iter(Axis(0))
                     .into_par_iter()
-                    .map(GuardClippingStats::from_wav_before_clip)
+                    .map(|x| GuardClippingStats::from_wav_before_clip(&x))
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
             }
@@ -181,7 +178,7 @@ impl<D: Dimension + RemoveAxis> From<&GuardClippingResult<D>>
                 let vec = gain_seq
                     .axis_iter(Axis(0))
                     .into_par_iter()
-                    .map(GuardClippingStats::from_gain_seq)
+                    .map(|x| GuardClippingStats::from_gain_seq(&x))
                     .collect();
                 Array::from_shape_vec(raw_dim.remove_axis(Axis(raw_dim.ndim() - 1)), vec).unwrap()
             }

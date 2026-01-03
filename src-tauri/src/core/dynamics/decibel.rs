@@ -27,7 +27,7 @@ where
     A: Float + MaybeNan,
     <A as MaybeNan>::NotNan: Ord,
 {
-    fn into_value<D: Dimension>(self, data_for_max: ArrayView<A, D>) -> A {
+    fn into_value<D: Dimension>(self, data_for_max: &ArrayRef<A, D>) -> A {
         match self {
             DeciBelRef::Value(v) => {
                 debug_assert!(v.is_sign_positive());
@@ -66,7 +66,7 @@ where
     fn log_for_dB(&self, reference: DeciBelRef<Self::A>, amin: Self::A) -> Self {
         debug_assert!(amin.is_sign_positive());
         let temp = [*self];
-        let ref_value = reference.into_value(temp[..].into());
+        let ref_value = reference.into_value(&ArrayView1::from(&temp[..]));
         if ref_value.is_nan() || ref_value.is_sign_negative() {
             return A::nan();
         }
@@ -169,7 +169,7 @@ where
     type A = A;
     fn log_for_dB_inplace(&mut self, reference: DeciBelRef<A>, amin: A) {
         debug_assert!(amin.is_sign_positive());
-        let ref_value = reference.into_value(self.view());
+        let ref_value = reference.into_value(self);
         if ref_value.is_nan() {
             return;
         } else if ref_value.is_sign_negative() {

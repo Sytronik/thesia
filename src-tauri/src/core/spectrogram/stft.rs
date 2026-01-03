@@ -14,7 +14,7 @@ use super::super::windows::{WindowType, calc_normalized_win};
 use realfft::{RealFftPlanner, RealToComplex};
 
 pub fn perform_stft<'a, A>(
-    input: ArrayView1<A>,
+    input: &ArrayRef1<A>,
     win_length: usize,
     hop_length: usize,
     n_fft: usize,
@@ -35,7 +35,7 @@ where
     let to_frames_wrapper = move |x| {
         let n_pad_left = (n_fft - win_length) / 2;
         let n_pad_right = n_fft - win_length - n_pad_left;
-        to_windowed_frames(x, window.view(), hop_length, (n_pad_left, n_pad_right))
+        to_windowed_frames(x, &window, hop_length, (n_pad_left, n_pad_right))
     };
 
     let fft_module = fft_module
@@ -49,7 +49,7 @@ where
 
     if input.len() < win_length {
         let padded = input.pad((win_length / 2, win_length / 2), Axis(0), PadMode::Reflect);
-        let mut frames = to_frames_wrapper(padded.view());
+        let mut frames = to_frames_wrapper(&padded);
 
         let n_frames = frames.len();
         let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
@@ -78,10 +78,11 @@ where
         input
             .slice(s![..(win_length - 1)])
             .pad((win_length / 2, 0), Axis(0), PadMode::Reflect);
-    let mut front_frames = to_frames_wrapper(front_wav.view());
+    let mut front_frames = to_frames_wrapper(&front_wav);
 
     let mut first_i = front_frames.len() * hop_length - win_length / 2;
-    let mut frames = to_frames_wrapper(input.slice(s![first_i..]));
+    let mid_wav = input.slice(s![first_i..]);
+    let mut frames = to_frames_wrapper(&mid_wav);
 
     first_i += frames.len() * hop_length;
     let i_back_wav_start = first_i.min(input.len() - win_length / 2 - 1);
@@ -91,7 +92,7 @@ where
             .slice(s![i_back_wav_start..])
             .pad((0, win_length / 2), Axis(0), PadMode::Reflect);
     back_wav.slice_collapse(s![(first_i - i_back_wav_start).max(0)..]);
-    let mut back_frames = to_frames_wrapper(back_wav.view());
+    let mut back_frames = to_frames_wrapper(&back_wav);
 
     let n_frames = front_frames.len() + frames.len() + back_frames.len();
     let mut output = Array2::<Complex<A>>::zeros((n_frames, n_fft / 2 + 1));
@@ -124,8 +125,8 @@ where
 
 #[inline]
 fn to_windowed_frames<A: Float>(
-    input: ArrayView1<A>,
-    window: ArrayView1<A>,
+    input: &ArrayRef1<A>,
+    window: &ArrayRef1<A>,
     hop_length: usize,
     (n_pad_left, n_pad_right): (usize, usize),
 ) -> Vec<Array1<A>> {
@@ -173,7 +174,7 @@ mod tests {
     fn stft_works() {
         let impulse = Array1::<f32>::impulse(4, 2);
         assert_eq!(
-            perform_stft(impulse.view(), 4, 2, 4, None, None, false),
+            perform_stft(&impulse, 4, 2, 4, None, None, false),
             arr2(&[
                 [
                     Complex::<f32>::new(0., 0.),
@@ -197,7 +198,7 @@ mod tests {
     #[test]
     fn stft_short_wav() {
         let impulse = Array1::<f32>::impulse(2, 1);
-        let spec = perform_stft(impulse.view(), 8, 6, 8, None, None, false);
+        let spec = perform_stft(&impulse, 8, 6, 8, None, None, false);
         dbg!(spec.shape());
     }
 }

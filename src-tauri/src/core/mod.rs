@@ -152,7 +152,7 @@ impl TrackManager {
             .par_extend(id_ch_tuples.into_par_iter().map(|(id, ch)| {
                 let track = &tracklist[id];
                 let spec = self.spec_analyzer.calc_spec(
-                    track.channel(ch),
+                    &track.channel(ch),
                     track.sr(),
                     &self.setting,
                     parallel,
@@ -211,7 +211,7 @@ impl TrackManager {
                         spec.shape()[1],
                     );
                     let spec_img = visualize::convert_spectrogram_to_img(
-                        spec.view(),
+                        spec,
                         i_freq_range,
                         (self.min_dB, self.max_dB),
                         Some(self.colormap_length),

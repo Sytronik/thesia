@@ -8,7 +8,7 @@ use std::arch::is_x86_feature_detected;
 use std::arch::x86_64::*;
 
 use itertools::Itertools;
-use ndarray::{ArrayBase, Data, DataMut, Dimension};
+use ndarray::{ArrayBase, ArrayRef, DataMut, Dimension};
 use ndarray_stats::QuantileExt;
 
 pub fn find_min_max(slice: &[f32]) -> (f32, f32) {
@@ -55,27 +55,24 @@ pub fn find_min(slice: &[f32]) -> f32 {
     find_min_scalar(slice)
 }
 
-pub trait MinSIMD<A, S, D>
+pub trait MinSIMD<A, D>
 where
-    S: Data<Elem = A>,
     D: Dimension,
 {
     fn min_simd(&self) -> A;
 }
 
-impl<S, D> MinSIMD<f32, S, D> for ArrayBase<S, D>
+impl<D> MinSIMD<f32, D> for ArrayRef<f32, D>
 where
-    S: Data<Elem = f32>,
     D: Dimension,
 {
     fn min_simd(&self) -> f32 {
-        find_min(self.as_slice_memory_order().unwrap())
+        find_min(self.as_slice_memory_order().unwrap_or_default())
     }
 }
 
-impl<S, D> MinSIMD<f64, S, D> for ArrayBase<S, D>
+impl<D> MinSIMD<f64, D> for ArrayRef<f64, D>
 where
-    S: Data<Elem = f64>,
     D: Dimension,
 {
     fn min_simd(&self) -> f64 {
