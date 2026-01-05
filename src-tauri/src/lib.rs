@@ -143,13 +143,15 @@ fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Resu
 
 #[tauri::command]
 async fn get_open_files_dialog_path(app: AppHandle) -> String {
+    if tauri::is_dev() {
+        return get_project_root()
+            .join("samples")
+            .to_string_lossy()
+            .into_owned();
+    }
     let store = app.store("paths.json").unwrap();
     if !store.has(OPEN_FILES_DIALOG_PATH_KEY) {
-        let path = if tauri::is_dev() {
-            get_project_root().join("samples")
-        } else {
-            std::env::home_dir().unwrap_or_default()
-        };
+        let path = std::env::home_dir().unwrap_or_default();
         store.set(
             OPEN_FILES_DIALOG_PATH_KEY,
             path.to_string_lossy().into_owned(),
@@ -161,6 +163,9 @@ async fn get_open_files_dialog_path(app: AppHandle) -> String {
 
 #[tauri::command]
 async fn set_open_files_dialog_path(app: AppHandle, path: String) {
+    if tauri::is_dev() {
+        return;
+    }
     let store = app.store("paths.json").unwrap();
     store.set(OPEN_FILES_DIALOG_PATH_KEY, path);
 }
