@@ -1,98 +1,51 @@
 import js from "@eslint/js";
-import tseslint from "@typescript-eslint/eslint-plugin";
-import tsparser from "@typescript-eslint/parser";
-import react from "eslint-plugin-react";
+import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
 import jsxA11y from "eslint-plugin-jsx-a11y";
-import promise from "eslint-plugin-promise";
+import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
 
-export default [
-  js.configs.recommended,
+export default tseslint.config(
   {
     ignores: [
-      // Dependencies
-      "node_modules/**",
-      "package-lock.json",
-      // Build outputs
-      "dist/**",
-      "target/**",
-      "src-wasm/pkg/**",
-      // Generated files
-      "**/*.scss.d.ts",
-      "**/*.d.ts",
-      "!src/**/*.d.ts",
-      // Sample/test files
-      "samples/**",
-      "public/**",
-      // Rust source files
-      "**/*.rs",
-      "src-tauri/**",
-      "src-wasm/**",
-      // Config files
-      "Cargo.toml",
-      "Cargo.lock",
-      // Logs
-      "**/*.log",
-      "log.txt",
-      // Other
-      "README.md",
-      "index.html",
-      ".gitignore",
+      "dist",
+      "node_modules",
+      "src-tauri",
+      "src-wasm",
+      "src-common",
+      "public",
+      "samples",
+      "target",
     ],
   },
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ["**/*.{ts,tsx,js,jsx}"],
     languageOptions: {
-      parser: tsparser,
-      parserOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module",
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-      globals: {
-        window: "readonly",
-        document: "readonly",
-        console: "readonly",
-        process: "readonly",
-      },
+      ecmaVersion: 2020,
+      globals: globals.browser,
     },
     plugins: {
-      "@typescript-eslint": tseslint,
-      react: react,
       "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
       "jsx-a11y": jsxA11y,
-      promise: promise,
     },
     rules: {
-      "react-hooks/rules-of-hooks": "error",
-      "react/react-in-jsx-scope": "off",
-      "react/jsx-filename-extension": "off",
-      //   "import/extensions": "off",
-      //   "import/no-unresolved": "off",
-      //   "import/no-import-module-exports": "off",
-      "no-undef": "off",
+      ...reactHooks.configs.recommended.rules,
+      ...jsxA11y.flatConfigs.strict.rules,
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "no-shadow": "off",
-      "@typescript-eslint/no-shadow": "error",
-      "no-unused-vars": "off",
-      "react-hooks/exhaustive-deps": "warn",
-      "react/prop-types": "warn",
-      "react/require-default-props": "off",
-      "no-alert": "warn",
-      "no-restricted-syntax": "warn",
-      "no-restricted-exports": 0,
-      "jsx-a11y/click-events-have-key-events": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/label-has-associated-control": [2, {labelAttributes: ["htmlFor"]}],
-      "jsx-a11y/control-has-associated-label": "warn",
-      "promise/always-return": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", {argsIgnorePattern: "^_"}],
-    },
-    settings: {
-      react: {
-        version: "detect",
-      },
+      "@typescript-eslint/no-shadow": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
     },
   },
-];
+  prettier,
+);

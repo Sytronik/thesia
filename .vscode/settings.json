@@ -33,6 +33,7 @@
   "[html]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "search.exclude": {
     ".git": true,
     "target": true,
@@ -42,5 +43,5 @@
     "Cargo.lock": true,
     "*.{css,sass,scss}.d.ts": true
   },
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": true
 }
