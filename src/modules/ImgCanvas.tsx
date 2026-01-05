@@ -63,6 +63,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   const workerIndex = idChStrToWorkerIndex(idChStr);
 
   const needHideWav = blend >= 1 || hidden;
+  const hasSetWavCompletedRef = useRef(false);
 
   const devicePixelRatio = useContext(DevicePixelRatioContext);
 
@@ -97,7 +98,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   }, [devicePixelRatio, workerIndex]);
 
   const drawWavImage = useCallback(() => {
-    if (!wavCanvasElem.current) return;
+    if (!wavCanvasElem.current || !hasSetWavCompletedRef.current) return;
 
     // set opacity by blend
     wavCanvasElem.current.style.opacity = blend < 0.5 ? "1" : `${Math.max(2 - 2 * blend, 0)}`;
@@ -116,15 +117,8 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   }, [blend, workerIndex, idChStr, width, height, startSec, pxPerSec, ampRange]);
 
   // Use a ref to store the latest draw function
-  const drawWavImageRef = useRef(drawWavImage);
 
-  const drawWavImageRequestRef = useRef<number>(0);
-  if (!needHideWav && drawWavImageRef.current === drawWavImage) {
-    if (drawWavImageRequestRef.current !== 0) cancelAnimationFrame(drawWavImageRequestRef.current);
-    drawWavImageRequestRef.current = requestAnimationFrame(drawWavImage);
-  }
-
-  useEffect(() => {
+  const drawWavIfNeeded = useCallback(() => {
     if (needHideWav) {
       if (wavCanvasElem.current) {
         wavCanvasElem.current.style.opacity = "0";
@@ -132,32 +126,42 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       postMessageToWorker(workerIndex, {type: "clearWav", data: {idChStr, width, height}});
       return () => {};
     }
-    drawWavImageRef.current = drawWavImage;
     // Request a redraw only when the draw function or its dependencies change
-    const requestId = requestAnimationFrame(() => drawWavImageRef.current?.());
+    const requestId = requestAnimationFrame(drawWavImage);
 
     // Cleanup function to cancel the frame if the component unmounts
     // or if dependencies change again before the frame executes
     return () => cancelAnimationFrame(requestId);
   }, [drawWavImage, width, height, needHideWav, workerIndex, idChStr]);
 
+  const drawWavIfNeededRef = useRef(drawWavIfNeeded);
+  useEffect(() => {
+    drawWavIfNeededRef.current = drawWavIfNeeded;
+    return drawWavIfNeeded();
+  }, [drawWavIfNeeded]);
+
   const prevNeedRefreshRef = useRef(needRefresh);
   useEffect(() => {
     if (needRefresh || (!needRefresh && needRefresh === prevNeedRefreshRef.current)) {
+      hasSetWavCompletedRef.current = false;
       BackendAPI.getWav(idChStr).then((wavInfo) => {
         if (wavInfo === null) return;
         postMessageToWorker(workerIndex, {type: "setWav", data: {idChStr, wavInfo}}, [
           wavInfo.wavArr.buffer,
         ]);
-        drawWavImageRef.current?.();
+        hasSetWavCompletedRef.current = true;
+        drawWavIfNeededRef.current();
       });
     }
     prevNeedRefreshRef.current = needRefresh;
-    return () => postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
+    return () => {
+      postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
+      hasSetWavCompletedRef.current = false;
+    };
   }, [idChStr, needRefresh, workerIndex]);
 
   const onVisibilityChange = useEvent(() => {
-    if (document.visibilityState === "visible" && !needHideWav) drawWavImageRef.current?.();
+    if (document.visibilityState === "visible") drawWavIfNeededRef.current();
   });
 
   // on Webkit, canvas is cleared when the page is hidden, so we need to redraw the canvas when the page is visible
