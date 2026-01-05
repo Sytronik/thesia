@@ -48,7 +48,7 @@ fn is_dev() -> bool {
 
 #[tauri::command]
 fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSettings> {
-    let user_settings = get_user_settings(&app)?;
+    let user_settings = _get_user_settings(&app)?;
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
         let mut tm = TM.write();
@@ -90,7 +90,7 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSett
     })
 }
 
-fn get_user_settings(app: &AppHandle) -> tauri::Result<UserSettingsOptionals> {
+fn _get_user_settings(app: &AppHandle) -> tauri::Result<UserSettingsOptionals> {
     let store = app.store("settings.json").unwrap();
     let user_settings_entries = store.entries();
     let default_json = json!(UserSettingsOptionals::default());
@@ -144,7 +144,7 @@ fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Resu
 #[tauri::command]
 async fn get_open_files_dialog_path(app: AppHandle) -> String {
     if tauri::is_dev() {
-        return get_project_root()
+        return _get_project_root()
             .join("samples")
             .to_string_lossy()
             .into_owned();
@@ -280,7 +280,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
         TM.write().update_all_specs_mipmaps(&tracklist);
     })
     .await;
-    refresh_track_player().await;
+    _refresh_track_player().await;
 }
 
 #[tauri::command]
@@ -296,7 +296,7 @@ async fn set_common_normalize(target: NormalizeTarget) {
         TM.write().update_all_specs_mipmaps(&tracklist);
     })
     .await;
-    refresh_track_player().await;
+    _refresh_track_player().await;
 }
 
 #[tauri::command]
@@ -515,17 +515,17 @@ fn get_player_state() -> PlayerState {
 }
 
 #[inline]
-async fn refresh_track_player() {
+async fn _refresh_track_player() {
     player::send(PlayerCommand::SetTrack((None, None))).await;
 }
 
-fn get_project_root() -> PathBuf {
+fn _get_project_root() -> PathBuf {
     let curr_dir = std::env::current_dir().unwrap();
     curr_dir.parent().unwrap().to_owned()
 }
 
 #[cfg(any(windows, target_os = "linux"))]
-fn parse_args(args: impl IntoIterator<Item = String>) -> Vec<PathBuf> {
+fn _prarse_args(args: impl IntoIterator<Item = String>) -> Vec<PathBuf> {
     let mut files = Vec::new();
 
     // NOTICE: `args` may include URL protocol (`your-app-protocol://`)
@@ -542,7 +542,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Vec<PathBuf> {
     files
 }
 
-fn handle_file_associations(app: &AppHandle, files: Vec<PathBuf>, by_event: bool) {
+fn _handle_file_associations(app: &AppHandle, files: Vec<PathBuf>, by_event: bool) {
     if files.is_empty() {
         return;
     }
@@ -590,7 +590,7 @@ pub fn run() {
 
     #[cfg(debug_assertions)]
     {
-        _dev_default_open_path = Some(get_project_root().join("samples/stereo/sample_48k.wav"));
+        _dev_default_open_path = Some(_get_project_root().join("samples/stereo/sample_48k.wav"));
     }
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get_physical())
@@ -607,8 +607,8 @@ pub fn run() {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 // Open files when the app is already running
-                let files = parse_args(_args);
-                handle_file_associations(app.app_handle(), files, true);
+                let files = _prarse_args(_args);
+                _handle_file_associations(app.app_handle(), files, true);
             }
             let _ = window.set_focus();
         }));
@@ -651,7 +651,7 @@ pub fn run() {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 // Open files when the app is started
-                let mut files = parse_args(std::env::args());
+                let mut files = _prarse_args(std::env::args());
                 #[cfg(debug_assertions)]
                 {
                     if let Some(default_open_path) = _dev_default_open_path
@@ -660,7 +660,7 @@ pub fn run() {
                         files.push(default_open_path);
                     }
                 }
-                handle_file_associations(&handle, files, false);
+                _handle_file_associations(&handle, files, false);
             }
 
             #[cfg(target_os = "macos")]
@@ -683,7 +683,7 @@ pub fn run() {
                         files.push(default_open_path);
                     }
                 }
-                handle_file_associations(&handle, files, false);
+                _handle_file_associations(&handle, files, false);
 
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
@@ -694,7 +694,7 @@ pub fn run() {
                         .filter_map(|url| url.to_file_path().ok())
                         .collect::<Vec<_>>();
 
-                    handle_file_associations(&handle, files, true);
+                    _handle_file_associations(&handle, files, true);
                 });
             }
 
