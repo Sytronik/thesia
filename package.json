@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "build:wasm": "wasm-pack build src-wasm --release --target web",
     "build:wasm.debug": "wasm-pack build src-wasm --dev --target web",
-    "clean": "cargo clean && shx rm -rf src-wasm/pkg",
+    "clean": "cargo clean && shx rm -rf src-wasm/pkg node_modules",
     "lint": "eslint ."
   },
   "dependencies": {
