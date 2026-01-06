@@ -34,6 +34,7 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.strict.rules,
+      "react-hooks/refs": "warn",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "no-shadow": "off",
       "@typescript-eslint/no-shadow": "warn",
