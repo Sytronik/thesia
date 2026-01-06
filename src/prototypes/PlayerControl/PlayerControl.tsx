@@ -24,8 +24,9 @@ function PlayerControl(props: PlayerControlProps) {
   const { PLAY_JUMP_SEC } = useContext(BackendConstantsContext);
   const prevPosSecRef = useRef<number>(0);
   const posInputElem = useRef<FloatingUserInputElement | null>(null);
-  const requestRef = useRef<number>(0);
 
+  const requestRef = useRef<number>(0);
+  const updatePosLabelRef = useRef<(() => Promise<void>) | null>(null);
   const updatePosLabel = useEvent(async () => {
     const positionSec =
       (player.isPlaying ? player.positionSecRef.current : player.selectSecRef.current) ?? 0;
@@ -38,11 +39,13 @@ function PlayerControl(props: PlayerControlProps) {
       posInputElem.current.setValue(positionLabel);
       prevPosSecRef.current = positionSec;
     }
-    requestRef.current = requestAnimationFrame(updatePosLabel);
+    if (updatePosLabelRef.current)
+      requestRef.current = requestAnimationFrame(updatePosLabelRef.current);
   });
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(updatePosLabel);
+    updatePosLabelRef.current = updatePosLabel;
+    requestRef.current = requestAnimationFrame(updatePosLabelRef.current);
     return () => cancelAnimationFrame(requestRef.current);
   }, [updatePosLabel]);
 

@@ -120,6 +120,7 @@ function MyApp({ userSettings }: AppProps) {
   });
 
   useEffect(() => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     const openedFiles: string[] | undefined = (window as any).openedFiles;
     if (openedFiles) {
       openAudioTracks(openedFiles);
@@ -129,6 +130,7 @@ function MyApp({ userSettings }: AppProps) {
     return () => {
       promiseUnlisten.then((unlistenFn) => unlistenFn());
     };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }, [openAudioTracks]);
 
   const openAudioTracksHandler = useMemo(

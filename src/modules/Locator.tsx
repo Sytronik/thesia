@@ -50,7 +50,8 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
     },
   );
 
-  const draw = useEvent((_time: number, request: boolean = true) => {
+  const drawRef = useRef<(() => void) | null>(null);
+  const draw = useEvent(() => {
     const locatorPos = calcLocatorPos();
     const leftWidthTop = getBoundingLeftWidthTop();
 
@@ -90,11 +91,12 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
     }
     prevLocatorPos.current = locatorPos;
     if (leftWidthTop) prevLeftWidthTop.current = leftWidthTop;
-    if (request) requestRef.current = requestAnimationFrame(draw);
+    if (drawRef.current) requestRef.current = requestAnimationFrame(drawRef.current);
   });
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(draw);
+    drawRef.current = draw;
+    requestRef.current = requestAnimationFrame(drawRef.current);
     return () => cancelAnimationFrame(requestRef.current);
   }, [draw]);
 

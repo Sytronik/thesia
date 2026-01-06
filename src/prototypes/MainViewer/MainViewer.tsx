@@ -689,7 +689,7 @@ function MainViewer(props: MainViewerProps) {
   }, [scrollTop]);
 
   const requestRef = useRef<number>(0);
-
+  const updateByPlayerStatusRef = useRef<(() => Promise<void>) | null>(null);
   const updateByPlayerStatus = useEvent(async () => {
     const selectSec = player.selectSecRef.current ?? 0;
     if (player.isPlaying) {
@@ -714,11 +714,13 @@ function MainViewer(props: MainViewerProps) {
     }
     prevSelectSecRef.current = selectSec;
 
-    requestRef.current = requestAnimationFrame(updateByPlayerStatus);
+    if (updateByPlayerStatusRef.current)
+      requestRef.current = requestAnimationFrame(updateByPlayerStatusRef.current);
   });
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(updateByPlayerStatus);
+    updateByPlayerStatusRef.current = updateByPlayerStatus;
+    requestRef.current = requestAnimationFrame(updateByPlayerStatusRef.current);
     return () => cancelAnimationFrame(requestRef.current);
   }, [updateByPlayerStatus]);
 
