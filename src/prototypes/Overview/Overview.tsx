@@ -53,7 +53,7 @@ function Overview(props: OverviewProps) {
   const idChArr = useMemo(() => _idChArr.slice(0, OVERVIEW_MAX_CH), [_idChArr]);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const durationSecPromise = useMemo(
-    async () => (trackId !== null ? await BackendAPI.getLengthSec(trackId) : 0),
+    () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : Promise.resolve(0)),
     [trackId],
   );
 
@@ -122,8 +122,11 @@ function Overview(props: OverviewProps) {
     }
   }, [devicePixelRatio, durationSecPromise, idChArr, maxTrackSec, trackId]);
 
+  // TODO: rm using refs
   const prevDrawRef = useRef(draw);
+  // eslint-disable-next-line react-hooks/refs
   if (prevDrawRef.current === draw && needRefresh) draw();
+  // eslint-disable-next-line react-hooks/refs
   prevDrawRef.current = draw;
 
   useEffect(() => {

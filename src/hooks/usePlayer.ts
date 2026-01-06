@@ -29,6 +29,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   });
 
   const requestRef = useRef<number>(0);
+  const updatePlayerStatesRef = useRef<(() => Promise<void>) | null>(null);
 
   const updatePlayerStates = useEvent(async () => {
     // const start = performance.now();
@@ -44,11 +45,13 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     }
     if (isPlaying !== newIsPlaying) setIsPlaying(newIsPlaying);
     positionSecRef.current = positionSec;
-    requestRef.current = requestAnimationFrame(updatePlayerStates);
+    if (updatePlayerStatesRef.current)
+      requestRef.current = requestAnimationFrame(updatePlayerStatesRef.current);
   });
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(updatePlayerStates);
+    updatePlayerStatesRef.current = updatePlayerStates;
+    requestRef.current = requestAnimationFrame(updatePlayerStatesRef.current);
     return () => cancelAnimationFrame(requestRef.current);
   }, [updatePlayerStates]);
 

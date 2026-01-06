@@ -138,6 +138,4 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
   );
 }
 
-const genericMemo: <T>(component: T) => T = React.memo;
-
-export default genericMemo(Draggable);
+export default React.memo(Draggable);

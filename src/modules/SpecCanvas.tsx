@@ -72,6 +72,8 @@ const SpecCanvas = (props: SpecCanvasProps) => {
   const mipmapRef = useRef<Mipmap | null>(null);
 
   const mipmapIsNotNeeded = hidden || blend <= 0 || width <= 0;
+  // TODO: rm using refs
+  // eslint-disable-next-line react-hooks/refs
   const needClearSpec = width <= 0 || startSec >= trackSecRef.current;
 
   const specCanvasElem = useRef<HTMLCanvasElement | null>(null);
@@ -165,6 +167,8 @@ const SpecCanvas = (props: SpecCanvasProps) => {
     return setSpectrogramReactivelyRef.current?.();
   }, [setSpectrogramReactively]);
 
+  // TODO: rm using refs
+  // eslint-disable-next-line react-hooks/refs
   if (needRefresh && setSpectrogramReactivelyRef.current === setSpectrogramReactively) {
     // console.log("setSpectrogram by needRefresh");
     setSpectrogram(idChStr, workerIndex);

@@ -343,7 +343,7 @@ function Control(props: ControlProps) {
               id="freqScale"
             />
             <div className={styles.freqScaleSwitchBox}>
-              <label className={styles.freqScaleToggle} htmlFor="freqScale" />
+              <span className={styles.freqScaleToggle} />
               <label
                 className={`${styles.freqScaleLabelBox} ${styles.freqScaleLinear}`}
                 htmlFor="freqScale"

@@ -94,6 +94,7 @@ function TrackSummary(props: TrackSummaryProps) {
         onMouseLeave={closeTooltip}
         onWheel={closeTooltip}
         ref={pathNameElem}
+        role="presentation"
       >
         {showTooltip ? createTooltip() : null}
         {pathPieces.length ? (

@@ -86,7 +86,10 @@ export type WavInfo = {
 };
 
 export async function getWav(idChStr: string): Promise<WavInfo | null> {
-  const wavInfo = await invoke<any | null>("get_wav", { idChStr });
+  const wavInfo = await invoke<{ wav: number[]; sr: number; isClipped: boolean } | null>(
+    "get_wav",
+    { idChStr },
+  );
   if (!wavInfo) return null;
 
   const { wav, sr, isClipped } = wavInfo;
@@ -176,10 +179,19 @@ export async function setCommonGuardClipping(mode: GuardClippingMode): Promise<v
 }
 
 export async function getSpectrogram(idChStr: string): Promise<Spectrogram | null> {
-  const out = await invoke<any | null>("get_spectrogram", { idChStr });
+  const out = await invoke<{
+    arr: number[];
+    width: number;
+    height: number;
+    trackSec: number;
+  } | null>("get_spectrogram", { idChStr });
   if (!out) return null;
-  out.arr = new Uint16Array(out.arr);
-  return out;
+  return {
+    arr: new Uint16Array(out.arr),
+    width: out.width,
+    height: out.height,
+    trackSec: out.trackSec,
+  };
 }
 
 export async function findIdByPath(path: string): Promise<number> {
@@ -211,7 +223,10 @@ export async function getSampleRate(trackId: number): Promise<number> {
 }
 
 export async function getFormatInfo(trackId: number): Promise<AudioFormatInfo> {
-  const out = await invoke<any>("get_format_info", { trackId });
+  const out = await invoke<{ name: string; sr: number; bitDepth: string; bitrate: string }>(
+    "get_format_info",
+    { trackId },
+  );
   return {
     name: out.name,
     sampleRate: out.sr,

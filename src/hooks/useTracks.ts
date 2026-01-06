@@ -61,7 +61,7 @@ function useTracks(userSettings: UserSettings) {
       setMaxTrackHz(_maxTrackHz);
       setTrackIdChMap(_trackIdChMap);
     });
-  }, [trackIds, needRefreshTrackIdChArr]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trackIds, needRefreshTrackIdChArr]);
 
   const addTracks = useEvent(
     async (paths: string[], index: number | null = null): Promise<AddTracksResultType> => {
