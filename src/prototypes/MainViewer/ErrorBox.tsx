@@ -9,14 +9,14 @@ type ErrorBoxProps = {
 };
 
 function ErrorBox(props: ErrorBoxProps) {
-  const {trackId, width, handleReload, handleIgnore, handleClose} = props;
+  const { trackId, width, handleReload, handleIgnore, handleClose } = props;
 
   return (
     <div
       className={styles.errorBox}
       role="presentation"
       onClick={(e) => e.stopPropagation()}
-      style={{width}}
+      style={{ width }}
     >
       <p>The file is corrupted and cannot be opened</p>
       <div>

@@ -7,12 +7,12 @@ import React, {
   useContext,
 } from "react";
 import useEvent from "react-use-event-hook";
-import {DevicePixelRatioContext} from "../contexts";
-import {AXIS_STYLE, VERTICAL_AXIS_PADDING} from "../prototypes/constants/tracks";
+import { DevicePixelRatioContext } from "../contexts";
+import { AXIS_STYLE, VERTICAL_AXIS_PADDING } from "../prototypes/constants/tracks";
 import styles from "./AxisCanvas.module.scss";
-import BackendAPI, {AxisKind} from "../api";
+import BackendAPI, { AxisKind } from "../api";
 
-const {LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT} = AXIS_STYLE;
+const { LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT } = AXIS_STYLE;
 
 export const getAxisHeight = (rect: DOMRect) => rect.height - 2 * VERTICAL_AXIS_PADDING;
 export const getAxisPos = (pos: number) => pos - VERTICAL_AXIS_PADDING;
@@ -36,7 +36,7 @@ type AxisCanvasProps = {
 };
 
 const AxisCanvas = forwardRef(
-  ({endInclusive = false, shiftWhenResize = false, ...props}: AxisCanvasProps, ref) => {
+  ({ endInclusive = false, shiftWhenResize = false, ...props }: AxisCanvasProps, ref) => {
     const {
       id,
       width,
@@ -61,7 +61,7 @@ const AxisCanvas = forwardRef(
           return;
         }
         bgColor.current = window.getComputedStyle(elem).backgroundColor;
-        if (onWheel) elem.addEventListener("wheel", onWheel, {passive: false});
+        if (onWheel) elem.addEventListener("wheel", onWheel, { passive: false });
         canvasElem.current = elem;
       },
       [onWheel],
@@ -76,7 +76,7 @@ const AxisCanvas = forwardRef(
       if (!canvasElem.current) return;
       canvasElem.current.width = width * devicePixelRatio;
       canvasElem.current.height = height * devicePixelRatio;
-      const ctx = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
+      const ctx = canvasElem.current.getContext("2d", { alpha: false, desynchronized: true });
       if (!ctx) return;
 
       ctx.scale(devicePixelRatio, devicePixelRatio);
@@ -183,7 +183,7 @@ const AxisCanvas = forwardRef(
       <canvas
         className={`AxisCanvas ${styles[className]}`}
         ref={canvasElemCallback}
-        style={{width, height}}
+        style={{ width, height }}
         onContextMenu={(e) => {
           e.preventDefault();
           BackendAPI.showAxisContextMenu(className, id);

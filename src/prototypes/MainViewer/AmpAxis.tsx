@@ -1,7 +1,7 @@
-import React, {useEffect, useMemo, useState} from "react";
-import AxisCanvas, {getAxisHeight} from "src/modules/AxisCanvas";
+import React, { useEffect, useMemo, useState } from "react";
+import AxisCanvas, { getAxisHeight } from "src/modules/AxisCanvas";
 import styles from "src/modules/AxisCanvas.module.scss";
-import Draggable, {CursorStateInfo} from "src/modules/Draggable";
+import Draggable, { CursorStateInfo } from "src/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "src/modules/FloatingUserInput";
 import {
@@ -13,7 +13,7 @@ import {
   VERTICAL_AXIS_PADDING,
   MIN_DIST_FROM_0_FOR_DRAG,
 } from "../constants/tracks";
-import {listenMenuEditAmpRange} from "../../api";
+import { listenMenuEditAmpRange } from "../../api";
 
 type AmpAxisProps = {
   id: number;
@@ -35,7 +35,7 @@ type AmpAxisDragAnchor = {
   cursorRatio: number;
   ampRange: [number, number];
 };
-const DEFAULT_DRAG_ANCHOR: AmpAxisDragAnchor = {cursorRatio: 0.5, ampRange: DEFAULT_AMP_RANGE};
+const DEFAULT_DRAG_ANCHOR: AmpAxisDragAnchor = { cursorRatio: 0.5, ampRange: DEFAULT_AMP_RANGE };
 
 const calcIntervalZeroRatio = (ampRange: [number, number]) => {
   const interval = ampRange[1] - ampRange[0];
@@ -50,7 +50,7 @@ const clampAmpRange = (ampRange: [number, number]) => {
 };
 
 function AmpAxis(props: AmpAxisProps) {
-  const {id, height, markersAndLength, ampRange, setAmpRange, resetAmpRange, enableInteraction} =
+  const { id, height, markersAndLength, ampRange, setAmpRange, resetAmpRange, enableInteraction } =
     props;
   const [floatingInputHidden, setFloatingInputHidden] = useState<boolean>(true);
 
@@ -83,7 +83,7 @@ function AmpAxis(props: AmpAxisProps) {
       dragAnchorValue: AmpAxisDragAnchor,
       rect: DOMRect,
     ) => {
-      const {cursorRatio: anchorRatio, ampRange: anchorAmpRange} = dragAnchorValue;
+      const { cursorRatio: anchorRatio, ampRange: anchorAmpRange } = dragAnchorValue;
       const [anchorInterval, zeroRatio] = calcIntervalZeroRatio(anchorAmpRange);
       const cursorRatio = calcLimitedCursorRatio(cursorState, cursorPos, rect);
       const newInterval = (anchorInterval * (anchorRatio - zeroRatio)) / (cursorRatio - zeroRatio);

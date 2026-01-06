@@ -8,10 +8,10 @@ import React, {
   useState,
 } from "react";
 import useEvent from "react-use-event-hook";
-import {debounce} from "throttle-debounce";
+import { debounce } from "throttle-debounce";
 
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, {FreqScale, Mipmap} from "../api";
+import BackendAPI, { FreqScale, Mipmap } from "../api";
 import {
   cleanupWebGLResources,
   WebGLResources,
@@ -20,8 +20,8 @@ import {
   prepareWebGLResources,
   MAX_TEXTURE_SIZE,
 } from "../lib/webgl-helpers";
-import {postMessageToWorker, onReturnMipmap, onSetSpectrogramDone} from "../lib/worker-pool";
-import {DevicePixelRatioContext} from "../contexts";
+import { postMessageToWorker, onReturnMipmap, onSetSpectrogramDone } from "../lib/worker-pool";
+import { DevicePixelRatioContext } from "../contexts";
 import {
   calcMipmapSize,
   createMipmapSizeArr,
@@ -139,13 +139,13 @@ const SpecCanvas = (props: SpecCanvasProps) => {
         // console.log("setSpectrogram", _idChStr, _workerIndex);
         postMessageToWorker(
           _workerIndex,
-          {type: "setSpectrogram", data: {idChStr: _idChStr, ...spectrogram}},
+          { type: "setSpectrogram", data: { idChStr: _idChStr, ...spectrogram } },
           [spectrogram.arr.buffer],
         );
       }
     });
     return () => {
-      postMessageToWorker(_workerIndex, {type: "removeSpectrogram", data: {idChStr: _idChStr}});
+      postMessageToWorker(_workerIndex, { type: "removeSpectrogram", data: { idChStr: _idChStr } });
     };
   });
 
@@ -219,7 +219,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
     ) => {
       if (_needClearSpec) {
         if (webglResourcesRef.current !== null) {
-          const {gl} = webglResourcesRef.current;
+          const { gl } = webglResourcesRef.current;
           gl.clearColor(0, 0, 0, 0);
           gl.clear(gl.COLOR_BUFFER_BIT);
         }
@@ -379,7 +379,7 @@ const SpecCanvas = (props: SpecCanvasProps) => {
       key="spec"
       className={styles.ImgCanvas}
       ref={specCanvasElemCallback}
-      style={{zIndex: 0}}
+      style={{ zIndex: 0 }}
       width={Math.max(1, Math.floor(width * devicePixelRatio))}
       height={Math.max(1, Math.floor(height * devicePixelRatio))}
     />

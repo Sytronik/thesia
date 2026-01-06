@@ -1,5 +1,5 @@
-import {OverlayScrollbars, PartialOptions} from "overlayscrollbars";
-import {RefObject, useEffect} from "react";
+import { OverlayScrollbars, PartialOptions } from "overlayscrollbars";
+import { RefObject, useEffect } from "react";
 
 const DEFAULT_OPTIONS: PartialOptions = {
   scrollbars: {

@@ -1,8 +1,8 @@
-import React, {forwardRef, useMemo} from "react";
+import React, { forwardRef, useMemo } from "react";
 import AxisCanvas from "src/modules/AxisCanvas";
-import Draggable, {CursorStateInfo} from "src/modules/Draggable";
+import Draggable, { CursorStateInfo } from "src/modules/Draggable";
 import useEvent from "react-use-event-hook";
-import {HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS} from "../constants/tracks";
+import { HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS } from "../constants/tracks";
 
 type TimeAxisProps = {
   width: number;
@@ -20,7 +20,7 @@ type TimeAxisDragAnchor = {
   cursorRatio: number;
   sec: number;
 };
-const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = {cursorRatio: 0, sec: 0};
+const DEFAULT_DRAG_ANCHOR: TimeAxisDragAnchor = { cursorRatio: 0, sec: 0 };
 const determineCursorStates: () => "drag" = () => "drag";
 
 const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
@@ -39,7 +39,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     (_cursorState: TimeAxisCursorState, cursorPos: number, rect: DOMRect) => {
       const cursorRatio = cursorPos / rect.width;
       const sec = startSec + (cursorRatio * rect.width) / pxPerSec;
-      return {cursorRatio, sec} as TimeAxisDragAnchor;
+      return { cursorRatio, sec } as TimeAxisDragAnchor;
     },
   );
 
@@ -51,7 +51,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
       rect: DOMRect,
     ) => {
       const cursorRatio = cursorPos / rect.width;
-      const {cursorRatio: anchorRatio, sec: anchorSec} = dragAnchorValue;
+      const { cursorRatio: anchorRatio, sec: anchorSec } = dragAnchorValue;
       const sec = anchorSec - ((cursorRatio - anchorRatio) * rect.width) / pxPerSec;
       moveLens(sec, anchorRatio);
     },
@@ -62,7 +62,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     CursorStateInfo<TimeAxisCursorState, TimeAxisDragAnchor>
   > = useMemo(
     () =>
-      new Map([["drag", {cursor: "text", cursorClassNameForBody: "textCursor", handleDragging}]]),
+      new Map([["drag", { cursor: "text", cursorClassNameForBody: "textCursor", handleDragging }]]),
     [handleDragging],
   );
 

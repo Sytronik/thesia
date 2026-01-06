@@ -1,7 +1,7 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
-import AxisCanvas, {getAxisHeight, getAxisPos} from "src/modules/AxisCanvas";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import AxisCanvas, { getAxisHeight, getAxisPos } from "src/modules/AxisCanvas";
 import styles from "src/modules/AxisCanvas.module.scss";
-import Draggable, {CursorStateInfo} from "src/modules/Draggable";
+import Draggable, { CursorStateInfo } from "src/modules/Draggable";
 import useEvent from "react-use-event-hook";
 import FloatingUserInput from "src/modules/FloatingUserInput";
 import {
@@ -10,8 +10,8 @@ import {
   MIN_HZ_RANGE,
   VERTICAL_AXIS_PADDING,
 } from "../constants/tracks";
-import {FreqScale, WasmAPI} from "../../api";
-import {listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit} from "../../api";
+import { FreqScale, WasmAPI } from "../../api";
+import { listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit } from "../../api";
 
 type FreqAxisProps = {
   id: number;
@@ -83,9 +83,9 @@ function FreqAxis(props: FreqAxisProps) {
             maxTrackHz,
           ),
         ]);
-        return {cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos} as FreqAxisDragAnchor;
+        return { cursorAxisPos, hzRange, zeroHzPos, maxTrackHzPos } as FreqAxisDragAnchor;
       }
-      return {cursorAxisPos: getAxisPos(cursorPos), hzRange} as FreqAxisDragAnchor;
+      return { cursorAxisPos: getAxisPos(cursorPos), hzRange } as FreqAxisDragAnchor;
     },
   );
 
@@ -96,7 +96,7 @@ function FreqAxis(props: FreqAxisProps) {
       dragAnchorValue: FreqAxisDragAnchor,
       rect: DOMRect,
     ) => {
-      const {cursorAxisPos: anchorAxisPos, hzRange: anchorHzRange} = dragAnchorValue;
+      const { cursorAxisPos: anchorAxisPos, hzRange: anchorHzRange } = dragAnchorValue;
       const axisHeight = getAxisHeight(rect);
       const cursorAxisPos = getAxisPos(cursorPos);
       let newHzRange = [anchorHzRange[0], anchorHzRange[1]];

@@ -1,9 +1,9 @@
-import {RefObject, useContext, useEffect, useRef, useState} from "react";
+import { RefObject, useContext, useEffect, useRef, useState } from "react";
 import useEvent from "react-use-event-hook";
-import {useHotkeys} from "react-hotkeys-hook";
+import { useHotkeys } from "react-hotkeys-hook";
 import BackendAPI from "../api";
-import {listenJumpPlayer, listenRewindToFront, listenTogglePlay} from "../api";
-import {BackendConstantsContext} from "../contexts";
+import { listenJumpPlayer, listenRewindToFront, listenTogglePlay } from "../api";
+import { BackendConstantsContext } from "../contexts";
 
 export type Player = {
   isPlaying: boolean;
@@ -17,7 +17,7 @@ export type Player = {
 };
 
 function usePlayer(selectedTrackId: number, maxTrackSec: number) {
-  const {PLAY_JUMP_SEC, PLAY_BIG_JUMP_SEC} = useContext(BackendConstantsContext);
+  const { PLAY_JUMP_SEC, PLAY_BIG_JUMP_SEC } = useContext(BackendConstantsContext);
   const [currentPlayingTrack, setCurrentPlayingTrack] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const deviceErrorRef = useRef<string | null>(null);
@@ -32,7 +32,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
 
   const updatePlayerStates = useEvent(async () => {
     // const start = performance.now();
-    const {isPlaying: newIsPlaying, positionSec, err} = await BackendAPI.getPlayerState();
+    const { isPlaying: newIsPlaying, positionSec, err } = await BackendAPI.getPlayerState();
     // const end = performance.now();
     // console.log(`Execution time: ${end - start} ms`);
     if (err) {
@@ -80,7 +80,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   }, [selectedTrackId, setPlayingTrack, setSelectSec]);
 
   // Player Hotkeys
-  useHotkeys("space", togglePlay, {preventDefault: true}, [togglePlay]);
+  useHotkeys("space", togglePlay, { preventDefault: true }, [togglePlay]);
   useEffect(() => {
     const promiseUnlisten = listenTogglePlay(togglePlay);
     return () => {
@@ -102,7 +102,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
       if (hotkey.keys?.join("") === "comma") jumpSec = -jumpSec;
       jump(jumpSec);
     },
-    {preventDefault: true},
+    { preventDefault: true },
     [jump],
   );
   useEffect(() => {
@@ -131,7 +131,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     if (isPlaying) await BackendAPI.seekPlayer(0);
     else setSelectSec(0);
   });
-  useHotkeys("enter", rewindToFront, {preventDefault: true}, [rewindToFront]);
+  useHotkeys("enter", rewindToFront, { preventDefault: true }, [rewindToFront]);
   useEffect(() => {
     const promiseUnlisten = listenRewindToFront(rewindToFront);
     return () => {

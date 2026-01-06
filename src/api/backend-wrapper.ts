@@ -1,7 +1,7 @@
-import {invoke} from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 
 export async function getChannelCounts(trackId: number): Promise<1 | 2> {
-  const ch = await invoke<number>("get_channel_counts", {trackId});
+  const ch = await invoke<number>("get_channel_counts", { trackId });
   if (!(ch === 1 || ch === 2)) console.error(`No. of channel ${ch} not supported!`);
   if (ch >= 1.5) return 2;
   return 1;
@@ -23,7 +23,7 @@ export type GuardClippingMode = "Clip" | "ReduceGlobalLevel" | "Limiter";
 export const NormalizeOnTypeValues = ["LUFS", "RMSdB", "PeakdB"] as const;
 export type NormalizeOnType = (typeof NormalizeOnTypeValues)[number];
 export type NormalizeTarget =
-  | {type: "Off"}
+  | { type: "Off" }
   | {
       type: NormalizeOnType;
       target: number;
@@ -86,16 +86,16 @@ export type WavInfo = {
 };
 
 export async function getWav(idChStr: string): Promise<WavInfo | null> {
-  const wavInfo = await invoke<any | null>("get_wav", {idChStr});
+  const wavInfo = await invoke<any | null>("get_wav", { idChStr });
   if (!wavInfo) return null;
 
-  const {wav, sr, isClipped} = wavInfo;
+  const { wav, sr, isClipped } = wavInfo;
   const wavArr = new Float32Array(wav);
-  return {wavArr, sr, isClipped};
+  return { wavArr, sr, isClipped };
 }
 
 export async function getLimiterGainSeq(trackId: number): Promise<Float32Array | null> {
-  const gainSeq = await invoke<number[] | null>("get_limiter_gain", {trackId});
+  const gainSeq = await invoke<number[] | null>("get_limiter_gain", { trackId });
   if (gainSeq === null) return null;
   return new Float32Array(gainSeq);
 }
@@ -106,13 +106,13 @@ export async function getCommonNormalize(): Promise<NormalizeTarget> {
 }
 
 export async function setCommonNormalize(target: NormalizeTarget): Promise<void> {
-  return invoke<void>("set_common_normalize", {target});
+  return invoke<void>("set_common_normalize", { target });
 }
 
 export async function getGuardClipStats(trackId: number): Promise<[number, string][]> {
   // [channel, stats]
   // if [[-1, stats]], then all channels have the same stats
-  return invoke<[number, string][]>("get_guard_clip_stats", {trackId});
+  return invoke<[number, string][]>("get_guard_clip_stats", { trackId });
 }
 
 export async function getPlayerState(): Promise<PlayerState> {
@@ -120,11 +120,11 @@ export async function getPlayerState(): Promise<PlayerState> {
 }
 
 export async function init(colormapLength: number): Promise<ConstsAndUserSettings> {
-  return invoke<ConstsAndUserSettings>("init", {colormapLength});
+  return invoke<ConstsAndUserSettings>("init", { colormapLength });
 }
 
 export async function setUserSettings(settings: UserSettingsOptionals): Promise<void> {
-  return invoke<void>("set_user_settings", {settings});
+  return invoke<void>("set_user_settings", { settings });
 }
 
 export async function getOpenFilesDialogPath(): Promise<string> {
@@ -132,19 +132,19 @@ export async function getOpenFilesDialogPath(): Promise<string> {
 }
 
 export async function setOpenFilesDialogPath(path: string): Promise<void> {
-  return invoke<void>("set_open_files_dialog_path", {path});
+  return invoke<void>("set_open_files_dialog_path", { path });
 }
 
 export async function addTracks(trackIds: number[], paths: string[]): Promise<number[]> {
-  return invoke<number[]>("add_tracks", {trackIds, paths});
+  return invoke<number[]>("add_tracks", { trackIds, paths });
 }
 
 export async function reloadTracks(trackIds: number[]): Promise<number[]> {
-  return invoke<number[]>("reload_tracks", {trackIds});
+  return invoke<number[]>("reload_tracks", { trackIds });
 }
 
 export async function removeTracks(trackIds: number[]): Promise<void> {
-  return invoke<void>("remove_tracks", {trackIds});
+  return invoke<void>("remove_tracks", { trackIds });
 }
 
 export async function applyTrackListChanges(): Promise<string[]> {
@@ -156,7 +156,7 @@ export async function getdBRange(): Promise<number> {
 }
 
 export async function setdBRange(dBRange: number): Promise<void> {
-  return invoke<void>("set_dB_range", {dBRange});
+  return invoke<void>("set_dB_range", { dBRange });
 }
 
 export async function getSpecSetting(): Promise<SpecSetting> {
@@ -164,7 +164,7 @@ export async function getSpecSetting(): Promise<SpecSetting> {
 }
 
 export async function setSpecSetting(specSetting: SpecSetting): Promise<void> {
-  return invoke<void>("set_spec_setting", {specSetting});
+  return invoke<void>("set_spec_setting", { specSetting });
 }
 
 export async function getCommonGuardClipping(): Promise<GuardClippingMode> {
@@ -172,18 +172,18 @@ export async function getCommonGuardClipping(): Promise<GuardClippingMode> {
 }
 
 export async function setCommonGuardClipping(mode: GuardClippingMode): Promise<void> {
-  return invoke<void>("set_common_guard_clipping", {mode});
+  return invoke<void>("set_common_guard_clipping", { mode });
 }
 
 export async function getSpectrogram(idChStr: string): Promise<Spectrogram | null> {
-  const out = await invoke<any | null>("get_spectrogram", {idChStr});
+  const out = await invoke<any | null>("get_spectrogram", { idChStr });
   if (!out) return null;
   out.arr = new Uint16Array(out.arr);
   return out;
 }
 
 export async function findIdByPath(path: string): Promise<number> {
-  return invoke<number>("find_id_by_path", {path});
+  return invoke<number>("find_id_by_path", { path });
 }
 
 export async function getMaxdB(): Promise<number> {
@@ -203,15 +203,15 @@ export async function getLongestTrackLengthSec(): Promise<number> {
 }
 
 export async function getLengthSec(trackId: number): Promise<number> {
-  return invoke<number>("get_length_sec", {trackId});
+  return invoke<number>("get_length_sec", { trackId });
 }
 
 export async function getSampleRate(trackId: number): Promise<number> {
-  return invoke<number>("get_sample_rate", {trackId});
+  return invoke<number>("get_sample_rate", { trackId });
 }
 
 export async function getFormatInfo(trackId: number): Promise<AudioFormatInfo> {
-  const out = await invoke<any>("get_format_info", {trackId});
+  const out = await invoke<any>("get_format_info", { trackId });
   return {
     name: out.name,
     sampleRate: out.sr,
@@ -221,35 +221,35 @@ export async function getFormatInfo(trackId: number): Promise<AudioFormatInfo> {
 }
 
 export async function getGlobalLUFS(trackId: number): Promise<number> {
-  return invoke<number>("get_global_lufs", {trackId});
+  return invoke<number>("get_global_lufs", { trackId });
 }
 
 export async function getRMSdB(trackId: number): Promise<number> {
-  return invoke<number>("get_rms_dB", {trackId});
+  return invoke<number>("get_rms_dB", { trackId });
 }
 
 export async function getMaxPeakdB(trackId: number): Promise<number> {
-  return invoke<number>("get_max_peak_dB", {trackId});
+  return invoke<number>("get_max_peak_dB", { trackId });
 }
 
 export async function getPath(trackId: number): Promise<string> {
-  return invoke<string>("get_path", {trackId});
+  return invoke<string>("get_path", { trackId });
 }
 
 export async function getFileName(trackId: number): Promise<string> {
-  return invoke<string>("get_file_name", {trackId});
+  return invoke<string>("get_file_name", { trackId });
 }
 
 export async function setVolumedB(volumedB: number): Promise<void> {
-  return invoke<void>("set_volume_dB", {volumeDB: volumedB});
+  return invoke<void>("set_volume_dB", { volumeDB: volumedB });
 }
 
 export async function setTrackPlayer(trackId: number, sec?: number): Promise<void> {
-  return invoke<void>("set_track_player", {trackId, sec});
+  return invoke<void>("set_track_player", { trackId, sec });
 }
 
 export async function seekPlayer(sec: number): Promise<void> {
-  return invoke<void>("seek_player", {sec});
+  return invoke<void>("seek_player", { sec });
 }
 
 export async function pausePlayer(): Promise<void> {
@@ -266,7 +266,7 @@ export async function showEditContextMenu(): Promise<void> {
 
 export async function showAxisContextMenu(axisKind: AxisKind, id: number): Promise<void> {
   if (axisKind === "dBAxis") return;
-  return invoke<void>("show_axis_context_menu", {axisKind, id});
+  return invoke<void>("show_axis_context_menu", { axisKind, id });
 }
 
 export async function showTrackContextMenu(): Promise<void> {

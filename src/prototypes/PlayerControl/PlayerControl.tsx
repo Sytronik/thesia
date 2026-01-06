@@ -1,7 +1,7 @@
-import React, {useContext, useEffect, useMemo, useRef} from "react";
+import React, { useContext, useEffect, useMemo, useRef } from "react";
 import useEvent from "react-use-event-hook";
-import BackendAPI, {WasmAPI} from "src/api";
-import {Player} from "src/hooks/usePlayer";
+import BackendAPI, { WasmAPI } from "src/api";
+import { Player } from "src/hooks/usePlayer";
 import FloatRangeInput from "src/modules/FloatRangeInput";
 import FloatingUserInput from "src/modules/FloatingUserInput";
 import styles from "./PlayerControl.module.scss";
@@ -11,8 +11,8 @@ import rewindBackIcon from "src/assets/buttons/rewind-back.svg";
 import rewindForwardIcon from "src/assets/buttons/rewind-forward.svg";
 import skipToBeginningIcon from "src/assets/buttons/skip-to-beginning.svg";
 import volumeIcon from "src/assets/buttons/volume.svg";
-import {MIN_VOLUME_dB} from "../constants/tracks";
-import {BackendConstantsContext} from "src/contexts";
+import { MIN_VOLUME_dB } from "../constants/tracks";
+import { BackendConstantsContext } from "src/contexts";
 
 type PlayerControlProps = {
   player: Player;
@@ -20,8 +20,8 @@ type PlayerControlProps = {
 };
 
 function PlayerControl(props: PlayerControlProps) {
-  const {player, isTrackEmpty} = props;
-  const {PLAY_JUMP_SEC} = useContext(BackendConstantsContext);
+  const { player, isTrackEmpty } = props;
+  const { PLAY_JUMP_SEC } = useContext(BackendConstantsContext);
   const prevPosSecRef = useRef<number>(0);
   const posInputElem = useRef<FloatingUserInputElement | null>(null);
   const requestRef = useRef<number>(0);
@@ -55,7 +55,7 @@ function PlayerControl(props: PlayerControlProps) {
   });
 
   const floatingInputStyle: React.CSSProperties | undefined = useMemo(
-    () => (isTrackEmpty ? {pointerEvents: "none"} : undefined),
+    () => (isTrackEmpty ? { pointerEvents: "none" } : undefined),
     [isTrackEmpty],
   );
 
@@ -81,12 +81,12 @@ function PlayerControl(props: PlayerControlProps) {
           <img
             src={playIcon}
             alt="play button icon"
-            style={{display: player.isPlaying ? "none" : "inline-block"}}
+            style={{ display: player.isPlaying ? "none" : "inline-block" }}
           />
           <img
             src={pauseIcon}
             alt="pause button icon"
-            style={{display: player.isPlaying ? "inline-block" : "none"}}
+            style={{ display: player.isPlaying ? "inline-block" : "none" }}
           />
         </button>
         <button type="button" onClick={() => player.jump(PLAY_JUMP_SEC)}>

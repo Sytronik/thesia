@@ -1,5 +1,5 @@
-import {useEffect} from "react";
-import BackendAPI, {listenMenuEditDelete} from "../api";
+import { useEffect } from "react";
+import BackendAPI, { listenMenuEditDelete } from "../api";
 
 function callDifferentFuncIfEditableNode(
   node: HTMLElement | null,

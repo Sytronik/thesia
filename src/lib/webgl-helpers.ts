@@ -1,4 +1,4 @@
-import {COLORMAP_RGBA8} from "../prototypes/constants/colors";
+import { COLORMAP_RGBA8 } from "../prototypes/constants/colors";
 
 export const MAX_WEBGL_RESOURCES = 16;
 
@@ -381,8 +381,8 @@ export type WebGLResources = {
     fbMid: WebGLFramebuffer | null;
     fbo: WebGLFramebuffer | null;
     cmapTex: WebGLTexture | null;
-    lastMidSize: {width: number; height: number} | null;
-    lastResizedSize: {width: number; height: number} | null;
+    lastMidSize: { width: number; height: number } | null;
+    lastResizedSize: { width: number; height: number } | null;
   };
 };
 
@@ -415,7 +415,7 @@ export function prepareWebGLResources(canvas: HTMLCanvasElement): WebGLResources
     );
   }
 
-  const resources: Partial<WebGLResources> = {gl}; // Use partial to build up
+  const resources: Partial<WebGLResources> = { gl }; // Use partial to build up
   try {
     // --- Create Lanczos Resize Program and related resources ---
     resources.resizeProgram = createResizeProgram(gl);
@@ -576,7 +576,7 @@ function renderSpectrogramInternal(
   resizeUniforms: WebGLResources["resizeUniforms"] | WebGLResources["bilinearResizeUniforms"],
   isBilinear: boolean,
 ) {
-  const {gl, colormapProgram, colormapUniforms, resizePosBuffer, cmapVao, textureCache} =
+  const { gl, colormapProgram, colormapUniforms, resizePosBuffer, cmapVao, textureCache } =
     webglResources;
 
   // --- Initial checks and clearing (same as before) ---
@@ -623,7 +623,7 @@ function renderSpectrogramInternal(
       if (textureCache.fbMid) gl.deleteFramebuffer(textureCache.fbMid);
       textureCache.texMid = createTexture(gl, dstW, srcH, null, gl.R32F);
       textureCache.fbMid = gl.createFramebuffer();
-      textureCache.lastMidSize = {width: dstW, height: srcH};
+      textureCache.lastMidSize = { width: dstW, height: srcH };
     }
 
     // Check if we need to recreate final texture
@@ -637,7 +637,7 @@ function renderSpectrogramInternal(
       if (textureCache.fbo) gl.deleteFramebuffer(textureCache.fbo);
       textureCache.texResized = createTexture(gl, dstW, dstH, null, gl.R32F);
       textureCache.fbo = gl.createFramebuffer();
-      textureCache.lastResizedSize = {width: dstW, height: dstH};
+      textureCache.lastResizedSize = { width: dstW, height: dstH };
     }
 
     // Set texture unit 0 for the sampler

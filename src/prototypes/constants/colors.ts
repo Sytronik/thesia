@@ -1,4 +1,4 @@
-import {HexCode, HexCodeColorMap, RGBColorMap} from "src/utils/colorUtils";
+import { HexCode, HexCodeColorMap, RGBColorMap } from "src/utils/colorUtils";
 
 /* Color System */
 // must consistent with color-system.scss
@@ -58,8 +58,8 @@ export const BORDER_COLOR_RGB: RGBColorMap = {
 };
 
 /* Control */
-export const BLEND_RANGE_COLOR = {LEFT: "#2D92E5", RIGHT: "#F59149"};
-export const DEFAULT_RANGE_COLOR = {LEFT: PRIMARY[400], RIGHT: PRIMARY[600]};
+export const BLEND_RANGE_COLOR = { LEFT: "#2D92E5", RIGHT: "#F59149" };
+export const DEFAULT_RANGE_COLOR = { LEFT: PRIMARY[400], RIGHT: PRIMARY[600] };
 
 // Retrieved "inferno" from https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/_cm_listed.py#L260
 const COLORMAP_RGBF = [

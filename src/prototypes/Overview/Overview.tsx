@@ -1,13 +1,13 @@
-import React, {useRef, useEffect, useMemo, useContext, useCallback} from "react";
+import React, { useRef, useEffect, useMemo, useContext, useCallback } from "react";
 import useEvent from "react-use-event-hook";
 
-import {DevicePixelRatioContext} from "src/contexts";
+import { DevicePixelRatioContext } from "src/contexts";
 import styles from "./Overview.module.scss";
-import BackendAPI, {WasmAPI, WasmFloat32Array} from "../../api";
-import {OVERVIEW_LENS_STYLE, OVERVIEW_MAX_CH} from "../constants/tracks";
-import Draggable, {CursorStateInfo} from "../../modules/Draggable";
+import BackendAPI, { WasmAPI, WasmFloat32Array } from "../../api";
+import { OVERVIEW_LENS_STYLE, OVERVIEW_MAX_CH } from "../constants/tracks";
+import Draggable, { CursorStateInfo } from "../../modules/Draggable";
 
-const {OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR} =
+const { OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR } =
   OVERVIEW_LENS_STYLE;
 
 const THICKNESS = 3;
@@ -31,7 +31,7 @@ const transferWavFromBackendToWasm = async (idChStr: string) => {
   const wavInfo = await BackendAPI.getWav(idChStr);
   if (wavInfo === null) return;
 
-  const {wavArr, sr, isClipped} = wavInfo;
+  const { wavArr, sr, isClipped } = wavInfo;
   const [wavWasmArr, view] = WasmAPI.createWasmFloat32Array(wavArr.length);
   view.set(wavArr);
   WasmAPI.setWav(idChStr, wavWasmArr, sr, isClipped);
@@ -80,7 +80,7 @@ function Overview(props: OverviewProps) {
 
     const width = backgroundElem.current.clientWidth;
     const height = backgroundElem.current.clientHeight;
-    const ctx = backgroundElem.current.getContext("2d", {desynchronized: true});
+    const ctx = backgroundElem.current.getContext("2d", { desynchronized: true });
     if (trackId === null) {
       backgroundElem.current.width = width * devicePixelRatio;
       backgroundElem.current.height = height * devicePixelRatio;
@@ -138,7 +138,7 @@ function Overview(props: OverviewProps) {
   const drawLens = useCallback(() => {
     const ctx = lensCtxRef.current;
     if (!lensElem.current || !ctx) return;
-    const {clientWidth: width, clientHeight: height} = lensElem.current;
+    const { clientWidth: width, clientHeight: height } = lensElem.current;
     const pxPerSec = calcPxPerSec();
     const lensEndSec = (startSec + lensDurationSec) * pxPerSec;
     ctx.clearRect(0, 0, width, height);
@@ -173,7 +173,7 @@ function Overview(props: OverviewProps) {
     if (!lensElem.current) return;
     lensElem.current.width = lensElem.current.clientWidth * devicePixelRatio;
     lensElem.current.height = lensElem.current.clientHeight * devicePixelRatio;
-    const lensCtx = lensElem.current.getContext("2d", {desynchronized: true});
+    const lensCtx = lensElem.current.getContext("2d", { desynchronized: true });
     lensCtxRef.current = lensCtx;
     if (!lensCtx) return;
     lensCtx.scale(devicePixelRatio, devicePixelRatio);
@@ -280,7 +280,7 @@ function Overview(props: OverviewProps) {
         <canvas
           className={styles.OverviewLens}
           ref={lensElem}
-          style={{display: trackId !== null ? "block" : "none"}}
+          style={{ display: trackId !== null ? "block" : "none" }}
           onClick={(e) => {
             if (e.altKey && e.button === 0) {
               resetLens();

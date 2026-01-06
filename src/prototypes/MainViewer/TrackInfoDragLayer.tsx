@@ -1,18 +1,18 @@
 import React from "react";
-import type {XYCoord} from "react-dnd";
-import {useDragLayer} from "react-dnd";
+import type { XYCoord } from "react-dnd";
+import { useDragLayer } from "react-dnd";
 import DndItemTypes from "../constants/DndItemTypes";
 import styles from "./TrackInfo.module.scss";
 
 function getItemStyles(initialOffset: XYCoord | null, currentOffset: XYCoord | null) {
-  if (!initialOffset || !currentOffset) return {display: "none"};
+  if (!initialOffset || !currentOffset) return { display: "none" };
 
   const transform = `translate(${initialOffset.x}px, ${currentOffset.y}px)`;
-  return {transform, WebkitTransform: transform};
+  return { transform, WebkitTransform: transform };
 }
 
 function TrackInfoDragLayer() {
-  const {itemType, isDragging, item, initialOffset, currentOffset} = useDragLayer((monitor) => ({
+  const { itemType, isDragging, item, initialOffset, currentOffset } = useDragLayer((monitor) => ({
     item: monitor.getItem(),
     itemType: monitor.getItemType(),
     initialOffset: monitor.getInitialSourceClientOffset(),
@@ -26,12 +26,12 @@ function TrackInfoDragLayer() {
         return (
           <div
             className={`${styles.TrackInfo} ${styles.selected}`}
-            style={{width: item.width, ...item.style}}
+            style={{ width: item.width, ...item.style }}
           >
             {item.trackSummaryChild}
             <div className={styles.channels}>{item.channels}</div>
             {item.numDragging > 1 ? (
-              <span style={{position: "absolute", right: 0, bottom: 0}}>{item.numDragging}</span>
+              <span style={{ position: "absolute", right: 0, bottom: 0 }}>{item.numDragging}</span>
             ) : (
               ""
             )}

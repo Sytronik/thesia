@@ -15,7 +15,7 @@ initializeWorkerPool();
 
 export function initializeWorkerPool() {
   workers = new Map<number, Worker>(
-    Array.from({length: NUM_WORKERS}, (_, i) => {
+    Array.from({ length: NUM_WORKERS }, (_, i) => {
       const worker = new WasmWorker();
       if (!setSpectrogramDoneListeners.has(i)) setSpectrogramDoneListeners.set(i, new Map());
       if (!returnSpectrogramListeners.has(i)) returnSpectrogramListeners.set(i, new Map());
@@ -62,7 +62,7 @@ export const onReturnMipmap = (
 };
 
 function onmessage(index: number, event: MessageEvent<WasmWorkerEventMessage>) {
-  const {type, data} = event.data;
+  const { type, data } = event.data;
   switch (type) {
     case "setSpectrogramDone": {
       const listeners = setSpectrogramDoneListeners.get(index);

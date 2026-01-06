@@ -1,4 +1,4 @@
-import React, {ReactNode, useRef} from "react";
+import React, { ReactNode, useRef } from "react";
 import useEvent from "react-use-event-hook";
 
 export type CursorStateInfo<T extends string, U> = {
@@ -81,7 +81,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     }
     updateCursorState(e);
     document.removeEventListener("mousemove", onDragging);
-    if (hasDraggedRef.current) e.target?.addEventListener("click", stopPropagation, {once: true});
+    if (hasDraggedRef.current) e.target?.addEventListener("click", stopPropagation, { once: true });
   });
 
   const onMouseDown = async (e: React.MouseEvent) => {
@@ -109,7 +109,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
     hasDraggedRef.current = false;
     onDragging(e);
     document.addEventListener("mousemove", onDragging);
-    document.addEventListener("mouseup", onMouseUp, {once: true});
+    document.addEventListener("mouseup", onMouseUp, { once: true });
   };
 
   const onMouseMove = (e: React.MouseEvent) => {
@@ -131,7 +131,7 @@ function Draggable<T extends string, U>(props: DraggingProps<T, U>) {
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       tabIndex={-1}
-      style={{outline: "none"}}
+      style={{ outline: "none" }}
     >
       {children}
     </div>

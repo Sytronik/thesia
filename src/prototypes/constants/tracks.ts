@@ -1,5 +1,5 @@
-import {getRGBA} from "src/utils/colorUtils";
-import {WHITE, BG_COLOR_RGB, BORDER_COLOR} from "./colors";
+import { getRGBA } from "src/utils/colorUtils";
+import { WHITE, BG_COLOR_RGB, BORDER_COLOR } from "./colors";
 
 // keep ascending order
 export const SUPPORTED_TYPES = ["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav"];

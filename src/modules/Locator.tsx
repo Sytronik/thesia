@@ -1,6 +1,6 @@
-import React, {forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from "react";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import useEvent from "react-use-event-hook";
-import {areDOMRectsEqual} from "src/utils/arrayUtils";
+import { areDOMRectsEqual } from "src/utils/arrayUtils";
 import styles from "./Locator.module.scss";
 
 type LocatorProps = {
@@ -12,7 +12,7 @@ type LocatorProps = {
 };
 
 const Locator = forwardRef((props: LocatorProps, ref) => {
-  const {locatorStyle, getLineTopBottom, getBoundingLeftWidthTop, calcLocatorPos, zIndex} = props;
+  const { locatorStyle, getLineTopBottom, getBoundingLeftWidthTop, calcLocatorPos, zIndex } = props;
   const locatorElem = useRef<HTMLCanvasElement | null>(null);
   const locatorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const locatorElemCallback = useCallback((node: HTMLCanvasElement | null) => {
@@ -114,7 +114,7 @@ const Locator = forwardRef((props: LocatorProps, ref) => {
   });
   useImperativeHandle(ref, () => imperativeHandleRef.current, []);
 
-  return <canvas ref={locatorElemCallback} className={styles.locator} style={{zIndex}} />;
+  return <canvas ref={locatorElemCallback} className={styles.locator} style={{ zIndex }} />;
 });
 
 Locator.displayName = "Locator";

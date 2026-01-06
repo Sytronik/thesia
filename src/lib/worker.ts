@@ -1,5 +1,5 @@
-import {WasmAPI} from "../api";
-import type {IdChannel, WavInfo} from "../api/backend-wrapper";
+import { WasmAPI } from "../api";
+import type { IdChannel, WavInfo } from "../api/backend-wrapper";
 
 type InitMessage = {
   type: "init";
@@ -115,7 +115,7 @@ const msgQueue: WasmWorkerMessage[] = [];
 self.onmessage = (event: MessageEvent<WasmWorkerMessage>) => {
   const message = event.data;
   if (message.type === "init") {
-    const {idChStr, canvas, alpha} = message.data;
+    const { idChStr, canvas, alpha } = message.data;
     const ctx = canvas.getContext("2d", {
       alpha: alpha === undefined ? true : alpha,
       desynchronized: true,
@@ -137,26 +137,26 @@ self.onmessage = (event: MessageEvent<WasmWorkerMessage>) => {
     if (!message) break;
     switch (message.type) {
       case "setSpectrogram": {
-        const {idChStr, arr, width, height} = message.data;
+        const { idChStr, arr, width, height } = message.data;
         WasmAPI.setSpectrogram(idChStr, arr, width, height);
         self.postMessage({
           type: "setSpectrogramDone",
-          data: {idChStr},
+          data: { idChStr },
         });
         break;
       }
       case "removeSpectrogram": {
-        const {idChStr} = message.data;
+        const { idChStr } = message.data;
         WasmAPI.removeSpectrogram(idChStr);
         break;
       }
       case "getMipmap": {
-        const {idChStr, width, height} = message.data;
+        const { idChStr, width, height } = message.data;
         const mipmap = WasmAPI.getMipmap(idChStr, width, height);
         self.postMessage(
           {
             type: "returnMipmap",
-            data: {idChStr, mipmap},
+            data: { idChStr, mipmap },
           },
           // NOTE: don't transfer the slicedSpectrogram array to the main thread
         );
@@ -166,8 +166,8 @@ self.onmessage = (event: MessageEvent<WasmWorkerMessage>) => {
         WasmAPI.setDevicePixelRatio(message.data.devicePixelRatio);
         break;
       case "setWav": {
-        const {idChStr, wavInfo} = message.data;
-        const {wavArr, sr, isClipped} = wavInfo;
+        const { idChStr, wavInfo } = message.data;
+        const { wavArr, sr, isClipped } = wavInfo;
         const [wavWasmArr, view] = WasmAPI.createWasmFloat32Array(wavArr.length);
         view.set(wavArr);
         WasmAPI.setWav(idChStr, wavWasmArr, sr, isClipped);
@@ -177,7 +177,7 @@ self.onmessage = (event: MessageEvent<WasmWorkerMessage>) => {
         WasmAPI.removeWav(message.data.idChStr);
         break;
       case "drawWav": {
-        const {idChStr, width, height, startSec, pxPerSec, ampRange} = message.data;
+        const { idChStr, width, height, startSec, pxPerSec, ampRange } = message.data;
         const canvas = canvases.get(idChStr);
         const ctx = ctxs.get(idChStr);
         if (!canvas || !ctx) break;
@@ -195,7 +195,7 @@ self.onmessage = (event: MessageEvent<WasmWorkerMessage>) => {
         break;
       }
       case "clearWav": {
-        const {idChStr, width, height} = message.data;
+        const { idChStr, width, height } = message.data;
         const canvas = canvases.get(idChStr);
         const ctx = ctxs.get(idChStr);
         if (!canvas || !ctx) break;

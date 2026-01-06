@@ -1,5 +1,5 @@
-import {Hotkey} from "react-hotkeys-hook/packages/react-hotkeys-hook/dist/types";
-import {platform} from "@tauri-apps/plugin-os";
+import { Hotkey } from "react-hotkeys-hook/packages/react-hotkeys-hook/dist/types";
+import { platform } from "@tauri-apps/plugin-os";
 
 export function isApple() {
   const currentPlatform = platform();

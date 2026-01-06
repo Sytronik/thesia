@@ -1,10 +1,10 @@
-import React, {forwardRef, useEffect, useImperativeHandle, useMemo, useRef} from "react";
-import type {Identifier, XYCoord} from "dnd-core";
-import {DragSourceMonitor, useDrag, useDrop} from "react-dnd";
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import type { Identifier, XYCoord } from "dnd-core";
+import { DragSourceMonitor, useDrag, useDrop } from "react-dnd";
 import BackendAPI from "../../api";
 import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
-import {CHANNEL, VERTICAL_AXIS_PADDING} from "../constants/tracks";
+import { CHANNEL, VERTICAL_AXIS_PADDING } from "../constants/tracks";
 import DndItemTypes from "../constants/DndItemTypes";
 
 const MemoizedTrackSummary = React.memo(TrackSummary);
@@ -73,7 +73,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     () =>
       trackIdCh.map((idChStr, ch) => {
         return (
-          <div key={idChStr} className={styles.ch} style={{height: imgHeight}}>
+          <div key={idChStr} className={styles.ch} style={{ height: imgHeight }}>
             <span>{CHANNEL[trackIdCh.length][ch] || ""}</span>
           </div>
         );
@@ -91,7 +91,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [trackSummary, trackIdCh],
   );
 
-  const [{handlerId}, drop] = useDrop<DragItem, void, {handlerId: Identifier | null}>(
+  const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: Identifier | null }>(
     {
       accept: DndItemTypes.TRACK,
       collect(monitor) {
@@ -144,7 +144,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   );
 
   const hasDragged = useRef<boolean>(false);
-  const [{isDragging}, drag] = useDrag(
+  const [{ isDragging }, drag] = useDrag(
     {
       type: DndItemTypes.TRACK,
       item: () => {
@@ -195,7 +195,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
         e.preventDefault();
         BackendAPI.showTrackContextMenu();
       }}
-      style={{opacity: isDragging ? 0 : 1, ...style}}
+      style={{ opacity: isDragging ? 0 : 1, ...style }}
       data-handler-id={handlerId}
     >
       {trackSummaryChild}

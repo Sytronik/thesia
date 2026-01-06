@@ -1,15 +1,15 @@
-import React, {useRef, useCallback, useEffect, useMemo, useState, useLayoutEffect} from "react";
-import {throttle} from "throttle-debounce";
+import React, { useRef, useCallback, useEffect, useMemo, useState, useLayoutEffect } from "react";
+import { throttle } from "throttle-debounce";
 import useRefs from "src/hooks/useRefs";
 import ImgCanvas from "src/modules/ImgCanvas";
 import SplitView from "src/modules/SplitView";
 import useAxisMarkers from "src/hooks/useAxisMarkers";
 import useEvent from "react-use-event-hook";
-import {useHotkeys} from "react-hotkeys-hook";
-import {DragDropEvent, getCurrentWindow} from "@tauri-apps/api/window";
-import {Event} from "@tauri-apps/api/event";
+import { useHotkeys } from "react-hotkeys-hook";
+import { DragDropEvent, getCurrentWindow } from "@tauri-apps/api/window";
+import { Event } from "@tauri-apps/api/event";
 
-import {Player} from "../../hooks/usePlayer";
+import { Player } from "../../hooks/usePlayer";
 import Locator from "../../modules/Locator";
 import styles from "./MainViewer.module.scss";
 import AmpAxis from "./AmpAxis";
@@ -21,7 +21,7 @@ import TrackInfo from "./TrackInfo";
 import TimeUnitSection from "./TimeUnitSection";
 import TimeAxis from "./TimeAxis";
 import TrackAddButtonSection from "./TrackAddButtonSection";
-import BackendAPI, {FreqScale, WasmAPI} from "../../api";
+import BackendAPI, { FreqScale, WasmAPI } from "../../api";
 import {
   TIME_TICK_SIZE,
   TIME_BOUNDARIES,
@@ -42,7 +42,7 @@ import {
   TINY_MARGIN,
   TIME_CANVAS_HEIGHT,
 } from "../constants/tracks";
-import {isApple} from "../../utils/osSpecifics";
+import { isApple } from "../../utils/osSpecifics";
 import TrackInfoDragLayer from "./TrackInfoDragLayer";
 import {
   listenFreqZoomIn,
@@ -175,7 +175,7 @@ function MainViewer(props: MainViewerProps) {
 
   const onFileDragDropEvent = useEvent((event: Event<DragDropEvent>) => {
     if (event.payload.type === "over") {
-      const {y} = event.payload.position;
+      const { y } = event.payload.position;
       const index = calculateDropIndex(y);
       setFileDropIndex(index);
     } else if (event.payload.type === "drop") {
@@ -199,7 +199,7 @@ function MainViewer(props: MainViewerProps) {
   const getIdChArr = useEvent(() => Array.from(trackIdChMap.values()).flat());
 
   const timeMarkersDrawOptions = useMemo(
-    () => ({startSec, endSec, maxSec: maxTrackSec}),
+    () => ({ startSec, endSec, maxSec: maxTrackSec }),
     [endSec, maxTrackSec, startSec],
   );
   const timeMarkersAndLength = useAxisMarkers({
@@ -218,7 +218,7 @@ function MainViewer(props: MainViewerProps) {
     return markers[markers.length - 1][1];
   }, [timeMarkersAndLength, trackIds]);
 
-  const ampMarkersDrawOptions = useMemo(() => ({ampRange}), [ampRange]);
+  const ampMarkersDrawOptions = useMemo(() => ({ ampRange }), [ampRange]);
   const ampMarkersAndLength = useAxisMarkers({
     scaleTable: AMP_TICK_NUM,
     boundaries: AMP_BOUNDARIES,
@@ -230,12 +230,12 @@ function MainViewer(props: MainViewerProps) {
 
   const [freqScale, setFreqScale] = useState<FreqScale>("Mel");
   useEffect(() => {
-    BackendAPI.getSpecSetting().then(({freqScale: _freqScale}) => {
+    BackendAPI.getSpecSetting().then(({ freqScale: _freqScale }) => {
       setFreqScale(_freqScale);
     });
   });
   const freqMarkersDrawOptions = useMemo(
-    () => ({maxTrackHz, hzRange, freqScale}),
+    () => ({ maxTrackHz, hzRange, freqScale }),
     [maxTrackHz, hzRange, freqScale],
   );
   const freqMarkersAndLength = useAxisMarkers({
@@ -247,7 +247,7 @@ function MainViewer(props: MainViewerProps) {
     drawOptions: freqMarkersDrawOptions,
   });
 
-  const [minMaxdB, setMinMaxdB] = useState<{mindB: number; maxdB: number}>({
+  const [minMaxdB, setMinMaxdB] = useState<{ mindB: number; maxdB: number }>({
     mindB: -100,
     maxdB: 0,
   });
@@ -264,7 +264,7 @@ function MainViewer(props: MainViewerProps) {
   useEffect(() => {
     if (trackIds.length === 0 || needRefreshTrackIdChArr.length === 0) return;
     Promise.all([BackendAPI.getMindB(), BackendAPI.getMaxdB()]).then(([mindB, maxdB]) => {
-      setMinMaxdB({mindB, maxdB});
+      setMinMaxdB({ mindB, maxdB });
     });
   }, [trackIds, needRefreshTrackIdChArr]);
 
@@ -308,7 +308,7 @@ function MainViewer(props: MainViewerProps) {
 
   const moveLens = useEvent((sec: number, anchorRatio: number) => {
     const lensDurationSec = width / pxPerSec;
-    updateLensParams({startSec: sec - lensDurationSec * anchorRatio});
+    updateLensParams({ startSec: sec - lensDurationSec * anchorRatio });
   });
 
   const resizeLensLeft = useEvent((sec: number) => {
@@ -318,12 +318,12 @@ function MainViewer(props: MainViewerProps) {
       newStartSec,
     );
 
-    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+    updateLensParams({ startSec: newStartSec, pxPerSec: newPxPerSec });
   });
 
   const resizeLensRight = useEvent((sec: number) => {
     const newPxPerSec = normalizePxPerSec(width / Math.max(sec - startSec, 0), startSec);
-    updateLensParams({pxPerSec: newPxPerSec});
+    updateLensParams({ pxPerSec: newPxPerSec });
   });
 
   const zoomHeight = useEvent((delta: number) => {
@@ -368,7 +368,7 @@ function MainViewer(props: MainViewerProps) {
 
   const zoomHeightAtCursor = useEvent((delta, cursorY) => {
     const newHeight = zoomHeight((delta * height) / 1000);
-    const {imgIndex, cursorRatioOnImg, cursorOffset} = vScrollAnchorInfoRef.current;
+    const { imgIndex, cursorRatioOnImg, cursorOffset } = vScrollAnchorInfoRef.current;
     // TODO: remove hard-coded 2
     setScrollTop(
       imgIndex * (newHeight + 2) +
@@ -466,7 +466,7 @@ function MainViewer(props: MainViewerProps) {
           newPxPerSec,
           maxTrackSec,
         );
-        updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+        updateLensParams({ startSec: newStartSec, pxPerSec: newPxPerSec });
       } else {
         // vertical zoom
         const splitView = splitViewElem.current;
@@ -477,7 +477,7 @@ function MainViewer(props: MainViewerProps) {
       }
     } else if (horizontal) {
       // horizontal scroll
-      updateLensParams({startSec: startSec + (0.5 * delta) / pxPerSec});
+      updateLensParams({ startSec: startSec + (0.5 * delta) / pxPerSec });
     }
   });
 
@@ -567,7 +567,7 @@ function MainViewer(props: MainViewerProps) {
       const shiftPx = hotkey.shift ? BIG_SHIFT_PX : SHIFT_PX;
       let shiftSec = shiftPx / pxPerSec;
       if (hotkey.keys?.join("").endsWith("left")) shiftSec = -shiftSec;
-      updateLensParams({startSec: startSec + shiftSec});
+      updateLensParams({ startSec: startSec + shiftSec });
     },
     [pxPerSec, startSec, trackIds, updateLensParams],
   );
@@ -596,8 +596,8 @@ function MainViewer(props: MainViewerProps) {
   };
   const freqZoomIn = useEvent(() => zoomHeightAndScrollToSelectedTrack(false));
   const freqZoomOut = useEvent(() => zoomHeightAndScrollToSelectedTrack(true));
-  useHotkeys("mod+down", freqZoomIn, {preventDefault: true}, [freqZoomIn]);
-  useHotkeys("mod+up", freqZoomOut, {preventDefault: true}, [freqZoomOut]);
+  useHotkeys("mod+down", freqZoomIn, { preventDefault: true }, [freqZoomIn]);
+  useHotkeys("mod+up", freqZoomOut, { preventDefault: true }, [freqZoomOut]);
   useEffect(() => {
     const promiseUnlistenFreqZoomIn = listenFreqZoomIn(freqZoomIn);
     const promiseUnlistenFreqZoomOut = listenFreqZoomOut(freqZoomOut);
@@ -618,7 +618,7 @@ function MainViewer(props: MainViewerProps) {
       newPxPerSec,
       maxTrackSec,
     );
-    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec});
+    updateLensParams({ startSec: newStartSec, pxPerSec: newPxPerSec });
   });
   const timeZoomIn = useEvent(() => {
     if (trackIds.length > 0) zoomLens(false);
@@ -632,7 +632,7 @@ function MainViewer(props: MainViewerProps) {
       if (hotkey.keys?.join("").endsWith("left")) timeZoomOut();
       else timeZoomIn();
     },
-    {preventDefault: true},
+    { preventDefault: true },
     [timeZoomIn, timeZoomOut],
   );
   useEffect(() => {
@@ -646,7 +646,7 @@ function MainViewer(props: MainViewerProps) {
 
   // Track Selection Hotkeys
   const selectAllTracksEvent = useEvent(() => selectAllTracks(trackIds));
-  useHotkeys("mod+a", selectAllTracksEvent, {preventDefault: true}, [selectAllTracksEvent]);
+  useHotkeys("mod+a", selectAllTracksEvent, { preventDefault: true }, [selectAllTracksEvent]);
   useEffect(() => {
     const promiseUnlisten = listenMenuSelectAllTracks(selectAllTracksEvent);
     return () => {
@@ -664,7 +664,7 @@ function MainViewer(props: MainViewerProps) {
         : trackIds[Math.max(recentSelectedIdx - 1, 0)];
       selectTrack(e, newSelectId, trackIds);
     },
-    {preventDefault: true},
+    { preventDefault: true },
     [trackIds, selectedTrackIds, selectTrack],
   );
 
@@ -685,7 +685,7 @@ function MainViewer(props: MainViewerProps) {
   }, [resetHzRange, resetAmpRange, resetTimeAxis]);
 
   useLayoutEffect(() => {
-    splitViewElem.current?.scrollTo({top: scrollTop, behavior: "instant"});
+    splitViewElem.current?.scrollTo({ top: scrollTop, behavior: "instant" });
   }, [scrollTop]);
 
   const requestRef = useRef<number>(0);
@@ -698,7 +698,7 @@ function MainViewer(props: MainViewerProps) {
         player.positionSecRef.current !== null &&
         (endSec < player.positionSecRef.current || startSec > player.positionSecRef.current)
       ) {
-        updateLensParams({startSec: player.positionSecRef.current}, false);
+        updateLensParams({ startSec: player.positionSecRef.current }, false);
       }
     } else {
       needFollowCursor.current = true;
@@ -709,7 +709,7 @@ function MainViewer(props: MainViewerProps) {
 
         if (newEndSec < selectSec || newStartSec > selectSec)
           newStartSec = selectSec - width / pxPerSec / 2;
-        updateLensParams({startSec: newStartSec}, false);
+        updateLensParams({ startSec: newStartSec }, false);
       }
     }
     prevSelectSecRef.current = selectSec;
@@ -739,7 +739,7 @@ function MainViewer(props: MainViewerProps) {
   );
   const onSelectLocatorMouseDown = useEvent(() => {
     document.addEventListener("mousemove", changeLocatorByMouse);
-    document.addEventListener("mouseup", endSelectLocatorDrag, {once: true});
+    document.addEventListener("mouseup", endSelectLocatorDrag, { once: true });
   });
 
   // playhead
@@ -835,7 +835,7 @@ function MainViewer(props: MainViewerProps) {
     if (selectedTrackIds.length === 0 || !selectionIsAdded) return;
     const viewRect = splitViewElem.current?.getBoundingClientRect() ?? null;
     if (viewRect === null) return;
-    const {topPlusHalf, bottomMinusHalf, topElem, bottomElem, topId, bottomId} =
+    const { topPlusHalf, bottomMinusHalf, topElem, bottomElem, topId, bottomId } =
       selectedTrackIds.reduce(reducerForTrackInfoElemRange, {
         topPlusHalf: Infinity,
         bottomMinusHalf: -Infinity,
@@ -867,7 +867,7 @@ function MainViewer(props: MainViewerProps) {
       prevTrackCountRef.current === 0 || _CanvasIsFit
         ? newWidth / Math.max(maxTrackSec, 1e-8)
         : normalizePxPerSec(pxPerSec, startSec);
-    updateLensParams({startSec: newStartSec, pxPerSec: newPxPerSec}, false);
+    updateLensParams({ startSec: newStartSec, pxPerSec: newPxPerSec }, false);
   });
 
   // should be useLayoutEffect to avoid jittering of overview lens by width change
@@ -888,7 +888,7 @@ function MainViewer(props: MainViewerProps) {
         mainViewerElem.current = null;
         return;
       }
-      node.addEventListener("wheel", handleWheel, {passive: false});
+      node.addEventListener("wheel", handleWheel, { passive: false });
       mainViewerElem.current = node;
     },
     [handleWheel],

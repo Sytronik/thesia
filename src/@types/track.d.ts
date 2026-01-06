@@ -10,7 +10,7 @@ type WavMetadata = import("../api").WavMetadata;
 
 type MouseOrKeyboardEvent = MouseEvent | KeyboardEvent | React.MouseEvent | React.KeyboardEvent;
 
-type OptionalLensParams = {startSec?: number; pxPerSec?: number};
+type OptionalLensParams = { startSec?: number; pxPerSec?: number };
 
 // Track Summary
 type TrackSummaryData = {

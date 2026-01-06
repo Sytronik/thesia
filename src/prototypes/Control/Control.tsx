@@ -1,6 +1,6 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import useEvent from "react-use-event-hook";
-import {debounce, throttle} from "throttle-debounce";
+import { debounce, throttle } from "throttle-debounce";
 import {
   SpecSetting,
   GuardClippingMode,
@@ -20,7 +20,7 @@ import {
   MIN_WIN_MILLISEC,
   T_OVERLAP_VALUES,
 } from "../constants/tracks";
-import {BLEND_RANGE_COLOR} from "../constants/colors";
+import { BLEND_RANGE_COLOR } from "../constants/colors";
 
 type ControlProps = {
   specSetting: SpecSetting;
@@ -101,10 +101,10 @@ function Control(props: ControlProps) {
     const winMillisec = Number.parseFloat(v);
     if (winMillisec < 1) {
       winMillisecElem.current?.setValue(MIN_WIN_MILLISEC.toFixed(1));
-      setSpecSetting({...specSetting, winMillisec: MIN_WIN_MILLISEC});
+      setSpecSetting({ ...specSetting, winMillisec: MIN_WIN_MILLISEC });
       return;
     }
-    setSpecSetting({...specSetting, winMillisec});
+    setSpecSetting({ ...specSetting, winMillisec });
   });
 
   useEffect(() => {
@@ -113,7 +113,7 @@ function Control(props: ControlProps) {
 
   const onTOverlapChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const tOverlap = Number.parseFloat(e.target.value);
-    if (e.target.value !== "" && tOverlap > 0) setSpecSetting({...specSetting, tOverlap});
+    if (e.target.value !== "" && tOverlap > 0) setSpecSetting({ ...specSetting, tOverlap });
   };
 
   const onCommonNormalizeTypeChange = useMemo(
@@ -122,12 +122,12 @@ function Control(props: ControlProps) {
         const type = e.target.selectedOptions[0].value;
         switch (type) {
           case "Off":
-            setTempCommonNormalize({type: "Off"});
-            await setCommonNormalize({type: "Off"});
+            setTempCommonNormalize({ type: "Off" });
+            await setCommonNormalize({ type: "Off" });
             break;
           case "PeakdB":
-            setTempCommonNormalize({type: "PeakdB", target: commonNormalizePeakdBRef.current});
-            await setCommonNormalize({type: "PeakdB", target: commonNormalizePeakdBRef.current});
+            setTempCommonNormalize({ type: "PeakdB", target: commonNormalizePeakdBRef.current });
+            await setCommonNormalize({ type: "PeakdB", target: commonNormalizePeakdBRef.current });
             if (commonNormalizedBInputElem.current)
               commonNormalizedBInputElem.current.setValue(commonNormalizePeakdBRef.current);
             break;
@@ -152,8 +152,8 @@ function Control(props: ControlProps) {
     () =>
       debounce(250, (dB: number) => {
         if (!isCommonNormalizeOn) return;
-        setTempCommonNormalize({type: commonNormalizeOrTemp.type, target: dB});
-        setCommonNormalize({type: commonNormalizeOrTemp.type, target: dB});
+        setTempCommonNormalize({ type: commonNormalizeOrTemp.type, target: dB });
+        setCommonNormalize({ type: commonNormalizeOrTemp.type, target: dB });
       }),
     [commonNormalizeOrTemp, isCommonNormalizeOn, setCommonNormalize],
   );
@@ -331,7 +331,7 @@ function Control(props: ControlProps) {
         </div>
         <div className={styles.sectionContainer}>
           <label className={styles.itemContainer} htmlFor="freqScale">
-            <label htmlFor="freqScale" style={{pointerEvents: "none"}}>
+            <label htmlFor="freqScale" style={{ pointerEvents: "none" }}>
               Frequency Scale
             </label>
             <input

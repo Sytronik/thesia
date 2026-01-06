@@ -1,7 +1,12 @@
-import {message, open} from "@tauri-apps/plugin-dialog";
-import {path} from "@tauri-apps/api";
-import {SUPPORTED_TYPES} from "../prototypes/constants/tracks";
-import BackendAPI, {enableEditMenu, disableEditMenu, enablePlayMenu, disablePlayMenu} from "../api";
+import { message, open } from "@tauri-apps/plugin-dialog";
+import { path } from "@tauri-apps/api";
+import { SUPPORTED_TYPES } from "../prototypes/constants/tracks";
+import BackendAPI, {
+  enableEditMenu,
+  disableEditMenu,
+  enablePlayMenu,
+  disablePlayMenu,
+} from "../api";
 
 export async function showOpenFilesDialog() {
   // get the default path
@@ -11,7 +16,7 @@ export async function showOpenFilesDialog() {
   const files = await open({
     multiple: true,
     directory: false,
-    filters: [{name: "Audio Files", extensions: SUPPORTED_TYPES}],
+    filters: [{ name: "Audio Files", extensions: SUPPORTED_TYPES }],
     title: "Select the audio files to be open",
     defaultPath,
     canCreateDirectories: false,
@@ -70,6 +75,6 @@ export async function showFileOpenErrorMsg(unsupportedPaths: string[], invalidPa
       `${msgInvalid}` +
       "Please ensure that the file properties are correct and that it is a supported file type.\n\n" +
       `Only files with the following extensions are allowed:\n  ${SUPPORTED_TYPES.join(", ")}`,
-    {title: "File Open Error", kind: "error"},
+    { title: "File Open Error", kind: "error" },
   );
 }

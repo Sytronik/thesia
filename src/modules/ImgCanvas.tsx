@@ -9,12 +9,12 @@ import React, {
   useCallback,
 } from "react";
 import useEvent from "react-use-event-hook";
-import {throttle} from "throttle-debounce";
-import {DevicePixelRatioContext} from "src/contexts";
+import { throttle } from "throttle-debounce";
+import { DevicePixelRatioContext } from "src/contexts";
 
 import styles from "./ImgCanvas.module.scss";
-import BackendAPI, {FreqScale, WasmAPI} from "../api";
-import {postMessageToWorker, NUM_WORKERS} from "../lib/worker-pool";
+import BackendAPI, { FreqScale, WasmAPI } from "../api";
+import { postMessageToWorker, NUM_WORKERS } from "../lib/worker-pool";
 import SpecCanvas from "./SpecCanvas";
 
 const idChStrToWorkerIndex = (idChStr: string) => {
@@ -39,7 +39,7 @@ type ImgCanvasProps = {
   hidden: boolean;
 };
 
-type ImgTooltipInfo = {pos: number[]; lines: string[]};
+type ImgTooltipInfo = { pos: number[]; lines: string[] };
 
 const calcTooltipPos = (e: React.MouseEvent) => [e.clientX + 0, e.clientY + 15];
 
@@ -77,7 +77,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     return wavCanvasElem.current?.getBoundingClientRect() ?? new DOMRect();
   });
 
-  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({getBoundingClientRect});
+  const imperativeInstanceRef = useRef<ImgCanvasHandleElement>({ getBoundingClientRect });
   useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
   const wavCanvasElemCallback = useCallback(
@@ -86,15 +86,17 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
 
       if (!wavCanvasElem.current) return;
       const offscreenCanvas = wavCanvasElem.current.transferControlToOffscreen();
-      postMessageToWorker(workerIndex, {type: "init", data: {idChStr, canvas: offscreenCanvas}}, [
-        offscreenCanvas,
-      ]);
+      postMessageToWorker(
+        workerIndex,
+        { type: "init", data: { idChStr, canvas: offscreenCanvas } },
+        [offscreenCanvas],
+      );
     },
     [workerIndex, idChStr],
   );
 
   useEffect(() => {
-    postMessageToWorker(workerIndex, {type: "setDevicePixelRatio", data: {devicePixelRatio}});
+    postMessageToWorker(workerIndex, { type: "setDevicePixelRatio", data: { devicePixelRatio } });
   }, [devicePixelRatio, workerIndex]);
 
   const drawWavImage = useCallback(() => {
@@ -123,7 +125,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       if (wavCanvasElem.current) {
         wavCanvasElem.current.style.opacity = "0";
       }
-      postMessageToWorker(workerIndex, {type: "clearWav", data: {idChStr, width, height}});
+      postMessageToWorker(workerIndex, { type: "clearWav", data: { idChStr, width, height } });
       return () => {};
     }
     // Request a redraw only when the draw function or its dependencies change
@@ -146,7 +148,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
       hasSetWavCompletedRef.current = false;
       BackendAPI.getWav(idChStr).then((wavInfo) => {
         if (wavInfo === null) return;
-        postMessageToWorker(workerIndex, {type: "setWav", data: {idChStr, wavInfo}}, [
+        postMessageToWorker(workerIndex, { type: "setWav", data: { idChStr, wavInfo } }, [
           wavInfo.wavArr.buffer,
         ]);
         hasSetWavCompletedRef.current = true;
@@ -155,7 +157,7 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
     }
     prevNeedRefreshRef.current = needRefresh;
     return () => {
-      postMessageToWorker(workerIndex, {type: "removeWav", data: {idChStr}});
+      postMessageToWorker(workerIndex, { type: "removeWav", data: { idChStr } });
       hasSetWavCompletedRef.current = false;
     };
   }, [idChStr, needRefresh, workerIndex]);
@@ -217,20 +219,20 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
   );
 
   return (
-    <div className={styles.imgCanvasWrapper} style={{width, height}}>
+    <div className={styles.imgCanvasWrapper} style={{ width, height }}>
       {initTooltipInfo !== null ? (
         <span
           key="img-canvas-tooltip"
           ref={tooltipElem}
           className={styles.tooltip}
-          style={{left: `${initTooltipInfo.pos[0]}px`, top: `${initTooltipInfo.pos[1]}px`}}
+          style={{ left: `${initTooltipInfo.pos[0]}px`, top: `${initTooltipInfo.pos[1]}px` }}
         >
           {initTooltipInfo.lines.map((v) => (
             <p key={`img-tooltip-${v.split(" ")[1]}`}>{v}</p>
           ))}
         </span>
       ) : null}
-      <div ref={loadingElem} className={styles.loading} style={{display: "none"}} />
+      <div ref={loadingElem} className={styles.loading} style={{ display: "none" }} />
       <SpecCanvas
         idChStr={idChStr}
         width={width}
@@ -249,10 +251,10 @@ const ImgCanvas = forwardRef((props: ImgCanvasProps, ref) => {
         key="wav"
         className={styles.ImgCanvas}
         ref={wavCanvasElemCallback}
-        style={{zIndex: 1}}
+        style={{ zIndex: 1 }}
         onMouseEnter={(e) => {
           if (e.buttons !== 0) return;
-          setInitTooltipInfo({pos: calcTooltipPos(e), lines: getTooltipLines(e)});
+          setInitTooltipInfo({ pos: calcTooltipPos(e), lines: getTooltipLines(e) });
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={() => setInitTooltipInfo(null)}

@@ -1,1 +1,1 @@
-export default {TRACK: "track"};
+export default { TRACK: "track" };

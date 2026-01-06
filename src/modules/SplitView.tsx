@@ -8,8 +8,8 @@ import React, {
   ReactNode,
 } from "react";
 import useEvent from "react-use-event-hook";
-import {useOverlayScrollbar} from "src/hooks/useOverlayScrollbars";
-import {AXIS_SPACE, TIME_CANVAS_HEIGHT} from "src/prototypes/constants/tracks";
+import { useOverlayScrollbar } from "src/hooks/useOverlayScrollbars";
+import { AXIS_SPACE, TIME_CANVAS_HEIGHT } from "src/prototypes/constants/tracks";
 import styles from "./SplitView.module.scss";
 
 const MARGIN = 2;
@@ -26,8 +26,8 @@ type SplitViewProps = {
 };
 
 const SplitView = forwardRef(
-  ({className = "", onVerticalViewportChange = () => {}, ...props}: SplitViewProps, ref) => {
-    const {left, right, setCanvasWidth} = props;
+  ({ className = "", onVerticalViewportChange = () => {}, ...props }: SplitViewProps, ref) => {
+    const { left, right, setCanvasWidth } = props;
 
     const [leftWidth, setLeftWidth] = useState<number>(INIT_WIDTH);
     const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
@@ -73,22 +73,22 @@ const SplitView = forwardRef(
       setSeparatorXPosition(e.clientX - leftWidth);
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("touchmove", onTouchMove);
-      document.addEventListener("mouseup", onMouseUp, {once: true});
-      document.addEventListener("touchend", onMouseUp, {once: true});
+      document.addEventListener("mouseup", onMouseUp, { once: true });
+      document.addEventListener("touchend", onMouseUp, { once: true });
     };
 
     const onTouchStart = (e: React.TouchEvent) => {
       setSeparatorXPosition(e.touches[0].clientX - leftWidth);
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("touchmove", onTouchMove);
-      document.addEventListener("mouseup", onMouseUp, {once: true});
-      document.addEventListener("touchend", onMouseUp, {once: true});
+      document.addEventListener("mouseup", onMouseUp, { once: true });
+      document.addEventListener("touchend", onMouseUp, { once: true });
     };
 
     const rightResizeObserver = useMemo(
       () =>
         new ResizeObserver((entries: ResizeObserverEntry[]) => {
-          const {target} = entries[0];
+          const { target } = entries[0];
           if (target.clientWidth > AXIS_SPACE) {
             setCanvasWidth(target.clientWidth - AXIS_SPACE);
           } else {
@@ -102,7 +102,7 @@ const SplitView = forwardRef(
     const resizeObserver = useMemo(
       () =>
         new ResizeObserver((entries: ResizeObserverEntry[]) => {
-          const {target} = entries[0];
+          const { target } = entries[0];
           if ((rightPaneElem.current?.clientWidth ?? 0) === 0) {
             setNormalizedLeftWidth(target.clientWidth - MARGIN);
           }
@@ -156,7 +156,7 @@ const SplitView = forwardRef(
       <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
         <div className={styles.Scrollbox} ref={scrollBoxElem}>
           <div className={styles.Scrolled}>
-            <div className={styles.LeftPane} style={{width: leftWidth}}>
+            <div className={styles.LeftPane} style={{ width: leftWidth }}>
               {left}
             </div>
             <div

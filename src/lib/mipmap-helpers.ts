@@ -1,4 +1,4 @@
-import {FreqScale, WasmAPI} from "../api";
+import { FreqScale, WasmAPI } from "../api";
 
 function addPrePostMargin(
   start: number,

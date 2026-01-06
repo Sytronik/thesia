@@ -1,8 +1,8 @@
-import {useRef, useState, useEffect} from "react";
-import {difference} from "src/utils/arrayUtils";
+import { useRef, useState, useEffect } from "react";
+import { difference } from "src/utils/arrayUtils";
 import useEvent from "react-use-event-hook";
 import update from "immutability-helper";
-import {UserSettings} from "src/api/backend-wrapper";
+import { UserSettings } from "src/api/backend-wrapper";
 import BackendAPI from "../api";
 
 type AddTracksResultType = {
@@ -21,7 +21,7 @@ const getTrackIdChMap = async (trackIds: number[]) => {
 };
 
 const getTrackIdChArr = async (id: number) => {
-  return Array.from({length: await BackendAPI.getChannelCounts(id)}, (_, ch) => `${id}_${ch}`);
+  return Array.from({ length: await BackendAPI.getChannelCounts(id) }, (_, ch) => `${id}_${ch}`);
 };
 
 function useTracks(userSettings: UserSettings) {
@@ -71,7 +71,7 @@ function useTracks(userSettings: UserSettings) {
         const newPaths = paths.filter((_, i) => idsOfInputPaths[i] === -1);
         const existingIds = idsOfInputPaths.filter((id) => id !== -1);
 
-        if (!newPaths.length) return {existingIds, invalidPaths: []};
+        if (!newPaths.length) return { existingIds, invalidPaths: [] };
 
         const newIds = [...Array(newPaths.length).keys()].map((i) => {
           if (waitingIdsRef.current.size > 0) {
@@ -94,18 +94,18 @@ function useTracks(userSettings: UserSettings) {
           });
         }
 
-        if (newIds.length === addedIds.length) return {existingIds, invalidPaths: []};
+        if (newIds.length === addedIds.length) return { existingIds, invalidPaths: [] };
 
         const invalidIds = difference(newIds, addedIds);
         const invalidPaths = invalidIds.map((id) => newPaths[newIds.indexOf(id)]);
         addToWaitingIds(invalidIds);
 
-        return {existingIds, invalidPaths};
+        return { existingIds, invalidPaths };
       } catch (err) {
         console.error("Track adds error", err);
         alert("Track adds error");
 
-        return {existingIds: [], invalidPaths: []};
+        return { existingIds: [], invalidPaths: [] };
       }
     },
   );
@@ -178,7 +178,7 @@ function useTracks(userSettings: UserSettings) {
 
   const showHiddenTracks = useEvent((hoverIndex: number) => {
     setTrackIds((prevTrackIds) =>
-      update(prevTrackIds, {$splice: [[hoverIndex + 1, 0, ...hiddenTrackIds]]}),
+      update(prevTrackIds, { $splice: [[hoverIndex + 1, 0, ...hiddenTrackIds]] }),
     );
     setHiddenTrackIds([]);
   });
@@ -188,14 +188,14 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setSpecSetting(v);
     const specSetting = await BackendAPI.getSpecSetting();
     setCurrentSpecSetting(specSetting);
-    await BackendAPI.setUserSettings({specSetting});
+    await BackendAPI.setUserSettings({ specSetting });
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     setIsLoading(false);
   });
 
   const setBlendAndSetUserSetting = useEvent((v: number) => {
     setBlend(v);
-    BackendAPI.setUserSettings({blend: v});
+    BackendAPI.setUserSettings({ blend: v });
   });
 
   const setdBRange = useEvent(async (v: number) => {
@@ -203,7 +203,7 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setdBRange(v);
     const dBRange = await BackendAPI.getdBRange();
     setCurrentdBRange(dBRange);
-    await BackendAPI.setUserSettings({dBRange});
+    await BackendAPI.setUserSettings({ dBRange });
     setNeedRefreshTrackIdChArr(Array.from(trackIdChMap.values()).flat());
     setIsLoading(false);
   });
@@ -213,7 +213,7 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setCommonGuardClipping(v);
     const commonGuardClipping = await BackendAPI.getCommonGuardClipping();
     setCurrentCommonGuardClipping(commonGuardClipping);
-    await BackendAPI.setUserSettings({commonGuardClipping});
+    await BackendAPI.setUserSettings({ commonGuardClipping });
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
     setNeedRefreshTrackIdChArr(allIdChArr);
     setIsLoading(false);
@@ -224,7 +224,7 @@ function useTracks(userSettings: UserSettings) {
     await BackendAPI.setCommonNormalize(v);
     const commonNormalize = await BackendAPI.getCommonNormalize();
     setCurrentCommonNormalize(commonNormalize);
-    await BackendAPI.setUserSettings({commonNormalize});
+    await BackendAPI.setUserSettings({ commonNormalize });
     const allIdChArr = Array.from(trackIdChMap.values()).flat();
     setNeedRefreshTrackIdChArr(allIdChArr);
     setIsLoading(false);

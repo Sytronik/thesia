@@ -1,4 +1,4 @@
-import React, {forwardRef, useEffect, useImperativeHandle, useRef} from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 type FloatingUserInputProps = {
   value: string;
@@ -10,8 +10,8 @@ type FloatingUserInputProps = {
 };
 
 const FloatingUserInput = forwardRef(
-  ({focusOnShow = true, ...props}: FloatingUserInputProps, ref) => {
-    const {value, onEndEditing: endEditingCallback, hidden, className, style} = props;
+  ({ focusOnShow = true, ...props }: FloatingUserInputProps, ref) => {
+    const { value, onEndEditing: endEditingCallback, hidden, className, style } = props;
     const changedRef = useRef<boolean>(false);
     const inputElem = useRef<HTMLInputElement>(null);
 

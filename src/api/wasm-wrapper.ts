@@ -22,7 +22,7 @@ import init, {
   freqPosToHz,
   freqHzToPos,
 } from "thesia-wasm-module";
-import {FreqScale} from "./backend-wrapper";
+import { FreqScale } from "./backend-wrapper";
 
 let wasmInitialized = false;
 let memory: WebAssembly.Memory;
@@ -123,7 +123,7 @@ export function calcTimeAxisMarkers(
   subTickUnitCount: number,
   markerDrawOptions?: MarkerDrawOption,
 ): Markers {
-  const {startSec, endSec, maxSec} = markerDrawOptions || {};
+  const { startSec, endSec, maxSec } = markerDrawOptions || {};
 
   if (startSec === undefined || endSec === undefined || maxSec === undefined) {
     console.error("no markerDrawOptions for time axis exist");
@@ -138,7 +138,7 @@ export function calcFreqAxisMarkers(
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
 ): Markers {
-  const {maxTrackHz, freqScale, hzRange} = markerDrawOptions || {};
+  const { maxTrackHz, freqScale, hzRange } = markerDrawOptions || {};
 
   if (maxTrackHz === undefined || freqScale === undefined || hzRange === undefined) {
     console.error("no markerDrawOptions for freq axis exist");
@@ -159,7 +159,7 @@ export function calcAmpAxisMarkers(
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
 ): Markers {
-  const {ampRange} = markerDrawOptions || {};
+  const { ampRange } = markerDrawOptions || {};
 
   if (!ampRange) {
     console.error("no markerDrawOption for amp axis exist");
@@ -174,7 +174,7 @@ export function calcDbAxisMarkers(
   maxNumLabels: number,
   markerDrawOptions?: MarkerDrawOption,
 ): Markers {
-  const {mindB, maxdB} = markerDrawOptions || {};
+  const { mindB, maxdB } = markerDrawOptions || {};
 
   if (mindB === undefined || maxdB === undefined) {
     console.error("no markerDrawOptions for dB axis exist");
@@ -185,7 +185,7 @@ export function calcDbAxisMarkers(
 }
 
 // Named exports
-export {WasmFloat32Array, WasmU16Array, WasmU8Array};
+export { WasmFloat32Array, WasmU16Array, WasmU8Array };
 export default {
   initWasm,
   isWasmInitialized,

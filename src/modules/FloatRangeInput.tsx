@@ -1,6 +1,6 @@
-import React, {useRef, useEffect, forwardRef, useImperativeHandle} from "react";
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import useEvent from "react-use-event-hook";
-import {DEFAULT_RANGE_COLOR} from "src/prototypes/constants/colors";
+import { DEFAULT_RANGE_COLOR } from "src/prototypes/constants/colors";
 import styles from "./FloatRangeInput.module.scss";
 
 type FloatRangeInputProps = {
@@ -32,7 +32,7 @@ const FloatRangeInput = forwardRef(
     }: FloatRangeInputProps,
     ref,
   ) => {
-    const {id, unit, min, max, step, precision, initialValue} = props;
+    const { id, unit, min, max, step, precision, initialValue } = props;
     const rangeElem = useRef<HTMLInputElement>(null);
     const textElem = useRef<HTMLInputElement>(null);
     const prevValueRef = useRef<number>(initialValue);
@@ -141,7 +141,7 @@ const FloatRangeInput = forwardRef(
       }
     }, [disabled, initialValue, disabledValue, precision]);
 
-    const imperativeInstanceRef = useRef<FloatRangeInputElement>({setValue});
+    const imperativeInstanceRef = useRef<FloatRangeInputElement>({ setValue });
     useImperativeHandle(ref, () => imperativeInstanceRef.current, []);
 
     return (
@@ -176,7 +176,7 @@ const FloatRangeInput = forwardRef(
           id={`${id}Text`}
           type="text"
           inputMode="decimal"
-          style={{width: `${getTextElemSize()}ch`}}
+          style={{ width: `${getTextElemSize()}ch` }}
           defaultValue={initialValue.toFixed(precision)}
           disabled={disabled}
           onFocus={onTextFocus}

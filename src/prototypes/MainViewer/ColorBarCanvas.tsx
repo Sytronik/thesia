@@ -1,9 +1,9 @@
-import React, {useMemo, useRef, useCallback, useEffect, useContext} from "react";
-import {chunk} from "src/utils/arrayUtils";
-import {COLORBAR_CANVAS_WIDTH} from "src/prototypes/constants/tracks";
-import {DevicePixelRatioContext} from "src/contexts";
+import React, { useMemo, useRef, useCallback, useEffect, useContext } from "react";
+import { chunk } from "src/utils/arrayUtils";
+import { COLORBAR_CANVAS_WIDTH } from "src/prototypes/constants/tracks";
+import { DevicePixelRatioContext } from "src/contexts";
 import styles from "./ColorBarCanvas.module.scss";
-import {COLORMAP_RGBA8} from "../constants/colors";
+import { COLORMAP_RGBA8 } from "../constants/colors";
 
 type ColorBarCanvasProps = {
   width: number;
@@ -13,7 +13,7 @@ type ColorBarCanvasProps = {
 const COLORBAR_CENTER = COLORBAR_CANVAS_WIDTH / 2;
 
 function ColorBarCanvas(props: ColorBarCanvasProps) {
-  const {width, height} = props;
+  const { width, height } = props;
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const canvasElem = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -43,12 +43,12 @@ function ColorBarCanvas(props: ColorBarCanvasProps) {
     canvasElem.current.width = width * devicePixelRatio;
     canvasElem.current.height = height * devicePixelRatio;
 
-    ctxRef.current = canvasElem.current.getContext("2d", {alpha: false, desynchronized: true});
+    ctxRef.current = canvasElem.current.getContext("2d", { alpha: false, desynchronized: true });
     ctxRef.current?.scale(devicePixelRatio, devicePixelRatio);
     draw();
   }, [draw, width, height, devicePixelRatio]);
 
-  return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{width, height}} />;
+  return <canvas className={styles.ColorBarCanvas} ref={canvasElem} style={{ width, height }} />;
 }
 
 export default React.memo(ColorBarCanvas);

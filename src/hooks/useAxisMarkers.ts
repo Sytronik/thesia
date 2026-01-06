@@ -1,5 +1,5 @@
-import {useMemo} from "react";
-import {MarkerDrawOption, Markers} from "../api";
+import { useMemo } from "react";
+import { MarkerDrawOption, Markers } from "../api";
 
 type ThrottledSetMarkersParams = {
   scaleTable: TickScaleTable;
@@ -29,7 +29,8 @@ const getTickScale = (
 };
 
 export default function useAxisMarkers(params: ThrottledSetMarkersParams) {
-  const {scaleTable, boundaries, getMarkers, canvasLength, scaleDeterminant, drawOptions} = params;
+  const { scaleTable, boundaries, getMarkers, canvasLength, scaleDeterminant, drawOptions } =
+    params;
   const tickScale: [number, number] | null = useMemo(
     () => getTickScale(scaleTable, boundaries, scaleDeterminant),
     [scaleTable, boundaries, scaleDeterminant],

@@ -1,32 +1,32 @@
-import {MemoryRouter as Router, Routes, Route} from "react-router-dom";
-import {useEffect, useMemo, useRef} from "react";
+import { MemoryRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
 import useEvent from "react-use-event-hook";
-import {DndProvider} from "react-dnd";
-import {TouchBackend} from "react-dnd-touch-backend";
+import { DndProvider } from "react-dnd";
+import { TouchBackend } from "react-dnd-touch-backend";
 import BackendAPI, {
   UserSettings,
   listenMenuOpenAudioTracks,
   listenMenuRemoveSelectedTracks,
   listenOpenFiles,
 } from "./api";
-import {useHotkeys} from "react-hotkeys-hook";
+import { useHotkeys } from "react-hotkeys-hook";
 import Control from "./prototypes/Control/Control";
 import MainViewer from "./prototypes/MainViewer/MainViewer";
 import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
-import {SUPPORTED_TYPES} from "./prototypes/constants/tracks";
+import { SUPPORTED_TYPES } from "./prototypes/constants/tracks";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
-import {DevicePixelRatioProvider} from "./contexts";
+import { DevicePixelRatioProvider } from "./contexts";
 import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
-import {useGlobalEvents} from "./hooks/useGlobalEvents";
-import {showFileOpenErrorMsg, getOpenFilesDialogHandler} from "./lib/open-files-dialog";
-import {initializeWorkerPool} from "./lib/worker-pool";
-import {useOverlayScrollbars} from "./hooks/useOverlayScrollbars";
+import { useGlobalEvents } from "./hooks/useGlobalEvents";
+import { showFileOpenErrorMsg, getOpenFilesDialogHandler } from "./lib/open-files-dialog";
+import { initializeWorkerPool } from "./lib/worker-pool";
+import { useOverlayScrollbars } from "./hooks/useOverlayScrollbars";
 
-type AppProps = {userSettings: UserSettings};
+type AppProps = { userSettings: UserSettings };
 
-function MyApp({userSettings}: AppProps) {
+function MyApp({ userSettings }: AppProps) {
   const {
     trackIds,
     hiddenTrackIds,
@@ -93,7 +93,7 @@ function MyApp({userSettings}: AppProps) {
       else unsupportedPaths.push(path);
     });
 
-    const {existingIds, invalidPaths} = await addTracks(newPaths, index);
+    const { existingIds, invalidPaths } = await addTracks(newPaths, index);
 
     if (unsupportedPaths.length || invalidPaths.length) {
       showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
@@ -107,7 +107,7 @@ function MyApp({userSettings}: AppProps) {
   const openAudioTracks = useEvent(async (filePaths: string[]) => {
     const unsupportedPaths: string[] = [];
 
-    const {existingIds, invalidPaths} = await addTracks(filePaths);
+    const { existingIds, invalidPaths } = await addTracks(filePaths);
 
     if (unsupportedPaths.length || invalidPaths.length) {
       showFileOpenErrorMsg(unsupportedPaths, invalidPaths);
@@ -149,7 +149,7 @@ function MyApp({userSettings}: AppProps) {
     await refreshTracks();
   });
 
-  useHotkeys("backspace, delete", removeSelectedTracks, {preventDefault: true}, [
+  useHotkeys("backspace, delete", removeSelectedTracks, { preventDefault: true }, [
     removeSelectedTracks,
   ]);
   useEffect(() => {
@@ -182,7 +182,7 @@ function MyApp({userSettings}: AppProps) {
 
   return (
     <div id="App" className="App">
-      <DndProvider backend={TouchBackend} options={{enableMouseEvents: true}}>
+      <DndProvider backend={TouchBackend} options={{ enableMouseEvents: true }}>
         <PlayerControl player={player} isTrackEmpty={trackIds.length === 0} />
         <div className="flex-container-row flex-item-auto">
           <Control
@@ -231,7 +231,7 @@ function MyApp({userSettings}: AppProps) {
   );
 }
 
-export default function App({userSettings}: AppProps) {
+export default function App({ userSettings }: AppProps) {
   return (
     <Router>
       <Routes>

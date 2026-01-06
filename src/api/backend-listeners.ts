@@ -1,5 +1,5 @@
-import {listen, UnlistenFn} from "@tauri-apps/api/event";
-import {AxisKind} from "./backend-wrapper";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { AxisKind } from "./backend-wrapper";
 
 export async function listenOpenFiles(
   handler: (files: string[]) => void | Promise<void>,

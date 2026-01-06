@@ -1,10 +1,10 @@
-import {useRef, useState} from "react";
+import { useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import {debounce} from "throttle-debounce";
+import { debounce } from "throttle-debounce";
 import useEvent from "react-use-event-hook";
-import {Tooltip} from "react-tooltip";
+import { Tooltip } from "react-tooltip";
 import styles from "./TrackSummary.module.scss";
-import {CHANNEL} from "../constants/tracks";
+import { CHANNEL } from "../constants/tracks";
 
 type TrackSummaryProps = {
   data: TrackSummaryData | null;
@@ -13,14 +13,14 @@ type TrackSummaryProps = {
 };
 
 function TrackSummary(props: TrackSummaryProps) {
-  const {data, chCount, className} = props;
+  const { data, chCount, className } = props;
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const debouncedSetShowTooltip = useEvent(debounce(500, setShowTooltip));
   const pathNameElem = useRef<HTMLSpanElement>(null);
   const pathElem = useRef<HTMLSpanElement>(null);
   const nameElem = useRef<HTMLSpanElement>(null);
 
-  const {fileName, time, formatName, bitDepth, bitrate, sampleRate, globalLUFS, guardClipStats} =
+  const { fileName, time, formatName, bitDepth, bitrate, sampleRate, globalLUFS, guardClipStats } =
     data || {
       fileName: "",
       time: "",
@@ -116,7 +116,7 @@ function TrackSummary(props: TrackSummaryProps) {
         <span>{sampleRate}</span>
       </span>
       <span className={styles.loudness}>
-        <span style={{paddingRight: "0.5em"}}>{globalLUFS}</span>
+        <span style={{ paddingRight: "0.5em" }}>{globalLUFS}</span>
         {guardClipStats.length > 0 && createGuardClipStatsTooltip()}
       </span>
     </div>
