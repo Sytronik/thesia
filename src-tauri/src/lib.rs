@@ -137,7 +137,7 @@ fn _set_user_settings(
 }
 
 #[tauri::command]
-fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Result<()> {
+async fn set_user_settings(app: AppHandle, settings: serde_json::Value) -> tauri::Result<()> {
     _set_user_settings(&app, settings, true)
 }
 
@@ -202,7 +202,7 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
 }
 
 #[tauri::command]
-fn remove_tracks(track_ids: Vec<u32>) {
+async fn remove_tracks(track_ids: Vec<u32>) {
     assert!(!track_ids.is_empty());
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
@@ -326,7 +326,7 @@ async fn get_spectrogram(id_ch_str: String) -> tauri::Result<serde_json::Value> 
 }
 
 #[tauri::command]
-fn get_wav(id_ch_str: String) -> tauri::Result<WavInfo> {
+async fn get_wav(id_ch_str: String) -> tauri::Result<WavInfo> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     match TRACK_LIST.read().get(id) {
         Some(track) => {
@@ -350,7 +350,7 @@ fn find_id_by_path(path: String) -> i32 {
 }
 
 #[tauri::command]
-fn get_limiter_gain(track_id: u32) -> Option<Vec<f32>> {
+async fn get_limiter_gain(track_id: u32) -> Option<Vec<f32>> {
     let tracklist = TRACK_LIST.read();
     tracklist
         .get(track_id as usize)
@@ -439,7 +439,7 @@ fn get_max_peak_dB(track_id: u32) -> f64 {
 }
 
 #[tauri::command]
-fn get_guard_clip_stats(track_id: u32) -> serde_json::Value {
+async fn get_guard_clip_stats(track_id: u32) -> serde_json::Value {
     let tracklist = TRACK_LIST.read();
     let mode = tracklist.common_guard_clipping;
     let prefix = mode.to_string();
