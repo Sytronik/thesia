@@ -1,37 +1,56 @@
-import { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { debounce } from "throttle-debounce";
 import useEvent from "react-use-event-hook";
 import { Tooltip } from "react-tooltip";
 import styles from "./TrackSummary.module.scss";
 import { CHANNEL } from "../constants/tracks";
+import BackendAPI from "../../api";
+
+const fetchData = async (trackId: number) => {
+  const formatInfo = await BackendAPI.getFormatInfo(trackId);
+  return {
+    fileName: await BackendAPI.getFileName(trackId),
+    time: new Date((await BackendAPI.getLengthSec(trackId)) * 1000).toISOString().substring(11, 23),
+    formatName: formatInfo.name,
+    bitDepth: formatInfo.bitDepth,
+    bitrate: formatInfo.bitrate,
+    sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
+    globalLUFS: `${((await BackendAPI.getGlobalLUFS(trackId)) ?? -Infinity).toFixed(2)} LUFS`,
+    guardClipStats: await BackendAPI.getGuardClipStats(trackId),
+  };
+};
 
 type TrackSummaryProps = {
-  data: TrackSummaryData | null;
+  trackId: number;
   chCount: number;
   className: string;
 };
 
 function TrackSummary(props: TrackSummaryProps) {
-  const { data, chCount, className } = props;
+  const { trackId, chCount, className } = props;
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const debouncedSetShowTooltip = useEvent(debounce(500, setShowTooltip));
   const pathNameElem = useRef<HTMLSpanElement>(null);
   const pathElem = useRef<HTMLSpanElement>(null);
   const nameElem = useRef<HTMLSpanElement>(null);
 
-  const { fileName, time, formatName, bitDepth, bitrate, sampleRate, globalLUFS, guardClipStats } =
-    data || {
-      fileName: "",
-      time: "",
-      formatName: "",
-      bitDepth: "",
-      bitrate: "",
-      sampleRate: "",
-      globalLUFS: "",
-      guardClipStats: [],
-    };
-  const pathPieces = fileName.split("/");
+  const [data, setData] = useState<TrackSummaryData>({
+    fileName: "",
+    time: "",
+    formatName: "",
+    bitDepth: "",
+    bitrate: "",
+    sampleRate: "",
+    globalLUFS: "",
+    guardClipStats: [],
+  });
+
+  useEffect(() => {
+    fetchData(trackId).then(setData);
+  }, [trackId]);
+
+  const pathPieces = data.fileName.split("/");
   const name = pathPieces.pop();
 
   const onMouseMove = () => {
@@ -64,7 +83,7 @@ function TrackSummary(props: TrackSummaryProps) {
     );
 
   const createGuardClipStatsTooltip = () => {
-    const guardClipStatsLines = guardClipStats.map(([channel, stat]) =>
+    const guardClipStatsLines = data.guardClipStats.map(([channel, stat]) =>
       channel >= 0 ? `${CHANNEL[chCount][channel]}: ${stat}` : stat,
     );
     const formattedGuardClipStats = guardClipStatsLines.join("<br />");
@@ -109,19 +128,19 @@ function TrackSummary(props: TrackSummaryProps) {
           {name}
         </span>
       </span>
-      <span className={styles.time}>{time}</span>
+      <span className={styles.time}>{data.time}</span>
       <span className={styles.sampleFormatRate}>
-        <span>{`${formatName} | `}</span>
-        {bitDepth ? <span>{`${bitDepth} | `}</span> : ""}
-        {bitrate ? <span>{`${bitrate} | `}</span> : ""}
-        <span>{sampleRate}</span>
+        <span>{`${data.formatName} | `}</span>
+        {data.bitDepth ? <span>{`${data.bitDepth} | `}</span> : ""}
+        {data.bitrate ? <span>{`${data.bitrate} | `}</span> : ""}
+        <span>{data.sampleRate}</span>
       </span>
       <span className={styles.loudness}>
-        <span style={{ paddingRight: "0.5em" }}>{globalLUFS}</span>
-        {guardClipStats.length > 0 && createGuardClipStatsTooltip()}
+        <span style={{ paddingRight: "0.5em" }}>{data.globalLUFS}</span>
+        {data.guardClipStats.length > 0 && createGuardClipStatsTooltip()}
       </span>
     </div>
   );
 }
 
-export default TrackSummary;
+export default React.memo(TrackSummary);

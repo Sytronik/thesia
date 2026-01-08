@@ -141,14 +141,16 @@ function useTracks(userSettings: UserSettings) {
     setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, [erroredId]));
   });
 
-  const removeTracks = useEvent((ids: number[]) => {
-    try {
-      setIsLoading(true);
-      BackendAPI.removeTracks(ids);
-      setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
-      setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
+  const removeTracks = useEvent(async (ids: number[]) => {
+    const existingIds = ids.filter((id) => trackIds.includes(id));
+    if (existingIds.length === 0) return;
+    setIsLoading(true);
+    setTrackIds((prevTrackIds) => difference(prevTrackIds, ids));
+    setErroredTrackIds((prevErroredTrackIds) => difference(prevErroredTrackIds, ids));
 
-      addToWaitingIds(ids);
+    addToWaitingIds(ids);
+    try {
+      await BackendAPI.removeTracks(ids);
     } catch (err) {
       console.error("Could not remove track", err);
       alert("Could not remove track");

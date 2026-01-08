@@ -2,19 +2,16 @@ import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } fr
 import type { Identifier, XYCoord } from "dnd-core";
 import { DragSourceMonitor, useDrag, useDrop } from "react-dnd";
 import BackendAPI from "../../api";
-import TrackSummary from "./TrackSummary";
 import styles from "./TrackInfo.module.scss";
 import { CHANNEL, VERTICAL_AXIS_PADDING } from "../constants/tracks";
 import DndItemTypes from "../constants/DndItemTypes";
-
-const MemoizedTrackSummary = React.memo(TrackSummary);
+import TrackSummary from "./TrackSummary";
 
 type TrackInfoProps = {
   id: number;
   index: number;
   trackIdChArr: IdChArr;
   selectedTrackIds: number[];
-  trackSummary: TrackSummaryData;
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
@@ -38,7 +35,6 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     index,
     trackIdChArr: trackIdCh,
     selectedTrackIds,
-    trackSummary,
     channelHeight,
     imgHeight,
     isSelected,
@@ -81,14 +77,8 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [trackIdCh, imgHeight],
   );
   const trackSummaryChild = useMemo(
-    () => (
-      <MemoizedTrackSummary
-        className={styles.TrackSummary}
-        data={trackSummary}
-        chCount={trackIdCh.length}
-      />
-    ),
-    [trackSummary, trackIdCh],
+    () => <TrackSummary trackId={id} className={styles.TrackSummary} chCount={trackIdCh.length} />,
+    [id, trackIdCh],
   );
 
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: Identifier | null }>(

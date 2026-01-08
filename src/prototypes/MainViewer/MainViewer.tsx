@@ -762,30 +762,6 @@ function MainViewer(props: MainViewerProps) {
     player.isPlaying ? ((player.positionSecRef.current ?? 0) - startSec) * pxPerSec : -Infinity,
   );
 
-  const [trackSummaryArr, setTrackSummaryArr] = useState<TrackSummaryData[]>([]);
-  useEffect(() => {
-    setTrackSummaryArr(Array(trackIds.length).fill(null));
-    Promise.all(
-      trackIds.map(async (trackId) => {
-        const formatInfo = await BackendAPI.getFormatInfo(trackId);
-        return {
-          fileName: await BackendAPI.getFileName(trackId),
-          time: new Date((await BackendAPI.getLengthSec(trackId)) * 1000)
-            .toISOString()
-            .substring(11, 23),
-          formatName: formatInfo.name,
-          bitDepth: formatInfo.bitDepth,
-          bitrate: formatInfo.bitrate,
-          sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-          globalLUFS: `${((await BackendAPI.getGlobalLUFS(trackId)) ?? -Infinity).toFixed(2)} LUFS`,
-          guardClipStats: await BackendAPI.getGuardClipStats(trackId),
-        };
-      }),
-    ).then((_trackSummaryArr) => {
-      setTrackSummaryArr(_trackSummaryArr);
-    });
-  }, [trackIds, needRefreshTrackIdChArr]);
-
   // auto-scroll to the recently selected track
   const reducerForTrackInfoElemRange = useEvent(
     (
@@ -922,7 +898,6 @@ function MainViewer(props: MainViewerProps) {
             index={i}
             trackIdChArr={trackIdChMap.get(trackId) || []}
             selectedTrackIds={selectedTrackIds}
-            trackSummary={trackSummaryArr[i]}
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
@@ -1003,7 +978,7 @@ function MainViewer(props: MainViewerProps) {
                       }}
                       handleIgnore={ignoreError}
                       handleClose={async (trackId) => {
-                        removeTracks([trackId]);
+                        await removeTracks([trackId]);
                         await refreshTracks();
                       }}
                     />
