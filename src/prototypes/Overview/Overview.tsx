@@ -56,6 +56,7 @@ function Overview(props: OverviewProps) {
     () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : Promise.resolve(0)),
     [trackId],
   );
+  const hasSetWavCompletedRef = useRef(false);
 
   const backgroundElem = useRef<HTMLCanvasElement>(null);
   const lensElem = useRef<HTMLCanvasElement>(null);
@@ -68,10 +69,15 @@ function Overview(props: OverviewProps) {
   }, [devicePixelRatio]);
 
   useEffect(() => {
-    idChArr.forEach((idChStr) => transferWavFromBackendToWasm(idChStr));
+    hasSetWavCompletedRef.current = false;
+    Promise.all(idChArr.map((idChStr) => transferWavFromBackendToWasm(idChStr))).then(() => {
+      hasSetWavCompletedRef.current = true;
+    });
 
     return () => {
-      idChArr.forEach((idChStr) => WasmAPI.removeWav(idChStr));
+      Promise.all(idChArr.map((idChStr) => WasmAPI.removeWav(idChStr))).then(() => {
+        hasSetWavCompletedRef.current = false;
+      });
     };
   }, [idChArr]);
 
@@ -102,6 +108,9 @@ function Overview(props: OverviewProps) {
       const [wasmArr, view] = WasmAPI.createWasmFloat32Array(limiterGainSeq.length);
       view.set(limiterGainSeq);
       limiterGainSeqWasmArr = wasmArr;
+    }
+    while (!hasSetWavCompletedRef.current) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
     WasmAPI.drawOverview(
       backgroundElem.current,
