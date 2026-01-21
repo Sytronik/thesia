@@ -390,6 +390,16 @@ function MainViewer(props: MainViewerProps) {
       changeLocatorByMouse(e, false, false, false);
       onSelectLocatorMouseDown();
     } else {
+      for (const id of trackIds) {
+        const trackInfoElem = trackInfosRef.current[`${id}`];
+        if (!trackInfoElem) continue;
+        const trackInfoRect = trackInfoElem.getBoundingClientRect();
+        if (!trackInfoRect) continue;
+        if (trackInfoRect.y <= e.clientY && e.clientY <= trackInfoRect.y + trackInfoRect.height) {
+          selectTrack(e, id, trackIds);
+          break;
+        }
+      }
       changeLocatorByMouse(e, player.isPlaying, false, false);
     }
   };
@@ -945,12 +955,7 @@ function MainViewer(props: MainViewerProps) {
           <div key={`${id}`} className={styles.trackRight}>
             {trackIdChMap.get(id)?.map((idChStr) => {
               return (
-                <div
-                  key={idChStr}
-                  className={styles.chCanvases}
-                  role="presentation"
-                  onClick={(e) => selectTrack(e, id, trackIds)}
-                >
+                <div key={idChStr} className={styles.chCanvases} role="presentation">
                   <ImgCanvas
                     ref={registerImgCanvas(idChStr)}
                     idChStr={idChStr}
