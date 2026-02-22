@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use audioadapter_buffers::direct::SequentialSliceOfVecs;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Sample, SampleFormat, Stream};
 use rubato::{
-    Resampler, SincFixedOut, SincInterpolationParameters, SincInterpolationType, WindowFunction,
-    calculate_cutoff,
+    Async, FixedAsync, Resampler, SincInterpolationParameters, SincInterpolationType,
+    WindowFunction, calculate_cutoff,
 };
 
 use super::device::{choose_stream_config, default_output_device, device_name};
@@ -31,7 +32,7 @@ struct RubatoConfigKey {
 
 struct RubatoStreamResampler {
     key: RubatoConfigKey,
-    resampler: SincFixedOut<f32>,
+    resampler: Async<f32>,
     input_buffer: Vec<Vec<f32>>,
     output_buffer: Vec<Vec<f32>>,
     queued_interleaved: Vec<f32>,
@@ -62,12 +63,18 @@ impl RubatoStreamResampler {
             oversampling_factor: RUBATO_OVERSAMPLING,
             window: RUBATO_WINDOW,
         };
-        let resampler =
-            SincFixedOut::<f32>::new(ratio, 1.0, params, RUBATO_CHUNK_SIZE, output_channels)
-                .map_err(|e| format!("Failed to build rubato resampler: {}", e))?;
+        let resampler = Async::<f32>::new_sinc(
+            ratio,
+            1.0,
+            &params,
+            RUBATO_CHUNK_SIZE,
+            output_channels,
+            FixedAsync::Output,
+        )
+        .map_err(|e| format!("Failed to build rubato resampler: {}", e))?;
         let pending_delay_drop = resampler.output_delay();
-        let input_buffer = resampler.input_buffer_allocate(true);
-        let output_buffer = resampler.output_buffer_allocate(true);
+        let input_buffer = vec![vec![0.; resampler.input_frames_max()]; output_channels];
+        let output_buffer = vec![vec![0.; resampler.output_frames_max()]; output_channels];
 
         Ok(Self {
             key: RubatoConfigKey {
@@ -165,12 +172,13 @@ impl RubatoStreamResampler {
         playback: &PlaybackData,
         total_frames: usize,
     ) -> Result<bool, String> {
-        let needed_input_frames = self.resampler.input_frames_next();
         if self.input_cursor_frame >= total_frames && self.drain_chunks_left == 0 {
             return Ok(false);
         }
+        let output_channels = self.key.output_channels;
+        let needed_input_frames = self.resampler.input_frames_next();
 
-        for channel in 0..self.key.output_channels {
+        for channel in 0..output_channels {
             let input_channel = &mut self.input_buffer[channel];
             if input_channel.len() < needed_input_frames {
                 input_channel.resize(needed_input_frames, 0.);
@@ -182,12 +190,12 @@ impl RubatoStreamResampler {
         let copied_input_frames = available_input_frames.min(needed_input_frames);
         for frame_offset in 0..copied_input_frames {
             let source_frame_idx = self.input_cursor_frame + frame_offset;
-            for output_channel in 0..self.key.output_channels {
+            for output_channel in 0..output_channels {
                 self.input_buffer[output_channel][frame_offset] = source_sample_for_output(
                     playback,
                     source_frame_idx,
                     output_channel,
-                    self.key.output_channels,
+                    output_channels,
                 );
             }
         }
@@ -199,9 +207,22 @@ impl RubatoStreamResampler {
             self.drain_chunks_left -= 1;
         }
 
+        let output_frames_capacity = self.output_buffer.first().map_or(0, Vec::len);
+        let input_adapter = SequentialSliceOfVecs::new(
+            self.input_buffer.as_slice(),
+            output_channels,
+            needed_input_frames,
+        )
+        .map_err(|e| format!("rubato input adapter error: {}", e))?;
+        let mut output_adapter = SequentialSliceOfVecs::new_mut(
+            self.output_buffer.as_mut_slice(),
+            output_channels,
+            output_frames_capacity,
+        )
+        .map_err(|e| format!("rubato output adapter error: {}", e))?;
         let (_, out_frames) = self
             .resampler
-            .process_into_buffer(&self.input_buffer, &mut self.output_buffer, None)
+            .process_into_buffer(&input_adapter, &mut output_adapter, None)
             .map_err(|e| format!("rubato process error: {}", e))?;
         self.append_output(out_frames);
 

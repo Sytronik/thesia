@@ -21,6 +21,7 @@ tauri-build = { version = "2", features = ["codegen"] }
 [dependencies]
 # console-subscriber = "0.4.0"
 anyhow = "1"
+audioadapter-buffers = { workspace = true }
 atomic_float = { workspace = true }
 const_format = "0.2.35"
 cpal = "0.17.3"
