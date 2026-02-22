@@ -616,8 +616,15 @@ pub fn run() {
 
     #[cfg(debug_assertions)]
     {
-        let devtools = tauri_plugin_devtools::init();
-        builder = builder.plugin(devtools);
+        builder = builder.plugin(
+            tauri_plugin_log::Builder::new()
+                .level(tauri_plugin_log::log::LevelFilter::Info)
+                .clear_targets()
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Stdout,
+                ))
+                .build(),
+        );
     }
 
     #[cfg(target_os = "macos")]
