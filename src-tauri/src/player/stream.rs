@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cpal::traits::{DeviceTrait, StreamTrait};
-use cpal::{SampleFormat, Stream};
+use cpal::{Sample, SampleFormat, Stream};
 use rubato::{
     Resampler, SincFixedOut, SincInterpolationParameters, SincInterpolationType, WindowFunction,
     calculate_cutoff,
@@ -519,7 +519,7 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| (x * i16::MAX as f32) as i16,
+                        |x| <i16 as Sample>::from_sample(x),
                     );
                 },
                 err_fn,
@@ -538,7 +538,45 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| ((x * 0.5 + 0.5) * u16::MAX as f32) as u16,
+                        |x| <u16 as Sample>::from_sample(x),
+                    );
+                },
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::I24 => {
+            let shared = Arc::clone(shared);
+            let mut render_state = RenderState::default();
+            device.build_output_stream(
+                &config,
+                move |data: &mut [cpal::I24], _| {
+                    fill_output(
+                        data,
+                        output_channels,
+                        selected_sr,
+                        &shared,
+                        &mut render_state,
+                        |x| <cpal::I24 as Sample>::from_sample(x),
+                    );
+                },
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::U24 => {
+            let shared = Arc::clone(shared);
+            let mut render_state = RenderState::default();
+            device.build_output_stream(
+                &config,
+                move |data: &mut [cpal::U24], _| {
+                    fill_output(
+                        data,
+                        output_channels,
+                        selected_sr,
+                        &shared,
+                        &mut render_state,
+                        |x| <cpal::U24 as Sample>::from_sample(x),
                     );
                 },
                 err_fn,
