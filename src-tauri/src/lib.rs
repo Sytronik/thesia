@@ -642,6 +642,7 @@ pub fn run() {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 // Open files when the app is started
+                #[allow(unused_mut)]
                 let mut files = _prarse_args(std::env::args());
                 #[cfg(debug_assertions)]
                 {
@@ -659,6 +660,7 @@ pub fn run() {
                 // on macOS, file associations are handled by the deep link plugin
                 // open files when the app is started
                 let start_urls = app.deep_link().get_current()?;
+                #[allow(unused_mut)]
                 let mut files = start_urls.map_or_else(Vec::new, |urls| {
                     // app was likely started by a deep link
                     urls.into_iter()
