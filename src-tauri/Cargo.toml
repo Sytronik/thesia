@@ -22,8 +22,8 @@ tauri-build = { version = "2", features = ["codegen"] }
 [dependencies]
 # console-subscriber = "0.4.0"
 anyhow = "1"
-audioadapter-buffers = { workspace = true }
 atomic_float = { workspace = true }
+audioadapter-buffers = { workspace = true }
 const_format = "0.2.35"
 cpal = "0.17.3"
 crossbeam-channel = "0.5.15"
@@ -70,7 +70,7 @@ features = [
   "wav",
 ]
 git = "https://github.com/pdeljanov/Symphonia.git"
-rev = "2846716d4fa875e0428ffa638a0adabfacc676ca" # dev-0.6 branch
+rev = "67ec5f39a3f2d5b9d2ceef063192497c16db6c9f" # dev-0.6 branch
 
 [target.'cfg(target_os = "macos")'.dependencies]
 accelerate-src = { version = "0.3.2" }

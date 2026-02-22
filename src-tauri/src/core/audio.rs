@@ -12,6 +12,7 @@ use symphonia::core::codecs::audio::AudioCodecParameters;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{Track as SymphoniaTrack, probe::Hint};
 use symphonia::core::io::MediaSourceStream;
+use symphonia::core::units::Timestamp;
 
 use super::dynamics::{
     AudioStats, GuardClipping, GuardClippingMode, GuardClippingResult, GuardClippingStats,
@@ -310,11 +311,14 @@ pub fn open_audio_file(
     let mut decoder =
         symphonia::default::get_codecs().make_audio_decoder(codec_params, &Default::default())?;
 
-    let total_duration = match (time_base, num_frames) {
-        (Some(tb), Some(nf)) => tb.calc_time(nf),
-        _ => Default::default(),
+    let total_duration_secs = match (time_base, num_frames) {
+        (Some(tb), Some(nf)) => Timestamp::try_from(nf)
+            .ok()
+            .and_then(|ts| tb.calc_time(ts))
+            .map_or(0.0, |time| time.as_secs_f64()),
+        _ => 0.0,
     };
-    let n_samples = (sr as f64 * (total_duration.seconds as f64 + total_duration.frac)) as usize;
+    let n_samples = (sr as f64 * total_duration_secs).ceil() as usize;
     let mut planes = vec![Vec::with_capacity(n_samples); n_ch];
     let mut found_sample_format = "";
     let mut total_packets_byte = 0;
