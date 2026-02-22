@@ -2,6 +2,7 @@
 authors = { workspace = true }
 description = "Thesia's backend"
 edition = { workspace = true }
+license-file = { workspace = true }
 name = "thesia"
 repository = { workspace = true }
 version = { workspace = true }
