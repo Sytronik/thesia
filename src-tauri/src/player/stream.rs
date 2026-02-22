@@ -281,6 +281,14 @@ where
     }
 }
 
+fn playback_total_frames(playback: &PlaybackData) -> usize {
+    if playback.input_channels == 0 {
+        0
+    } else {
+        playback.samples.len() / playback.input_channels
+    }
+}
+
 fn fill_output_without_resampler<T, F>(
     data: &mut [T],
     output_channels: usize,
@@ -329,7 +337,6 @@ fn fill_output_with_rubato<T, F>(
     output_channels: usize,
     output_sample_rate: u32,
     playback: &mut PlaybackData,
-    total_frames: usize,
     render_state: &mut RenderState,
     shared: &SharedPlayback,
     convert: &F,
@@ -371,6 +378,7 @@ fn fill_output_with_rubato<T, F>(
         render_state.frame_buffer.resize(output_channels, 0.);
     }
 
+    let total_frames = playback_total_frames(playback);
     let step = playback.sample_rate as f64 / output_sample_rate as f64;
     let mut reached_end = false;
     let mut process_error: Option<(usize, String)> = None;
@@ -457,7 +465,7 @@ fn fill_output<T, F>(
         return;
     }
 
-    let total_frames = playback.samples.len() / playback.input_channels;
+    let total_frames = playback_total_frames(&playback);
     if total_frames == 0 {
         playback.is_playing = false;
         playback.position_frame = 0.;
@@ -484,7 +492,6 @@ fn fill_output<T, F>(
         output_channels,
         output_sample_rate,
         &mut playback,
-        total_frames,
         render_state,
         shared,
         &convert,
@@ -521,7 +528,7 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| x,
+                        std::convert::identity,
                     );
                 },
                 err_fn,
@@ -540,7 +547,7 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| <i16 as Sample>::from_sample(x),
+                        <i16 as Sample>::from_sample,
                     );
                 },
                 err_fn,
@@ -559,7 +566,7 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| <u16 as Sample>::from_sample(x),
+                        <u16 as Sample>::from_sample,
                     );
                 },
                 err_fn,
@@ -578,7 +585,7 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| <cpal::I24 as Sample>::from_sample(x),
+                        <cpal::I24 as Sample>::from_sample,
                     );
                 },
                 err_fn,
@@ -597,7 +604,7 @@ fn build_output_stream(
                         selected_sr,
                         &shared,
                         &mut render_state,
-                        |x| <cpal::U24 as Sample>::from_sample(x),
+                        <cpal::U24 as Sample>::from_sample,
                     );
                 },
                 err_fn,
