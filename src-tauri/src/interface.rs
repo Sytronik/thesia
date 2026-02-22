@@ -100,14 +100,6 @@ pub struct ConstsAndUserSettings {
     pub user_settings: UserSettings,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlayerState {
-    pub is_playing: bool,
-    pub position_sec: f64,
-    pub err: String,
-}
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Spectrogram<'a> {

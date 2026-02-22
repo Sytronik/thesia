@@ -2,7 +2,12 @@ import { RefObject, useContext, useEffect, useRef, useState } from "react";
 import useEvent from "react-use-event-hook";
 import { useHotkeys } from "react-hotkeys-hook";
 import BackendAPI from "../api";
-import { listenJumpPlayer, listenRewindToFront, listenTogglePlay } from "../api";
+import {
+  listenJumpPlayer,
+  listenPlayerStateChanged,
+  listenRewindToFront,
+  listenTogglePlay,
+} from "../api";
 import { BackendConstantsContext } from "../contexts";
 
 export type Player = {
@@ -18,46 +23,89 @@ export type Player = {
 
 function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   const { PLAY_JUMP_SEC, PLAY_BIG_JUMP_SEC } = useContext(BackendConstantsContext);
+  const TRACK_SWITCH_SEEK_TTL_MS = 1000;
   const [currentPlayingTrack, setCurrentPlayingTrack] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const deviceErrorRef = useRef<string | null>(null);
 
   const positionSecRef = useRef<number>(0);
+  const anchorPositionSecRef = useRef<number>(0);
+  const anchorEventTimeMsRef = useRef<number>(0);
+  const pendingTrackStartSecRef = useRef<number | null>(null);
+  const pendingTrackStartEventMsRef = useRef<number>(0);
   const selectSecRef = useRef<number>(0);
   const setSelectSec = useEvent((sec: number) => {
     selectSecRef.current = Math.min(Math.max(sec, 0), maxTrackSec);
   });
 
   const requestRef = useRef<number>(0);
-  const updatePlayerStatesRef = useRef<(() => Promise<void>) | null>(null);
+  const updatePositionRef = useRef<(() => void) | null>(null);
 
-  const updatePlayerStates = useEvent(async () => {
-    // const start = performance.now();
-    const { isPlaying: newIsPlaying, positionSec, err } = await BackendAPI.getPlayerState();
-    // const end = performance.now();
-    // console.log(`Execution time: ${end - start} ms`);
-    if (err) {
-      if (deviceErrorRef.current === null) console.error(err);
-      deviceErrorRef.current = err;
-    } else {
-      if (deviceErrorRef.current !== null) console.log("Error resolved");
-      deviceErrorRef.current = null;
+  const updatePosition = useEvent(() => {
+    let positionSec = anchorPositionSecRef.current;
+    if (isPlaying) {
+      const elapsedSec = Math.max(0, Date.now() - anchorEventTimeMsRef.current) / 1000;
+      positionSec += elapsedSec;
     }
-    if (isPlaying !== newIsPlaying) setIsPlaying(newIsPlaying);
-    positionSecRef.current = positionSec;
-    if (updatePlayerStatesRef.current)
-      requestRef.current = requestAnimationFrame(updatePlayerStatesRef.current);
+    positionSecRef.current = Math.min(Math.max(positionSec, 0), maxTrackSec);
+    if (updatePositionRef.current) requestRef.current = requestAnimationFrame(updatePositionRef.current);
   });
 
   useEffect(() => {
-    updatePlayerStatesRef.current = updatePlayerStates;
-    requestRef.current = requestAnimationFrame(updatePlayerStatesRef.current);
+    updatePositionRef.current = updatePosition;
+    requestRef.current = requestAnimationFrame(updatePositionRef.current);
     return () => cancelAnimationFrame(requestRef.current);
-  }, [updatePlayerStates]);
+  }, [updatePosition]);
+
+  useEffect(() => {
+    const promiseUnlisten = listenPlayerStateChanged(
+      ({ isPlaying: nextIsPlaying, positionSec, eventTimeMs, err }) => {
+        const clampedPositionSec = Math.min(Math.max(positionSec, 0), maxTrackSec);
+        anchorPositionSecRef.current = clampedPositionSec;
+        anchorEventTimeMsRef.current = Number.isFinite(eventTimeMs) ? eventTimeMs : Date.now();
+        positionSecRef.current = clampedPositionSec;
+        setIsPlaying(nextIsPlaying);
+
+        if (err) {
+          if (deviceErrorRef.current === null) console.error(err);
+          deviceErrorRef.current = err;
+        } else {
+          if (deviceErrorRef.current !== null) console.log("Error resolved");
+          deviceErrorRef.current = null;
+        }
+      },
+    );
+    return () => {
+      promiseUnlisten.then((unlistenFn) => unlistenFn());
+    };
+  }, [maxTrackSec]);
+
+  const seek = useEvent(async (sec: number) => {
+    const clampedSec = Math.min(Math.max(sec, 0), maxTrackSec);
+    pendingTrackStartSecRef.current = clampedSec;
+    pendingTrackStartEventMsRef.current = Date.now();
+    await BackendAPI.seekPlayer(clampedSec);
+  });
 
   const setPlayingTrack = useEvent(async (trackId: number) => {
     if (trackId === currentPlayingTrack || trackId < 0) return;
-    await BackendAPI.setTrackPlayer(trackId);
+
+    const now = Date.now();
+    const pendingSec = pendingTrackStartSecRef.current;
+    const usePendingSec =
+      pendingSec !== null && now - pendingTrackStartEventMsRef.current <= TRACK_SWITCH_SEEK_TTL_MS;
+
+    let startSec = usePendingSec ? pendingSec : selectSecRef.current;
+    if (!usePendingSec && isPlaying) {
+      const elapsedSec = Math.max(0, now - anchorEventTimeMsRef.current) / 1000;
+      startSec = anchorPositionSecRef.current + elapsedSec;
+    }
+    startSec = Math.min(Math.max(startSec, 0), maxTrackSec);
+
+    pendingTrackStartSecRef.current = null;
+    pendingTrackStartEventMsRef.current = 0;
+
+    await BackendAPI.setTrackPlayer(trackId, startSec);
     setCurrentPlayingTrack(trackId);
   });
 
@@ -65,7 +113,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     if (isPlaying) {
       await BackendAPI.pausePlayer();
     } else if (selectedTrackId >= 0) {
-      await BackendAPI.seekPlayer(selectSecRef.current);
+      await seek(selectSecRef.current);
       await BackendAPI.resumePlayer();
     }
   });
@@ -93,7 +141,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
 
   const jump = useEvent(async (jumpSec: number) => {
     if (isPlaying) {
-      await BackendAPI.seekPlayer((positionSecRef.current ?? 0) + jumpSec);
+      await seek((positionSecRef.current ?? 0) + jumpSec);
       return;
     }
     setSelectSec((selectSecRef.current ?? 0) + jumpSec);
@@ -131,7 +179,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
   }, [jump, PLAY_JUMP_SEC, PLAY_BIG_JUMP_SEC]);
 
   const rewindToFront = useEvent(async () => {
-    if (isPlaying) await BackendAPI.seekPlayer(0);
+    if (isPlaying) await seek(0);
     else setSelectSec(0);
   });
   useHotkeys("enter", rewindToFront, { preventDefault: true }, [rewindToFront]);
@@ -152,7 +200,7 @@ function usePlayer(selectedTrackId: number, maxTrackSec: number) {
     selectSecRef,
     setSelectSec,
     togglePlay,
-    seek: BackendAPI.seekPlayer,
+    seek,
     jump,
     rewindToFront,
   } as Player;

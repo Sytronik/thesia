@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use identity_hash::{IntMap, IntSet};
-use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -94,8 +93,8 @@ impl AudioTrack {
         self.audio.channel(ch)
     }
 
-    pub fn interleaved_frames(&self) -> Vec<Frame> {
-        self.audio.as_ref().into()
+    pub fn interleaved_samples(&self) -> Vec<f32> {
+        self.audio.interleaved_samples()
     }
 
     #[inline]

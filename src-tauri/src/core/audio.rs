@@ -3,7 +3,6 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use kittyaudio::Frame;
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -178,19 +177,17 @@ impl GuardClipping<Ix2> for Audio {
     }
 }
 
-impl From<&Audio> for Vec<Frame> {
-    fn from(value: &Audio) -> Self {
-        value
-            .view()
-            .axis_iter(Axis(1))
-            .map(|frame| {
-                match frame.len() {
-                    1 => frame[0].into(),
-                    2 => (frame[0], frame[1]).into(),
-                    _ => unimplemented!(), // TODO
-                }
-            })
-            .collect()
+impl Audio {
+    pub fn interleaved_samples(&self) -> Vec<f32> {
+        let n_ch = self.wavs.shape()[0];
+        let n_sample = self.wavs.shape()[1];
+        let mut samples = Vec::with_capacity(n_ch * n_sample);
+        for i in 0..n_sample {
+            for ch in 0..n_ch {
+                samples.push(self.wavs[(ch, i)]);
+            }
+        }
+        samples
     }
 }
 

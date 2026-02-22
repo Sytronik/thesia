@@ -21,7 +21,7 @@ mod player;
 
 use core::*;
 use interface::*;
-use player::{PlayerCommand, PlayerNotification};
+use player::PlayerCommand;
 use tauri_plugin_window_state::{AppHandleExt, StateFlags, WindowExt};
 
 #[cfg(all(
@@ -83,7 +83,7 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSett
     let settings_json = json!(user_settings);
     _set_user_settings(&app, settings_json, false)?;
 
-    player::spawn_task();
+    player::spawn_task(app);
     Ok(ConstsAndUserSettings {
         constants: Default::default(),
         user_settings,
@@ -498,22 +498,6 @@ async fn resume_player() {
     player::send(PlayerCommand::Resume).await;
 }
 
-#[tauri::command]
-fn get_player_state() -> PlayerState {
-    match player::recv() {
-        PlayerNotification::Ok(state) => PlayerState {
-            is_playing: state.is_playing,
-            position_sec: state.position_sec,
-            err: "".to_string(),
-        },
-        PlayerNotification::Err(e_str) => PlayerState {
-            is_playing: false,
-            position_sec: 0.,
-            err: e_str,
-        },
-    }
-}
-
 #[inline]
 async fn _refresh_track_player() {
     player::send(PlayerCommand::SetTrack((None, None))).await;
@@ -761,7 +745,6 @@ pub fn run() {
             seek_player,
             pause_player,
             resume_player,
-            get_player_state,
             menu::enable_edit_menu,
             menu::disable_edit_menu,
             menu::enable_axis_zoom_menu,
