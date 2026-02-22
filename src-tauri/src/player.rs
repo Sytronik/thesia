@@ -1,24 +1,29 @@
-use std::cell::RefCell;
-use std::sync::OnceLock;
-use std::sync::atomic::{self, AtomicU32, AtomicUsize};
+mod device;
+mod state;
+mod stream;
+
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use atomic_float::AtomicF32;
-use cpal::{SupportedStreamConfigsError, traits::DeviceTrait};
-use kittyaudio::{Device, KaError, Mixer, Sound, SoundHandle, StreamSettings};
-use log::{error, info};
+use log::{info, warn};
+use tauri::AppHandle;
 use tauri::async_runtime::spawn_blocking;
 use tokio::sync::mpsc::{self, error::TryRecvError};
-use tokio::sync::watch;
 
-use crate::{DeciBel, TRACK_LIST};
+use crate::DeciBel;
+use device::default_output_device_name;
+use state::{
+    SharedPlayback, StateEmitter, pause, position_sec, resume, seek, set_error, set_track,
+};
+use stream::{OutputStreamState, rebuild_stream};
 
 pub const PLAY_JUMP_SEC: f64 = 1.0;
 pub const PLAY_BIG_JUMP_SEC: f64 = 5.0;
-const PLAYER_NOTI_INTERVAL: Duration = Duration::from_millis(100);
+
+const PLAYER_LOOP_INTERVAL: Duration = Duration::from_millis(20);
+const DEVICE_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 
 static COMMAND_TX: OnceLock<mpsc::Sender<PlayerCommand>> = OnceLock::new();
-static NOTI_RX: OnceLock<watch::Receiver<PlayerNotification>> = OnceLock::new();
 
 pub enum PlayerCommand {
     /// only caused by refreshing of frontend
@@ -38,42 +43,6 @@ pub enum PlayerCommand {
     Resume,
 }
 
-#[derive(Clone, Debug)]
-pub struct InternalPlayerState {
-    /// if currently playing
-    pub is_playing: bool,
-    /// playing position (sec)
-    pub position_sec: f64,
-    /// timestamp when this state is created
-    pub instant: Instant,
-}
-
-impl InternalPlayerState {
-    pub fn position_sec_elapsed(&self) -> f64 {
-        if self.is_playing {
-            self.position_sec + self.instant.elapsed().as_secs_f64()
-        } else {
-            self.position_sec
-        }
-    }
-}
-
-impl Default for InternalPlayerState {
-    fn default() -> Self {
-        InternalPlayerState {
-            is_playing: false,
-            position_sec: 0.,
-            instant: Instant::now(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum PlayerNotification {
-    Ok(InternalPlayerState),
-    Err(String),
-}
-
 pub async fn send(msg: PlayerCommand) {
     let msg_tx = COMMAND_TX.get().unwrap().clone();
     if let Err(e) = msg_tx.send(msg).await {
@@ -81,364 +50,133 @@ pub async fn send(msg: PlayerCommand) {
     }
 }
 
-pub fn recv() -> PlayerNotification {
-    let noti_rx = NOTI_RX.get().unwrap();
-    let noti = (noti_rx.borrow()).clone();
-    match noti {
-        PlayerNotification::Ok(mut state) if state.is_playing => {
-            state.position_sec = state.position_sec_elapsed();
-            PlayerNotification::Ok(state)
-        }
-        _ => noti,
-    }
-}
+fn main_loop(mut msg_rx: mpsc::Receiver<PlayerCommand>, app: AppHandle) {
+    let shared = Arc::new(SharedPlayback::default());
 
-fn get_supported_sr_list(device_name: &str) -> Result<Vec<u32>, KaError> {
-    if let Device::Custom(device) = Device::from_name(device_name)? {
-        match device.supported_output_configs() {
-            Ok(supported_configs) => Ok(supported_configs
-                .flat_map(|c| c.min_sample_rate().0..=c.max_sample_rate().0)
-                .collect()),
-            Err(SupportedStreamConfigsError::DeviceNotAvailable) => Err(KaError::BuildStreamError(
-                cpal::BuildStreamError::DeviceNotAvailable,
-            )),
-            Err(SupportedStreamConfigsError::InvalidArgument) => Err(KaError::BuildStreamError(
-                cpal::BuildStreamError::InvalidArgument,
-            )),
-            Err(SupportedStreamConfigsError::BackendSpecific { err }) => Err(
-                KaError::BuildStreamError(cpal::BuildStreamError::BackendSpecific { err }),
-            ),
-        }
-    } else {
-        unreachable!();
-    }
-}
+    let mut requested_sr: Option<u32> = None;
+    let mut stream_state: Option<OutputStreamState> = None;
+    let mut current_error = String::new();
+    let mut state_emitter = StateEmitter::default();
+    let mut last_device_check = Instant::now();
 
-fn get_optimal_sr(device_name: &str, sr: u32) -> Result<Option<u32>, KaError> {
-    if sr == 0 {
-        return Ok(None);
-    }
-    let supported_sr_list = get_supported_sr_list(device_name)?;
-    info!("supported sr: {:?}", supported_sr_list);
-    if supported_sr_list.contains(&sr) {
-        return Ok(Some(sr));
-    }
-    let (closest_greater, closest_less) = supported_sr_list.into_iter().fold(
-        (u32::MAX, 0),
-        |(closest_greater, closest_less), curr_sr| {
-            if curr_sr >= sr {
-                if curr_sr - sr < closest_greater - sr {
-                    return (curr_sr, closest_less);
-                }
-                return (closest_greater, closest_less);
-            }
-            if sr - curr_sr < sr - closest_less {
-                return (closest_greater, curr_sr);
-            }
-            (closest_greater, closest_less)
-        },
-    );
-    if closest_greater < u32::MAX {
-        Ok(Some(closest_greater))
-    } else if closest_less > 0 {
-        Ok(Some(closest_less))
-    } else {
-        Ok(None)
-    }
-}
-
-fn calc_position_sec(sound_handle: &SoundHandle) -> f64 {
-    sound_handle.index() as f64 / sound_handle.sample_rate() as f64
-}
-
-fn noti_err(noti_tx: &watch::Sender<PlayerNotification>, err: KaError) {
-    error!("{}", err);
-    noti_tx
-        .send(PlayerNotification::Err(err.to_string()))
-        .unwrap();
-}
-
-fn main_loop(
-    mut msg_rx: mpsc::Receiver<PlayerCommand>,
-    noti_tx: watch::Sender<PlayerNotification>,
-) {
-    let current_sr = AtomicU32::new(48000);
-    let current_volume = AtomicF32::new(1.);
-    let current_track_id = AtomicUsize::new(0);
-    let get_device_name = || {
-        Device::Default.name().unwrap_or_else(|err| {
-            noti_err(&noti_tx, err);
-            "".into()
-        })
-    };
-    let device_name = RefCell::new("".into());
-    let init_mixer = |sr: Option<u32>, change_device: bool| {
-        let sr = sr.unwrap_or(48000);
-        let mixer = Mixer::new();
-        if change_device {
-            *device_name.borrow_mut() = get_device_name();
-        }
-        let device = loop {
-            match Device::from_name(&device_name.borrow()) {
-                Ok(d) => break d,
-                Err(err) => {
-                    noti_err(&noti_tx, err);
-                    std::thread::sleep(Duration::from_secs(1));
-                    *device_name.borrow_mut() = get_device_name();
-                }
-            };
-        };
-        mixer.init_ex(
-            device,
-            StreamSettings {
-                sample_rate: Some(sr),
-                ..Default::default()
-            },
-        );
-        info!("device: {}, sr: {}", device_name.borrow(), sr);
-        current_sr.store(sr, atomic::Ordering::Release);
-        mixer
-    };
-    let mut mixer = init_mixer(None, true);
-    let mut sound_handle = SoundHandle::new({
-        let mut sound = Sound::default();
-        sound.pause();
-        sound
-    });
-    let set_track = |mixer: &mut Mixer,
-                     sound_handle: &mut SoundHandle,
-                     track_id: Option<usize>,
-                     start_time_sec: f64,
-                     is_playing: bool| {
-        let track_id = track_id.unwrap_or(current_track_id.load(atomic::Ordering::Acquire));
-        let sound = TRACK_LIST
-            .read()
-            .get(track_id)
-            .map(|track| Sound::new(track.sr(), track.interleaved_frames().into()));
-
-        info!("sound created with track {}", track_id);
-        match sound {
-            Some(mut sound) => {
-                sound.paused = !is_playing;
-                sound.set_volume(current_volume.load(atomic::Ordering::Acquire));
-                sound.seek_to(start_time_sec);
-                mixer.renderer.guard().sounds.clear();
-                info!("mixer clear");
-                *sound_handle = mixer.play(sound);
-                info!("sound added");
-                current_track_id.store(track_id, atomic::Ordering::Release);
-            }
-            None => {
-                mixer.renderer.guard().sounds.clear();
-                info!("mixer clear");
-            }
-        }
-    };
+    let mut should_emit =
+        rebuild_stream(&shared, requested_sr, &mut stream_state, &mut current_error);
 
     loop {
-        match msg_rx.try_recv() {
-            Ok(msg) => match msg {
-                PlayerCommand::Initialize => {
-                    mixer = init_mixer(None, true);
-                }
-                PlayerCommand::SetSr(sr) if current_sr.load(atomic::Ordering::Acquire) != sr => {
-                    let sr = match get_optimal_sr(&device_name.borrow(), sr) {
-                        Ok(sr) => sr,
-                        Err(err) => {
-                            noti_err(&noti_tx, err);
-                            continue;
-                        }
-                    };
-                    if sr.is_some_and(|sr| sr != current_sr.load(atomic::Ordering::Acquire))
-                        || sr.is_none()
-                    {
-                        mixer = init_mixer(sr, false);
-                    } else {
-                        info!("sr no change");
-                    }
-                }
-                PlayerCommand::SetSr(_) => {
-                    info!("sr no change");
-                }
-                #[allow(non_snake_case)]
-                PlayerCommand::SetVolumedB(volume_dB) => {
-                    let volume = volume_dB.amp_from_dB_default() as f32;
-                    current_volume.store(volume, atomic::Ordering::Release);
-                    sound_handle.set_volume(volume);
-                }
-                PlayerCommand::SetTrack((track_id, start_time)) => {
-                    info!("set track");
-                    let (start_time, is_playing) =
-                        if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
-                            (
-                                start_time.unwrap_or(state.position_sec_elapsed()),
-                                state.is_playing,
-                            )
-                        } else {
-                            (0., false)
-                        };
-                    set_track(
-                        &mut mixer,
-                        &mut sound_handle,
-                        track_id,
-                        start_time,
-                        is_playing,
-                    );
-                }
-                PlayerCommand::Seek(sec) => {
-                    let max_sec = TRACK_LIST.read().max_sec;
-                    let sec = sec.min(max_sec);
-                    noti_tx.send_modify(|noti| {
-                        if let PlayerNotification::Ok(state) = noti {
-                            if state.is_playing && mixer.is_finished() {
-                                set_track(
-                                    &mut mixer,
-                                    &mut sound_handle,
-                                    Some(current_track_id.load(atomic::Ordering::Acquire)),
-                                    sec,
-                                    state.is_playing,
-                                );
-                            } else {
-                                sound_handle.seek_to(sec);
-                            }
-                            state.position_sec = sec;
-                            state.instant = Instant::now();
-                        }
-                    });
-                    info!("seek to {}", sec);
-                }
-                PlayerCommand::Pause => {
-                    sound_handle.pause();
-                    if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
-                        noti_tx
-                            .send(PlayerNotification::Ok(InternalPlayerState {
-                                is_playing: false,
-                                position_sec: calc_position_sec(&sound_handle),
-                                instant: Instant::now(),
-                            }))
-                            .unwrap();
-                    }
-                    info!("pause");
-                }
-                PlayerCommand::Resume => {
-                    sound_handle.resume();
-
-                    let position_sec = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
-                        state.position_sec
-                    } else {
-                        0.
-                    };
-                    if mixer.is_finished() {
-                        set_track(&mut mixer, &mut sound_handle, None, position_sec, true);
-                    }
-                    if matches!(*noti_tx.borrow(), PlayerNotification::Ok(_)) {
-                        noti_tx
-                            .send(PlayerNotification::Ok(InternalPlayerState {
-                                is_playing: true,
-                                position_sec,
-                                instant: Instant::now(),
-                            }))
-                            .unwrap();
-                    }
-                    info!("play");
-                }
-            },
-            Err(TryRecvError::Empty) => {
-                // TODO: error handling
-                // if !mixer.backend.is_locked() {
-                //     mixer.handle_errors(|err| {
-                //         noti_err(&noti_tx, KaError::StreamError(err));
-                //     });
-                //     mixer = init_mixer(Some(current_sr.load(atomic::Ordering::Acquire)));
-                // }
-                // notification
-                let prev_state = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
-                    Some(state.clone())
-                } else {
-                    None
-                };
-                if let Some(prev_state) = prev_state {
-                    let mut state = InternalPlayerState {
-                        is_playing: prev_state.is_playing,
-                        position_sec: calc_position_sec(&sound_handle),
-                        instant: Instant::now(),
-                    };
-                    if mixer.is_finished() {
-                        // no current sound
-                        {
-                            // only for logging
-                            if !sound_handle.paused() {
-                                sound_handle.pause();
-                                info!("track ended");
-                            }
-                        }
-                        let position_sec = prev_state.position_sec
-                            + (state.instant - prev_state.instant).as_secs_f64();
-                        let max_sec = TRACK_LIST.read().max_sec;
-                        if position_sec >= max_sec {
-                            state.is_playing = false;
-                            state.position_sec = max_sec;
-                            if prev_state.position_sec != max_sec {
-                                info!("reached max_sec {}", max_sec);
-                            }
-                        } else if prev_state.is_playing {
-                            state.is_playing = true;
-                            state.position_sec = position_sec;
-                        } else {
-                            state.is_playing = false;
-                            state.position_sec = prev_state.position_sec;
-                        }
-                    }
-                    noti_tx.send(PlayerNotification::Ok(state)).unwrap();
-                }
-                let new_device = Device::Default.name();
-                if let Ok(new_device) = new_device
-                    && new_device != *device_name.borrow()
-                {
-                    let sr = match get_optimal_sr(
-                        &new_device,
-                        current_sr.load(atomic::Ordering::Acquire),
-                    ) {
-                        Ok(sr) => sr,
-                        Err(err) => {
-                            noti_err(&noti_tx, err);
-                            continue;
-                        }
-                    };
-                    mixer = init_mixer(sr, true);
-                    sound_handle.pause();
-
-                    let state = if let PlayerNotification::Ok(state) = &(*noti_tx.borrow()) {
-                        Some(state.clone())
-                    } else {
-                        None
-                    };
-                    if let Some(state) = state {
-                        set_track(
-                            &mut mixer,
-                            &mut sound_handle,
-                            Some(current_track_id.load(atomic::Ordering::Acquire)),
-                            state.position_sec_elapsed(),
-                            state.is_playing,
+        loop {
+            match msg_rx.try_recv() {
+                Ok(msg) => match msg {
+                    PlayerCommand::Initialize => {
+                        should_emit |= rebuild_stream(
+                            &shared,
+                            requested_sr,
+                            &mut stream_state,
+                            &mut current_error,
                         );
                     }
-                    continue;
-                }
-                std::thread::sleep(PLAYER_NOTI_INTERVAL);
-            }
-            Err(TryRecvError::Disconnected) => {
-                break;
+                    PlayerCommand::SetSr(sr) => {
+                        let new_requested_sr = (sr != 0).then_some(sr);
+                        if new_requested_sr != requested_sr || stream_state.is_none() {
+                            requested_sr = new_requested_sr;
+                            should_emit |= rebuild_stream(
+                                &shared,
+                                requested_sr,
+                                &mut stream_state,
+                                &mut current_error,
+                            );
+                        } else {
+                            info!("sr no change");
+                        }
+                    }
+                    #[allow(non_snake_case)]
+                    PlayerCommand::SetVolumedB(volume_dB) => {
+                        let volume = volume_dB.amp_from_dB_default() as f32;
+                        shared.data.lock().volume = volume;
+                    }
+                    PlayerCommand::SetTrack((track_id, start_time)) => {
+                        let (current_position, is_playing) = {
+                            let playback = shared.data.lock();
+                            (position_sec(&playback), playback.is_playing)
+                        };
+                        let start_time = start_time.unwrap_or(current_position);
+                        set_track(&shared, track_id, start_time, is_playing);
+                        shared.clear_track_end();
+                        should_emit = true;
+                    }
+                    PlayerCommand::Seek(sec) => {
+                        seek(&shared, sec);
+                        shared.clear_track_end();
+                        should_emit = true;
+                    }
+                    PlayerCommand::Pause => {
+                        pause(&shared);
+                        should_emit = true;
+                    }
+                    PlayerCommand::Resume => {
+                        resume(&shared);
+                        should_emit = true;
+                    }
+                },
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => return,
             }
         }
+
+        if shared.take_track_end() {
+            info!("track ended");
+            should_emit = true;
+        }
+
+        if let Some(stream_error) = shared.take_stream_error() {
+            should_emit |= set_error(&mut current_error, Some(stream_error));
+            should_emit |=
+                rebuild_stream(&shared, requested_sr, &mut stream_state, &mut current_error);
+        }
+
+        if last_device_check.elapsed() >= DEVICE_CHECK_INTERVAL {
+            last_device_check = Instant::now();
+
+            if let Some(stream) = &stream_state {
+                match default_output_device_name() {
+                    Some(device_name) if device_name != stream.device_name => {
+                        warn!(
+                            "default output device changed: {} -> {}",
+                            stream.device_name, device_name
+                        );
+                        should_emit |= rebuild_stream(
+                            &shared,
+                            requested_sr,
+                            &mut stream_state,
+                            &mut current_error,
+                        );
+                    }
+                    Some(_) => {}
+                    None => {
+                        should_emit |= set_error(
+                            &mut current_error,
+                            Some("No default output device available".to_string()),
+                        );
+                        stream_state = None;
+                        shared.data.lock().is_playing = false;
+                    }
+                }
+            } else {
+                should_emit |=
+                    rebuild_stream(&shared, requested_sr, &mut stream_state, &mut current_error);
+            }
+        }
+
+        if should_emit {
+            state_emitter.emit_if_changed(&app, &shared, &current_error);
+            should_emit = false;
+        }
+
+        std::thread::sleep(PLAYER_LOOP_INTERVAL);
     }
 }
 
-pub fn spawn_task() {
-    if COMMAND_TX.get().is_some_and(|cmd_tx| !cmd_tx.is_closed())
-        && NOTI_RX
-            .get()
-            .is_some_and(|noti_rx| noti_rx.has_changed().is_ok())
-    {
+pub fn spawn_task(app: AppHandle) {
+    if COMMAND_TX.get().is_some_and(|cmd_tx| !cmd_tx.is_closed()) {
         COMMAND_TX
             .get()
             .unwrap()
@@ -448,8 +186,6 @@ pub fn spawn_task() {
     }
 
     let (command_tx, command_rx) = mpsc::channel::<PlayerCommand>(20);
-    let (noti_tx, noti_rx) = watch::channel(PlayerNotification::Ok(Default::default()));
     COMMAND_TX.set(command_tx).unwrap();
-    NOTI_RX.set(noti_rx).unwrap();
-    spawn_blocking(|| main_loop(command_rx, noti_tx));
+    spawn_blocking(move || main_loop(command_rx, app));
 }

@@ -1,5 +1,5 @@
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { AxisKind } from "./backend-wrapper";
+import { AxisKind, PlayerState } from "./backend-wrapper";
 
 export async function listenOpenFiles(
   handler: (files: string[]) => void | Promise<void>,
@@ -45,6 +45,14 @@ export async function listenMenuSelectAllTracks(
   handler: () => void | Promise<void>,
 ): Promise<UnlistenFn> {
   return listen("select-all-tracks", handler);
+}
+
+export async function listenPlayerStateChanged(
+  handler: (state: PlayerState) => void | Promise<void>,
+): Promise<UnlistenFn> {
+  return listen<PlayerState>("player-state-changed", (event) => {
+    handler(event.payload);
+  });
 }
 
 export async function listenTogglePlay(handler: () => void | Promise<void>): Promise<UnlistenFn> {

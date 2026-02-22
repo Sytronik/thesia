@@ -32,6 +32,8 @@ export type NormalizeTarget =
 export interface PlayerState {
   isPlaying: boolean;
   positionSec: number;
+  eventTimeMs: number;
+  trackId: number | null;
   err: string;
 }
 
@@ -116,10 +118,6 @@ export async function getGuardClipStats(trackId: number): Promise<[number, strin
   // [channel, stats]
   // if [[-1, stats]], then all channels have the same stats
   return invoke<[number, string][]>("get_guard_clip_stats", { trackId });
-}
-
-export async function getPlayerState(): Promise<PlayerState> {
-  return invoke<PlayerState>("get_player_state");
 }
 
 export async function init(colormapLength: number): Promise<ConstsAndUserSettings> {
