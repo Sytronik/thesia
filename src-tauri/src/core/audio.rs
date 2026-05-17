@@ -353,7 +353,7 @@ pub fn open_audio_file(
         }
 
         // If the packet does not belong to the selected track, skip over it.
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
@@ -388,7 +388,7 @@ pub fn open_audio_file(
                     })
                     .collect();
                 _decoded.copy_to_slice_planar(&mut slices);
-                total_packets_byte += packet.buf().len();
+                total_packets_byte += packet.data.len();
             }
             Err(SymphoniaError::IoError(_)) => {
                 // The packet failed to decode due to an IO error, skip the packet.
@@ -409,15 +409,17 @@ pub fn open_audio_file(
         }
     }
 
-    let mut vec: Vec<_> = planes.into_iter().flatten().collect();
-    if vec.len() < n_ch {
-        (vec.len()..n_ch).for_each(|_| vec.push(0.));
-    }
-
     if n_ch == 0 {
         return Err(SymphoniaError::IoError(io::Error::new(
             io::ErrorKind::InvalidData,
             "no audio channels found",
+        )));
+    }
+    let mut vec: Vec<_> = planes.into_iter().flatten().collect();
+    if vec.len() / n_ch == 0 {
+        return Err(SymphoniaError::IoError(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "no audio samples decoded",
         )));
     }
     let shape = (n_ch, vec.len() / n_ch);
