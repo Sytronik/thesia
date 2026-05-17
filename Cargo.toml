@@ -24,8 +24,8 @@ version = "0.1.0"
 # Shared dependencies that can be inherited by workspace members
 [workspace.dependencies]
 approx = "0.5.1"
-audioadapter-buffers = "2.0.0"
 atomic_float = "1.1.0"
+audioadapter-buffers = "2.0.0"
 itertools = "0.14.0"
 ndarray = "0.17.1"
 num-traits = "0.2.19"
