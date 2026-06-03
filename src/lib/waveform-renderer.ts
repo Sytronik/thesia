@@ -94,6 +94,7 @@ function appendLinePathMesh(
   indices: number[],
   points: number[],
   strokeWidth: number,
+  drawCaps = true,
 ) {
   if (points.length < 2) return;
   const halfWidth = strokeWidth * 0.5;
@@ -142,6 +143,9 @@ function appendLinePathMesh(
     appendCircleMesh(positions, indices, x, y, halfWidth);
   }
 
+  if (!drawCaps) {
+    return;
+  }
   if (firstCap && lastCap) {
     appendCircleMesh(positions, indices, firstCap[0], firstCap[1], halfWidth);
     appendCircleMesh(positions, indices, lastCap[0], lastCap[1], halfWidth);
@@ -162,10 +166,16 @@ function addSolidMesh(layer: Container, positions: number[], indices: number[], 
   return positions.length / 2;
 }
 
-function addLineMesh(layer: Container, paths: number[][], color: number, strokeWidth: number) {
+function addLineMesh(
+  layer: Container,
+  paths: number[][],
+  color: number,
+  strokeWidth: number,
+  drawCaps = true,
+) {
   const positions: number[] = [];
   const indices: number[] = [];
-  paths.forEach((points) => appendLinePathMesh(positions, indices, points, strokeWidth));
+  paths.forEach((points) => appendLinePathMesh(positions, indices, points, strokeWidth, drawCaps));
   return addSolidMesh(layer, positions, indices, color);
 }
 
@@ -197,17 +207,7 @@ function addEnvelopeBorderMesh(
     topPath.push(x, envelope.tops[i]);
     bottomPath.push(x, envelope.bottoms[i]);
   });
-  return addLineMesh(
-    layer,
-    [
-      topPath,
-      bottomPath,
-      [envelope.xs[0], envelope.tops[0], envelope.xs[0], envelope.bottoms[0]],
-      [envelope.xs[last], envelope.tops[last], envelope.xs[last], envelope.bottoms[last]],
-    ],
-    color,
-    strokeWidth,
-  );
+  return addLineMesh(layer, [topPath, bottomPath], color, strokeWidth, false);
 }
 
 export function destroyPixiChildren(layer: Container) {
