@@ -21,7 +21,6 @@ import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
 import { useGlobalEvents } from "./hooks/useGlobalEvents";
 import { showFileOpenErrorMsg, getOpenFilesDialogHandler } from "./lib/open-files-dialog";
-import { initializeWorkerPool } from "./lib/worker-pool";
 import { useOverlayScrollbars } from "./hooks/useOverlayScrollbars";
 
 type AppProps = { userSettings: UserSettings };
@@ -175,8 +174,6 @@ function MyApp({ userSettings }: AppProps) {
       selectTrackAfterRemoveTracks(prevTrackIds.current, trackIds);
     }
 
-    if (currTrackIdsCount == 0) initializeWorkerPool();
-
     prevTrackIds.current = trackIds.concat(hiddenTrackIds);
   }, [trackIds, hiddenTrackIds, selectTrackAfterAddTracks, selectTrackAfterRemoveTracks]);
 
@@ -207,7 +204,6 @@ function MyApp({ userSettings }: AppProps) {
               selectedTrackIds={selectedTrackIds}
               selectionIsAdded={selectionIsAdded}
               trackIdChMap={trackIdChMap}
-              isLoading={isLoading}
               needRefreshTrackIdChArr={needRefreshTrackIdChArr}
               maxTrackSec={maxTrackSec}
               maxTrackHz={maxTrackHz}

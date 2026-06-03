@@ -22,7 +22,7 @@ if (isWindows()) {
 const container = document.getElementById("root") as HTMLElement;
 const root = ReactDOM.createRoot(container);
 
-const { constants, userSettings } = await BackendAPI.init(COLORMAP_RGBA8.length / 4);
+const { constants, userSettings } = await BackendAPI.init(COLORMAP_RGBA8);
 
 root.render(
   <BackendConstantsProvider constants={constants}>

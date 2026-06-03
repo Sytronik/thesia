@@ -44,13 +44,6 @@ export interface SpecSetting {
   freqScale: FreqScale;
 }
 
-export interface Spectrogram {
-  arr: Uint16Array;
-  width: number;
-  height: number;
-  trackSec: number;
-}
-
 export interface UserSettings {
   specSetting: SpecSetting;
   blend: number;
@@ -87,6 +80,25 @@ export type WavInfo = {
   isClipped: boolean;
 };
 
+export type AudioRenderMetadata = {
+  waveformRevision: number;
+  spectrogramRevision: number;
+  sampleRate: number;
+  sampleCount: number;
+  trackSec: number;
+  isClipped: boolean;
+  spectrogramWidth: number;
+  spectrogramHeight: number;
+  waveformTileBins: number;
+  spectrogramTileSize: number;
+};
+
+export type RenderTileCacheStats = {
+  bytes: number;
+  entries: number;
+  budgetBytes: number;
+};
+
 export async function getWav(idChStr: string): Promise<WavInfo | null> {
   const wavInfo = await invoke<{ wav: number[]; sr: number; isClipped: boolean } | null>(
     "get_wav",
@@ -120,8 +132,8 @@ export async function getGuardClipStats(trackId: number): Promise<[number, strin
   return invoke<[number, string][]>("get_guard_clip_stats", { trackId });
 }
 
-export async function init(colormapLength: number): Promise<ConstsAndUserSettings> {
-  return invoke<ConstsAndUserSettings>("init", { colormapLength });
+export async function init(colormapRgba: Uint8Array): Promise<ConstsAndUserSettings> {
+  return invoke<ConstsAndUserSettings>("init", { colormapRgba: Array.from(colormapRgba) });
 }
 
 export async function setUserSettings(settings: UserSettingsOptionals): Promise<void> {
@@ -176,20 +188,30 @@ export async function setCommonGuardClipping(mode: GuardClippingMode): Promise<v
   return invoke<void>("set_common_guard_clipping", { mode });
 }
 
-export async function getSpectrogram(idChStr: string): Promise<Spectrogram | null> {
-  const out = await invoke<{
-    arr: number[];
-    width: number;
-    height: number;
-    trackSec: number;
-  } | null>("get_spectrogram", { idChStr });
-  if (!out) return null;
-  return {
-    arr: new Uint16Array(out.arr),
-    width: out.width,
-    height: out.height,
-    trackSec: out.trackSec,
-  };
+export async function getAudioRenderMetadata(idChStr: string): Promise<AudioRenderMetadata | null> {
+  return invoke<AudioRenderMetadata | null>("get_audio_render_metadata", { idChStr });
+}
+
+export async function getWaveformTile(
+  idChStr: string,
+  level: number,
+  tileIndex: number,
+): Promise<ArrayBuffer> {
+  return invoke<ArrayBuffer>("get_waveform_tile", { idChStr, level, tileIndex });
+}
+
+export async function getSpectrogramTile(
+  idChStr: string,
+  levelX: number,
+  levelY: number,
+  tileX: number,
+  tileY: number,
+): Promise<ArrayBuffer> {
+  return invoke<ArrayBuffer>("get_spectrogram_tile", { idChStr, levelX, levelY, tileX, tileY });
+}
+
+export async function getRenderTileCacheStats(): Promise<RenderTileCacheStats> {
+  return invoke<RenderTileCacheStats>("get_render_tile_cache_stats");
 }
 
 export async function findIdByPath(path: string): Promise<number> {

@@ -5,9 +5,7 @@ use std::sync::atomic::Ordering;
 use atomic_float::AtomicF32;
 use parking_lot::RwLock;
 use wasm_bindgen::prelude::*;
-use web_sys::{
-    CanvasRenderingContext2d, OffscreenCanvas, OffscreenCanvasRenderingContext2d, Path2d, console,
-};
+use web_sys::{CanvasRenderingContext2d, Path2d};
 
 use crate::line_envelope::{
     CalcLineEnvelopePointsResult, TransformParams, WavEnvelope, WavLinePoints,
@@ -53,96 +51,6 @@ pub fn set_wav(id_ch_str: &str, wav: WasmFloat32Array, sr: u32, is_clipped: bool
 #[wasm_bindgen(js_name = removeWav)]
 pub fn remove_wav(id_ch_str: &str) {
     WAV_CACHES.write().retain(|k, _| k != id_ch_str);
-}
-
-#[allow(clippy::too_many_arguments)]
-#[wasm_bindgen(js_name = drawWav)]
-pub fn draw_wav(
-    canvas: &OffscreenCanvas,
-    ctx: &OffscreenCanvasRenderingContext2d,
-    id_ch_str: &str,
-    css_width: u32,
-    css_height: u32,
-    start_sec: f32,
-    css_px_per_sec: f32,
-    amp_range_min: f32,
-    amp_range_max: f32,
-) -> Result<(), JsValue> {
-    let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
-    canvas.set_width((css_width as f64 * dpr as f64).round() as u32);
-    canvas.set_height((css_height as f64 * dpr as f64).round() as u32);
-
-    ctx.scale(1. / WAV_IMG_SCALE as f64, 1. / WAV_IMG_SCALE as f64)?;
-
-    let width = canvas.width() as f32 * WAV_IMG_SCALE;
-    let height = canvas.height() as f32 * WAV_IMG_SCALE;
-
-    let is_clipped = {
-        let wav_caches = WAV_CACHES.read();
-        match wav_caches.get(id_ch_str) {
-            Some(wav_cache) => wav_cache.is_clipped,
-            None => {
-                console::error_2(
-                    &JsValue::from_str("Wav not found"),
-                    &JsValue::from_str(id_ch_str),
-                );
-                return Ok(());
-            }
-        }
-    };
-
-    let upsampled_wav_sr = if is_clipped {
-        let options = WavDrawingOptions {
-            width,
-            height,
-            start_sec,
-            css_px_per_sec,
-            amp_range: (amp_range_min, amp_range_max),
-            ..Default::default()
-        };
-        draw_wav_internal_offscreen(ctx, id_ch_str, &options, WAV_CLIPPING_COLOR, None)?
-    } else {
-        ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
-        None
-    };
-
-    let options = WavDrawingOptions {
-        width,
-        height,
-        start_sec,
-        css_px_per_sec,
-        amp_range: (amp_range_min, amp_range_max),
-        clip_values: if is_clipped { Some((-1., 1.)) } else { None },
-        need_border_for_envelope: !is_clipped,
-        ..Default::default()
-    };
-    draw_wav_internal_offscreen(ctx, id_ch_str, &options, WAV_COLOR, upsampled_wav_sr)?;
-
-    Ok(())
-}
-
-#[wasm_bindgen(js_name = clearWav)]
-pub fn clear_wav(
-    canvas: Option<OffscreenCanvas>,
-    ctx: Option<OffscreenCanvasRenderingContext2d>,
-    css_width: u32,
-    css_height: u32,
-) {
-    let dpr = DEVICE_PIXEL_RATIO.load(Ordering::Acquire);
-    let width = css_width as f32 * dpr;
-    let height = css_height as f32 * dpr;
-    if let Some(canvas) = canvas {
-        canvas.set_width(width.round() as u32);
-        canvas.set_height(height.round() as u32);
-    }
-    if let Some(ctx) = ctx {
-        ctx.clear_rect(
-            0.,
-            0.,
-            (width * WAV_IMG_SCALE) as f64,
-            (height * WAV_IMG_SCALE) as f64,
-        );
-    }
 }
 
 macro_rules! def_draw_wav_internal {
@@ -227,10 +135,6 @@ macro_rules! def_draw_wav_internal {
 }
 
 def_draw_wav_internal!(CanvasRenderingContext2d, draw_wav_internal);
-def_draw_wav_internal!(
-    OffscreenCanvasRenderingContext2d,
-    draw_wav_internal_offscreen
-);
 
 pub(crate) struct WavDrawingOptions {
     pub(crate) width: f32,

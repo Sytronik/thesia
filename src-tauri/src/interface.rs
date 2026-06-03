@@ -100,15 +100,6 @@ pub struct ConstsAndUserSettings {
     pub user_settings: UserSettings,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Spectrogram<'a> {
-    pub arr: &'a [u16],
-    pub width: u32,
-    pub height: u32,
-    pub track_sec: f64,
-}
-
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WavInfo {

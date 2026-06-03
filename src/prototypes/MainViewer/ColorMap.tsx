@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import AxisCanvas from "src/modules/AxisCanvas";
 import ColorBarCanvas from "src/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.module.scss";
@@ -21,24 +21,30 @@ function ColorMap(props: ColorMapProps) {
   const { height, setHeight, colorBarHeight, markersAndLength } = props;
 
   const colorMapElem = useRef<HTMLDivElement>(null);
-
-  const [resizeObserver, _setResizeObserver] = useState(
-    new ResizeObserver((entries) => {
-      const { target } = entries[0];
-      // Need throttle?
-      setHeight(Math.max(target.clientHeight - (16 + 2 + 24), MIN_HEIGHT));
-    }),
-  );
+  const measuredHeight = useRef<number | null>(null);
 
   useEffect(() => {
-    if (colorMapElem.current) {
-      resizeObserver.observe(colorMapElem.current);
-    }
+    const colorMap = colorMapElem.current;
+    if (!colorMap) return;
+    let requestId: number | null = null;
+    const resizeObserver = new ResizeObserver((entries) => {
+      const { target } = entries[0];
+      const nextHeight = Math.max(target.clientHeight - (16 + 2 + 24), MIN_HEIGHT);
+      if (measuredHeight.current === nextHeight) return;
+      measuredHeight.current = nextHeight;
+      if (requestId !== null) cancelAnimationFrame(requestId);
+      requestId = requestAnimationFrame(() => {
+        requestId = null;
+        setHeight(nextHeight);
+      });
+    });
+    resizeObserver.observe(colorMap);
 
     return () => {
+      if (requestId !== null) cancelAnimationFrame(requestId);
       resizeObserver.disconnect();
     };
-  }, [resizeObserver]);
+  }, [setHeight]);
 
   return (
     <div className={styles.colorMap} ref={colorMapElem}>

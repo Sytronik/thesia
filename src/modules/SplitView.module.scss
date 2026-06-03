@@ -9,6 +9,7 @@
 
 .Scrollbox {
   height: 100%;
+  overflow-anchor: none;
 }
 
 .Scrolled {
@@ -16,6 +17,7 @@
   align-items: stretch;
   height: fit-content;
   min-height: 100%;
+  overflow-anchor: none;
 }
 
 .LeftPane {

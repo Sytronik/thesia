@@ -79,5 +79,3 @@ macro_rules! def_wasm_array {
 }
 
 def_wasm_array!(WasmFloat32Array, f32);
-def_wasm_array!(WasmU16Array, u16);
-def_wasm_array!(WasmU8Array, u8);

@@ -1,4 +1,11 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { Identifier, XYCoord } from "dnd-core";
 import { DragSourceMonitor, useDrag, useDrop } from "react-dnd";
 import BackendAPI from "../../api";
@@ -134,23 +141,28 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
   );
 
   const hasDragged = useRef<boolean>(false);
+  const dragPayloadRef = useRef({ selectedTrackIds, trackSummaryChild, style, channels });
+  useLayoutEffect(() => {
+    dragPayloadRef.current = { selectedTrackIds, trackSummaryChild, style, channels };
+  }, [channels, selectedTrackIds, style, trackSummaryChild]);
   const [{ isDragging }, drag] = useDrag(
     {
       type: DndItemTypes.TRACK,
       item: () => {
         hasDragged.current = true;
-        let _selectedTrackIds = selectedTrackIds;
+        const dragPayload = dragPayloadRef.current;
+        let _selectedTrackIds = dragPayload.selectedTrackIds;
         if (!_selectedTrackIds.includes(id)) _selectedTrackIds = selectTrack(null, id);
         const hiddenIds = _selectedTrackIds.filter((selectedId) => id !== selectedId);
         hideImage(id);
         return {
           id,
           index: hideTracks(id, hiddenIds),
-          trackSummaryChild,
-          style,
-          channels,
+          trackSummaryChild: dragPayload.trackSummaryChild,
+          style: dragPayload.style,
+          channels: dragPayload.channels,
           width: trackInfoElem.current?.clientWidth ?? 0,
-          numDragging: selectedTrackIds.length,
+          numDragging: dragPayload.selectedTrackIds.length,
         };
       },
       end: (item) => {
@@ -161,7 +173,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
         isDragging: monitor.isDragging(),
       }),
     },
-    [id, selectedTrackIds, trackSummaryChild, style, channels],
+    [hideImage, hideTracks, id, selectTrack, showHiddenImage, showHiddenTracks],
   );
 
   useEffect(() => {

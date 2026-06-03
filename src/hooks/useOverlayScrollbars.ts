@@ -1,5 +1,5 @@
 import { OverlayScrollbars, PartialOptions } from "overlayscrollbars";
-import { RefObject, useEffect } from "react";
+import { RefObject, useEffect, useRef } from "react";
 
 const DEFAULT_OPTIONS: PartialOptions = {
   scrollbars: {
@@ -14,11 +14,13 @@ const DEFAULT_OPTIONS: PartialOptions = {
  * If you want to apply OverlayScrollbars globally (w/o onScroll handler), use useOverlayScrollbars hook instead.
  */
 export const useOverlayScrollbar = (ref: RefObject<HTMLElement | null>, onScroll?: () => void) => {
+  const viewportRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!ref.current) return;
 
     const osInstance = OverlayScrollbars(ref.current, DEFAULT_OPTIONS);
     const viewport = osInstance.elements().viewport;
+    viewportRef.current = viewport;
 
     if (onScroll) {
       viewport.addEventListener("scroll", onScroll);
@@ -28,9 +30,11 @@ export const useOverlayScrollbar = (ref: RefObject<HTMLElement | null>, onScroll
       if (onScroll) {
         viewport.removeEventListener("scroll", onScroll);
       }
+      viewportRef.current = null;
       osInstance.destroy();
     };
   }, [ref, onScroll]);
+  return viewportRef;
 };
 
 /**

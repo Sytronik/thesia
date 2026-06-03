@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "build:wasm": "wasm-pack build src-wasm --release --target web",
     "build:wasm.debug": "wasm-pack build src-wasm --dev --target web",
+    "benchmark:fixtures": "node scripts/create-benchmark-fixtures.mjs",
     "clean": "cargo clean && shx rm -rf src-wasm/pkg node_modules",
     "lint": "eslint ."
   },
@@ -20,6 +21,7 @@
     "@tauri-apps/plugin-os": "^2.3.2",
     "immutability-helper": "^3.1.1",
     "overlayscrollbars": "^2.13.0",
+    "pixi.js": "^8.18.1",
     "react": "^19.2.3",
     "react-dnd": "^16.0.1",
     "react-dnd-touch-backend": "^16.0.1",
