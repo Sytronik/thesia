@@ -74,12 +74,6 @@ export interface ConstsAndUserSettings {
 export type IdChannel = string;
 export type IdChArr = IdChannel[];
 
-export type WavInfo = {
-  wavArr: Float32Array;
-  sr: number;
-  isClipped: boolean;
-};
-
 export type AudioRenderMetadata = {
   waveformRevision: number;
   spectrogramRevision: number;
@@ -98,18 +92,6 @@ export type RenderTileCacheStats = {
   entries: number;
   budgetBytes: number;
 };
-
-export async function getWav(idChStr: string): Promise<WavInfo | null> {
-  const wavInfo = await invoke<{ wav: number[]; sr: number; isClipped: boolean } | null>(
-    "get_wav",
-    { idChStr },
-  );
-  if (!wavInfo) return null;
-
-  const { wav, sr, isClipped } = wavInfo;
-  const wavArr = new Float32Array(wav);
-  return { wavArr, sr, isClipped };
-}
 
 export async function getLimiterGainSeq(trackId: number): Promise<Float32Array | null> {
   const gainSeq = await invoke<number[] | null>("get_limiter_gain", { trackId });

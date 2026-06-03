@@ -51,7 +51,13 @@ function useTracks(userSettings: UserSettings) {
   const [maxTrackSec, setMaxTrackSec] = useState<number>(0);
   const [maxTrackHz, setMaxTrackHz] = useState<number>(0);
   const [trackIdChMap, setTrackIdChMap] = useState<IdChMap>(new Map());
+  const prevTrackIdsKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const trackIdsKey = trackIds.join(",");
+    const trackIdsChanged = prevTrackIdsKeyRef.current !== trackIdsKey;
+    prevTrackIdsKeyRef.current = trackIdsKey;
+    if (!trackIdsChanged && needRefreshTrackIdChArr.length === 0) return;
+
     Promise.all([
       BackendAPI.getLongestTrackLengthSec(),
       BackendAPI.getMaxTrackHz(),

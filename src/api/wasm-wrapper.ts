@@ -1,9 +1,4 @@
 import init, {
-  WasmFloat32Array,
-  setDevicePixelRatio,
-  setWav,
-  drawOverview,
-  removeWav,
   calcTimeAxisMarkers as _calcTimeAxisMarkers,
   calcFreqAxisMarkers as _calcFreqAxisMarkers,
   calcAmpAxisMarkers as _calcAmpAxisMarkers,
@@ -18,7 +13,6 @@ import init, {
 import { FreqScale } from "./backend-wrapper";
 
 let wasmInitialized = false;
-let memory: WebAssembly.Memory;
 
 /**
  * Initializes the WASM module.
@@ -26,9 +20,7 @@ let memory: WebAssembly.Memory;
  */
 export async function initWasm(): Promise<void> {
   if (!wasmInitialized) {
-    const wasm = await init();
-    memory = wasm.memory;
-
+    await init();
     wasmInitialized = true;
   }
 }
@@ -38,16 +30,6 @@ export async function initWasm(): Promise<void> {
  */
 export function isWasmInitialized(): boolean {
   return wasmInitialized;
-}
-
-export function createWasmFloat32Array(length: number): [WasmFloat32Array, Float32Array] {
-  if (!wasmInitialized) {
-    throw new Error("WASM module has not been initialized. Please call initWasm() first.");
-  }
-
-  const wasmWav = new WasmFloat32Array(length);
-  const view = new Float32Array(memory.buffer, wasmWav.ptr, wasmWav.length);
-  return [wasmWav, view];
 }
 
 export type TickPxPosition = number;
@@ -131,16 +113,9 @@ export function calcDbAxisMarkers(
   return _calcDbAxisMarkers(maxNumTicks, maxNumLabels, mindB, maxdB);
 }
 
-// Named exports
-export { WasmFloat32Array };
 export default {
   initWasm,
   isWasmInitialized,
-  createWasmFloat32Array,
-  setDevicePixelRatio,
-  setWav,
-  drawOverview,
-  removeWav,
   calcTimeAxisMarkers,
   calcFreqAxisMarkers,
   calcAmpAxisMarkers,

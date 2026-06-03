@@ -319,22 +319,6 @@ async fn set_common_normalize(target: NormalizeTarget) {
 }
 
 #[tauri::command]
-async fn get_wav(id_ch_str: String) -> tauri::Result<WavInfo> {
-    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    match TRACK_LIST.read().get(id) {
-        Some(track) => {
-            let (wav, is_clipped) = track.channel_for_drawing(ch);
-            Ok(WavInfo {
-                wav: wav.to_vec(),
-                sr: track.sr(),
-                is_clipped,
-            })
-        }
-        None => Ok(Default::default()),
-    }
-}
-
-#[tauri::command]
 fn get_audio_render_metadata(id_ch_str: String) -> tauri::Result<Option<AudioRenderMetadata>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
     let tracklist = TRACK_LIST.read();
@@ -784,7 +768,6 @@ pub fn run() {
             set_common_guard_clipping,
             get_common_normalize,
             set_common_normalize,
-            get_wav,
             get_audio_render_metadata,
             get_waveform_tile,
             get_spectrogram_tile,

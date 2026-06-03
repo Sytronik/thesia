@@ -1,5 +1,4 @@
 import {
-  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -7,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Application, Container, Graphics, Mesh, MeshGeometry, Sprite, Texture } from "pixi.js";
+import { Application, Container, Graphics, Sprite } from "pixi.js";
 import useEvent from "react-use-event-hook";
 
 import BackendAPI, { AudioRenderMetadata, FreqScale, WasmAPI } from "../api";
@@ -20,6 +19,16 @@ import {
   WaveformTile,
 } from "../lib/audio-render-tiles";
 import {
+  clamp,
+  destroyPixiChildren,
+  renderWaveformTiles,
+  waveformKey,
+  waveformLevel,
+  waveformTileRange,
+  WAV_CLIPPING_COLOR,
+  WAV_COLOR,
+} from "../lib/waveform-renderer";
+import {
   TIME_CANVAS_HEIGHT,
   TINY_MARGIN,
   VERTICAL_AXIS_PADDING,
@@ -29,15 +38,6 @@ import styles from "./AudioTrackViewport.module.scss";
 const GPU_TEXTURE_BUDGET_BYTES = 256 * 1024 * 1024;
 const WAVEFORM_TILE_BUDGET_BYTES = 64 * 1024 * 1024;
 const HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
-const WAV_BORDER_COLOR = 0x000000;
-const WAV_COLOR = 0x1389eb;
-const WAV_CLIPPING_COLOR = 0xc42232;
-const WAV_IMG_SCALE = 2;
-const WAV_LINE_WIDTH = 1.75;
-const WAV_BORDER_WIDTH = 0.75;
-const WAV_CAP_SEGMENTS = 12;
-const WAV_JOIN_DOT_THRESHOLD = 0.9975;
-const WAV_JOIN_MIN_X_DELTA = 0.25;
 const METADATA_RETRY_LIMIT = 20;
 const METADATA_RETRY_DELAY_MS = 100;
 
@@ -78,8 +78,6 @@ type Props = {
 
 type TooltipInfo = { left: number; top: number; lines: string[] };
 
-const waveformKey = (idChStr: string, revision: number, level: number, tileIndex: number) =>
-  `w:${idChStr}:${revision}:${level}:${tileIndex}`;
 const spectrogramKey = (
   idChStr: string,
   revision: number,
@@ -88,181 +86,7 @@ const spectrogramKey = (
   tileX: number,
   tileY: number,
 ) => `s:${idChStr}:${revision}:${levelX}:${levelY}:${tileX}:${tileY}`;
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const log2Level = (scale: number) => Math.max(0, Math.floor(Math.log2(Math.max(scale, 1))));
-const waveformLevel = (sampleRate: number, pxPerSec: number, devicePixelRatio: number) => {
-  const internalPxPerSec = pxPerSec * WAV_IMG_SCALE * devicePixelRatio;
-  if (internalPxPerSec >= sampleRate / 2) return 0;
-
-  const samplesPerDevicePixel = sampleRate / Math.max(pxPerSec * devicePixelRatio, 1e-8);
-  return Math.max(0, Math.ceil(Math.log2(Math.max(samplesPerDevicePixel, 1))));
-};
-
-type WaveformEnvelopeMesh = {
-  xs: number[];
-  tops: number[];
-  bottoms: number[];
-};
-
-function appendCircleMesh(
-  positions: number[],
-  indices: number[],
-  x: number,
-  y: number,
-  radius: number,
-) {
-  if (radius <= 0) return;
-  const centerIndex = positions.length / 2;
-  positions.push(x, y);
-  for (let i = 0; i < WAV_CAP_SEGMENTS; i += 1) {
-    const angle = (i / WAV_CAP_SEGMENTS) * Math.PI * 2;
-    positions.push(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
-  }
-  for (let i = 0; i < WAV_CAP_SEGMENTS; i += 1) {
-    indices.push(centerIndex, centerIndex + 1 + i, centerIndex + 1 + ((i + 1) % WAV_CAP_SEGMENTS));
-  }
-}
-
-function appendLinePathMesh(
-  positions: number[],
-  indices: number[],
-  points: number[],
-  strokeWidth: number,
-) {
-  if (points.length < 2) return;
-  const halfWidth = strokeWidth * 0.5;
-  let firstCap: [number, number] | null = null;
-  let lastCap: [number, number] | null = null;
-  for (let i = 0; i + 3 < points.length; i += 2) {
-    const x0 = points[i];
-    const y0 = points[i + 1];
-    const x1 = points[i + 2];
-    const y1 = points[i + 3];
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const length = Math.hypot(dx, dy);
-    if (length < 1e-6) continue;
-    const nx = (-dy / length) * halfWidth;
-    const ny = (dx / length) * halfWidth;
-    const base = positions.length / 2;
-    positions.push(x0 + nx, y0 + ny, x0 - nx, y0 - ny, x1 + nx, y1 + ny, x1 - nx, y1 - ny);
-    indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
-    firstCap ??= [x0, y0];
-    lastCap = [x1, y1];
-  }
-
-  const pointCount = points.length / 2;
-  for (let i = 1; i < pointCount - 1; i += 1) {
-    const prevX = points[(i - 1) * 2];
-    const prevY = points[(i - 1) * 2 + 1];
-    const x = points[i * 2];
-    const y = points[i * 2 + 1];
-    const nextX = points[(i + 1) * 2];
-    const nextY = points[(i + 1) * 2 + 1];
-    const prevDx = x - prevX;
-    const prevDy = y - prevY;
-    const nextDx = nextX - x;
-    const nextDy = nextY - y;
-    const prevLength = Math.hypot(prevDx, prevDy);
-    const nextLength = Math.hypot(nextDx, nextDy);
-    if (prevLength < 1e-6 || nextLength < 1e-6) continue;
-    if (
-      Math.max(Math.abs(prevDx), Math.abs(nextDx)) < WAV_JOIN_MIN_X_DELTA &&
-      Math.max(prevLength, nextLength) < halfWidth * 2
-    )
-      continue;
-    const dot = (prevDx * nextDx + prevDy * nextDy) / (prevLength * nextLength);
-    if (dot > WAV_JOIN_DOT_THRESHOLD) continue;
-    appendCircleMesh(positions, indices, x, y, halfWidth);
-  }
-
-  if (firstCap && lastCap) {
-    appendCircleMesh(positions, indices, firstCap[0], firstCap[1], halfWidth);
-    appendCircleMesh(positions, indices, lastCap[0], lastCap[1], halfWidth);
-  } else {
-    appendCircleMesh(positions, indices, points[0], points[1], halfWidth);
-  }
-}
-
-function addSolidMesh(
-  layer: Container,
-  positions: number[],
-  indices: number[],
-  color: number,
-): number {
-  if (positions.length < 6 || indices.length < 3) return 0;
-  const geometry = new MeshGeometry({
-    positions: new Float32Array(positions),
-    indices: new Uint32Array(indices),
-    shrinkBuffersToFit: true,
-  });
-  const mesh = new Mesh({ geometry, texture: Texture.WHITE, tint: color });
-  layer.addChild(mesh);
-  return positions.length / 2;
-}
-
-function addLineMesh(
-  layer: Container,
-  paths: number[][],
-  color: number,
-  strokeWidth: number,
-): number {
-  const positions: number[] = [];
-  const indices: number[] = [];
-  paths.forEach((points) => appendLinePathMesh(positions, indices, points, strokeWidth));
-  return addSolidMesh(layer, positions, indices, color);
-}
-
-function addEnvelopeFillMesh(layer: Container, envelope: WaveformEnvelopeMesh, color: number) {
-  if (envelope.xs.length < 2) return 0;
-  const positions: number[] = [];
-  const indices: number[] = [];
-  envelope.xs.forEach((x, i) => {
-    positions.push(x, envelope.tops[i], x, envelope.bottoms[i]);
-    if (i < envelope.xs.length - 1) {
-      const base = i * 2;
-      indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
-    }
-  });
-  return addSolidMesh(layer, positions, indices, color);
-}
-
-function addEnvelopeBorderMesh(
-  layer: Container,
-  envelope: WaveformEnvelopeMesh,
-  color: number,
-  strokeWidth: number,
-) {
-  const last = envelope.xs.length - 1;
-  if (last < 1) return 0;
-  const topPath: number[] = [];
-  const bottomPath: number[] = [];
-  envelope.xs.forEach((x, i) => {
-    topPath.push(x, envelope.tops[i]);
-    bottomPath.push(x, envelope.bottoms[i]);
-  });
-  return addLineMesh(
-    layer,
-    [
-      topPath,
-      bottomPath,
-      [envelope.xs[0], envelope.tops[0], envelope.xs[0], envelope.bottoms[0]],
-      [envelope.xs[last], envelope.tops[last], envelope.xs[last], envelope.bottoms[last]],
-    ],
-    color,
-    strokeWidth,
-  );
-}
-
-function destroyChildren(layer: Container) {
-  const destroyTree = (node: Container) => {
-    node.removeChildren().forEach(destroyTree);
-    const geometry = node instanceof Mesh ? node.geometry : null;
-    node.destroy();
-    geometry?.destroy(true);
-  };
-  layer.removeChildren().forEach(destroyTree);
-}
 
 function AudioTrackViewport(props: Props) {
   const {
@@ -361,7 +185,7 @@ function AudioTrackViewport(props: Props) {
       })
       .then(() => {
         if (disposed || !host.current) {
-          pixi.destroy(true, { children: true });
+          pixi.destroy({ removeView: true }, { children: true });
           return;
         }
         const rowsContainer = new Container();
@@ -382,12 +206,12 @@ function AudioTrackViewport(props: Props) {
       wavTiles.clear();
       requests.clear();
       if (app.current === pixi) {
-        if (rowLayer.current) destroyChildren(rowLayer.current);
+        if (rowLayer.current) destroyPixiChildren(rowLayer.current);
         app.current = null;
         rowLayer.current = null;
         playheadLayer.current = null;
       }
-      pixi.destroy(true, { children: true });
+      pixi.destroy({ removeView: true }, { children: true });
       textures.destroyRetired();
     };
   }, [devicePixelRatio, syncBounds]);
@@ -527,193 +351,6 @@ function AudioTrackViewport(props: Props) {
     },
   );
 
-  const drawWaveformTiles = useCallback(
-    (
-      layer: Container,
-      tiles: WaveformTile[],
-      rowMetadata: AudioRenderMetadata,
-      rowY: number,
-      color: number,
-      clampValues: boolean,
-      needLineBorder: boolean,
-      needEnvelopeBorder: boolean,
-    ) => {
-      if (tiles.length === 0) return;
-      const toY = (value: number) => {
-        const normalizedValue = clampValues ? clamp(value, -1, 1) : value;
-        return (
-          rowY +
-          ((ampRange[1] - normalizedValue) / Math.max(ampRange[1] - ampRange[0], 1e-8)) *
-            imageHeight
-        );
-      };
-      const toX = (sample: number) => (sample / rowMetadata.sampleRate - startSec) * pxPerSec;
-      const visibleStartSample = Math.max(startSec * rowMetadata.sampleRate, 0);
-      const visibleEndSample = Math.min(
-        (startSec + width / pxPerSec) * rowMetadata.sampleRate,
-        rowMetadata.sampleCount,
-      );
-      if (visibleEndSample <= visibleStartSample) return;
-      const getVisibleBinRange = (tile: WaveformTile, overscanBins: number) => {
-        const tileFirstSample = tile.tileIndex * rowMetadata.waveformTileBins * tile.samplesPerBin;
-        const firstBin = Math.max(
-          Math.floor((visibleStartSample - tileFirstSample) / tile.samplesPerBin) - overscanBins,
-          0,
-        );
-        const lastBin = Math.min(
-          Math.ceil((visibleEndSample - tileFirstSample) / tile.samplesPerBin) + overscanBins,
-          tile.binCount,
-        );
-        return [firstBin, Math.max(firstBin, lastBin)] as const;
-      };
-
-      type WaveformBin = {
-        firstSample: number;
-        lastSample: number;
-        centerSample: number;
-        min: number;
-        max: number;
-        representative: number;
-      };
-      const getBins = (segment: WaveformTile[], overscanBins: number) => {
-        const bins: WaveformBin[] = [];
-        segment.forEach((tile) => {
-          const tileFirstSample =
-            tile.tileIndex * rowMetadata.waveformTileBins * tile.samplesPerBin;
-          const [firstBin, lastBin] = getVisibleBinRange(tile, overscanBins);
-          for (let i = firstBin; i < lastBin; i += 1) {
-            const firstSample = tileFirstSample + i * tile.samplesPerBin;
-            const lastSample = Math.min(firstSample + tile.samplesPerBin, rowMetadata.sampleCount);
-            bins.push({
-              firstSample,
-              lastSample,
-              centerSample: firstSample + (lastSample - firstSample) * 0.5,
-              min: tile.min[i],
-              max: tile.max[i],
-              representative: tile.representative[i],
-            });
-          }
-        });
-        return bins;
-      };
-      const drawLine = (points: number[], strokeColor: number, strokeWidth: number) => {
-        waveformVertices.current += addLineMesh(layer, [points], strokeColor, strokeWidth);
-      };
-      const drawEnvelope = (
-        envelope: WaveformEnvelopeMesh,
-        fillColor: number,
-        drawBorder: boolean,
-      ) => {
-        if (drawBorder) {
-          waveformVertices.current += addEnvelopeBorderMesh(
-            layer,
-            envelope,
-            WAV_BORDER_COLOR,
-            WAV_BORDER_WIDTH * 2,
-          );
-        }
-        waveformVertices.current += addEnvelopeFillMesh(layer, envelope, fillColor);
-      };
-      const contiguousSegments: WaveformTile[][] = [];
-      tiles.forEach((tile) => {
-        const segment = contiguousSegments[contiguousSegments.length - 1];
-        if (!segment || segment[segment.length - 1].tileIndex + 1 !== tile.tileIndex) {
-          contiguousSegments.push([tile]);
-        } else {
-          segment.push(tile);
-        }
-      });
-      const samplesPerBin = tiles[0].samplesPerBin;
-      if (samplesPerBin === 1) {
-        contiguousSegments.forEach((segment) => {
-          const linePoints = getBins(segment, 1).flatMap(({ firstSample, representative }) => [
-            toX(firstSample),
-            toY(representative),
-          ]);
-          if (needLineBorder) {
-            drawLine(linePoints, WAV_BORDER_COLOR, WAV_LINE_WIDTH + WAV_BORDER_WIDTH * 2);
-          }
-          drawLine(linePoints, color, WAV_LINE_WIDTH);
-        });
-        return;
-      }
-
-      contiguousSegments.forEach((segment) => {
-        const bins = getBins(segment, 2);
-        if (bins.length === 0) return;
-
-        const linePoints: number[] = [];
-        const envelopes: WaveformEnvelopeMesh[] = [];
-        let envelopeXs: number[] = [];
-        let envelopeTops: number[] = [];
-        let envelopeBottoms: number[] = [];
-        const finishEnvelope = () => {
-          if (envelopeXs.length === 0) return;
-          const halfLineWidth = WAV_LINE_WIDTH * 0.5;
-          envelopes.push({
-            xs: envelopeXs,
-            tops: envelopeTops.map((value) => value - halfLineWidth),
-            bottoms: envelopeBottoms.map((value) => value + halfLineWidth),
-          });
-          envelopeXs = [];
-          envelopeTops = [];
-          envelopeBottoms = [];
-        };
-
-        bins.forEach((bin, i) => {
-          const nextBin = bins[Math.min(i + 1, bins.length - 1)];
-          const xStart = toX(bin.firstSample);
-          const xMid = toX(bin.centerSample);
-          const y = toY(bin.representative);
-          const top = toY(Math.max(bin.max, nextBin.max));
-          const bottom = toY(Math.min(bin.min, nextBin.min));
-          const previousY = i > 0 ? toY(bins[i - 1].representative) : y;
-
-          if (bottom - top > WAV_LINE_WIDTH * 0.5) {
-            if (envelopeXs.length === 0) {
-              envelopeXs.push(xStart);
-              envelopeTops.push(previousY);
-              envelopeBottoms.push(previousY);
-              linePoints.push(xMid, y);
-            }
-
-            envelopeXs.push(xMid);
-            envelopeTops.push(top);
-            envelopeBottoms.push(bottom);
-            linePoints.push(xMid, (top + bottom) * 0.5);
-          } else {
-            if (envelopeXs.length > 0) {
-              envelopeXs.push(xStart);
-              envelopeTops.push(y);
-              envelopeBottoms.push(y);
-              finishEnvelope();
-              linePoints.push(xStart, previousY);
-            }
-
-            linePoints.push(xMid, (top + bottom) * 0.5);
-          }
-        });
-
-        if (envelopeXs.length > 0) {
-          const lastBin = bins[bins.length - 1];
-          const lastY = toY(lastBin.representative);
-          envelopeXs.push(toX(lastBin.lastSample));
-          envelopeTops.push(lastY);
-          envelopeBottoms.push(lastY);
-          finishEnvelope();
-          linePoints.push(toX(lastBin.centerSample), lastY);
-        }
-
-        if (needLineBorder) {
-          drawLine(linePoints, WAV_BORDER_COLOR, WAV_LINE_WIDTH + WAV_BORDER_WIDTH * 2);
-        }
-        envelopes.forEach((envelope) => drawEnvelope(envelope, color, needEnvelopeBorder));
-        drawLine(linePoints, color, WAV_LINE_WIDTH);
-      });
-    },
-    [ampRange, imageHeight, pxPerSec, startSec, width],
-  );
-
   const drawSpectrogram = useEvent(
     (
       layer: Container,
@@ -831,7 +468,7 @@ function AudioTrackViewport(props: Props) {
     const layer = rowLayer.current;
     const rect = getViewportRect();
     if (!layer || !rect) return;
-    destroyChildren(layer);
+    destroyPixiChildren(layer);
     textureCache.current.destroyRetired();
     spectrogramTilesExpected.current = 0;
     spectrogramSprites.current = 0;
@@ -878,16 +515,11 @@ function AudioTrackViewport(props: Props) {
       if (wavAlpha <= 0) return;
       const wavLayer = new Container({ alpha: wavAlpha });
       const level = waveformLevel(rowMetadata.sampleRate, pxPerSec, devicePixelRatio);
-      const samplesPerBin = 2 ** level;
-      const tileSpanSec = (rowMetadata.waveformTileBins * samplesPerBin) / rowMetadata.sampleRate;
-      const maxTile = Math.max(
-        Math.ceil(rowMetadata.sampleCount / (rowMetadata.waveformTileBins * samplesPerBin)) - 1,
-        0,
-      );
-      const firstTile = Math.max(Math.floor(startSec / tileSpanSec) - 1, 0);
-      const lastTile = Math.min(
-        Math.floor((startSec + width / pxPerSec) / tileSpanSec) + 1,
-        maxTile,
+      const { firstTile, lastTile } = waveformTileRange(
+        rowMetadata,
+        level,
+        startSec,
+        startSec + width / pxPerSec,
       );
       const loadedTiles: WaveformTile[] = [];
       for (let tileIndex = firstTile; tileIndex <= lastTile; tileIndex += 1) {
@@ -901,27 +533,37 @@ function AudioTrackViewport(props: Props) {
         loadedTiles.push(tile);
       }
       if (rowMetadata.isClipped) {
-        drawWaveformTiles(
-          wavLayer,
-          loadedTiles,
-          rowMetadata,
-          rowY,
-          WAV_CLIPPING_COLOR,
-          false,
-          true,
-          true,
-        );
+        waveformVertices.current += renderWaveformTiles({
+          layer: wavLayer,
+          tiles: loadedTiles,
+          metadata: rowMetadata,
+          y: rowY,
+          height: imageHeight,
+          startSec,
+          pxPerSec,
+          width,
+          ampRange,
+          color: WAV_CLIPPING_COLOR,
+          clampValues: false,
+          needLineBorder: true,
+          needEnvelopeBorder: true,
+        });
       }
-      drawWaveformTiles(
-        wavLayer,
-        loadedTiles,
-        rowMetadata,
-        rowY,
-        WAV_COLOR,
-        rowMetadata.isClipped,
-        true,
-        !rowMetadata.isClipped,
-      );
+      waveformVertices.current += renderWaveformTiles({
+        layer: wavLayer,
+        tiles: loadedTiles,
+        metadata: rowMetadata,
+        y: rowY,
+        height: imageHeight,
+        startSec,
+        pxPerSec,
+        width,
+        ampRange,
+        color: WAV_COLOR,
+        clampValues: rowMetadata.isClipped,
+        needLineBorder: true,
+        needEnvelopeBorder: !rowMetadata.isClipped,
+      });
       rowContainer.addChild(wavLayer);
     });
     visibleRows.current = count;
@@ -936,7 +578,6 @@ function AudioTrackViewport(props: Props) {
     blend,
     devicePixelRatio,
     drawSpectrogram,
-    drawWaveformTiles,
     freqScale,
     hzRange,
     imageHeight,

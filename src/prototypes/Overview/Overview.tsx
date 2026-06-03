@@ -1,14 +1,13 @@
-import React, { useRef, useEffect, useMemo, useContext, useCallback } from "react";
+import React, { useRef, useEffect, useMemo, useCallback, useContext } from "react";
 import useEvent from "react-use-event-hook";
 
 import { DevicePixelRatioContext } from "src/contexts";
 import styles from "./Overview.module.scss";
-import BackendAPI, { WasmAPI, WasmFloat32Array } from "../../api";
 import { OVERVIEW_LENS_STYLE, OVERVIEW_MAX_CH } from "../constants/tracks";
 import Draggable, { CursorStateInfo } from "../../modules/Draggable";
+import OverviewWaveformViewport from "./OverviewWaveformViewport";
 
-const { OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, OUT_TRACK_FILL_STYLE, LINE_WIDTH, RESIZE_CURSOR } =
-  OVERVIEW_LENS_STYLE;
+const { OUT_LENS_FILL_STYLE, LENS_STROKE_STYLE, LINE_WIDTH, RESIZE_CURSOR } = OVERVIEW_LENS_STYLE;
 
 const THICKNESS = 3;
 
@@ -27,16 +26,6 @@ type OverviewProps = {
 
 type OverviewCursorState = "left" | "right" | "inlens" | "outlens";
 
-const transferWavFromBackendToWasm = async (idChStr: string) => {
-  const wavInfo = await BackendAPI.getWav(idChStr);
-  if (wavInfo === null) return;
-
-  const { wavArr, sr, isClipped } = wavInfo;
-  const [wavWasmArr, view] = WasmAPI.createWasmFloat32Array(wavArr.length);
-  view.set(wavArr);
-  WasmAPI.setWav(idChStr, wavWasmArr, sr, isClipped);
-};
-
 function Overview(props: OverviewProps) {
   const {
     trackId,
@@ -52,95 +41,10 @@ function Overview(props: OverviewProps) {
   } = props;
   const idChArr = useMemo(() => _idChArr.slice(0, OVERVIEW_MAX_CH), [_idChArr]);
   const devicePixelRatio = useContext(DevicePixelRatioContext);
-  const durationSecPromise = useMemo(
-    () => (trackId !== null ? BackendAPI.getLengthSec(trackId) : Promise.resolve(0)),
-    [trackId],
-  );
-  const hasSetWavCompletedRef = useRef(false);
-
-  const backgroundElem = useRef<HTMLCanvasElement>(null);
   const lensElem = useRef<HTMLCanvasElement>(null);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const lensCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-
-  useEffect(() => {
-    WasmAPI.setDevicePixelRatio(devicePixelRatio);
-  }, [devicePixelRatio]);
-
-  useEffect(() => {
-    hasSetWavCompletedRef.current = false;
-    Promise.all(idChArr.map((idChStr) => transferWavFromBackendToWasm(idChStr))).then(() => {
-      hasSetWavCompletedRef.current = true;
-    });
-
-    return () => {
-      Promise.all(idChArr.map((idChStr) => WasmAPI.removeWav(idChStr))).then(() => {
-        hasSetWavCompletedRef.current = false;
-      });
-    };
-  }, [idChArr]);
-
-  const draw = useCallback(async () => {
-    if (!backgroundElem.current || !lensElem.current || idChArr.length === 0) return;
-
-    const width = backgroundElem.current.clientWidth;
-    const height = backgroundElem.current.clientHeight;
-    const ctx = backgroundElem.current.getContext("2d", { desynchronized: true });
-    if (trackId === null) {
-      backgroundElem.current.width = width * devicePixelRatio;
-      backgroundElem.current.height = height * devicePixelRatio;
-      ctx?.clearRect(0, 0, width * devicePixelRatio, height * devicePixelRatio);
-      lensCtxRef.current?.clearRect(
-        0,
-        0,
-        lensElem.current.clientWidth,
-        lensElem.current.clientHeight,
-      );
-      return;
-    }
-
-    if (!ctx) return;
-
-    const limiterGainSeq = await BackendAPI.getLimiterGainSeq(trackId);
-    let limiterGainSeqWasmArr: WasmFloat32Array | null = null;
-    if (limiterGainSeq) {
-      const [wasmArr, view] = WasmAPI.createWasmFloat32Array(limiterGainSeq.length);
-      view.set(limiterGainSeq);
-      limiterGainSeqWasmArr = wasmArr;
-    }
-    while (!hasSetWavCompletedRef.current) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    WasmAPI.drawOverview(
-      backgroundElem.current,
-      ctx,
-      idChArr,
-      width,
-      height,
-      maxTrackSec,
-      limiterGainSeqWasmArr,
-    );
-
-    const durationSec = await durationSecPromise;
-    // fill out of track area
-    if (durationSec < maxTrackSec) {
-      ctx.fillStyle = OUT_TRACK_FILL_STYLE;
-      const x = width * devicePixelRatio * (durationSec / maxTrackSec);
-      ctx.fillRect(x, 0, width * devicePixelRatio - x, height * devicePixelRatio);
-    }
-  }, [devicePixelRatio, durationSecPromise, idChArr, maxTrackSec, trackId]);
-
-  // TODO: rm using refs
-  const prevDrawRef = useRef(draw);
-  // eslint-disable-next-line react-hooks/refs
-  if (prevDrawRef.current === draw && needRefresh) draw();
-  // eslint-disable-next-line react-hooks/refs
-  prevDrawRef.current = draw;
-
-  useEffect(() => {
-    draw();
-  }, [draw]);
 
   const calcPxPerSec = useCallback(() => {
     const width = lensElem.current?.clientWidth ?? 0;
@@ -181,7 +85,7 @@ function Overview(props: OverviewProps) {
     return () => cancelAnimationFrame(requestId);
   }, [drawLens]);
 
-  const resizeObserverCallback = useEvent(async () => {
+  const resizeObserverCallback = useEvent(() => {
     if (!lensElem.current) return;
     lensElem.current.width = lensElem.current.clientWidth * devicePixelRatio;
     lensElem.current.height = lensElem.current.clientHeight * devicePixelRatio;
@@ -193,7 +97,6 @@ function Overview(props: OverviewProps) {
     lensCtx.fillStyle = OUT_LENS_FILL_STYLE;
     lensCtx.strokeStyle = LENS_STROKE_STYLE;
     drawLens();
-    await draw();
   });
 
   useEffect(() => {
@@ -281,7 +184,13 @@ function Overview(props: OverviewProps) {
 
   return (
     <div className={styles.Overview} role="navigation">
-      <canvas className={styles.OverviewBackground} ref={backgroundElem} />
+      <OverviewWaveformViewport
+        trackId={trackId}
+        idChArr={idChArr}
+        maxTrackSec={maxTrackSec}
+        needRefresh={needRefresh}
+        className={styles.OverviewBackground}
+      />
       <Draggable
         cursorStateInfos={cursorStateInfos}
         calcCursorPos="x"

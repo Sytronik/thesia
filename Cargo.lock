@@ -5184,18 +5184,11 @@ name = "thesia-wasm-module"
 version = "0.1.0"
 dependencies = [
  "approx",
- "atomic_float",
- "audioadapter-buffers",
  "chrono",
- "js-sys",
- "ndarray",
  "num-traits",
- "parking_lot",
- "rubato",
  "serde-wasm-bindgen",
  "thesia-common",
  "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
