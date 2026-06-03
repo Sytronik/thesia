@@ -398,8 +398,8 @@ export function renderWaveformTiles({
     if (needLineBorder) {
       drawLine(linePoints, WAV_BORDER_COLOR, lineWidth + borderWidth * 2);
     }
-    envelopes.forEach((envelope) => drawEnvelope(envelope, color, needEnvelopeBorder));
     drawLine(linePoints, color, lineWidth);
+    envelopes.forEach((envelope) => drawEnvelope(envelope, color, needEnvelopeBorder));
   });
   return vertices;
 }

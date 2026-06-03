@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Application, Container, Graphics, Sprite } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite, type Texture } from "pixi.js";
 import useEvent from "react-use-event-hook";
 
 import BackendAPI, { AudioRenderMetadata, FreqScale, WasmAPI } from "../api";
@@ -113,6 +113,7 @@ function AudioTrackViewport(props: Props) {
   const playheadLayer = useRef<Graphics | null>(null);
   const textureCache = useRef(new GpuTextureCache(GPU_TEXTURE_BUDGET_BYTES));
   const waveformTiles = useRef(new WaveformTileCache(WAVEFORM_TILE_BUDGET_BYTES));
+  const waveformCompositeTextures = useRef(new Set<Texture>());
   const pending = useRef(new Set<string>());
   const prevBounds = useRef<{ width: number; height: number } | null>(null);
   const metadataRef = useRef(new Map<string, AudioRenderMetadata>());
@@ -171,6 +172,7 @@ function AudioTrackViewport(props: Props) {
     const textures = textureCache.current;
     const wavTiles = waveformTiles.current;
     const requests = pending.current;
+    const compositeTextures = waveformCompositeTextures.current;
     void pixi
       .init({
         width: 1,
@@ -206,6 +208,8 @@ function AudioTrackViewport(props: Props) {
       wavTiles.clear();
       requests.clear();
       if (app.current === pixi) {
+        compositeTextures.forEach((texture) => texture.destroy(true));
+        compositeTextures.clear();
         if (rowLayer.current) destroyPixiChildren(rowLayer.current);
         app.current = null;
         rowLayer.current = null;
@@ -464,10 +468,17 @@ function AudioTrackViewport(props: Props) {
       .join(",");
   });
 
+  const destroyWaveformCompositeTextures = useEvent(() => {
+    waveformCompositeTextures.current.forEach((texture) => texture.destroy(true));
+    waveformCompositeTextures.current.clear();
+  });
+
   const redrawRows = useEvent(() => {
+    const pixi = app.current;
     const layer = rowLayer.current;
     const rect = getViewportRect();
-    if (!layer || !rect) return;
+    if (!pixi || !layer || !rect) return;
+    destroyWaveformCompositeTextures();
     destroyPixiChildren(layer);
     textureCache.current.destroyRetired();
     spectrogramTilesExpected.current = 0;
@@ -513,7 +524,7 @@ function AudioTrackViewport(props: Props) {
       }
       const wavAlpha = blend < 0.5 ? 1 : Math.max(2 - 2 * blend, 0);
       if (wavAlpha <= 0) return;
-      const wavLayer = new Container({ alpha: wavAlpha });
+      const wavLayer = new Container();
       const level = waveformLevel(rowMetadata.sampleRate, pxPerSec, devicePixelRatio);
       const { firstTile, lastTile } = waveformTileRange(
         rowMetadata,
@@ -564,7 +575,18 @@ function AudioTrackViewport(props: Props) {
         needLineBorder: true,
         needEnvelopeBorder: !rowMetadata.isClipped,
       });
-      rowContainer.addChild(wavLayer);
+      if (wavLayer.children.length === 0) return;
+      const wavTexture = pixi.renderer.generateTexture({
+        target: wavLayer,
+        frame: new Rectangle(0, rowY, width, imageHeight),
+        resolution: devicePixelRatio,
+      });
+      waveformCompositeTextures.current.add(wavTexture);
+      destroyPixiChildren(wavLayer);
+      const wavSprite = new Sprite(wavTexture);
+      wavSprite.y = rowY;
+      wavSprite.alpha = wavAlpha;
+      rowContainer.addChild(wavSprite);
     });
     visibleRows.current = count;
     visibleRowsKey.current = getVisibleRowsKey();
