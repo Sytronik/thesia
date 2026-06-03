@@ -8,7 +8,7 @@ export const WAV_COLOR = 0x1389eb;
 export const WAV_CLIPPING_COLOR = 0xc42232;
 export const WAV_IMG_SCALE = 2;
 export const WAV_LINE_WIDTH = 1.75;
-export const WAV_BORDER_WIDTH = 0.75;
+export const WAV_BORDER_WIDTH = 1.0;
 
 const WAV_CAP_SEGMENTS = 12;
 const WAV_JOIN_DOT_THRESHOLD = 0.9975;
@@ -38,12 +38,8 @@ export type WaveformRenderOptions = {
   borderWidth?: number;
 };
 
-export const waveformKey = (
-  idChStr: string,
-  revision: number,
-  level: number,
-  tileIndex: number,
-) => `w:${idChStr}:${revision}:${level}:${tileIndex}`;
+export const waveformKey = (idChStr: string, revision: number, level: number, tileIndex: number) =>
+  `w:${idChStr}:${revision}:${level}:${tileIndex}`;
 
 export const waveformLevel = (sampleRate: number, pxPerSec: number, devicePixelRatio: number) => {
   const internalPxPerSec = pxPerSec * WAV_IMG_SCALE * devicePixelRatio;
@@ -71,7 +67,8 @@ export const waveformTileRange = (
   };
 };
 
-export const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+export const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 
 function appendCircleMesh(
   positions: number[],
@@ -244,11 +241,16 @@ export function renderWaveformTiles({
   let vertices = 0;
   const toY = (value: number) => {
     const normalizedValue = clampValues ? clamp(value, -1, 1) : value;
-    return y + ((ampRange[1] - normalizedValue) / Math.max(ampRange[1] - ampRange[0], 1e-8)) * height;
+    return (
+      y + ((ampRange[1] - normalizedValue) / Math.max(ampRange[1] - ampRange[0], 1e-8)) * height
+    );
   };
   const toX = (sample: number) => (sample / metadata.sampleRate - startSec) * pxPerSec;
   const visibleStartSample = Math.max(startSec * metadata.sampleRate, 0);
-  const visibleEndSample = Math.min((startSec + width / pxPerSec) * metadata.sampleRate, metadata.sampleCount);
+  const visibleEndSample = Math.min(
+    (startSec + width / pxPerSec) * metadata.sampleRate,
+    metadata.sampleCount,
+  );
   if (visibleEndSample <= visibleStartSample) return 0;
   const getVisibleBinRange = (tile: WaveformTile, overscanBins: number) => {
     const tileFirstSample = tile.tileIndex * metadata.waveformTileBins * tile.samplesPerBin;
@@ -294,11 +296,7 @@ export function renderWaveformTiles({
   const drawLine = (points: number[], strokeColor: number, strokeWidth: number) => {
     vertices += addLineMesh(layer, [points], strokeColor, strokeWidth);
   };
-  const drawEnvelope = (
-    envelope: WaveformEnvelopeMesh,
-    fillColor: number,
-    drawBorder: boolean,
-  ) => {
+  const drawEnvelope = (envelope: WaveformEnvelopeMesh, fillColor: number, drawBorder: boolean) => {
     if (drawBorder) {
       vertices += addEnvelopeBorderMesh(layer, envelope, WAV_BORDER_COLOR, borderWidth * 2);
     }
