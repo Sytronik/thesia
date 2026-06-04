@@ -369,9 +369,7 @@ fn get_spectrogram_tile(
     let spectrogram = tm
         .get_spectrogram((id, ch))
         .ok_or_else(|| anyhow::anyhow!("Spectrogram {id_ch_str} does not exist"))?;
-    Ok(Response::new(RENDER_TILE_CACHE.write().spectrogram_tile(
-        id,
-        ch,
+    Ok(Response::new(RENDER_TILE_CACHE.read().spectrogram_tile(
         spectrogram,
         level_x,
         level_y,

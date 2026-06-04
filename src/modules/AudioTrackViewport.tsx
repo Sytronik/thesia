@@ -35,8 +35,8 @@ import {
 } from "../prototypes/constants/tracks";
 import styles from "./AudioTrackViewport.module.scss";
 
-const GPU_TEXTURE_BUDGET_BYTES = 256 * 1024 * 1024;
-const WAVEFORM_TILE_BUDGET_BYTES = 64 * 1024 * 1024;
+const GPU_TEXTURE_BUDGET_BYTES = 128 * 1024 * 1024;
+const WAVEFORM_TILE_BUDGET_BYTES = 32 * 1024 * 1024;
 const HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
 const METADATA_RETRY_LIMIT = 20;
 const METADATA_RETRY_DELAY_MS = 100;

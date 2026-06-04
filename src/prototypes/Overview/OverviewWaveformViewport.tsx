@@ -15,7 +15,7 @@ import {
   WAV_COLOR,
 } from "../../lib/waveform-renderer";
 
-const WAVEFORM_TILE_BUDGET_BYTES = 16 * 1024 * 1024;
+const WAVEFORM_TILE_BUDGET_BYTES = 8 * 1024 * 1024;
 const OVERVIEW_CH_GAP_HEIGHT = 1;
 const OVERVIEW_GAIN_HEIGHT_RATIO = 0.2;
 const OVERVIEW_LINE_WIDTH = 1;

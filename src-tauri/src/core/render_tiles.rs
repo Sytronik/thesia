@@ -12,13 +12,7 @@ use serde::Serialize;
 pub const WAVEFORM_TILE_BINS: usize = 1024;
 pub const SPECTROGRAM_TILE_SIZE: usize = 512;
 const SPECTROGRAM_TILE_GUTTER: usize = 4;
-const DEFAULT_CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum TileKind {
-    Waveform,
-    Spectrogram,
-}
+const DEFAULT_WAVEFORM_CACHE_BUDGET_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum RenderTileKey {
@@ -29,24 +23,6 @@ enum RenderTileKey {
         level: u32,
         tile_index: u32,
     },
-    Spectrogram {
-        id: usize,
-        ch: usize,
-        revision: u64,
-        level_x: u32,
-        level_y: u32,
-        tile_x: u32,
-        tile_y: u32,
-    },
-}
-
-impl RenderTileKey {
-    fn kind(&self) -> TileKind {
-        match self {
-            Self::Waveform { .. } => TileKind::Waveform,
-            Self::Spectrogram { .. } => TileKind::Spectrogram,
-        }
-    }
 }
 
 struct CacheEntry {
@@ -89,7 +65,7 @@ pub struct RenderTileCache {
 
 impl Default for RenderTileCache {
     fn default() -> Self {
-        Self::with_budget(DEFAULT_CACHE_BUDGET_BYTES)
+        Self::with_budget(DEFAULT_WAVEFORM_CACHE_BUDGET_BYTES)
     }
 }
 
@@ -115,12 +91,11 @@ impl RenderTileCache {
 
     pub fn invalidate_waveform(&mut self) {
         self.waveform_revision = self.waveform_revision.wrapping_add(1).max(1);
-        self.remove_kind(TileKind::Waveform);
+        self.clear_tiles();
     }
 
     pub fn invalidate_spectrogram(&mut self) {
         self.spectrogram_revision = self.spectrogram_revision.wrapping_add(1).max(1);
-        self.remove_kind(TileKind::Spectrogram);
     }
 
     pub fn invalidate_all(&mut self) {
@@ -184,29 +159,14 @@ impl RenderTileCache {
     }
 
     pub fn spectrogram_tile(
-        &mut self,
-        id: usize,
-        ch: usize,
+        &self,
         spectrogram: ArrayView2<'_, u16>,
         level_x: u32,
         level_y: u32,
         tile_x: u32,
         tile_y: u32,
     ) -> Vec<u8> {
-        let key = RenderTileKey::Spectrogram {
-            id,
-            ch,
-            revision: self.spectrogram_revision,
-            level_x,
-            level_y,
-            tile_x,
-            tile_y,
-        };
-        if let Some(bytes) = self.get(&key) {
-            return bytes;
-        }
-
-        let bytes = encode_spectrogram_tile(
+        encode_spectrogram_tile(
             spectrogram,
             &self.colormap_rgba,
             self.spectrogram_revision,
@@ -214,9 +174,7 @@ impl RenderTileCache {
             level_y,
             tile_x,
             tile_y,
-        );
-        self.insert(key, bytes.clone());
-        bytes
+        )
     }
 
     fn get(&mut self, key: &RenderTileKey) -> Option<Vec<u8>> {
@@ -255,15 +213,10 @@ impl RenderTileCache {
         }
     }
 
-    fn remove_kind(&mut self, kind: TileKind) {
-        self.entries.retain(|key, entry| {
-            if key.kind() == kind {
-                self.bytes -= entry.bytes.len();
-                false
-            } else {
-                true
-            }
-        });
+    fn clear_tiles(&mut self) {
+        self.entries.clear();
+        self.entries.shrink_to_fit();
+        self.bytes = 0;
     }
 }
 
@@ -498,13 +451,6 @@ mod tests {
         cache.invalidate_waveform();
         assert!(cache.stats().entries == 0);
         assert!(cache.waveform_revision > revision);
-
-        let spec = array![[0u16]];
-        cache.spectrogram_tile(1, 0, spec.view(), 0, 0, 0, 0);
-        let revision = cache.spectrogram_revision;
-        cache.invalidate_spectrogram();
-        assert!(cache.stats().entries == 0);
-        assert!(cache.spectrogram_revision > revision);
     }
 
     #[test]
