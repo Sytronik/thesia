@@ -403,41 +403,6 @@ function MainViewer(props: MainViewerProps) {
       return row.top + rowIndex * (rowHeight - height);
     },
   );
-  const recordVerticalZoomStats = useEvent(
-    (stats: {
-      targetScrollTop?: number;
-      actualScrollTop?: number;
-      anchorErrorPx?: number;
-      cursorY?: number;
-      baseHeight?: number;
-      newHeight?: number;
-      logicalScrollTop?: number;
-      contentY?: number;
-      newContentY?: number;
-      rowIndex?: number;
-      offsetRatio?: number;
-    }) => {
-      if (!import.meta.env.DEV || !window.__THESIA_RENDER_STATS__) return;
-      const fieldMap = {
-        verticalZoomTargetScrollTop: stats.targetScrollTop,
-        verticalZoomActualScrollTop: stats.actualScrollTop,
-        verticalZoomAnchorErrorPx: stats.anchorErrorPx,
-        verticalZoomCursorY: stats.cursorY,
-        verticalZoomBaseHeight: stats.baseHeight,
-        verticalZoomNewHeight: stats.newHeight,
-        verticalZoomLogicalScrollTop: stats.logicalScrollTop,
-        verticalZoomContentY: stats.contentY,
-        verticalZoomNewContentY: stats.newContentY,
-        verticalZoomRowIndex: stats.rowIndex,
-        verticalZoomOffsetRatio: stats.offsetRatio,
-      };
-      Object.entries(fieldMap).forEach(([key, value]) => {
-        if (value !== undefined) {
-          Object.assign(window.__THESIA_RENDER_STATS__ ?? {}, { [key]: value });
-        }
-      });
-    },
-  );
 
   const calcScrollTopAtCursor = useEvent(
     (baseHeight: number, newHeight: number, cursorClientY: number) => {
@@ -451,8 +416,6 @@ function MainViewer(props: MainViewerProps) {
       const lastRowIndex = audioViewportRows.length - 1;
       let newContentY = 0;
       let foundAnchor = false;
-      let anchorRowIndex = 0;
-      let offsetRatio = 0;
 
       for (let rowIndex = 0; rowIndex < audioViewportRows.length; rowIndex += 1) {
         const row = audioViewportRows[rowIndex];
@@ -460,14 +423,12 @@ function MainViewer(props: MainViewerProps) {
         const newRowTop = getRowTopAtHeight(row, rowIndex, newHeight);
         if (contentY < rowTop) {
           newContentY = newRowTop + (contentY - rowTop);
-          anchorRowIndex = rowIndex;
           foundAnchor = true;
           break;
         }
         if (contentY <= rowTop + baseHeight) {
-          offsetRatio = (contentY - rowTop) / Math.max(baseHeight, 1e-8);
+          const offsetRatio = (contentY - rowTop) / Math.max(baseHeight, 1e-8);
           newContentY = newRowTop + offsetRatio * newHeight;
-          anchorRowIndex = rowIndex;
           foundAnchor = true;
           break;
         }
@@ -478,23 +439,9 @@ function MainViewer(props: MainViewerProps) {
         const rowBottom = getRowTopAtHeight(row, lastRowIndex, baseHeight) + baseHeight;
         const newRowTop = getRowTopAtHeight(row, lastRowIndex, newHeight);
         newContentY = newRowTop + newHeight + (contentY - rowBottom);
-        anchorRowIndex = lastRowIndex;
-        offsetRatio = 1;
       }
 
-      const targetScrollTop = TRACK_HEADER_HEIGHT + newContentY - cursorY;
-      recordVerticalZoomStats({
-        targetScrollTop,
-        cursorY,
-        baseHeight,
-        newHeight,
-        logicalScrollTop: scrollTopForZoom,
-        contentY,
-        newContentY,
-        rowIndex: anchorRowIndex,
-        offsetRatio,
-      });
-      return targetScrollTop;
+      return TRACK_HEADER_HEIGHT + newContentY - cursorY;
     },
   );
 
@@ -829,14 +776,7 @@ function MainViewer(props: MainViewerProps) {
     logicalScrollTopRef.current = targetScrollTop;
     programmaticScrollTargetRef.current = targetScrollTop;
     splitViewElem.current?.scrollTo({ top: targetScrollTop });
-    const actualScrollTop = splitViewElem.current?.scrollTop() ?? 0;
-    recordVerticalZoomStats({
-      targetScrollTop,
-      actualScrollTop,
-      anchorErrorPx: targetScrollTop - actualScrollTop,
-      logicalScrollTop: targetScrollTop,
-    });
-    return actualScrollTop;
+    return splitViewElem.current?.scrollTop() ?? 0;
   });
   const scheduleVerticalZoomScrollCorrection = useEvent((targetScrollTop: number) => {
     if (scrollCorrectionRequestRef.current !== null) {

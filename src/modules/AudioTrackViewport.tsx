@@ -121,19 +121,6 @@ function AudioTrackViewport(props: Props) {
   const metadataRetryCount = useRef(0);
   const tileRequestRevision = useRef(0);
   const latestProps = useRef(props);
-  const frameTimes = useRef<number[]>([]);
-  const prevFrame = useRef<number | null>(null);
-  const cacheHits = useRef(0);
-  const cacheMisses = useRef(0);
-  const spectrogramTilesExpected = useRef(0);
-  const spectrogramRequests = useRef(0);
-  const spectrogramResponses = useRef(0);
-  const spectrogramSprites = useRef(0);
-  const spectrogramErrors = useRef(0);
-  const spectrogramSkipReason = useRef<string | null>(null);
-  const lastSpectrogramError = useRef<string | null>(null);
-  const waveformVertices = useRef(0);
-  const visibleRows = useRef(0);
   const visibleRowsKey = useRef("");
   const [metadata, setMetadata] = useState(new Map<string, AudioRenderMetadata>());
   const [sceneRevision, setSceneRevision] = useState(0);
@@ -289,12 +276,8 @@ function AudioTrackViewport(props: Props) {
   const requestWaveformTile = useEvent(
     (idChStr: string, rowMetadata: AudioRenderMetadata, level: number, tileIndex: number) => {
       const key = waveformKey(idChStr, rowMetadata.waveformRevision, level, tileIndex);
-      if (waveformTiles.current.get(key)) {
-        cacheHits.current += 1;
-        return;
-      }
+      if (waveformTiles.current.get(key)) return;
       if (pending.current.has(key)) return;
-      cacheMisses.current += 1;
       pending.current.add(key);
       const requestRevision = tileRequestRevision.current;
       void BackendAPI.getWaveformTile(idChStr, level, tileIndex)
@@ -328,17 +311,13 @@ function AudioTrackViewport(props: Props) {
         tileY,
       );
       if (textureCache.current.get(key)) {
-        cacheHits.current += 1;
         return;
       }
       if (pending.current.has(key)) return;
-      cacheMisses.current += 1;
       pending.current.add(key);
-      spectrogramRequests.current += 1;
       const requestRevision = tileRequestRevision.current;
       void BackendAPI.getSpectrogramTile(idChStr, levelX, levelY, tileX, tileY)
         .then((value) => {
-          spectrogramResponses.current += 1;
           if (requestRevision !== tileRequestRevision.current) return;
           const tile = decodeSpectrogramTile(value);
           if (metadataRef.current.get(idChStr)?.spectrogramRevision !== tile.revision) return;
@@ -346,11 +325,7 @@ function AudioTrackViewport(props: Props) {
           textureCache.current.set(key, tile);
           setSceneRevision((revision) => revision + 1);
         })
-        .catch((error) => {
-          spectrogramErrors.current += 1;
-          lastSpectrogramError.current = String(error);
-          console.error("Failed to fetch spectrogram tile", error);
-        })
+        .catch((error) => console.error("Failed to fetch spectrogram tile", error))
         .finally(() => pending.current.delete(key));
     },
   );
@@ -368,13 +343,11 @@ function AudioTrackViewport(props: Props) {
         rowMetadata.spectrogramWidth === 0 ||
         rowMetadata.spectrogramHeight === 0
       ) {
-        spectrogramSkipReason.current = "spectrogram-disabled-or-missing-metadata";
         return;
       }
       const minHz = Math.max(hzRange[0], 0);
       const maxHz = Math.min(hzRange[1], maxTrackHz);
       if (!Number.isFinite(minHz) || !Number.isFinite(maxHz) || maxHz <= minHz) {
-        spectrogramSkipReason.current = "invalid-frequency-range";
         return;
       }
       const basePxPerSec = rowMetadata.spectrogramWidth / Math.max(rowMetadata.trackSec, 1e-8);
@@ -412,7 +385,6 @@ function AudioTrackViewport(props: Props) {
         !Number.isFinite(sourceBottom) ||
         sourceBottom <= sourceTop
       ) {
-        spectrogramSkipReason.current = "invalid-spectrogram-source-range";
         return;
       }
       const sourceHeight = Math.max(sourceBottom - sourceTop, 1e-8);
@@ -425,7 +397,6 @@ function AudioTrackViewport(props: Props) {
       const lastTileY = Math.min(Math.floor(sourceBottom / scaleY / tileSize) + 1, maxTileY);
       for (let tileY = firstTileY; tileY <= lastTileY; tileY += 1) {
         for (let tileX = firstTileX; tileX <= lastTileX; tileX += 1) {
-          spectrogramTilesExpected.current += 1;
           const key = spectrogramKey(
             row.idChStr,
             rowMetadata.spectrogramRevision,
@@ -439,7 +410,6 @@ function AudioTrackViewport(props: Props) {
             requestSpectrogramTile(row.idChStr, rowMetadata, levelX, levelY, tileX, tileY);
             continue;
           }
-          cacheHits.current += 1;
           const { texture, originX, originY } = cachedTexture;
           const sprite = new Sprite(texture);
           sprite.x = ((originX * scaleX) / basePxPerSec - startSec) * pxPerSec;
@@ -449,7 +419,6 @@ function AudioTrackViewport(props: Props) {
           sprite.width = (texture.width * scaleX * pxPerSec) / basePxPerSec;
           sprite.height = (texture.height * scaleY * imageHeight) / sourceHeight;
           layer.addChild(sprite);
-          spectrogramSprites.current += 1;
         }
       }
     },
@@ -481,13 +450,8 @@ function AudioTrackViewport(props: Props) {
     destroyWaveformCompositeTextures();
     destroyPixiChildren(layer);
     textureCache.current.destroyRetired();
-    spectrogramTilesExpected.current = 0;
-    spectrogramSprites.current = 0;
-    spectrogramSkipReason.current = null;
-    waveformVertices.current = 0;
     const scrollTop = getScrollTop();
     layer.y = HEADER_HEIGHT - scrollTop;
-    let count = 0;
     rows.forEach((row) => {
       const rowY = row.top + VERTICAL_AXIS_PADDING;
       const viewportRowY = HEADER_HEIGHT + rowY - scrollTop;
@@ -499,7 +463,6 @@ function AudioTrackViewport(props: Props) {
         return;
       const rowMetadata = metadata.get(row.idChStr);
       if (!rowMetadata) return;
-      count += 1;
       const trackStartX = clamp(-startSec * pxPerSec, 0, width);
       const trackEndX = clamp((rowMetadata.trackSec - startSec) * pxPerSec, 0, width);
       const trackVisibleWidth = Math.max(trackEndX - trackStartX, 0);
@@ -540,11 +503,10 @@ function AudioTrackViewport(props: Props) {
           requestWaveformTile(row.idChStr, rowMetadata, level, tileIndex);
           continue;
         }
-        cacheHits.current += 1;
         loadedTiles.push(tile);
       }
       if (rowMetadata.isClipped) {
-        waveformVertices.current += renderWaveformTiles({
+        renderWaveformTiles({
           layer: wavLayer,
           tiles: loadedTiles,
           metadata: rowMetadata,
@@ -560,7 +522,7 @@ function AudioTrackViewport(props: Props) {
           needEnvelopeBorder: true,
         });
       }
-      waveformVertices.current += renderWaveformTiles({
+      renderWaveformTiles({
         layer: wavLayer,
         tiles: loadedTiles,
         metadata: rowMetadata,
@@ -588,7 +550,6 @@ function AudioTrackViewport(props: Props) {
       wavSprite.alpha = wavAlpha;
       rowContainer.addChild(wavSprite);
     });
-    visibleRows.current = count;
     visibleRowsKey.current = getVisibleRowsKey();
   });
 
@@ -617,7 +578,7 @@ function AudioTrackViewport(props: Props) {
   useEffect(() => {
     let requestId = 0;
     let disposed = false;
-    const render = (timestamp: number) => {
+    const render = () => {
       if (disposed) return;
       const pixi = app.current;
       const playhead = playheadLayer.current;
@@ -648,40 +609,6 @@ function AudioTrackViewport(props: Props) {
         }
         pixi.render();
         textureCache.current.releaseUploadedResources();
-      }
-      if (prevFrame.current !== null) {
-        frameTimes.current.push(timestamp - prevFrame.current);
-        if (frameTimes.current.length > 120) frameTimes.current.shift();
-      }
-      prevFrame.current = timestamp;
-      const sorted = [...frameTimes.current].sort((a, b) => a - b);
-      const average = sorted.reduce((sum, value) => sum + value, 0) / Math.max(sorted.length, 1);
-      if (import.meta.env.DEV) {
-        window.__THESIA_RENDER_STATS__ = {
-          ...window.__THESIA_RENDER_STATS__,
-          fps: average > 0 ? 1000 / average : 0,
-          frameTimeP95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-          visibleRows: visibleRows.current,
-          pendingRequests: pending.current.size,
-          gpuCacheBytes: textureCache.current.bytes,
-          gpuCacheSourceBytes: textureCache.current.sourceBytes,
-          tileHits: cacheHits.current,
-          tileMisses: cacheMisses.current,
-          spectrogramMetadataRows: Array.from(metadataRef.current.values()).filter(
-            ({ spectrogramWidth, spectrogramHeight }) =>
-              spectrogramWidth > 0 && spectrogramHeight > 0,
-          ).length,
-          spectrogramTilesExpected: spectrogramTilesExpected.current,
-          spectrogramRequests: spectrogramRequests.current,
-          spectrogramResponses: spectrogramResponses.current,
-          spectrogramSprites: spectrogramSprites.current,
-          spectrogramErrors: spectrogramErrors.current,
-          spectrogramSkipReason: spectrogramSkipReason.current,
-          lastSpectrogramError: lastSpectrogramError.current,
-          waveformVertices: waveformVertices.current,
-          maxTrackHz: latestProps.current.maxTrackHz,
-          blend: latestProps.current.blend,
-        };
       }
       requestId = requestAnimationFrame(render);
     };

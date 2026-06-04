@@ -138,10 +138,6 @@ export class GpuTextureCache {
     return this._bytes;
   }
 
-  get sourceBytes() {
-    return this._sourceBytes;
-  }
-
   get(key: string) {
     const entry = this.entries.get(key);
     if (!entry) return null;

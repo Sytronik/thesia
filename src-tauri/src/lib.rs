@@ -379,11 +379,6 @@ fn get_spectrogram_tile(
 }
 
 #[tauri::command]
-fn get_render_tile_cache_stats() -> RenderTileCacheStats {
-    RENDER_TILE_CACHE.read().stats()
-}
-
-#[tauri::command]
 fn find_id_by_path(path: String) -> i32 {
     TRACK_LIST
         .read()
@@ -769,7 +764,6 @@ pub fn run() {
             get_audio_render_metadata,
             get_waveform_tile,
             get_spectrogram_tile,
-            get_render_tile_cache_stats,
             find_id_by_path,
             get_limiter_gain,
             get_max_dB,

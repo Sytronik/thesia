@@ -15,7 +15,7 @@ mod windows;
 
 pub use audio::AudioFormatInfo;
 pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingStats, NormalizeTarget};
-pub use render_tiles::{AudioRenderMetadata, RenderTileCache, RenderTileCacheStats};
+pub use render_tiles::{AudioRenderMetadata, RenderTileCache};
 use simd::find_min_max;
 pub use spectrogram::SpecSetting;
 use spectrogram::{SpectrogramAnalyzer, SrWinNfft};

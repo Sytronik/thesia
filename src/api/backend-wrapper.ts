@@ -87,12 +87,6 @@ export type AudioRenderMetadata = {
   spectrogramTileSize: number;
 };
 
-export type RenderTileCacheStats = {
-  bytes: number;
-  entries: number;
-  budgetBytes: number;
-};
-
 export async function getLimiterGainSeq(trackId: number): Promise<Float32Array | null> {
   const gainSeq = await invoke<number[] | null>("get_limiter_gain", { trackId });
   if (gainSeq === null) return null;
@@ -190,10 +184,6 @@ export async function getSpectrogramTile(
   tileY: number,
 ): Promise<ArrayBuffer> {
   return invoke<ArrayBuffer>("get_spectrogram_tile", { idChStr, levelX, levelY, tileX, tileY });
-}
-
-export async function getRenderTileCacheStats(): Promise<RenderTileCacheStats> {
-  return invoke<RenderTileCacheStats>("get_render_tile_cache_stats");
 }
 
 export async function findIdByPath(path: string): Promise<number> {

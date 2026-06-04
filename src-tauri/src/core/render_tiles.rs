@@ -7,7 +7,6 @@ use std::sync::LazyLock;
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
 use ndarray::ArrayView2;
-use serde::Serialize;
 
 pub const WAVEFORM_TILE_BINS: usize = 1024;
 pub const SPECTROGRAM_TILE_SIZE: usize = 512;
@@ -30,15 +29,7 @@ struct CacheEntry {
     last_used: u64,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RenderTileCacheStats {
-    pub bytes: usize,
-    pub entries: usize,
-    pub budget_bytes: usize,
-}
-
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioRenderMetadata {
     pub waveform_revision: u64,
@@ -123,14 +114,6 @@ impl RenderTileCache {
             spectrogram_height,
             waveform_tile_bins: WAVEFORM_TILE_BINS,
             spectrogram_tile_size: SPECTROGRAM_TILE_SIZE,
-        }
-    }
-
-    pub fn stats(&self) -> RenderTileCacheStats {
-        RenderTileCacheStats {
-            bytes: self.bytes,
-            entries: self.entries.len(),
-            budget_bytes: self.budget_bytes,
         }
     }
 
@@ -445,11 +428,11 @@ mod tests {
         let wav = vec![0.0; WAVEFORM_TILE_BINS * 2];
         cache.waveform_tile(1, 0, &wav, 0, 0);
         cache.waveform_tile(1, 0, &wav, 0, 1);
-        assert_eq!(cache.stats().entries, 1);
-        assert!(cache.stats().bytes <= cache.stats().budget_bytes);
+        assert_eq!(cache.entries.len(), 1);
+        assert!(cache.bytes <= cache.budget_bytes);
         let revision = cache.waveform_revision;
         cache.invalidate_waveform();
-        assert!(cache.stats().entries == 0);
+        assert_eq!(cache.entries.len(), 0);
         assert!(cache.waveform_revision > revision);
     }
 
