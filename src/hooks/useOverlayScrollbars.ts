@@ -1,5 +1,10 @@
-import { OverlayScrollbars, PartialOptions } from "overlayscrollbars";
-import { RefObject, useEffect, useRef } from "react";
+import {
+  type InitializationTarget,
+  OverlayScrollbars,
+  type OverlayScrollbars as OverlayScrollbarsInstance,
+  type PartialOptions,
+} from "overlayscrollbars";
+import { RefObject, useCallback, useEffect, useRef } from "react";
 
 const DEFAULT_OPTIONS: PartialOptions = {
   scrollbars: {
@@ -8,33 +13,88 @@ const DEFAULT_OPTIONS: PartialOptions = {
   },
 };
 
+type OverlayScrollbarElements = {
+  viewport?: RefObject<HTMLElement | null>;
+  content?: RefObject<HTMLElement | null>;
+  scrollbarSlot?: RefObject<HTMLElement | null>;
+};
+
 /**
  * Hook to apply OverlayScrollbars to a single element with optional onScroll handler
  * You don't need to add the class "overflow-y-auto" to the element.
  * If you want to apply OverlayScrollbars globally (w/o onScroll handler), use useOverlayScrollbars hook instead.
  */
-export const useOverlayScrollbar = (ref: RefObject<HTMLElement | null>, onScroll?: () => void) => {
+export const useOverlayScrollbar = (
+  ref: RefObject<HTMLElement | null>,
+  onScroll?: () => void,
+  elements?: OverlayScrollbarElements,
+) => {
   const viewportRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!ref.current) return;
+  const instanceRef = useRef<OverlayScrollbarsInstance | null>(null);
+  const updateRequestRef = useRef<number | null>(null);
 
-    const osInstance = OverlayScrollbars(ref.current, DEFAULT_OPTIONS);
+  const update = useCallback((force = false) => {
+    if (updateRequestRef.current !== null) {
+      cancelAnimationFrame(updateRequestRef.current);
+    }
+    updateRequestRef.current = requestAnimationFrame(() => {
+      updateRequestRef.current = null;
+      instanceRef.current?.update(force);
+    });
+  }, []);
+
+  useEffect(() => {
+    const target = ref.current;
+    if (!target) return;
+
+    const viewportElement = elements?.viewport?.current;
+    const contentElement = elements?.content?.current;
+    const scrollbarSlotElement = elements?.scrollbarSlot?.current;
+    if (
+      (elements?.viewport && !viewportElement) ||
+      (elements?.content && !contentElement) ||
+      (elements?.scrollbarSlot && !scrollbarSlotElement)
+    ) {
+      return;
+    }
+
+    const initializationTarget: InitializationTarget = elements
+      ? {
+          target,
+          elements: {
+            viewport: viewportElement,
+            content: contentElement,
+          },
+          scrollbars: {
+            slot: scrollbarSlotElement,
+          },
+        }
+      : target;
+
+    const osInstance = OverlayScrollbars(initializationTarget, DEFAULT_OPTIONS);
     const viewport = osInstance.elements().viewport;
     viewportRef.current = viewport;
+    instanceRef.current = osInstance;
+    update(true);
 
     if (onScroll) {
       viewport.addEventListener("scroll", onScroll);
     }
 
     return () => {
+      if (updateRequestRef.current !== null) {
+        cancelAnimationFrame(updateRequestRef.current);
+        updateRequestRef.current = null;
+      }
       if (onScroll) {
         viewport.removeEventListener("scroll", onScroll);
       }
       viewportRef.current = null;
+      instanceRef.current = null;
       osInstance.destroy();
     };
-  }, [ref, onScroll]);
-  return viewportRef;
+  }, [elements, ref, onScroll, update]);
+  return { viewportRef, update };
 };
 
 /**

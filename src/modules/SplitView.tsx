@@ -5,6 +5,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
   ReactNode,
+  useMemo,
 } from "react";
 import useEvent from "react-use-event-hook";
 import { useOverlayScrollbar } from "src/hooks/useOverlayScrollbars";
@@ -42,8 +43,21 @@ const SplitView = forwardRef(
 
     const splitPaneElem = useRef<HTMLDivElement>(null);
     const scrollBoxElem = useRef<HTMLDivElement>(null);
+    const scrolledElem = useRef<HTMLDivElement>(null);
     const rightPaneElem = useRef<HTMLDivElement>(null);
-    const scrollViewportElem = useOverlayScrollbar(scrollBoxElem, onVerticalViewportChange);
+    const scrollbarElements = useMemo(
+      () => ({
+        viewport: scrollBoxElem,
+        content: scrolledElem,
+        scrollbarSlot: splitPaneElem,
+      }),
+      [],
+    );
+    const { viewportRef: scrollViewportElem, update: updateScrollbar } = useOverlayScrollbar(
+      splitPaneElem,
+      onVerticalViewportChange,
+      scrollbarElements,
+    );
 
     const setNormalizedLeftWidth = useEvent((value: number) => {
       let newLeftWidth = Math.max(value, MIN_WIDTH);
@@ -139,6 +153,7 @@ const SplitView = forwardRef(
         if ((rightPaneElem.current?.clientWidth ?? 0) === 0) {
           setNormalizedLeftWidth(target.clientWidth - MARGIN);
         }
+        updateScrollbar(true);
         if (heightRef.current !== target.clientHeight) {
           heightRef.current = target.clientHeight;
           onVerticalViewportResize();
@@ -149,12 +164,25 @@ const SplitView = forwardRef(
       return () => {
         resizeObserver.disconnect();
       };
-    }, [onVerticalViewportResize, setNormalizedLeftWidth]);
+    }, [onVerticalViewportResize, setNormalizedLeftWidth, updateScrollbar]);
+
+    useEffect(() => {
+      const scrolled = scrolledElem.current;
+      if (!scrolled) return;
+      const resizeObserver = new ResizeObserver(() => {
+        updateScrollbar(true);
+      });
+      resizeObserver.observe(scrolled);
+
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }, [updateScrollbar]);
 
     return (
       <div className={`${styles.SplitView} ${className}`} ref={splitPaneElem}>
         <div className={styles.Scrollbox} ref={scrollBoxElem}>
-          <div className={styles.Scrolled}>
+          <div className={styles.Scrolled} ref={scrolledElem}>
             <div className={styles.LeftPane} style={{ width: leftWidth }}>
               {left}
             </div>
