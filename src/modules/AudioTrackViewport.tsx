@@ -647,6 +647,7 @@ function AudioTrackViewport(props: Props) {
           }
         }
         pixi.render();
+        textureCache.current.releaseUploadedResources();
       }
       if (prevFrame.current !== null) {
         frameTimes.current.push(timestamp - prevFrame.current);
@@ -663,6 +664,7 @@ function AudioTrackViewport(props: Props) {
           visibleRows: visibleRows.current,
           pendingRequests: pending.current.size,
           gpuCacheBytes: textureCache.current.bytes,
+          gpuCacheSourceBytes: textureCache.current.sourceBytes,
           tileHits: cacheHits.current,
           tileMisses: cacheMisses.current,
           spectrogramMetadataRows: Array.from(metadataRef.current.values()).filter(

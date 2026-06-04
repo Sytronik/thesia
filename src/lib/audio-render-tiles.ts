@@ -72,7 +72,13 @@ type TextureCacheEntry = {
   originX: number;
   originY: number;
   bytes: number;
+  sourceBytes: number;
   touched: number;
+};
+
+type ReleasableTextureSource = Texture["source"] & {
+  resource: unknown | null;
+  _gpuData?: Record<string, unknown>;
 };
 
 type WaveformCacheEntry = {
@@ -124,11 +130,16 @@ export class GpuTextureCache {
   private retiredTextures = new Set<Texture>();
   private touched = 0;
   private _bytes = 0;
+  private _sourceBytes = 0;
 
   constructor(private readonly budgetBytes: number) {}
 
   get bytes() {
     return this._bytes;
+  }
+
+  get sourceBytes() {
+    return this._sourceBytes;
   }
 
   get(key: string) {
@@ -160,10 +171,12 @@ export class GpuTextureCache {
       originX: tile.originX,
       originY: tile.originY,
       bytes,
+      sourceBytes: bytes,
       touched: ++this.touched,
     };
     this.entries.set(key, entry);
     this._bytes += bytes;
+    this._sourceBytes += bytes;
     this.evict();
     return entry;
   }
@@ -172,11 +185,25 @@ export class GpuTextureCache {
     this.entries.forEach(({ texture }) => this.retiredTextures.add(texture));
     this.entries.clear();
     this._bytes = 0;
+    this._sourceBytes = 0;
   }
 
   destroyRetired() {
     this.retiredTextures.forEach((texture) => texture.destroy(true));
     this.retiredTextures.clear();
+  }
+
+  releaseUploadedResources() {
+    this.entries.forEach((entry) => {
+      if (entry.sourceBytes === 0) return;
+      const source = entry.texture.source as ReleasableTextureSource;
+      const hasGpuUpload = source._gpuData && Object.keys(source._gpuData).length > 0;
+      if (!hasGpuUpload || !source.resource) return;
+      source.resource = null;
+      this._sourceBytes -= entry.sourceBytes;
+      entry.sourceBytes = 0;
+    });
+    if (this._sourceBytes < 0) this._sourceBytes = 0;
   }
 
   private evict() {
@@ -186,7 +213,9 @@ export class GpuTextureCache {
       );
       this.retiredTextures.add(oldest[1].texture);
       this._bytes -= oldest[1].bytes;
+      this._sourceBytes -= oldest[1].sourceBytes;
       this.entries.delete(oldest[0]);
     }
+    if (this._sourceBytes < 0) this._sourceBytes = 0;
   }
 }

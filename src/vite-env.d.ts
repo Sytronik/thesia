@@ -7,6 +7,7 @@ interface Window {
     visibleRows: number;
     pendingRequests: number;
     gpuCacheBytes: number;
+    gpuCacheSourceBytes: number;
     tileHits: number;
     tileMisses: number;
     spectrogramMetadataRows: number;
