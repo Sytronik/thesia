@@ -8,10 +8,13 @@ use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
 use ndarray::ArrayView2;
 
+use super::simd::{find_min_max, sum as simd_sum};
+
 pub const WAVEFORM_TILE_BINS: usize = 1024;
 pub const SPECTROGRAM_TILE_SIZE: usize = 512;
 const SPECTROGRAM_TILE_GUTTER: usize = 4;
 const DEFAULT_WAVEFORM_CACHE_BUDGET_BYTES: usize = 32 * 1024 * 1024;
+const WAVEFORM_SIMD_MIN_MAX_THRESHOLD: usize = 32;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum RenderTileKey {
@@ -224,20 +227,32 @@ fn encode_waveform_tile(wav: &[f32], revision: u64, level: u32, tile_index: u32)
         let bin_start = start + bin * samples_per_bin;
         let bin_end = end.min(bin_start.saturating_add(samples_per_bin));
         let slice = &wav[bin_start..bin_end];
-        let mut min = f32::INFINITY;
-        let mut max = f32::NEG_INFINITY;
-        let mut sum = 0.0;
-        for &sample in slice {
-            min = min.min(sample);
-            max = max.max(sample);
-            sum += sample;
-        }
-        let representative = sum / slice.len() as f32;
+        let (min, max, representative) = waveform_bin_stats(slice);
         bytes.extend_from_slice(&min.to_le_bytes());
         bytes.extend_from_slice(&max.to_le_bytes());
         bytes.extend_from_slice(&representative.to_le_bytes());
     }
     bytes
+}
+
+fn waveform_bin_stats(slice: &[f32]) -> (f32, f32, f32) {
+    debug_assert!(!slice.is_empty());
+
+    if slice.len() >= WAVEFORM_SIMD_MIN_MAX_THRESHOLD {
+        let (min, max) = find_min_max(slice);
+        let sum = simd_sum(slice);
+        return (min, max, sum / slice.len() as f32);
+    }
+
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    let mut sum = 0.0;
+    for &sample in slice {
+        min = min.min(sample);
+        max = max.max(sample);
+        sum += sample;
+    }
+    (min, max, sum / slice.len() as f32)
 }
 
 fn encode_spectrogram_tile(
@@ -382,6 +397,16 @@ mod tests {
         let wav = vec![0.25; WAVEFORM_TILE_BINS + 1];
         let bytes = encode_waveform_tile(&wav, 1, 0, 1);
         assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 1);
+    }
+
+    #[test]
+    fn waveform_tile_uses_large_bin_stats() {
+        let wav: Vec<f32> = (0..64).map(|i| i as f32 - 32.0).collect();
+        let bytes = encode_waveform_tile(&wav, 1, 6, 0);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 1);
+        assert_eq!(f32::from_le_bytes(bytes[24..28].try_into().unwrap()), -32.0);
+        assert_eq!(f32::from_le_bytes(bytes[28..32].try_into().unwrap()), 31.0);
+        assert_eq!(f32::from_le_bytes(bytes[32..36].try_into().unwrap()), -0.5);
     }
 
     #[test]

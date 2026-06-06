@@ -134,6 +134,30 @@ pub fn sum_squares(slice: &[f32]) -> f32 {
     sum_squares_scalar(slice)
 }
 
+pub fn sum(slice: &[f32]) -> f32 {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        sum_neon(slice)
+    } else {
+        sum_scalar(slice)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { sum_avx2(slice) }
+    } else if is_x86_feature_detected!("sse4.1") {
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { sum_sse4(slice) }
+    } else {
+        sum_scalar(slice)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    sum_scalar(slice)
+}
+
 pub fn abs_max(slice: &[f32]) -> f32 {
     // Use SIMD if available, otherwise fall back to scalar
     #[cfg(target_arch = "aarch64")]
@@ -552,6 +576,96 @@ fn find_min_scalar(slice: &[f32]) -> f32 {
 #[inline]
 fn find_max_scalar(slice: &[f32]) -> f32 {
     slice.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
+}
+
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn sum_neon(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<float32x4_t>() };
+
+    for &val in prefix {
+        sum += val;
+    }
+
+    let mut sum_vec = unsafe { vdupq_n_f32(0.0) };
+    for &v_chunk in middle {
+        unsafe {
+            sum_vec = vaddq_f32(sum_vec, v_chunk);
+        }
+    }
+    sum += unsafe { vaddvq_f32(sum_vec) };
+
+    for &val in suffix {
+        sum += val;
+    }
+
+    sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+#[target_feature(enable = "avx2")]
+unsafe fn sum_avx2(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m256>() };
+
+    for &val in prefix {
+        sum += val;
+    }
+
+    let mut sum_vec = _mm256_setzero_ps();
+    for &v_chunk in middle {
+        sum_vec = _mm256_add_ps(sum_vec, v_chunk);
+    }
+    sum += unsafe { _mm256_reduce_add_ps(sum_vec) };
+
+    for &val in suffix {
+        sum += val;
+    }
+
+    sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+#[target_feature(enable = "sse4.1")]
+unsafe fn sum_sse4(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m128>() };
+
+    for &val in prefix {
+        sum += val;
+    }
+
+    let mut sum_vec = _mm_setzero_ps();
+    for &v_chunk in middle {
+        sum_vec = _mm_add_ps(sum_vec, v_chunk);
+    }
+    sum += unsafe { _mm_reduce_add_ps(sum_vec) };
+
+    for &val in suffix {
+        sum += val;
+    }
+
+    sum
+}
+
+#[inline]
+fn sum_scalar(slice: &[f32]) -> f32 {
+    slice.iter().sum()
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -1177,6 +1291,29 @@ mod tests {
             assert!(
                 (result - expected).abs() < 1e-5,
                 "Sum of squares doesn't match for data: {:?}, expected: {}, got: {}",
+                data,
+                expected,
+                result
+            );
+        }
+    }
+
+    #[test]
+    fn test_sum() {
+        let test_cases = vec![
+            (vec![1.0, 2.0, 3.0, 4.0], 10.0),
+            (vec![-1.0, -2.0, 3.0], 0.0),
+            (vec![0.0, 0.0, 0.0], 0.0),
+            (vec![1.0], 1.0),
+            (vec![], 0.0),
+            ((0..128).map(|i| i as f32 - 64.0).collect(), -64.0),
+        ];
+
+        for (data, expected) in test_cases {
+            let result = sum(&data);
+            assert!(
+                (result - expected).abs() < 1e-5,
+                "Sum doesn't match for data: {:?}, expected: {}, got: {}",
                 data,
                 expected,
                 result
