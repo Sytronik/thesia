@@ -22,9 +22,11 @@ pub fn find_min_max(slice: &[f32]) -> (f32, f32) {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        find_min_max_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { find_min_max_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        find_min_max_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { find_min_max_sse4(slice) }
     } else {
         find_min_max_scalar(slice)
     }
@@ -44,9 +46,11 @@ pub fn find_min(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        find_min_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { find_min_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        find_min_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { find_min_sse4(slice) }
     } else {
         find_min_scalar(slice)
     }
@@ -93,9 +97,11 @@ pub fn find_max(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        find_max_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { find_max_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        find_max_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { find_max_sse4(slice) }
     } else {
         find_max_scalar(slice)
     }
@@ -115,9 +121,11 @@ pub fn sum_squares(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        sum_squares_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { sum_squares_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        sum_squares_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { sum_squares_sse4(slice) }
     } else {
         sum_squares_scalar(slice)
     }
@@ -137,9 +145,11 @@ pub fn abs_max(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        abs_max_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { abs_max_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        abs_max_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { abs_max_sse4(slice) }
     } else {
         abs_max_scalar(slice)
     }
@@ -159,9 +169,11 @@ pub fn scalar_mul(slice: &mut [f32], scalar: f32) {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        scalar_mul_avx2(slice, scalar)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { scalar_mul_avx2(slice, scalar) }
     } else if is_x86_feature_detected!("sse4.1") {
-        scalar_mul_sse4(slice, scalar)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { scalar_mul_sse4(slice, scalar) }
     } else {
         scalar_mul_scalar(slice, scalar)
     }
@@ -234,7 +246,8 @@ fn find_min_max_neon(slice: &[f32]) -> (f32, f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
     let mut min_val = f32::INFINITY;
     let mut max_val = f32::NEG_INFINITY;
 
@@ -269,7 +282,8 @@ fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
+#[target_feature(enable = "sse4.1")]
+unsafe fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
     let mut min_val = f32::INFINITY;
     let mut max_val = f32::NEG_INFINITY;
 
@@ -305,6 +319,7 @@ fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
 // Helper functions for SSE4.1 and AVX2 reductions
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "avx2")]
 unsafe fn _mm256_reduce_min_ps(v: __m256) -> f32 {
     unsafe {
         let low = _mm256_extractf128_ps(v, 0);
@@ -316,6 +331,7 @@ unsafe fn _mm256_reduce_min_ps(v: __m256) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "avx2")]
 unsafe fn _mm256_reduce_max_ps(v: __m256) -> f32 {
     unsafe {
         let low = _mm256_extractf128_ps(v, 0);
@@ -326,6 +342,7 @@ unsafe fn _mm256_reduce_max_ps(v: __m256) -> f32 {
 }
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "sse4.1")]
 unsafe fn _mm_reduce_min_ps(v: __m128) -> f32 {
     unsafe {
         let shuf = _mm_movehdup_ps(v);
@@ -338,6 +355,7 @@ unsafe fn _mm_reduce_min_ps(v: __m128) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "sse4.1")]
 unsafe fn _mm_reduce_max_ps(v: __m128) -> f32 {
     unsafe {
         let shuf = _mm_movehdup_ps(v);
@@ -406,7 +424,8 @@ fn find_max_neon(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_avx2(slice: &[f32]) -> f32 {
     let mut min_val = f32::INFINITY;
 
     if slice.is_empty() {
@@ -434,7 +453,8 @@ fn find_min_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_max_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn find_max_avx2(slice: &[f32]) -> f32 {
     let mut max_val = f32::NEG_INFINITY;
 
     if slice.is_empty() {
@@ -462,7 +482,8 @@ fn find_max_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn find_min_sse4(slice: &[f32]) -> f32 {
     let mut min_val = f32::INFINITY;
 
     if slice.is_empty() {
@@ -490,7 +511,8 @@ fn find_min_sse4(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_max_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn find_max_sse4(slice: &[f32]) -> f32 {
     let mut max_val = f32::NEG_INFINITY;
 
     if slice.is_empty() {
@@ -580,7 +602,8 @@ fn sum_squares_neon(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn sum_squares_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn sum_squares_avx2(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -626,7 +649,8 @@ fn sum_squares_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn sum_squares_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn sum_squares_sse4(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -673,6 +697,7 @@ fn sum_squares_sse4(slice: &[f32]) -> f32 {
 // Helper function for SSE4.1 reduction
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "sse4.1")]
 unsafe fn _mm_reduce_add_ps(v: __m128) -> f32 {
     unsafe {
         let shuf = _mm_movehdup_ps(v);
@@ -686,6 +711,7 @@ unsafe fn _mm_reduce_add_ps(v: __m128) -> f32 {
 // Helper function for AVX2 reduction
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "avx2")]
 unsafe fn _mm256_reduce_add_ps(v: __m256) -> f32 {
     unsafe {
         let low = _mm256_extractf128_ps(v, 0);
@@ -746,7 +772,8 @@ fn abs_max_neon(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn abs_max_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn abs_max_avx2(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -780,7 +807,8 @@ fn abs_max_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn abs_max_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn abs_max_sse4(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -847,7 +875,8 @@ fn scalar_mul_neon(slice: &mut [f32], scalar: f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
+#[target_feature(enable = "avx2")]
+unsafe fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
     if slice.is_empty() {
         return;
     }
@@ -875,7 +904,8 @@ fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn scalar_mul_sse4(slice: &mut [f32], scalar: f32) {
+#[target_feature(enable = "sse4.1")]
+unsafe fn scalar_mul_sse4(slice: &mut [f32], scalar: f32) {
     if slice.is_empty() {
         return;
     }
