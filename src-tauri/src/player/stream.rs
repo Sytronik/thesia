@@ -282,11 +282,11 @@ where
 }
 
 fn playback_total_frames(playback: &PlaybackData) -> usize {
-    if playback.input_channels == 0 {
-        0
-    } else {
-        playback.samples.len() / playback.input_channels
-    }
+    playback
+        .samples
+        .len()
+        .checked_div(playback.input_channels)
+        .unwrap_or(0)
 }
 
 fn fill_output_without_resampler<T, F>(

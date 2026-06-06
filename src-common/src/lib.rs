@@ -152,7 +152,7 @@ impl FreqScale {
         }
         let min_ratio = self.calc_ratio_to_max_freq(hz_range.0, sr);
         let max_ratio = self.calc_ratio_to_max_freq(hz_range.1, sr);
-        let min_idx = ((min_ratio * n_freqs_or_mels as f32).floor() as usize).max(0);
+        let min_idx = (min_ratio * n_freqs_or_mels as f32).floor().max(0.) as usize;
         let max_idx = (max_ratio * n_freqs_or_mels as f32).ceil() as usize;
 
         (min_idx, max_idx)
