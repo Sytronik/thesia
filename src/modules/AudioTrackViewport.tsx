@@ -61,6 +61,7 @@ type Props = {
   isLoading: boolean;
   isPlaying: boolean;
   getPlayheadSec: () => number | null;
+  registerRenderRequest: (requestRender: (() => void) | null) => void;
   refreshToken: string;
   layoutRevision: number;
 };
@@ -93,6 +94,8 @@ function AudioTrackViewport(props: Props) {
     ampRange,
     blend,
     isLoading,
+    isPlaying,
+    registerRenderRequest,
     refreshToken,
     layoutRevision,
   } = props;
@@ -111,6 +114,8 @@ function AudioTrackViewport(props: Props) {
   const metadataRequestRevision = useRef(0);
   const metadataRetryCount = useRef(0);
   const tileRequestRevision = useRef(0);
+  const renderRequestId = useRef<number | null>(null);
+  const renderFrameRef = useRef<FrameRequestCallback | null>(null);
   const latestProps = useRef(props);
   const visibleRowsKey = useRef("");
   const [metadata, setMetadata] = useState(new Map<string, AudioRenderMetadata>());
@@ -212,8 +217,6 @@ function AudioTrackViewport(props: Props) {
       textures.destroyRetired();
     };
   }, [devicePixelRatio, syncBounds]);
-
-  useLayoutEffect(syncBounds, [layoutRevision, rowHeight, syncBounds, width]);
 
   const rowIdsKey = useMemo(() => rows.map(({ idChStr }) => idChStr).join(","), [rows]);
   const prevRowIdsKey = useRef<string | null>(null);
@@ -592,9 +595,77 @@ function AudioTrackViewport(props: Props) {
     visibleRowsKey.current = getVisibleRowsKey();
   });
 
+  const renderFrame = useEvent((timestamp: number) => {
+    renderRequestId.current = null;
+    const pixi = app.current;
+    const playhead = playheadLayer.current;
+    const current = latestProps.current;
+    if (pixi && playhead) {
+      const currentScrollTop = current.getScrollTop();
+      const rowsContainer = rowLayer.current;
+      if (rowsContainer) rowsContainer.y = HEADER_HEIGHT - currentScrollTop;
+      const nextVisibleRowsKey = getVisibleRowsKey();
+      if (nextVisibleRowsKey !== visibleRowsKey.current) redrawRows();
+      drawLoadingIndicators(timestamp);
+      playhead.clear();
+      const sec = current.isPlaying ? current.getPlayheadSec() : null;
+      const selectedTrackId = current.selectedTrackIds[current.selectedTrackIds.length - 1];
+      if (sec !== null && selectedTrackId !== undefined) {
+        const selectedRows = current.rows.filter(({ trackId }) => trackId === selectedTrackId);
+        if (selectedRows.length > 0) {
+          const x = (sec - current.startSec) * current.pxPerSec + 0.5;
+          const top =
+            HEADER_HEIGHT + selectedRows[0].top - currentScrollTop + VERTICAL_AXIS_PADDING;
+          const bottom =
+            HEADER_HEIGHT +
+            (selectedRows[selectedRows.length - 1]?.top ?? 0) -
+            currentScrollTop +
+            VERTICAL_AXIS_PADDING +
+            current.imageHeight;
+          playhead.moveTo(x, top).lineTo(x, bottom).stroke({ color: 0xdddddd, width: 1 });
+        }
+      }
+      pixi.render();
+      textureCache.current.releaseUploadedResources();
+    }
+    if (latestProps.current.isPlaying || showLoadingIndicator) {
+      const nextFrame = renderFrameRef.current;
+      if (nextFrame) renderRequestId.current = requestAnimationFrame(nextFrame);
+    }
+  });
+
+  useLayoutEffect(() => {
+    renderFrameRef.current = renderFrame;
+  }, [renderFrame]);
+
+  const scheduleRender = useEvent(() => {
+    if (renderRequestId.current !== null) return;
+    renderRequestId.current = requestAnimationFrame(renderFrameRef.current ?? renderFrame);
+  });
+
+  useEffect(() => {
+    registerRenderRequest(scheduleRender);
+    return () => registerRenderRequest(null);
+  }, [registerRenderRequest, scheduleRender]);
+
+  useEffect(
+    () => () => {
+      if (renderRequestId.current !== null) {
+        cancelAnimationFrame(renderRequestId.current);
+        renderRequestId.current = null;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    scheduleRender();
+  }, [isPlaying, scheduleRender, showLoadingIndicator]);
+
   useLayoutEffect(() => {
     syncBounds();
     redrawRows();
+    scheduleRender();
   }, [
     ampRange,
     blend,
@@ -603,61 +674,19 @@ function AudioTrackViewport(props: Props) {
     freqScale,
     hzRange,
     imageHeight,
+    layoutRevision,
     maxTrackHz,
     metadata,
     pxPerSec,
     redrawRows,
+    rowHeight,
     rows,
+    scheduleRender,
     sceneRevision,
     startSec,
     syncBounds,
     width,
   ]);
-
-  useEffect(() => {
-    let requestId = 0;
-    let disposed = false;
-    const render = (timestamp: number) => {
-      if (disposed) return;
-      const pixi = app.current;
-      const playhead = playheadLayer.current;
-      const current = latestProps.current;
-      if (pixi && playhead) {
-        const currentScrollTop = current.getScrollTop();
-        const rowsContainer = rowLayer.current;
-        if (rowsContainer) rowsContainer.y = HEADER_HEIGHT - currentScrollTop;
-        const nextVisibleRowsKey = getVisibleRowsKey();
-        if (nextVisibleRowsKey !== visibleRowsKey.current) redrawRows();
-        drawLoadingIndicators(timestamp);
-        playhead.clear();
-        const sec = current.isPlaying ? current.getPlayheadSec() : null;
-        const selectedTrackId = current.selectedTrackIds[current.selectedTrackIds.length - 1];
-        if (sec !== null && selectedTrackId !== undefined) {
-          const selectedRows = current.rows.filter(({ trackId }) => trackId === selectedTrackId);
-          if (selectedRows.length > 0) {
-            const x = (sec - current.startSec) * current.pxPerSec + 0.5;
-            const top =
-              HEADER_HEIGHT + selectedRows[0].top - currentScrollTop + VERTICAL_AXIS_PADDING;
-            const bottom =
-              HEADER_HEIGHT +
-              (selectedRows[selectedRows.length - 1]?.top ?? 0) -
-              currentScrollTop +
-              VERTICAL_AXIS_PADDING +
-              current.imageHeight;
-            playhead.moveTo(x, top).lineTo(x, bottom).stroke({ color: 0xdddddd, width: 1 });
-          }
-        }
-        pixi.render();
-        textureCache.current.releaseUploadedResources();
-      }
-      requestId = requestAnimationFrame(render);
-    };
-    requestId = requestAnimationFrame(render);
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(requestId);
-    };
-  }, [drawLoadingIndicators, getVisibleRowsKey, redrawRows]);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {

@@ -144,6 +144,7 @@ function MainViewer(props: MainViewerProps) {
   const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
 
   const splitViewElem = useRef<SplitViewHandleElement>(null);
+  const requestAudioViewportRenderRef = useRef<(() => void) | null>(null);
   const timeAxisCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const selectLocatorElem = useRef<LocatorHandleElement>(null);
 
@@ -566,10 +567,12 @@ function MainViewer(props: MainViewerProps) {
     const programmaticTarget = programmaticScrollTargetRef.current;
     if (programmaticTarget !== null && Math.abs(programmaticTarget - actualScrollTop) <= 1) {
       logicalScrollTopRef.current = programmaticTarget;
+      requestAudioViewportRenderRef.current?.();
       return;
     }
     programmaticScrollTargetRef.current = null;
     logicalScrollTopRef.current = actualScrollTop;
+    requestAudioViewportRenderRef.current?.();
   });
   const onVerticalViewportResize = useEvent(() => {
     if (viewportResizeRequestRef.current !== null) return;
@@ -986,6 +989,9 @@ function MainViewer(props: MainViewerProps) {
 
   const selectTrackByTrackInfo = useEvent((e, id) => selectTrack(e, id, trackIds));
   const getPlayheadSec = useEvent(() => player.positionSecRef.current);
+  const registerAudioViewportRenderRequest = useEvent((requestRender: (() => void) | null) => {
+    requestAudioViewportRenderRef.current = requestRender;
+  });
 
   const leftPane = (
     <>
@@ -1074,6 +1080,7 @@ function MainViewer(props: MainViewerProps) {
         isLoading={isLoading}
         isPlaying={player.isPlaying}
         getPlayheadSec={getPlayheadSec}
+        registerRenderRequest={registerAudioViewportRenderRequest}
         refreshToken={needRefreshTrackIdChArr.join(",")}
         layoutRevision={viewportLayoutRevision}
       />
