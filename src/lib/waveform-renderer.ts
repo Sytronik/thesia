@@ -1,7 +1,7 @@
 import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
 
 import { AudioRenderMetadata } from "../api";
-import { WaveformTile } from "./audio-render-tiles";
+import type { WaveformTile } from "../api";
 
 export const WAV_BORDER_COLOR = 0x000000;
 export const WAV_COLOR = 0x1389eb;

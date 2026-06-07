@@ -2,9 +2,9 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } fro
 import { Application, Container, Graphics } from "pixi.js";
 import useEvent from "react-use-event-hook";
 
-import BackendAPI, { AudioRenderMetadata } from "../../api";
+import BackendAPI, { AudioRenderMetadata, type WaveformTile } from "../../api";
 import { DevicePixelRatioContext } from "../../contexts";
-import { decodeWaveformTile, WaveformTile, WaveformTileCache } from "../../lib/audio-render-tiles";
+import { WaveformTileCache } from "../../lib/audio-render-tiles";
 import {
   destroyPixiChildren,
   renderWaveformTiles,
@@ -142,7 +142,13 @@ function drawLimiterGain(
   });
 }
 
-function OverviewWaveformViewport({ trackId, idChArr, maxTrackSec, needRefresh, className }: Props) {
+function OverviewWaveformViewport({
+  trackId,
+  idChArr,
+  maxTrackSec,
+  needRefresh,
+  className,
+}: Props) {
   const devicePixelRatio = useContext(DevicePixelRatioContext);
   const host = useRef<HTMLDivElement>(null);
   const app = useRef<Application | null>(null);
@@ -336,9 +342,8 @@ function OverviewWaveformViewport({ trackId, idChArr, maxTrackSec, needRefresh, 
       pending.current.add(key);
       const requestRevision = tileRequestRevision.current;
       void BackendAPI.getWaveformTile(idChStr, level, tileIndex)
-        .then((value) => {
+        .then((tile) => {
           if (requestRevision !== tileRequestRevision.current) return;
-          const tile = decodeWaveformTile(value);
           if (metadataRef.current.get(idChStr)?.waveformRevision !== tile.revision) return;
           waveformTiles.current.set(key, tile);
           setSceneRevision((revision) => revision + 1);

@@ -1,23 +1,10 @@
-import {
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Application, Container, Graphics, Rectangle, Sprite, type Texture } from "pixi.js";
 import useEvent from "react-use-event-hook";
 
-import BackendAPI, { AudioRenderMetadata, FreqScale, WasmAPI } from "../api";
+import BackendAPI, { AudioRenderMetadata, FreqScale, type WaveformTile, WasmAPI } from "../api";
 import { DevicePixelRatioContext } from "../contexts";
-import {
-  decodeSpectrogramTile,
-  decodeWaveformTile,
-  GpuTextureCache,
-  WaveformTileCache,
-  WaveformTile,
-} from "../lib/audio-render-tiles";
+import { GpuTextureCache, WaveformTileCache } from "../lib/audio-render-tiles";
 import {
   clamp,
   destroyPixiChildren,
@@ -281,9 +268,8 @@ function AudioTrackViewport(props: Props) {
       pending.current.add(key);
       const requestRevision = tileRequestRevision.current;
       void BackendAPI.getWaveformTile(idChStr, level, tileIndex)
-        .then((value) => {
+        .then((tile) => {
           if (requestRevision !== tileRequestRevision.current) return;
-          const tile = decodeWaveformTile(value);
           if (metadataRef.current.get(idChStr)?.waveformRevision !== tile.revision) return;
           waveformTiles.current.set(key, tile);
           setSceneRevision((revision) => revision + 1);
@@ -317,9 +303,8 @@ function AudioTrackViewport(props: Props) {
       pending.current.add(key);
       const requestRevision = tileRequestRevision.current;
       void BackendAPI.getSpectrogramTile(idChStr, levelX, levelY, tileX, tileY)
-        .then((value) => {
+        .then((tile) => {
           if (requestRevision !== tileRequestRevision.current) return;
-          const tile = decodeSpectrogramTile(value);
           if (metadataRef.current.get(idChStr)?.spectrogramRevision !== tile.revision) return;
           if (tile.width === 0 || tile.height === 0) return;
           textureCache.current.set(key, tile);
