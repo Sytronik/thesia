@@ -204,6 +204,7 @@ function MyApp({ userSettings }: AppProps) {
               selectedTrackIds={selectedTrackIds}
               selectionIsAdded={selectionIsAdded}
               trackIdChMap={trackIdChMap}
+              isLoading={isLoading}
               needRefreshTrackIdChArr={needRefreshTrackIdChArr}
               maxTrackSec={maxTrackSec}
               maxTrackHz={maxTrackHz}

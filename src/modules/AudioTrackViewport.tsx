@@ -27,6 +27,7 @@ const WAVEFORM_TILE_BUDGET_BYTES = 32 * 1024 * 1024;
 const HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
 const METADATA_RETRY_LIMIT = 20;
 const METADATA_RETRY_DELAY_MS = 100;
+const LOADING_INDICATOR_DELAY_MS = 500;
 
 export type AudioTrackViewportRow = {
   idChStr: string;
@@ -57,6 +58,7 @@ type Props = {
   ampRange: [number, number];
   blend: number;
   selectedTrackIds: number[];
+  isLoading: boolean;
   isPlaying: boolean;
   getPlayheadSec: () => number | null;
   refreshToken: string;
@@ -90,6 +92,7 @@ function AudioTrackViewport(props: Props) {
     hzRange,
     ampRange,
     blend,
+    isLoading,
     refreshToken,
     layoutRevision,
   } = props;
@@ -97,6 +100,7 @@ function AudioTrackViewport(props: Props) {
   const host = useRef<HTMLDivElement>(null);
   const app = useRef<Application | null>(null);
   const rowLayer = useRef<Container | null>(null);
+  const loadingLayer = useRef<Graphics | null>(null);
   const playheadLayer = useRef<Graphics | null>(null);
   const textureCache = useRef(new GpuTextureCache(GPU_TEXTURE_BUDGET_BYTES));
   const waveformTiles = useRef(new WaveformTileCache(WAVEFORM_TILE_BUDGET_BYTES));
@@ -112,6 +116,7 @@ function AudioTrackViewport(props: Props) {
   const [metadata, setMetadata] = useState(new Map<string, AudioRenderMetadata>());
   const [sceneRevision, setSceneRevision] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
 
   useLayoutEffect(() => {
     latestProps.current = props;
@@ -119,12 +124,22 @@ function AudioTrackViewport(props: Props) {
   useEffect(() => {
     metadataRef.current = metadata;
   }, [metadata]);
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setShowLoadingIndicator(isLoading),
+      isLoading ? LOADING_INDICATOR_DELAY_MS : 0,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [isLoading]);
 
   const syncBounds = useEvent(() => {
     const rect = getViewportRect();
     const node = host.current;
     const pixi = app.current;
-    if (!rect || !node || !pixi) return;
+    if (!rect || !node) {
+      if (node) node.style.display = "none";
+      return;
+    }
     if (rect.width <= 0 || rect.height <= 0) {
       node.style.display = "none";
       return;
@@ -134,6 +149,7 @@ function AudioTrackViewport(props: Props) {
     node.style.top = `${rect.top}px`;
     node.style.width = `${rect.width}px`;
     node.style.height = `${rect.height}px`;
+    if (!pixi) return;
     if (prevBounds.current?.width !== rect.width || prevBounds.current?.height !== rect.height) {
       pixi.renderer.resize(rect.width, rect.height, devicePixelRatio);
       prevBounds.current = { width: rect.width, height: rect.height };
@@ -165,11 +181,13 @@ function AudioTrackViewport(props: Props) {
           return;
         }
         const rowsContainer = new Container();
+        const loading = new Graphics();
         const playhead = new Graphics();
-        pixi.stage.addChild(rowsContainer, playhead);
+        pixi.stage.addChild(rowsContainer, loading, playhead);
         host.current.appendChild(pixi.canvas);
         app.current = pixi;
         rowLayer.current = rowsContainer;
+        loadingLayer.current = loading;
         playheadLayer.current = playhead;
         prevBounds.current = null;
         syncBounds();
@@ -187,6 +205,7 @@ function AudioTrackViewport(props: Props) {
         if (rowLayer.current) destroyPixiChildren(rowLayer.current);
         app.current = null;
         rowLayer.current = null;
+        loadingLayer.current = null;
         playheadLayer.current = null;
       }
       pixi.destroy({ removeView: true }, { children: true });
@@ -427,6 +446,41 @@ function AudioTrackViewport(props: Props) {
     waveformCompositeTextures.current.clear();
   });
 
+  const drawLoadingIndicators = useEvent((timestamp: number) => {
+    const layer = loadingLayer.current;
+    if (!layer) return;
+    layer.clear();
+    if (!showLoadingIndicator) return;
+
+    const current = latestProps.current;
+    const rect = current.getViewportRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+    const scrollTop = current.getScrollTop();
+    const radius = Math.max(8, Math.min(25, current.imageHeight * 0.25));
+    const lineWidth = Math.max(2, Math.min(5, radius * 0.2));
+    const centerX = rect.width / 2;
+    const startAngle = (timestamp / 2000) * Math.PI * 2;
+    const endAngle = startAngle + Math.PI * 1.5;
+    let hasIndicator = false;
+
+    current.rows.forEach((row) => {
+      const rowY = HEADER_HEIGHT + row.top - scrollTop + VERTICAL_AXIS_PADDING;
+      if (row.hidden || rowY + current.imageHeight < 0 || rowY > rect.height) return;
+      const centerY = rowY + current.imageHeight / 2;
+      layer.moveTo(
+        centerX + Math.cos(startAngle) * radius,
+        centerY + Math.sin(startAngle) * radius,
+      );
+      layer.arc(centerX, centerY, radius, startAngle, endAngle);
+      hasIndicator = true;
+    });
+
+    if (hasIndicator) {
+      layer.stroke({ color: 0xffffff, width: lineWidth, alpha: 0.95 });
+    }
+  });
+
   const redrawRows = useEvent(() => {
     const pixi = app.current;
     const layer = rowLayer.current;
@@ -563,7 +617,7 @@ function AudioTrackViewport(props: Props) {
   useEffect(() => {
     let requestId = 0;
     let disposed = false;
-    const render = () => {
+    const render = (timestamp: number) => {
       if (disposed) return;
       const pixi = app.current;
       const playhead = playheadLayer.current;
@@ -574,6 +628,7 @@ function AudioTrackViewport(props: Props) {
         if (rowsContainer) rowsContainer.y = HEADER_HEIGHT - currentScrollTop;
         const nextVisibleRowsKey = getVisibleRowsKey();
         if (nextVisibleRowsKey !== visibleRowsKey.current) redrawRows();
+        drawLoadingIndicators(timestamp);
         playhead.clear();
         const sec = current.isPlaying ? current.getPlayheadSec() : null;
         const selectedTrackId = current.selectedTrackIds[current.selectedTrackIds.length - 1];
@@ -602,7 +657,7 @@ function AudioTrackViewport(props: Props) {
       disposed = true;
       cancelAnimationFrame(requestId);
     };
-  }, [getVisibleRowsKey, redrawRows]);
+  }, [drawLoadingIndicators, getVisibleRowsKey, redrawRows]);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {

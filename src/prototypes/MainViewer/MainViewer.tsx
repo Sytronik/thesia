@@ -62,6 +62,7 @@ type MainViewerProps = {
   selectedTrackIds: number[];
   selectionIsAdded: boolean;
   trackIdChMap: IdChMap;
+  isLoading: boolean;
   needRefreshTrackIdChArr: IdChArr;
   maxTrackSec: number;
   maxTrackHz: number;
@@ -91,6 +92,7 @@ function MainViewer(props: MainViewerProps) {
     selectedTrackIds,
     selectionIsAdded,
     trackIdChMap,
+    isLoading,
     needRefreshTrackIdChArr,
     maxTrackSec,
     maxTrackHz,
@@ -1069,6 +1071,7 @@ function MainViewer(props: MainViewerProps) {
         ampRange={ampRange}
         blend={blend}
         selectedTrackIds={selectedTrackIds}
+        isLoading={isLoading}
         isPlaying={player.isPlaying}
         getPlayheadSec={getPlayheadSec}
         refreshToken={needRefreshTrackIdChArr.join(",")}
