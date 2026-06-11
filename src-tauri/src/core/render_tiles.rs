@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::mem::{align_of, size_of};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use fast_image_resize::images::{TypedImage, TypedImageRef};
 use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
@@ -29,7 +30,7 @@ enum RenderTileKey {
 
 struct CacheEntry {
     bytes: Vec<u8>,
-    last_used: u64,
+    last_used: AtomicU64,
 }
 
 #[derive(Clone, Copy, Debug, serde::Serialize)]
@@ -51,7 +52,7 @@ pub struct RenderTileCache {
     entries: HashMap<RenderTileKey, CacheEntry>,
     bytes: usize,
     budget_bytes: usize,
-    tick: u64,
+    tick: AtomicU64,
     waveform_revision: u64,
     spectrogram_revision: u64,
     colormap_rgba: Vec<u8>,
@@ -69,7 +70,7 @@ impl RenderTileCache {
             entries: HashMap::new(),
             bytes: 0,
             budget_bytes,
-            tick: 0,
+            tick: AtomicU64::new(0),
             waveform_revision: 1,
             spectrogram_revision: 1,
             colormap_rgba: vec![0, 0, 0, 255, 255, 255, 255, 255],
@@ -120,28 +121,51 @@ impl RenderTileCache {
         }
     }
 
-    pub fn waveform_tile(
-        &mut self,
+    pub fn cached_waveform_tile(
+        &self,
         id: usize,
         ch: usize,
-        wav: &[f32],
         level: u32,
         tile_index: u32,
-    ) -> Vec<u8> {
+    ) -> (u64, Option<Vec<u8>>) {
+        let revision = self.waveform_revision;
         let key = RenderTileKey::Waveform {
             id,
             ch,
-            revision: self.waveform_revision,
+            revision,
             level,
             tile_index,
         };
-        if let Some(bytes) = self.get(&key) {
-            return bytes;
+        let cached = self.entries.get(&key).map(|entry| {
+            entry.last_used.store(self.next_tick(), Ordering::Relaxed);
+            entry.bytes.clone()
+        });
+        (revision, cached)
+    }
+
+    pub fn store_waveform_tile(
+        &mut self,
+        id: usize,
+        ch: usize,
+        revision: u64,
+        level: u32,
+        tile_index: u32,
+        bytes: Vec<u8>,
+    ) {
+        if revision != self.waveform_revision {
+            return;
         }
 
-        let bytes = encode_waveform_tile(wav, self.waveform_revision, level, tile_index);
-        self.insert(key, bytes.clone());
-        bytes
+        self.insert(
+            RenderTileKey::Waveform {
+                id,
+                ch,
+                revision,
+                level,
+                tile_index,
+            },
+            bytes,
+        );
     }
 
     pub fn spectrogram_tile(
@@ -163,23 +187,18 @@ impl RenderTileCache {
         )
     }
 
-    fn get(&mut self, key: &RenderTileKey) -> Option<Vec<u8>> {
-        self.tick = self.tick.wrapping_add(1);
-        let entry = self.entries.get_mut(key)?;
-        entry.last_used = self.tick;
-        Some(entry.bytes.clone())
-    }
-
     fn insert(&mut self, key: RenderTileKey, bytes: Vec<u8>) {
-        self.tick = self.tick.wrapping_add(1);
-        self.bytes += bytes.len();
-        self.entries.insert(
+        let byte_len = bytes.len();
+        if let Some(entry) = self.entries.insert(
             key,
             CacheEntry {
                 bytes,
-                last_used: self.tick,
+                last_used: AtomicU64::new(self.next_tick()),
             },
-        );
+        ) {
+            self.bytes = self.bytes.saturating_sub(entry.bytes.len());
+        }
+        self.bytes += byte_len;
         self.evict();
     }
 
@@ -188,7 +207,7 @@ impl RenderTileCache {
             let Some(key) = self
                 .entries
                 .iter()
-                .min_by_key(|(_, entry)| entry.last_used)
+                .min_by_key(|(_, entry)| entry.last_used.load(Ordering::Relaxed))
                 .map(|(key, _)| key.clone())
             else {
                 break;
@@ -204,9 +223,13 @@ impl RenderTileCache {
         self.entries.shrink_to_fit();
         self.bytes = 0;
     }
+
+    fn next_tick(&self) -> u64 {
+        self.tick.fetch_add(1, Ordering::Relaxed).wrapping_add(1)
+    }
 }
 
-fn encode_waveform_tile(wav: &[f32], revision: u64, level: u32, tile_index: u32) -> Vec<u8> {
+pub fn encode_waveform_tile(wav: &[f32], revision: u64, level: u32, tile_index: u32) -> Vec<u8> {
     let samples_per_bin = 1usize.checked_shl(level).unwrap_or(usize::MAX);
     let tile_samples = WAVEFORM_TILE_BINS.saturating_mul(samples_per_bin);
     let start = (tile_index as usize).saturating_mul(tile_samples);
@@ -451,14 +474,65 @@ mod tests {
     fn cache_evicts_and_invalidates() {
         let mut cache = RenderTileCache::with_budget(24 + WAVEFORM_TILE_BINS * 12);
         let wav = vec![0.0; WAVEFORM_TILE_BINS * 2];
-        cache.waveform_tile(1, 0, &wav, 0, 0);
-        cache.waveform_tile(1, 0, &wav, 0, 1);
+        let revision = cache.waveform_revision;
+        let bytes_0 = encode_waveform_tile(&wav, revision, 0, 0);
+        let bytes_1 = encode_waveform_tile(&wav, revision, 0, 1);
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes_0);
+        cache.store_waveform_tile(1, 0, revision, 0, 1, bytes_1);
         assert_eq!(cache.entries.len(), 1);
         assert!(cache.bytes <= cache.budget_bytes);
-        let revision = cache.waveform_revision;
         cache.invalidate_waveform();
         assert_eq!(cache.entries.len(), 0);
         assert!(cache.waveform_revision > revision);
+    }
+
+    #[test]
+    fn cache_replaces_duplicate_waveform_tile_without_double_counting() {
+        let mut cache = RenderTileCache::with_budget(usize::MAX);
+        let revision = cache.waveform_revision;
+        let wav = vec![0.0; WAVEFORM_TILE_BINS];
+        let bytes = encode_waveform_tile(&wav, revision, 0, 0);
+
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes.clone());
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes.clone());
+
+        assert_eq!(cache.entries.len(), 1);
+        assert_eq!(cache.bytes, bytes.len());
+    }
+
+    #[test]
+    fn cache_hit_updates_waveform_tile_lru_order() {
+        let wav = vec![0.0; WAVEFORM_TILE_BINS * 3];
+        let tile_bytes = encode_waveform_tile(&wav, 1, 0, 0).len();
+        let mut cache = RenderTileCache::with_budget(tile_bytes * 2);
+        let revision = cache.waveform_revision;
+
+        for tile_index in 0..2 {
+            let bytes = encode_waveform_tile(&wav, revision, 0, tile_index);
+            cache.store_waveform_tile(1, 0, revision, 0, tile_index, bytes);
+        }
+
+        assert!(cache.cached_waveform_tile(1, 0, 0, 0).1.is_some());
+
+        let bytes = encode_waveform_tile(&wav, revision, 0, 2);
+        cache.store_waveform_tile(1, 0, revision, 0, 2, bytes);
+
+        assert!(cache.cached_waveform_tile(1, 0, 0, 0).1.is_some());
+        assert!(cache.cached_waveform_tile(1, 0, 0, 1).1.is_none());
+        assert!(cache.cached_waveform_tile(1, 0, 0, 2).1.is_some());
+    }
+
+    #[test]
+    fn cache_drops_waveform_tile_from_stale_revision() {
+        let mut cache = RenderTileCache::default();
+        let revision = cache.waveform_revision;
+        let wav = vec![0.0; WAVEFORM_TILE_BINS];
+        let bytes = encode_waveform_tile(&wav, revision, 0, 0);
+
+        cache.invalidate_waveform();
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes);
+
+        assert_eq!(cache.entries.len(), 0);
     }
 
     #[test]

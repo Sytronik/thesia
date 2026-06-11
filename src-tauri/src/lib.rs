@@ -347,13 +347,23 @@ fn get_waveform_tile(id_ch_str: String, level: u32, tile_index: u32) -> tauri::R
         .get(id)
         .ok_or_else(|| anyhow::anyhow!("Track {id} does not exist"))?;
     let (wav, _) = track.channel_for_drawing(ch);
-    Ok(Response::new(RENDER_TILE_CACHE.write().waveform_tile(
+    let (revision, cached) = RENDER_TILE_CACHE
+        .read()
+        .cached_waveform_tile(id, ch, level, tile_index);
+    if let Some(bytes) = cached {
+        return Ok(Response::new(bytes));
+    }
+
+    let bytes = core::encode_waveform_tile(wav.as_slice().unwrap(), revision, level, tile_index);
+    RENDER_TILE_CACHE.write().store_waveform_tile(
         id,
         ch,
-        wav.as_slice().unwrap(),
+        revision,
         level,
         tile_index,
-    )))
+        bytes.clone(),
+    );
+    Ok(Response::new(bytes))
 }
 
 #[tauri::command]
