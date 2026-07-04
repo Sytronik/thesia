@@ -133,13 +133,17 @@ function appendLinePathMesh(
     const prevLength = Math.hypot(prevDx, prevDy);
     const nextLength = Math.hypot(nextDx, nextDy);
     if (prevLength < 1e-6 || nextLength < 1e-6) continue;
+    const isLocalYExtremum =
+      ((prevDy <= 0 && nextDy >= 0) || (prevDy >= 0 && nextDy <= 0)) &&
+      Math.max(Math.abs(prevDy), Math.abs(nextDy)) > 1e-3;
     if (
+      !isLocalYExtremum &&
       Math.max(Math.abs(prevDx), Math.abs(nextDx)) < WAV_JOIN_MIN_X_DELTA &&
       Math.max(prevLength, nextLength) < halfWidth * 2
     )
       continue;
     const dot = (prevDx * nextDx + prevDy * nextDy) / (prevLength * nextLength);
-    if (dot > WAV_JOIN_DOT_THRESHOLD) continue;
+    if (!isLocalYExtremum && dot > WAV_JOIN_DOT_THRESHOLD) continue;
     appendCircleMesh(positions, indices, x, y, halfWidth);
   }
 
