@@ -394,14 +394,10 @@ function AudioTrackViewport(props: Props) {
       }
       const basePxPerSec = rowMetadata.spectrogramWidth / Math.max(rowMetadata.trackSec, 1e-8);
       const levelX = log2Level(basePxPerSec / pxPerSec);
-      const levelY = log2Level(rowMetadata.spectrogramHeight / Math.max(imageHeight, 1));
       const scaleX = 2 ** levelX;
-      const scaleY = 2 ** levelY;
       const tileSize = rowMetadata.spectrogramTileSize;
       const lodWidth = Math.ceil(rowMetadata.spectrogramWidth / scaleX);
-      const lodHeight = Math.ceil(rowMetadata.spectrogramHeight / scaleY);
       const maxTileX = Math.max(Math.ceil(lodWidth / tileSize) - 1, 0);
-      const maxTileY = Math.max(Math.ceil(lodHeight / tileSize) - 1, 0);
       const sourceTop =
         rowMetadata.spectrogramHeight -
         WasmAPI.freqHzToPos(
@@ -430,6 +426,10 @@ function AudioTrackViewport(props: Props) {
         return;
       }
       const sourceHeight = Math.max(sourceBottom - sourceTop, 1e-8);
+      const levelY = log2Level(sourceHeight / Math.max(imageHeight, 1));
+      const scaleY = 2 ** levelY;
+      const lodHeight = Math.ceil(rowMetadata.spectrogramHeight / scaleY);
+      const maxTileY = Math.max(Math.ceil(lodHeight / tileSize) - 1, 0);
       const firstTileX = Math.max(Math.floor((startSec * basePxPerSec) / scaleX / tileSize) - 1, 0);
       const lastTileX = Math.min(
         Math.floor(((startSec + width / pxPerSec) * basePxPerSec) / scaleX / tileSize) + 1,
