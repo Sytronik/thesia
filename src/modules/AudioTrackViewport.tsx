@@ -28,6 +28,11 @@ const HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
 const METADATA_RETRY_LIMIT = 20;
 const METADATA_RETRY_DELAY_MS = 100;
 const LOADING_INDICATOR_DELAY_MS = 500;
+const WAVEFORM_LEVEL_CROSSFADE_MS = 200;
+const equalPowerFade = (value: number) => ({
+  previous: Math.cos((value * Math.PI) / 2),
+  current: Math.sin((value * Math.PI) / 2),
+});
 
 export type AudioTrackViewportRow = {
   idChStr: string;
@@ -67,6 +72,13 @@ type Props = {
 };
 
 type TooltipInfo = { left: number; top: number; lines: string[] };
+type WaveformLevelState = { level: number; previousLevel: number | null; startedAt: number };
+type WaveformFadeSprites = {
+  previous?: Sprite;
+  current?: Sprite;
+  baseAlpha: number;
+  startedAt: number;
+};
 
 const spectrogramKey = (
   idChStr: string,
@@ -107,6 +119,8 @@ function AudioTrackViewport(props: Props) {
   const playheadLayer = useRef<Graphics | null>(null);
   const textureCache = useRef(new GpuTextureCache(GPU_TEXTURE_BUDGET_BYTES));
   const waveformTiles = useRef(new WaveformTileCache(WAVEFORM_TILE_BUDGET_BYTES));
+  const waveformLevels = useRef(new Map<string, WaveformLevelState>());
+  const waveformFadeSprites = useRef(new Map<string, WaveformFadeSprites>());
   const waveformCompositeTextures = useRef(new Set<Texture>());
   const pending = useRef(new Set<string>());
   const prevBounds = useRef<{ width: number; height: number } | null>(null);
@@ -236,6 +250,8 @@ function AudioTrackViewport(props: Props) {
         });
         textureCache.current.clear();
         waveformTiles.current.clear();
+        waveformLevels.current.clear();
+        waveformFadeSprites.current.clear();
         pending.current.clear();
         tileRequestRevision.current += 1;
         metadataRef.current = next;
@@ -334,6 +350,25 @@ function AudioTrackViewport(props: Props) {
         })
         .catch((error) => console.error("Failed to fetch spectrogram tile", error))
         .finally(() => pending.current.delete(key));
+    },
+  );
+
+  const getWaveformLevelState = useEvent(
+    (idChStr: string, rowMetadata: AudioRenderMetadata): WaveformLevelState => {
+      const level = waveformLevel(rowMetadata.sampleRate, pxPerSec, devicePixelRatio);
+      const previous = waveformLevels.current.get(idChStr);
+      if (!previous) {
+        const next = { level, previousLevel: null, startedAt: 0 };
+        waveformLevels.current.set(idChStr, next);
+        return next;
+      }
+      if (previous.level === level) {
+        return previous;
+      }
+
+      const next = { level, previousLevel: previous.level, startedAt: 0 };
+      waveformLevels.current.set(idChStr, next);
+      return next;
     },
   );
 
@@ -491,6 +526,7 @@ function AudioTrackViewport(props: Props) {
     if (!pixi || !layer || !rect) return;
     destroyWaveformCompositeTextures();
     destroyPixiChildren(layer);
+    waveformFadeSprites.current.clear();
     textureCache.current.destroyRetired();
     const scrollTop = getScrollTop();
     layer.y = HEADER_HEIGHT - scrollTop;
@@ -529,25 +565,44 @@ function AudioTrackViewport(props: Props) {
       }
       const wavAlpha = blend < 0.5 ? 1 : Math.max(2 - 2 * blend, 0);
       if (wavAlpha <= 0) return;
-      const wavLayer = new Container();
-      const level = waveformLevel(rowMetadata.sampleRate, pxPerSec, devicePixelRatio);
-      const { firstTile, lastTile } = waveformTileRange(
-        rowMetadata,
-        level,
-        startSec,
-        startSec + width / pxPerSec,
-      );
-      const loadedTiles: WaveformTile[] = [];
-      for (let tileIndex = firstTile; tileIndex <= lastTile; tileIndex += 1) {
-        const key = waveformKey(row.idChStr, rowMetadata.waveformRevision, level, tileIndex);
-        const tile = waveformTiles.current.get(key);
-        if (!tile) {
-          requestWaveformTile(row.idChStr, rowMetadata, level, tileIndex);
-          continue;
+      const renderWaveformTexture = (level: number, requestMissingTiles: boolean) => {
+        const wavLayer = new Container();
+        const { firstTile, lastTile } = waveformTileRange(
+          rowMetadata,
+          level,
+          startSec,
+          startSec + width / pxPerSec,
+        );
+        const loadedTiles: WaveformTile[] = [];
+        for (let tileIndex = firstTile; tileIndex <= lastTile; tileIndex += 1) {
+          const key = waveformKey(row.idChStr, rowMetadata.waveformRevision, level, tileIndex);
+          const tile = waveformTiles.current.get(key);
+          if (!tile) {
+            if (requestMissingTiles) {
+              requestWaveformTile(row.idChStr, rowMetadata, level, tileIndex);
+            }
+            continue;
+          }
+          loadedTiles.push(tile);
         }
-        loadedTiles.push(tile);
-      }
-      if (rowMetadata.isClipped) {
+        if (loadedTiles.length === 0) return null;
+        if (rowMetadata.isClipped) {
+          renderWaveformTiles({
+            layer: wavLayer,
+            tiles: loadedTiles,
+            metadata: rowMetadata,
+            y: rowY,
+            height: imageHeight,
+            startSec,
+            pxPerSec,
+            width,
+            ampRange,
+            color: WAV_CLIPPING_COLOR,
+            clampValues: false,
+            needLineBorder: true,
+            needEnvelopeBorder: true,
+          });
+        }
         renderWaveformTiles({
           layer: wavLayer,
           tiles: loadedTiles,
@@ -558,39 +613,65 @@ function AudioTrackViewport(props: Props) {
           pxPerSec,
           width,
           ampRange,
-          color: WAV_CLIPPING_COLOR,
-          clampValues: false,
+          color: WAV_COLOR,
+          clampValues: rowMetadata.isClipped,
           needLineBorder: true,
-          needEnvelopeBorder: true,
+          needEnvelopeBorder: !rowMetadata.isClipped,
         });
+        if (wavLayer.children.length === 0) return null;
+        const texture = pixi.renderer.generateTexture({
+          target: wavLayer,
+          frame: new Rectangle(0, rowY, width, imageHeight),
+          resolution: devicePixelRatio,
+        });
+        waveformCompositeTextures.current.add(texture);
+        destroyPixiChildren(wavLayer);
+        return texture;
+      };
+
+      let levelState = getWaveformLevelState(row.idChStr, rowMetadata);
+      const currentTexture = renderWaveformTexture(levelState.level, true);
+      if (currentTexture && levelState.previousLevel !== null && levelState.startedAt <= 0) {
+        levelState = { ...levelState, startedAt: performance.now() };
+        waveformLevels.current.set(row.idChStr, levelState);
       }
-      renderWaveformTiles({
-        layer: wavLayer,
-        tiles: loadedTiles,
-        metadata: rowMetadata,
-        y: rowY,
-        height: imageHeight,
-        startSec,
-        pxPerSec,
-        width,
-        ampRange,
-        color: WAV_COLOR,
-        clampValues: rowMetadata.isClipped,
-        needLineBorder: true,
-        needEnvelopeBorder: !rowMetadata.isClipped,
-      });
-      if (wavLayer.children.length === 0) return;
-      const wavTexture = pixi.renderer.generateTexture({
-        target: wavLayer,
-        frame: new Rectangle(0, rowY, width, imageHeight),
-        resolution: devicePixelRatio,
-      });
-      waveformCompositeTextures.current.add(wavTexture);
-      destroyPixiChildren(wavLayer);
-      const wavSprite = new Sprite(wavTexture);
-      wavSprite.y = rowY;
-      wavSprite.alpha = wavAlpha;
-      rowContainer.addChild(wavSprite);
+      const fadeElapsed = performance.now() - levelState.startedAt;
+      const fadeProgress =
+        levelState.previousLevel === null || levelState.startedAt <= 0
+          ? levelState.previousLevel === null
+            ? 1
+            : 0
+          : Math.min(fadeElapsed / WAVEFORM_LEVEL_CROSSFADE_MS, 1);
+      const fadeAlpha = equalPowerFade(fadeProgress);
+      const previousTexture =
+        levelState.previousLevel !== null && fadeProgress < 1
+          ? renderWaveformTexture(levelState.previousLevel, false)
+          : null;
+      if (!currentTexture && !previousTexture) return;
+
+      const fadeSprites: WaveformFadeSprites = {
+        baseAlpha: wavAlpha,
+        startedAt: levelState.startedAt,
+      };
+      if (previousTexture) {
+        const previousSprite = new Sprite(previousTexture);
+        previousSprite.y = rowY;
+        previousSprite.alpha = wavAlpha * fadeAlpha.previous;
+        rowContainer.addChild(previousSprite);
+        fadeSprites.previous = previousSprite;
+      }
+      if (currentTexture) {
+        const currentSprite = new Sprite(currentTexture);
+        currentSprite.y = rowY;
+        currentSprite.alpha = previousTexture ? wavAlpha * fadeAlpha.current : wavAlpha;
+        rowContainer.addChild(currentSprite);
+        fadeSprites.current = currentSprite;
+      }
+      if (previousTexture && currentTexture && fadeProgress < 1) {
+        waveformFadeSprites.current.set(row.idChStr, fadeSprites);
+      } else if (currentTexture && levelState.previousLevel !== null) {
+        waveformLevels.current.set(row.idChStr, { ...levelState, previousLevel: null });
+      }
     });
     visibleRowsKey.current = getVisibleRowsKey();
   });
@@ -600,6 +681,7 @@ function AudioTrackViewport(props: Props) {
     const pixi = app.current;
     const playhead = playheadLayer.current;
     const current = latestProps.current;
+    let hasWaveformFade = false;
     if (pixi && playhead) {
       const currentScrollTop = current.getScrollTop();
       const rowsContainer = rowLayer.current;
@@ -607,6 +689,22 @@ function AudioTrackViewport(props: Props) {
       const nextVisibleRowsKey = getVisibleRowsKey();
       if (nextVisibleRowsKey !== visibleRowsKey.current) redrawRows();
       drawLoadingIndicators(timestamp);
+      waveformFadeSprites.current.forEach((fade, idChStr) => {
+        const progress = Math.min(
+          Math.max((timestamp - fade.startedAt) / WAVEFORM_LEVEL_CROSSFADE_MS, 0),
+          1,
+        );
+        const alpha = equalPowerFade(progress);
+        if (fade.previous) fade.previous.alpha = fade.baseAlpha * alpha.previous;
+        if (fade.current) fade.current.alpha = fade.baseAlpha * alpha.current;
+        if (progress < 1) {
+          hasWaveformFade = true;
+        } else {
+          waveformFadeSprites.current.delete(idChStr);
+          const state = waveformLevels.current.get(idChStr);
+          if (state) waveformLevels.current.set(idChStr, { ...state, previousLevel: null });
+        }
+      });
       playhead.clear();
       const sec = current.isPlaying ? current.getPlayheadSec() : null;
       const selectedTrackId = current.selectedTrackIds[current.selectedTrackIds.length - 1];
@@ -628,7 +726,7 @@ function AudioTrackViewport(props: Props) {
       pixi.render();
       textureCache.current.releaseUploadedResources();
     }
-    if (latestProps.current.isPlaying || showLoadingIndicator) {
+    if (latestProps.current.isPlaying || showLoadingIndicator || hasWaveformFade) {
       const nextFrame = renderFrameRef.current;
       if (nextFrame) renderRequestId.current = requestAnimationFrame(nextFrame);
     }
