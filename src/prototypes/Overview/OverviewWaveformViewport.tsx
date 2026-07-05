@@ -200,7 +200,7 @@ function OverviewWaveformViewport({
     const pixi = new Application();
     const tiles = waveformTiles.current;
     const requests = pending.current;
-    void pixi
+    const initReady = pixi
       .init({
         width: 1,
         height: 1,
@@ -212,20 +212,26 @@ function OverviewWaveformViewport({
         backgroundAlpha: 0,
         autoStart: false,
       })
-      .then(() => {
-        if (disposed || !host.current) {
-          pixi.destroy({ removeView: true }, { children: true });
-          return;
-        }
-        const waveformLayer = new Container();
-        pixi.stage.addChild(waveformLayer);
-        host.current.appendChild(pixi.canvas);
-        app.current = pixi;
-        layer.current = waveformLayer;
-        prevBounds.current = null;
-        syncBounds();
-        setSceneRevision((value) => value + 1);
-      });
+      .then(
+        () => true,
+        (error) => {
+          console.error("Failed to initialize overview PIXI renderer", error);
+          return false;
+        },
+      );
+    void initReady.then((initialized) => {
+      if (!initialized || disposed || !host.current) {
+        return;
+      }
+      const waveformLayer = new Container();
+      pixi.stage.addChild(waveformLayer);
+      host.current.appendChild(pixi.canvas);
+      app.current = pixi;
+      layer.current = waveformLayer;
+      prevBounds.current = null;
+      syncBounds();
+      setSceneRevision((value) => value + 1);
+    });
     return () => {
       disposed = true;
       tileRequestRevision.current += 1;
@@ -236,7 +242,11 @@ function OverviewWaveformViewport({
         app.current = null;
         layer.current = null;
       }
-      pixi.destroy({ removeView: true }, { children: true });
+      void initReady.then((initialized) => {
+        if (initialized) {
+          pixi.destroy({ removeView: true }, { children: true });
+        }
+      });
     };
   }, [devicePixelRatio, syncBounds]);
 

@@ -182,7 +182,7 @@ function AudioTrackViewport(props: Props) {
     const wavTiles = waveformTiles.current;
     const requests = pending.current;
     const compositeTextures = waveformCompositeTextures.current;
-    void pixi
+    const initReady = pixi
       .init({
         width: 1,
         height: 1,
@@ -194,24 +194,30 @@ function AudioTrackViewport(props: Props) {
         backgroundAlpha: 0,
         autoStart: false,
       })
-      .then(() => {
-        if (disposed || !host.current) {
-          pixi.destroy({ removeView: true }, { children: true });
-          return;
-        }
-        const rowsContainer = new Container();
-        const loading = new Graphics();
-        const playhead = new Graphics();
-        pixi.stage.addChild(rowsContainer, loading, playhead);
-        host.current.appendChild(pixi.canvas);
-        app.current = pixi;
-        rowLayer.current = rowsContainer;
-        loadingLayer.current = loading;
-        playheadLayer.current = playhead;
-        prevBounds.current = null;
-        syncBounds();
-        setSceneRevision((value) => value + 1);
-      });
+      .then(
+        () => true,
+        (error) => {
+          console.error("Failed to initialize audio track PIXI renderer", error);
+          return false;
+        },
+      );
+    void initReady.then((initialized) => {
+      if (!initialized || disposed || !host.current) {
+        return;
+      }
+      const rowsContainer = new Container();
+      const loading = new Graphics();
+      const playhead = new Graphics();
+      pixi.stage.addChild(rowsContainer, loading, playhead);
+      host.current.appendChild(pixi.canvas);
+      app.current = pixi;
+      rowLayer.current = rowsContainer;
+      loadingLayer.current = loading;
+      playheadLayer.current = playhead;
+      prevBounds.current = null;
+      syncBounds();
+      setSceneRevision((value) => value + 1);
+    });
     return () => {
       disposed = true;
       tileRequestRevision.current += 1;
@@ -227,7 +233,11 @@ function AudioTrackViewport(props: Props) {
         loadingLayer.current = null;
         playheadLayer.current = null;
       }
-      pixi.destroy({ removeView: true }, { children: true });
+      void initReady.then((initialized) => {
+        if (initialized) {
+          pixi.destroy({ removeView: true }, { children: true });
+        }
+      });
       textures.destroyRetired();
     };
   }, [devicePixelRatio, syncBounds]);
