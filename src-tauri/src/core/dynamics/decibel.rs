@@ -113,7 +113,7 @@ where
 
     #[inline]
     fn power_from_dB(&self, ref_value: Self::A) -> Self {
-        ref_value * 10.0.as_().powf(0.05.as_() * *self)
+        ref_value * 10.0.as_().powf(0.1.as_() * *self)
     }
 
     #[inline]
