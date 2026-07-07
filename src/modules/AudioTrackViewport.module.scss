@@ -1,0 +1,26 @@
+@use "../styles/variables/colors";
+@use "../styles/variables/layout";
+@use "../styles/variables/typography";
+
+.viewport {
+  position: fixed;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+
+  canvas {
+    display: block;
+  }
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 256;
+  pointer-events: none;
+  background-color: rgba(colors.$bg-primary, 0.6);
+  font-size: typography.$body-font-size-xsmall;
+  line-height: 1.5;
+  min-width: layout.$spacer * 10;
+  padding: layout.$spacer layout.$spacer-3;
+  border-radius: 0 layout.$spacer-1 layout.$spacer-1 layout.$spacer-1;
+}

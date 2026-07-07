@@ -5,10 +5,13 @@
 .SplitView {
   width: calc(100% - #{box-sizes.$colorbar-width + box-sizes.$component-gap * 2});
   margin: box-sizes.$component-gap * 0.5;
+  min-height: 0;
 }
 
 .Scrollbox {
   height: 100%;
+  min-height: 0;
+  overflow-anchor: none;
 }
 
 .Scrolled {
@@ -16,6 +19,7 @@
   align-items: stretch;
   height: fit-content;
   min-height: 100%;
+  overflow-anchor: none;
 }
 
 .LeftPane {

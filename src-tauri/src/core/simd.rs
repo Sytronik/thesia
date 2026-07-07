@@ -22,9 +22,11 @@ pub fn find_min_max(slice: &[f32]) -> (f32, f32) {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        find_min_max_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { find_min_max_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        find_min_max_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { find_min_max_sse4(slice) }
     } else {
         find_min_max_scalar(slice)
     }
@@ -44,9 +46,11 @@ pub fn find_min(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        find_min_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { find_min_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        find_min_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { find_min_sse4(slice) }
     } else {
         find_min_scalar(slice)
     }
@@ -93,9 +97,11 @@ pub fn find_max(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        find_max_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { find_max_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        find_max_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { find_max_sse4(slice) }
     } else {
         find_max_scalar(slice)
     }
@@ -115,15 +121,41 @@ pub fn sum_squares(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        sum_squares_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { sum_squares_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        sum_squares_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { sum_squares_sse4(slice) }
     } else {
         sum_squares_scalar(slice)
     }
 
     #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
     sum_squares_scalar(slice)
+}
+
+pub fn sum(slice: &[f32]) -> f32 {
+    // Use SIMD if available, otherwise fall back to scalar
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        sum_neon(slice)
+    } else {
+        sum_scalar(slice)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { sum_avx2(slice) }
+    } else if is_x86_feature_detected!("sse4.1") {
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { sum_sse4(slice) }
+    } else {
+        sum_scalar(slice)
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    sum_scalar(slice)
 }
 
 pub fn abs_max(slice: &[f32]) -> f32 {
@@ -137,9 +169,11 @@ pub fn abs_max(slice: &[f32]) -> f32 {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        abs_max_avx2(slice)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { abs_max_avx2(slice) }
     } else if is_x86_feature_detected!("sse4.1") {
-        abs_max_sse4(slice)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { abs_max_sse4(slice) }
     } else {
         abs_max_scalar(slice)
     }
@@ -159,9 +193,11 @@ pub fn scalar_mul(slice: &mut [f32], scalar: f32) {
 
     #[cfg(target_arch = "x86_64")]
     if is_x86_feature_detected!("avx2") {
-        scalar_mul_avx2(slice, scalar)
+        // SAFETY: guarded by runtime AVX2 detection above.
+        unsafe { scalar_mul_avx2(slice, scalar) }
     } else if is_x86_feature_detected!("sse4.1") {
-        scalar_mul_sse4(slice, scalar)
+        // SAFETY: guarded by runtime SSE4.1 detection above.
+        unsafe { scalar_mul_sse4(slice, scalar) }
     } else {
         scalar_mul_scalar(slice, scalar)
     }
@@ -234,7 +270,8 @@ fn find_min_max_neon(slice: &[f32]) -> (f32, f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
     let mut min_val = f32::INFINITY;
     let mut max_val = f32::NEG_INFINITY;
 
@@ -253,10 +290,8 @@ fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
 
     for &v_chunk in middle {
         // v_chunk is __m256
-        unsafe {
-            min_val = min_val.min(_mm256_reduce_min_ps(v_chunk));
-            max_val = max_val.max(_mm256_reduce_max_ps(v_chunk));
-        }
+        min_val = min_val.min(unsafe { _mm256_reduce_min_ps(v_chunk) });
+        max_val = max_val.max(unsafe { _mm256_reduce_max_ps(v_chunk) });
     }
 
     for &val in suffix {
@@ -269,7 +304,8 @@ fn find_min_max_avx2(slice: &[f32]) -> (f32, f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
+#[target_feature(enable = "sse4.1")]
+unsafe fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
     let mut min_val = f32::INFINITY;
     let mut max_val = f32::NEG_INFINITY;
 
@@ -288,10 +324,8 @@ fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
 
     for &v_chunk in middle {
         // v_chunk is __m128
-        unsafe {
-            min_val = min_val.min(_mm_reduce_min_ps(v_chunk));
-            max_val = max_val.max(_mm_reduce_max_ps(v_chunk));
-        }
+        min_val = min_val.min(unsafe { _mm_reduce_min_ps(v_chunk) });
+        max_val = max_val.max(unsafe { _mm_reduce_max_ps(v_chunk) });
     }
 
     for &val in suffix {
@@ -305,47 +339,44 @@ fn find_min_max_sse4(slice: &[f32]) -> (f32, f32) {
 // Helper functions for SSE4.1 and AVX2 reductions
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "avx2")]
 unsafe fn _mm256_reduce_min_ps(v: __m256) -> f32 {
-    unsafe {
-        let low = _mm256_extractf128_ps(v, 0);
-        let high = _mm256_extractf128_ps(v, 1);
-        let min1 = _mm_min_ps(low, high);
-        _mm_reduce_min_ps(min1)
-    }
+    let low = _mm256_extractf128_ps(v, 0);
+    let high = _mm256_extractf128_ps(v, 1);
+    let min1 = _mm_min_ps(low, high);
+    unsafe { _mm_reduce_min_ps(min1) }
 }
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "avx2")]
 unsafe fn _mm256_reduce_max_ps(v: __m256) -> f32 {
-    unsafe {
-        let low = _mm256_extractf128_ps(v, 0);
-        let high = _mm256_extractf128_ps(v, 1);
-        let max1 = _mm_max_ps(low, high);
-        _mm_reduce_max_ps(max1)
-    }
-}
-#[cfg(target_arch = "x86_64")]
-#[inline]
-unsafe fn _mm_reduce_min_ps(v: __m128) -> f32 {
-    unsafe {
-        let shuf = _mm_movehdup_ps(v);
-        let min1 = _mm_min_ps(v, shuf);
-        let shuf2 = _mm_movehl_ps(min1, min1);
-        let min2 = _mm_min_ps(min1, shuf2);
-        _mm_cvtss_f32(min2)
-    }
+    let low = _mm256_extractf128_ps(v, 0);
+    let high = _mm256_extractf128_ps(v, 1);
+    let max1 = _mm_max_ps(low, high);
+    unsafe { _mm_reduce_max_ps(max1) }
 }
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "sse4.1")]
+unsafe fn _mm_reduce_min_ps(v: __m128) -> f32 {
+    let shuf = _mm_movehdup_ps(v);
+    let min1 = _mm_min_ps(v, shuf);
+    let shuf2 = _mm_movehl_ps(min1, min1);
+    let min2 = _mm_min_ps(min1, shuf2);
+    _mm_cvtss_f32(min2)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+#[target_feature(enable = "sse4.1")]
 unsafe fn _mm_reduce_max_ps(v: __m128) -> f32 {
-    unsafe {
-        let shuf = _mm_movehdup_ps(v);
-        let max1 = _mm_max_ps(v, shuf);
-        let shuf2 = _mm_movehl_ps(max1, max1);
-        let max2 = _mm_max_ps(max1, shuf2);
-        _mm_cvtss_f32(max2)
-    }
+    let shuf = _mm_movehdup_ps(v);
+    let max1 = _mm_max_ps(v, shuf);
+    let shuf2 = _mm_movehl_ps(max1, max1);
+    let max2 = _mm_max_ps(max1, shuf2);
+    _mm_cvtss_f32(max2)
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -406,7 +437,8 @@ fn find_max_neon(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn find_min_avx2(slice: &[f32]) -> f32 {
     let mut min_val = f32::INFINITY;
 
     if slice.is_empty() {
@@ -420,9 +452,7 @@ fn find_min_avx2(slice: &[f32]) -> f32 {
     }
 
     for &v_chunk in middle {
-        unsafe {
-            min_val = min_val.min(_mm256_reduce_min_ps(v_chunk));
-        }
+        min_val = min_val.min(unsafe { _mm256_reduce_min_ps(v_chunk) });
     }
 
     for &val in suffix {
@@ -434,7 +464,8 @@ fn find_min_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_max_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn find_max_avx2(slice: &[f32]) -> f32 {
     let mut max_val = f32::NEG_INFINITY;
 
     if slice.is_empty() {
@@ -448,9 +479,7 @@ fn find_max_avx2(slice: &[f32]) -> f32 {
     }
 
     for &v_chunk in middle {
-        unsafe {
-            max_val = max_val.max(_mm256_reduce_max_ps(v_chunk));
-        }
+        max_val = max_val.max(unsafe { _mm256_reduce_max_ps(v_chunk) });
     }
 
     for &val in suffix {
@@ -462,7 +491,8 @@ fn find_max_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_min_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn find_min_sse4(slice: &[f32]) -> f32 {
     let mut min_val = f32::INFINITY;
 
     if slice.is_empty() {
@@ -476,9 +506,7 @@ fn find_min_sse4(slice: &[f32]) -> f32 {
     }
 
     for &v_chunk in middle {
-        unsafe {
-            min_val = min_val.min(_mm_reduce_min_ps(v_chunk));
-        }
+        min_val = min_val.min(unsafe { _mm_reduce_min_ps(v_chunk) });
     }
 
     for &val in suffix {
@@ -490,7 +518,8 @@ fn find_min_sse4(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn find_max_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn find_max_sse4(slice: &[f32]) -> f32 {
     let mut max_val = f32::NEG_INFINITY;
 
     if slice.is_empty() {
@@ -504,9 +533,7 @@ fn find_max_sse4(slice: &[f32]) -> f32 {
     }
 
     for &v_chunk in middle {
-        unsafe {
-            max_val = max_val.max(_mm_reduce_max_ps(v_chunk));
-        }
+        max_val = max_val.max(unsafe { _mm_reduce_max_ps(v_chunk) });
     }
 
     for &val in suffix {
@@ -530,6 +557,100 @@ fn find_min_scalar(slice: &[f32]) -> f32 {
 #[inline]
 fn find_max_scalar(slice: &[f32]) -> f32 {
     slice.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
+}
+
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn sum_neon(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<float32x4_t>() };
+
+    for &val in prefix {
+        sum += val;
+    }
+
+    let mut sum_vec = unsafe { vdupq_n_f32(0.0) };
+    for &v_chunk in middle {
+        unsafe {
+            sum_vec = vaddq_f32(sum_vec, v_chunk);
+        }
+    }
+    sum += unsafe { vaddvq_f32(sum_vec) };
+
+    for &val in suffix {
+        sum += val;
+    }
+
+    sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+#[target_feature(enable = "avx2")]
+unsafe fn sum_avx2(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m256>() };
+
+    for &val in prefix {
+        sum += val;
+    }
+
+    let mut sum_vec = _mm256_setzero_ps();
+    for &v_chunk in middle {
+        sum_vec = _mm256_add_ps(sum_vec, v_chunk);
+    }
+    unsafe {
+        sum += _mm256_reduce_add_ps(sum_vec);
+    }
+
+    for &val in suffix {
+        sum += val;
+    }
+
+    sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+#[target_feature(enable = "sse4.1")]
+unsafe fn sum_sse4(slice: &[f32]) -> f32 {
+    if slice.is_empty() {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f32;
+    let (prefix, middle, suffix) = unsafe { slice.align_to::<__m128>() };
+
+    for &val in prefix {
+        sum += val;
+    }
+
+    let mut sum_vec = _mm_setzero_ps();
+    for &v_chunk in middle {
+        sum_vec = _mm_add_ps(sum_vec, v_chunk);
+    }
+    unsafe {
+        sum += _mm_reduce_add_ps(sum_vec);
+    }
+
+    for &val in suffix {
+        sum += val;
+    }
+
+    sum
+}
+
+#[inline]
+fn sum_scalar(slice: &[f32]) -> f32 {
+    slice.iter().sum()
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -580,7 +701,8 @@ fn sum_squares_neon(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn sum_squares_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn sum_squares_avx2(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -598,20 +720,20 @@ fn sum_squares_avx2(slice: &[f32]) -> f32 {
     }
 
     // Handle aligned elements using AVX2
-    let mut sum_vec = unsafe { _mm256_setzero_ps() };
-    let mut comp_vec = unsafe { _mm256_setzero_ps() };
+    let mut sum_vec = _mm256_setzero_ps();
+    let mut comp_vec = _mm256_setzero_ps();
 
     for &v_chunk in middle {
-        unsafe {
-            let squared = _mm256_mul_ps(v_chunk, v_chunk);
-            let y = _mm256_sub_ps(squared, comp_vec);
-            let t = _mm256_add_ps(sum_vec, y);
-            comp_vec = _mm256_sub_ps(_mm256_sub_ps(t, sum_vec), y);
-            sum_vec = t;
-        }
+        let squared = _mm256_mul_ps(v_chunk, v_chunk);
+        let y = _mm256_sub_ps(squared, comp_vec);
+        let t = _mm256_add_ps(sum_vec, y);
+        comp_vec = _mm256_sub_ps(_mm256_sub_ps(t, sum_vec), y);
+        sum_vec = t;
     }
     // Reduce the vector sum
-    sum += unsafe { _mm256_reduce_add_ps(sum_vec) };
+    unsafe {
+        sum += _mm256_reduce_add_ps(sum_vec);
+    }
 
     // Handle suffix elements with Kahan summation
     for &val in suffix {
@@ -626,7 +748,8 @@ fn sum_squares_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn sum_squares_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn sum_squares_sse4(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -644,20 +767,20 @@ fn sum_squares_sse4(slice: &[f32]) -> f32 {
     }
 
     // Handle aligned elements using SSE4
-    let mut sum_vec = unsafe { _mm_setzero_ps() };
-    let mut comp_vec = unsafe { _mm_setzero_ps() };
+    let mut sum_vec = _mm_setzero_ps();
+    let mut comp_vec = _mm_setzero_ps();
 
     for &v_chunk in middle {
-        unsafe {
-            let squared = _mm_mul_ps(v_chunk, v_chunk);
-            let y = _mm_sub_ps(squared, comp_vec);
-            let t = _mm_add_ps(sum_vec, y);
-            comp_vec = _mm_sub_ps(_mm_sub_ps(t, sum_vec), y);
-            sum_vec = t;
-        }
+        let squared = _mm_mul_ps(v_chunk, v_chunk);
+        let y = _mm_sub_ps(squared, comp_vec);
+        let t = _mm_add_ps(sum_vec, y);
+        comp_vec = _mm_sub_ps(_mm_sub_ps(t, sum_vec), y);
+        sum_vec = t;
     }
     // Reduce the vector sum
-    sum += unsafe { _mm_reduce_add_ps(sum_vec) };
+    unsafe {
+        sum += _mm_reduce_add_ps(sum_vec);
+    }
 
     // Handle suffix elements with Kahan summation
     for &val in suffix {
@@ -673,26 +796,24 @@ fn sum_squares_sse4(slice: &[f32]) -> f32 {
 // Helper function for SSE4.1 reduction
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "sse4.1")]
 unsafe fn _mm_reduce_add_ps(v: __m128) -> f32 {
-    unsafe {
-        let shuf = _mm_movehdup_ps(v);
-        let sum1 = _mm_add_ps(v, shuf);
-        let shuf2 = _mm_movehl_ps(sum1, sum1);
-        let sum2 = _mm_add_ps(sum1, shuf2);
-        _mm_cvtss_f32(sum2)
-    }
+    let shuf = _mm_movehdup_ps(v);
+    let sum1 = _mm_add_ps(v, shuf);
+    let shuf2 = _mm_movehl_ps(sum1, sum1);
+    let sum2 = _mm_add_ps(sum1, shuf2);
+    _mm_cvtss_f32(sum2)
 }
 
 // Helper function for AVX2 reduction
 #[cfg(target_arch = "x86_64")]
 #[inline]
+#[target_feature(enable = "avx2")]
 unsafe fn _mm256_reduce_add_ps(v: __m256) -> f32 {
-    unsafe {
-        let low = _mm256_extractf128_ps(v, 0);
-        let high = _mm256_extractf128_ps(v, 1);
-        let sum1 = _mm_add_ps(low, high);
-        _mm_reduce_add_ps(sum1)
-    }
+    let low = _mm256_extractf128_ps(v, 0);
+    let high = _mm256_extractf128_ps(v, 1);
+    let sum1 = _mm_add_ps(low, high);
+    unsafe { _mm_reduce_add_ps(sum1) }
 }
 
 #[inline]
@@ -746,7 +867,8 @@ fn abs_max_neon(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn abs_max_avx2(slice: &[f32]) -> f32 {
+#[target_feature(enable = "avx2")]
+unsafe fn abs_max_avx2(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -760,12 +882,10 @@ fn abs_max_avx2(slice: &[f32]) -> f32 {
     }
 
     // Handle aligned elements using AVX2
-    let mut max_vec = unsafe { _mm256_setzero_ps() };
+    let mut max_vec = _mm256_setzero_ps();
     for &v_chunk in middle {
-        unsafe {
-            let abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), v_chunk); // Clear sign bit
-            max_vec = _mm256_max_ps(max_vec, abs);
-        }
+        let abs = _mm256_andnot_ps(_mm256_set1_ps(-0.0), v_chunk); // Clear sign bit
+        max_vec = _mm256_max_ps(max_vec, abs);
     }
     // Reduce the vector max
     max_val = max_val.max(unsafe { _mm256_reduce_max_ps(max_vec) });
@@ -780,7 +900,8 @@ fn abs_max_avx2(slice: &[f32]) -> f32 {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn abs_max_sse4(slice: &[f32]) -> f32 {
+#[target_feature(enable = "sse4.1")]
+unsafe fn abs_max_sse4(slice: &[f32]) -> f32 {
     if slice.is_empty() {
         return 0.0;
     }
@@ -794,12 +915,10 @@ fn abs_max_sse4(slice: &[f32]) -> f32 {
     }
 
     // Handle aligned elements using SSE4
-    let mut max_vec = unsafe { _mm_setzero_ps() };
+    let mut max_vec = _mm_setzero_ps();
     for &v_chunk in middle {
-        unsafe {
-            let abs = _mm_andnot_ps(_mm_set1_ps(-0.0), v_chunk); // Clear sign bit
-            max_vec = _mm_max_ps(max_vec, abs);
-        }
+        let abs = _mm_andnot_ps(_mm_set1_ps(-0.0), v_chunk); // Clear sign bit
+        max_vec = _mm_max_ps(max_vec, abs);
     }
     // Reduce the vector max
     max_val = max_val.max(unsafe { _mm_reduce_max_ps(max_vec) });
@@ -847,12 +966,13 @@ fn scalar_mul_neon(slice: &mut [f32], scalar: f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
+#[target_feature(enable = "avx2")]
+unsafe fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
     if slice.is_empty() {
         return;
     }
 
-    let scalar_vec = unsafe { _mm256_set1_ps(scalar) };
+    let scalar_vec = _mm256_set1_ps(scalar);
     let (prefix, middle, suffix) = unsafe { slice.align_to_mut::<__m256>() };
 
     // Handle prefix elements
@@ -862,9 +982,7 @@ fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
 
     // Handle aligned elements using AVX2
     for v_chunk in middle {
-        unsafe {
-            *v_chunk = _mm256_mul_ps(*v_chunk, scalar_vec);
-        }
+        *v_chunk = _mm256_mul_ps(*v_chunk, scalar_vec);
     }
 
     // Handle suffix elements
@@ -875,12 +993,13 @@ fn scalar_mul_avx2(slice: &mut [f32], scalar: f32) {
 
 #[cfg(target_arch = "x86_64")]
 #[inline]
-fn scalar_mul_sse4(slice: &mut [f32], scalar: f32) {
+#[target_feature(enable = "sse4.1")]
+unsafe fn scalar_mul_sse4(slice: &mut [f32], scalar: f32) {
     if slice.is_empty() {
         return;
     }
 
-    let scalar_vec = unsafe { _mm_set1_ps(scalar) };
+    let scalar_vec = _mm_set1_ps(scalar);
     let (prefix, middle, suffix) = unsafe { slice.align_to_mut::<__m128>() };
 
     // Handle prefix elements
@@ -890,9 +1009,7 @@ fn scalar_mul_sse4(slice: &mut [f32], scalar: f32) {
 
     // Handle aligned elements using SSE4
     for v_chunk in middle {
-        unsafe {
-            *v_chunk = _mm_mul_ps(*v_chunk, scalar_vec);
-        }
+        *v_chunk = _mm_mul_ps(*v_chunk, scalar_vec);
     }
 
     // Handle suffix elements
@@ -1147,6 +1264,29 @@ mod tests {
             assert!(
                 (result - expected).abs() < 1e-5,
                 "Sum of squares doesn't match for data: {:?}, expected: {}, got: {}",
+                data,
+                expected,
+                result
+            );
+        }
+    }
+
+    #[test]
+    fn test_sum() {
+        let test_cases = vec![
+            (vec![1.0, 2.0, 3.0, 4.0], 10.0),
+            (vec![-1.0, -2.0, 3.0], 0.0),
+            (vec![0.0, 0.0, 0.0], 0.0),
+            (vec![1.0], 1.0),
+            (vec![], 0.0),
+            ((0..128).map(|i| i as f32 - 64.0).collect(), -64.0),
+        ];
+
+        for (data, expected) in test_cases {
+            let result = sum(&data);
+            assert!(
+                (result - expected).abs() < 1e-5,
+                "Sum doesn't match for data: {:?}, expected: {}, got: {}",
                 data,
                 expected,
                 result

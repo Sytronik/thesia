@@ -4,6 +4,7 @@ use rayon::prelude::*;
 
 mod audio;
 mod dynamics;
+mod render_tiles;
 mod simd;
 mod spectrogram;
 mod track;
@@ -14,6 +15,7 @@ mod windows;
 
 pub use audio::AudioFormatInfo;
 pub use dynamics::{DeciBel, GuardClippingMode, GuardClippingStats, NormalizeTarget};
+pub use render_tiles::{AudioRenderMetadata, RenderTileCache, encode_waveform_tile};
 use simd::find_min_max;
 pub use spectrogram::SpecSetting;
 use spectrogram::{SpectrogramAnalyzer, SrWinNfft};

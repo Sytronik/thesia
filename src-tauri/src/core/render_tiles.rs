@@ -1,0 +1,547 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::mem::{align_of, size_of};
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use fast_image_resize::images::{TypedImage, TypedImageRef};
+use fast_image_resize::{FilterType, ResizeAlg, ResizeOptions, Resizer, pixels};
+use ndarray::ArrayView2;
+
+use super::simd::{find_min_max, sum as simd_sum};
+
+pub const WAVEFORM_TILE_BINS: usize = 1024;
+pub const SPECTROGRAM_TILE_SIZE: usize = 512;
+const SPECTROGRAM_TILE_GUTTER: usize = 4;
+const DEFAULT_WAVEFORM_CACHE_BUDGET_BYTES: usize = 32 * 1024 * 1024;
+const WAVEFORM_SIMD_MIN_MAX_THRESHOLD: usize = 32;
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum RenderTileKey {
+    Waveform {
+        id: usize,
+        ch: usize,
+        revision: u64,
+        level: u32,
+        tile_index: u32,
+    },
+}
+
+struct CacheEntry {
+    bytes: Vec<u8>,
+    last_used: AtomicU64,
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioRenderMetadata {
+    pub waveform_revision: u64,
+    pub spectrogram_revision: u64,
+    pub sample_rate: u32,
+    pub sample_count: usize,
+    pub track_sec: f64,
+    pub is_clipped: bool,
+    pub spectrogram_width: usize,
+    pub spectrogram_height: usize,
+    pub waveform_tile_bins: usize,
+    pub spectrogram_tile_size: usize,
+}
+
+pub struct RenderTileCache {
+    entries: HashMap<RenderTileKey, CacheEntry>,
+    bytes: usize,
+    budget_bytes: usize,
+    tick: AtomicU64,
+    waveform_revision: u64,
+    spectrogram_revision: u64,
+    colormap_rgba: Vec<u8>,
+}
+
+impl Default for RenderTileCache {
+    fn default() -> Self {
+        Self::with_budget(DEFAULT_WAVEFORM_CACHE_BUDGET_BYTES)
+    }
+}
+
+impl RenderTileCache {
+    pub fn with_budget(budget_bytes: usize) -> Self {
+        Self {
+            entries: HashMap::new(),
+            bytes: 0,
+            budget_bytes,
+            tick: AtomicU64::new(0),
+            waveform_revision: 1,
+            spectrogram_revision: 1,
+            colormap_rgba: vec![0, 0, 0, 255, 255, 255, 255, 255],
+        }
+    }
+
+    pub fn set_colormap(&mut self, colormap_rgba: Vec<u8>) {
+        if colormap_rgba.len() >= 4 && colormap_rgba.len().is_multiple_of(4) {
+            self.colormap_rgba = colormap_rgba;
+        }
+        self.invalidate_spectrogram();
+    }
+
+    pub fn invalidate_waveform(&mut self) {
+        self.waveform_revision = self.waveform_revision.wrapping_add(1).max(1);
+        self.clear_tiles();
+    }
+
+    pub fn invalidate_spectrogram(&mut self) {
+        self.spectrogram_revision = self.spectrogram_revision.wrapping_add(1).max(1);
+    }
+
+    pub fn invalidate_all(&mut self) {
+        self.invalidate_waveform();
+        self.invalidate_spectrogram();
+    }
+
+    pub fn metadata(
+        &self,
+        wav: &[f32],
+        sample_rate: u32,
+        track_sec: f64,
+        is_clipped: bool,
+        spectrogram_shape: Option<(usize, usize)>,
+    ) -> AudioRenderMetadata {
+        let (spectrogram_height, spectrogram_width) = spectrogram_shape.unwrap_or_default();
+        AudioRenderMetadata {
+            waveform_revision: self.waveform_revision,
+            spectrogram_revision: self.spectrogram_revision,
+            sample_rate,
+            sample_count: wav.len(),
+            track_sec,
+            is_clipped,
+            spectrogram_width,
+            spectrogram_height,
+            waveform_tile_bins: WAVEFORM_TILE_BINS,
+            spectrogram_tile_size: SPECTROGRAM_TILE_SIZE,
+        }
+    }
+
+    pub fn cached_waveform_tile(
+        &self,
+        id: usize,
+        ch: usize,
+        level: u32,
+        tile_index: u32,
+    ) -> (u64, Option<Vec<u8>>) {
+        let revision = self.waveform_revision;
+        let key = RenderTileKey::Waveform {
+            id,
+            ch,
+            revision,
+            level,
+            tile_index,
+        };
+        let cached = self.entries.get(&key).map(|entry| {
+            entry.last_used.store(self.next_tick(), Ordering::Relaxed);
+            entry.bytes.clone()
+        });
+        (revision, cached)
+    }
+
+    pub fn store_waveform_tile(
+        &mut self,
+        id: usize,
+        ch: usize,
+        revision: u64,
+        level: u32,
+        tile_index: u32,
+        bytes: Vec<u8>,
+    ) {
+        if revision != self.waveform_revision {
+            return;
+        }
+
+        self.insert(
+            RenderTileKey::Waveform {
+                id,
+                ch,
+                revision,
+                level,
+                tile_index,
+            },
+            bytes,
+        );
+    }
+
+    pub fn spectrogram_tile(
+        &self,
+        spectrogram: ArrayView2<'_, u16>,
+        level_x: u32,
+        level_y: u32,
+        tile_x: u32,
+        tile_y: u32,
+    ) -> Vec<u8> {
+        encode_spectrogram_tile(
+            spectrogram,
+            &self.colormap_rgba,
+            self.spectrogram_revision,
+            level_x,
+            level_y,
+            tile_x,
+            tile_y,
+        )
+    }
+
+    fn insert(&mut self, key: RenderTileKey, bytes: Vec<u8>) {
+        let byte_len = bytes.len();
+        if let Some(entry) = self.entries.insert(
+            key,
+            CacheEntry {
+                bytes,
+                last_used: AtomicU64::new(self.next_tick()),
+            },
+        ) {
+            self.bytes = self.bytes.saturating_sub(entry.bytes.len());
+        }
+        self.bytes += byte_len;
+        self.evict();
+    }
+
+    fn evict(&mut self) {
+        while self.bytes > self.budget_bytes {
+            let Some(key) = self
+                .entries
+                .iter()
+                .min_by_key(|(_, entry)| entry.last_used.load(Ordering::Relaxed))
+                .map(|(key, _)| key.clone())
+            else {
+                break;
+            };
+            if let Some(entry) = self.entries.remove(&key) {
+                self.bytes -= entry.bytes.len();
+            }
+        }
+    }
+
+    fn clear_tiles(&mut self) {
+        self.entries.clear();
+        self.entries.shrink_to_fit();
+        self.bytes = 0;
+    }
+
+    fn next_tick(&self) -> u64 {
+        self.tick.fetch_add(1, Ordering::Relaxed).wrapping_add(1)
+    }
+}
+
+pub fn encode_waveform_tile(wav: &[f32], revision: u64, level: u32, tile_index: u32) -> Vec<u8> {
+    let samples_per_bin = 1usize.checked_shl(level).unwrap_or(usize::MAX);
+    let tile_samples = WAVEFORM_TILE_BINS.saturating_mul(samples_per_bin);
+    let start = (tile_index as usize).saturating_mul(tile_samples);
+    let end = wav.len().min(start.saturating_add(tile_samples));
+    let bin_count = if start >= end {
+        0
+    } else {
+        (end - start).div_ceil(samples_per_bin)
+    };
+
+    let mut bytes = Vec::with_capacity(24 + bin_count * 12);
+    bytes.extend_from_slice(&revision.to_le_bytes());
+    bytes.extend_from_slice(&(bin_count as u32).to_le_bytes());
+    bytes.extend_from_slice(&(samples_per_bin.min(u32::MAX as usize) as u32).to_le_bytes());
+    bytes.extend_from_slice(&tile_index.to_le_bytes());
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    for bin in 0..bin_count {
+        let bin_start = start + bin * samples_per_bin;
+        let bin_end = end.min(bin_start.saturating_add(samples_per_bin));
+        let slice = &wav[bin_start..bin_end];
+        let (min, max, representative) = waveform_bin_stats(slice);
+        bytes.extend_from_slice(&min.to_le_bytes());
+        bytes.extend_from_slice(&max.to_le_bytes());
+        bytes.extend_from_slice(&representative.to_le_bytes());
+    }
+    bytes
+}
+
+fn waveform_bin_stats(slice: &[f32]) -> (f32, f32, f32) {
+    debug_assert!(!slice.is_empty());
+
+    if slice.len() >= WAVEFORM_SIMD_MIN_MAX_THRESHOLD {
+        let (min, max) = find_min_max(slice);
+        let sum = simd_sum(slice);
+        return (min, max, sum / slice.len() as f32);
+    }
+
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    let mut sum = 0.0;
+    for &sample in slice {
+        min = min.min(sample);
+        max = max.max(sample);
+        sum += sample;
+    }
+    (min, max, sum / slice.len() as f32)
+}
+
+fn encode_spectrogram_tile(
+    spectrogram: ArrayView2<'_, u16>,
+    colormap_rgba: &[u8],
+    revision: u64,
+    level_x: u32,
+    level_y: u32,
+    tile_x: u32,
+    tile_y: u32,
+) -> Vec<u8> {
+    let scale_x = 1usize.checked_shl(level_x).unwrap_or(usize::MAX);
+    let scale_y = 1usize.checked_shl(level_y).unwrap_or(usize::MAX);
+    let lod_width = spectrogram.shape()[1].div_ceil(scale_x);
+    let lod_height = spectrogram.shape()[0].div_ceil(scale_y);
+    let start_x = (tile_x as usize).saturating_mul(SPECTROGRAM_TILE_SIZE);
+    let start_y = (tile_y as usize).saturating_mul(SPECTROGRAM_TILE_SIZE);
+    let core_width = lod_width.saturating_sub(start_x).min(SPECTROGRAM_TILE_SIZE);
+    let core_height = lod_height
+        .saturating_sub(start_y)
+        .min(SPECTROGRAM_TILE_SIZE);
+    let origin_x = start_x.saturating_sub(SPECTROGRAM_TILE_GUTTER);
+    let origin_y = start_y.saturating_sub(SPECTROGRAM_TILE_GUTTER);
+    let (width, height) = if core_width == 0 || core_height == 0 {
+        (0, 0)
+    } else {
+        (
+            lod_width
+                .min(start_x + core_width + SPECTROGRAM_TILE_GUTTER)
+                .saturating_sub(origin_x),
+            lod_height
+                .min(start_y + core_height + SPECTROGRAM_TILE_GUTTER)
+                .saturating_sub(origin_y),
+        )
+    };
+
+    let mut bytes = Vec::with_capacity(40 + width * height * 4);
+    bytes.extend_from_slice(&revision.to_le_bytes());
+    bytes.extend_from_slice(&(width as u32).to_le_bytes());
+    bytes.extend_from_slice(&(height as u32).to_le_bytes());
+    bytes.extend_from_slice(&level_x.to_le_bytes());
+    bytes.extend_from_slice(&level_y.to_le_bytes());
+    bytes.extend_from_slice(&tile_x.to_le_bytes());
+    bytes.extend_from_slice(&tile_y.to_le_bytes());
+    bytes.extend_from_slice(&(origin_x as u32).to_le_bytes());
+    bytes.extend_from_slice(&(origin_y as u32).to_le_bytes());
+
+    if width == 0 || height == 0 {
+        return bytes;
+    }
+
+    let lod_pixels = resize_spectrogram_tile(
+        spectrogram,
+        lod_width,
+        lod_height,
+        origin_x,
+        origin_y,
+        width,
+        height,
+    );
+    let color_count = colormap_rgba.len() / 4;
+    for row in lod_pixels.chunks_exact(width).rev() {
+        for value in row {
+            let color_index = if color_count <= 1 {
+                0
+            } else {
+                (value.0 as usize * (color_count - 1) + u16::MAX as usize / 2) / u16::MAX as usize
+            };
+            let offset = color_index * 4;
+            bytes.extend_from_slice(&colormap_rgba[offset..offset + 4]);
+        }
+    }
+    bytes
+}
+
+fn resize_spectrogram_tile(
+    spectrogram: ArrayView2<'_, u16>,
+    lod_width: usize,
+    lod_height: usize,
+    start_x: usize,
+    start_y: usize,
+    width: usize,
+    height: usize,
+) -> Vec<pixels::U16> {
+    static RESIZE_OPTIONS: LazyLock<ResizeOptions> = LazyLock::new(|| {
+        ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3))
+    });
+    thread_local! {
+        static RESIZER: RefCell<Resizer> = RefCell::new(Resizer::new());
+    }
+
+    let src_width = spectrogram.shape()[1];
+    let src_height = spectrogram.shape()[0];
+    let src_pixels = as_u16_pixels(
+        spectrogram
+            .as_slice()
+            .expect("spectrogram must be contiguous"),
+    );
+    let src_image = TypedImageRef::new(src_width as u32, src_height as u32, src_pixels).unwrap();
+    let mut dst_pixels = vec![pixels::U16::new(0); width * height];
+    let mut dst_image =
+        TypedImage::<pixels::U16>::from_pixels_slice(width as u32, height as u32, &mut dst_pixels)
+            .unwrap();
+    let left = start_x as f64 * src_width as f64 / lod_width as f64;
+    let top = start_y as f64 * src_height as f64 / lod_height as f64;
+    let right = (start_x + width) as f64 * src_width as f64 / lod_width as f64;
+    let bottom = (start_y + height) as f64 * src_height as f64 / lod_height as f64;
+    let options = RESIZE_OPTIONS.crop(left, top, right - left, bottom - top);
+    RESIZER.with_borrow_mut(|resizer| {
+        resizer
+            .resize_typed(&src_image, &mut dst_image, &options)
+            .unwrap();
+    });
+    dst_pixels
+}
+
+fn as_u16_pixels(values: &[u16]) -> &[pixels::U16] {
+    // fast_image_resize::pixels::U16 is a repr(C) single-u16 pixel wrapper.
+    debug_assert_eq!(size_of::<u16>(), size_of::<pixels::U16>());
+    debug_assert_eq!(align_of::<u16>(), align_of::<pixels::U16>());
+    unsafe { std::slice::from_raw_parts(values.as_ptr().cast(), values.len()) }
+}
+
+#[cfg(test)]
+mod tests {
+    use ndarray::array;
+
+    use super::*;
+
+    #[test]
+    fn waveform_tile_contains_min_max_and_representative() {
+        let bytes = encode_waveform_tile(&[-1.0, 0.0, 0.5, 1.0], 3, 1, 0);
+        let view = bytes.as_slice();
+        assert_eq!(u32::from_le_bytes(view[8..12].try_into().unwrap()), 2);
+        assert_eq!(f32::from_le_bytes(view[24..28].try_into().unwrap()), -1.0);
+        assert_eq!(f32::from_le_bytes(view[28..32].try_into().unwrap()), 0.0);
+        assert_eq!(f32::from_le_bytes(view[32..36].try_into().unwrap()), -0.5);
+    }
+
+    #[test]
+    fn waveform_tile_handles_partial_last_tile() {
+        let wav = vec![0.25; WAVEFORM_TILE_BINS + 1];
+        let bytes = encode_waveform_tile(&wav, 1, 0, 1);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 1);
+    }
+
+    #[test]
+    fn waveform_tile_uses_large_bin_stats() {
+        let wav: Vec<f32> = (0..64).map(|i| i as f32 - 32.0).collect();
+        let bytes = encode_waveform_tile(&wav, 1, 6, 0);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 1);
+        assert_eq!(f32::from_le_bytes(bytes[24..28].try_into().unwrap()), -32.0);
+        assert_eq!(f32::from_le_bytes(bytes[28..32].try_into().unwrap()), 31.0);
+        assert_eq!(f32::from_le_bytes(bytes[32..36].try_into().unwrap()), -0.5);
+    }
+
+    #[test]
+    fn spectrogram_tile_handles_lod_and_edges() {
+        let spec = array![[0u16, u16::MAX], [u16::MAX, u16::MAX]];
+        let colors = [0, 0, 0, 255, 255, 0, 0, 255];
+        let bytes = encode_spectrogram_tile(spec.view(), &colors, 4, 1, 1, 0, 0);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 1);
+        assert_eq!(u32::from_le_bytes(bytes[12..16].try_into().unwrap()), 1);
+        assert_eq!(&bytes[40..], &[255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn spectrogram_tile_handles_partial_last_tile() {
+        let spec = ndarray::Array2::from_elem(
+            (SPECTROGRAM_TILE_SIZE + 1, SPECTROGRAM_TILE_SIZE + 1),
+            u16::MAX,
+        );
+        let colors = [0, 0, 0, 255, 255, 0, 0, 255];
+        let bytes = encode_spectrogram_tile(spec.view(), &colors, 4, 0, 0, 1, 1);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 5);
+        assert_eq!(u32::from_le_bytes(bytes[12..16].try_into().unwrap()), 5);
+        assert_eq!(u32::from_le_bytes(bytes[32..36].try_into().unwrap()), 508);
+        assert_eq!(u32::from_le_bytes(bytes[36..40].try_into().unwrap()), 508);
+        assert!(
+            bytes[40..]
+                .chunks_exact(4)
+                .all(|pixel| pixel == [255, 0, 0, 255])
+        );
+    }
+
+    #[test]
+    fn spectrogram_tile_outputs_high_frequencies_first() {
+        let spec = array![[0u16], [u16::MAX]];
+        let colors = [0, 0, 0, 255, 255, 0, 0, 255];
+        let bytes = encode_spectrogram_tile(spec.view(), &colors, 4, 0, 0, 0, 0);
+        assert_eq!(&bytes[40..44], &[255, 0, 0, 255]);
+        assert_eq!(&bytes[44..48], &[0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn cache_evicts_and_invalidates() {
+        let mut cache = RenderTileCache::with_budget(24 + WAVEFORM_TILE_BINS * 12);
+        let wav = vec![0.0; WAVEFORM_TILE_BINS * 2];
+        let revision = cache.waveform_revision;
+        let bytes_0 = encode_waveform_tile(&wav, revision, 0, 0);
+        let bytes_1 = encode_waveform_tile(&wav, revision, 0, 1);
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes_0);
+        cache.store_waveform_tile(1, 0, revision, 0, 1, bytes_1);
+        assert_eq!(cache.entries.len(), 1);
+        assert!(cache.bytes <= cache.budget_bytes);
+        cache.invalidate_waveform();
+        assert_eq!(cache.entries.len(), 0);
+        assert!(cache.waveform_revision > revision);
+    }
+
+    #[test]
+    fn cache_replaces_duplicate_waveform_tile_without_double_counting() {
+        let mut cache = RenderTileCache::with_budget(usize::MAX);
+        let revision = cache.waveform_revision;
+        let wav = vec![0.0; WAVEFORM_TILE_BINS];
+        let bytes = encode_waveform_tile(&wav, revision, 0, 0);
+
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes.clone());
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes.clone());
+
+        assert_eq!(cache.entries.len(), 1);
+        assert_eq!(cache.bytes, bytes.len());
+    }
+
+    #[test]
+    fn cache_hit_updates_waveform_tile_lru_order() {
+        let wav = vec![0.0; WAVEFORM_TILE_BINS * 3];
+        let tile_bytes = encode_waveform_tile(&wav, 1, 0, 0).len();
+        let mut cache = RenderTileCache::with_budget(tile_bytes * 2);
+        let revision = cache.waveform_revision;
+
+        for tile_index in 0..2 {
+            let bytes = encode_waveform_tile(&wav, revision, 0, tile_index);
+            cache.store_waveform_tile(1, 0, revision, 0, tile_index, bytes);
+        }
+
+        assert!(cache.cached_waveform_tile(1, 0, 0, 0).1.is_some());
+
+        let bytes = encode_waveform_tile(&wav, revision, 0, 2);
+        cache.store_waveform_tile(1, 0, revision, 0, 2, bytes);
+
+        assert!(cache.cached_waveform_tile(1, 0, 0, 0).1.is_some());
+        assert!(cache.cached_waveform_tile(1, 0, 0, 1).1.is_none());
+        assert!(cache.cached_waveform_tile(1, 0, 0, 2).1.is_some());
+    }
+
+    #[test]
+    fn cache_drops_waveform_tile_from_stale_revision() {
+        let mut cache = RenderTileCache::default();
+        let revision = cache.waveform_revision;
+        let wav = vec![0.0; WAVEFORM_TILE_BINS];
+        let bytes = encode_waveform_tile(&wav, revision, 0, 0);
+
+        cache.invalidate_waveform();
+        cache.store_waveform_tile(1, 0, revision, 0, 0, bytes);
+
+        assert_eq!(cache.entries.len(), 0);
+    }
+
+    #[test]
+    fn metadata_reports_clipped_waveform_and_dimensions() {
+        let cache = RenderTileCache::default();
+        let metadata = cache.metadata(&[0.0, 1.0], 48_000, 2.0 / 48_000.0, true, Some((2, 3)));
+        assert!(metadata.is_clipped);
+        assert_eq!(metadata.sample_count, 2);
+        assert_eq!(metadata.spectrogram_height, 2);
+        assert_eq!(metadata.spectrogram_width, 3);
+    }
+}

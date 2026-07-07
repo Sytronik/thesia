@@ -100,23 +100,6 @@ pub struct ConstsAndUserSettings {
     pub user_settings: UserSettings,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Spectrogram<'a> {
-    pub arr: &'a [u16],
-    pub width: u32,
-    pub height: u32,
-    pub track_sec: f64,
-}
-
-#[derive(Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WavInfo {
-    pub wav: Vec<f32>,
-    pub sr: u32,
-    pub is_clipped: bool,
-}
-
 #[inline]
 pub fn format_id_ch(id: usize, ch: usize) -> String {
     format!("{}_{}", id, ch)

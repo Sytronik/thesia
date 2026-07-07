@@ -1,5 +1,72 @@
 import { invoke } from "@tauri-apps/api/core";
 
+const WAVEFORM_HEADER_BYTES = 24;
+const SPECTROGRAM_HEADER_BYTES = 40;
+
+export type WaveformTile = {
+  revision: number;
+  binCount: number;
+  samplesPerBin: number;
+  tileIndex: number;
+  min: Float32Array;
+  max: Float32Array;
+  representative: Float32Array;
+};
+
+export type SpectrogramTile = {
+  revision: number;
+  width: number;
+  height: number;
+  levelX: number;
+  levelY: number;
+  tileX: number;
+  tileY: number;
+  originX: number;
+  originY: number;
+  rgba: Uint8Array;
+};
+
+const asArrayBuffer = (value: ArrayBuffer | Uint8Array) => {
+  if (value instanceof ArrayBuffer) return value;
+  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
+};
+
+function decodeWaveformTile(value: ArrayBuffer | Uint8Array): WaveformTile {
+  const buffer = asArrayBuffer(value);
+  const view = new DataView(buffer);
+  const revision = Number(view.getBigUint64(0, true));
+  const binCount = view.getUint32(8, true);
+  const samplesPerBin = view.getUint32(12, true);
+  const tileIndex = view.getUint32(16, true);
+  const min = new Float32Array(binCount);
+  const max = new Float32Array(binCount);
+  const representative = new Float32Array(binCount);
+  for (let i = 0; i < binCount; i += 1) {
+    const offset = WAVEFORM_HEADER_BYTES + i * 12;
+    min[i] = view.getFloat32(offset, true);
+    max[i] = view.getFloat32(offset + 4, true);
+    representative[i] = view.getFloat32(offset + 8, true);
+  }
+  return { revision, binCount, samplesPerBin, tileIndex, min, max, representative };
+}
+
+function decodeSpectrogramTile(value: ArrayBuffer | Uint8Array): SpectrogramTile {
+  const buffer = asArrayBuffer(value);
+  const view = new DataView(buffer);
+  return {
+    revision: Number(view.getBigUint64(0, true)),
+    width: view.getUint32(8, true),
+    height: view.getUint32(12, true),
+    levelX: view.getUint32(16, true),
+    levelY: view.getUint32(20, true),
+    tileX: view.getUint32(24, true),
+    tileY: view.getUint32(28, true),
+    originX: view.getUint32(32, true),
+    originY: view.getUint32(36, true),
+    rgba: new Uint8Array(buffer, SPECTROGRAM_HEADER_BYTES),
+  };
+}
+
 export async function getChannelCounts(trackId: number): Promise<1 | 2> {
   const ch = await invoke<number>("get_channel_counts", { trackId });
   if (!(ch === 1 || ch === 2)) console.error(`No. of channel ${ch} not supported!`);
@@ -44,13 +111,6 @@ export interface SpecSetting {
   freqScale: FreqScale;
 }
 
-export interface Spectrogram {
-  arr: Uint16Array;
-  width: number;
-  height: number;
-  trackSec: number;
-}
-
 export interface UserSettings {
   specSetting: SpecSetting;
   blend: number;
@@ -81,23 +141,18 @@ export interface ConstsAndUserSettings {
 export type IdChannel = string;
 export type IdChArr = IdChannel[];
 
-export type WavInfo = {
-  wavArr: Float32Array;
-  sr: number;
+export type AudioRenderMetadata = {
+  waveformRevision: number;
+  spectrogramRevision: number;
+  sampleRate: number;
+  sampleCount: number;
+  trackSec: number;
   isClipped: boolean;
+  spectrogramWidth: number;
+  spectrogramHeight: number;
+  waveformTileBins: number;
+  spectrogramTileSize: number;
 };
-
-export async function getWav(idChStr: string): Promise<WavInfo | null> {
-  const wavInfo = await invoke<{ wav: number[]; sr: number; isClipped: boolean } | null>(
-    "get_wav",
-    { idChStr },
-  );
-  if (!wavInfo) return null;
-
-  const { wav, sr, isClipped } = wavInfo;
-  const wavArr = new Float32Array(wav);
-  return { wavArr, sr, isClipped };
-}
 
 export async function getLimiterGainSeq(trackId: number): Promise<Float32Array | null> {
   const gainSeq = await invoke<number[] | null>("get_limiter_gain", { trackId });
@@ -120,8 +175,8 @@ export async function getGuardClipStats(trackId: number): Promise<[number, strin
   return invoke<[number, string][]>("get_guard_clip_stats", { trackId });
 }
 
-export async function init(colormapLength: number): Promise<ConstsAndUserSettings> {
-  return invoke<ConstsAndUserSettings>("init", { colormapLength });
+export async function init(colormapRgba: Uint8Array): Promise<ConstsAndUserSettings> {
+  return invoke<ConstsAndUserSettings>("init", { colormapRgba: Array.from(colormapRgba) });
 }
 
 export async function setUserSettings(settings: UserSettingsOptionals): Promise<void> {
@@ -176,20 +231,34 @@ export async function setCommonGuardClipping(mode: GuardClippingMode): Promise<v
   return invoke<void>("set_common_guard_clipping", { mode });
 }
 
-export async function getSpectrogram(idChStr: string): Promise<Spectrogram | null> {
-  const out = await invoke<{
-    arr: number[];
-    width: number;
-    height: number;
-    trackSec: number;
-  } | null>("get_spectrogram", { idChStr });
-  if (!out) return null;
-  return {
-    arr: new Uint16Array(out.arr),
-    width: out.width,
-    height: out.height,
-    trackSec: out.trackSec,
-  };
+export async function getAudioRenderMetadata(idChStr: string): Promise<AudioRenderMetadata | null> {
+  return invoke<AudioRenderMetadata | null>("get_audio_render_metadata", { idChStr });
+}
+
+export async function getWaveformTile(
+  idChStr: string,
+  level: number,
+  tileIndex: number,
+): Promise<WaveformTile> {
+  const tile = await invoke<ArrayBuffer>("get_waveform_tile", { idChStr, level, tileIndex });
+  return decodeWaveformTile(tile);
+}
+
+export async function getSpectrogramTile(
+  idChStr: string,
+  levelX: number,
+  levelY: number,
+  tileX: number,
+  tileY: number,
+): Promise<SpectrogramTile> {
+  const tile = await invoke<ArrayBuffer>("get_spectrogram_tile", {
+    idChStr,
+    levelX,
+    levelY,
+    tileX,
+    tileY,
+  });
+  return decodeSpectrogramTile(tile);
 }
 
 export async function findIdByPath(path: string): Promise<number> {

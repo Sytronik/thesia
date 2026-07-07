@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use parking_lot::RwLock;
 use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent, ipc::Response};
 #[cfg(target_os = "macos")]
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
@@ -35,6 +35,8 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 static TRACK_LIST: LazyLock<RwLock<TrackList>> = LazyLock::new(|| RwLock::new(TrackList::new()));
 static TM: LazyLock<RwLock<TrackManager>> = LazyLock::new(|| RwLock::new(TrackManager::new()));
+static RENDER_TILE_CACHE: LazyLock<RwLock<RenderTileCache>> =
+    LazyLock::new(|| RwLock::new(RenderTileCache::default()));
 
 // TODO: prevent making mistake not to update the values below. Maybe sth like auto-sync?
 static SPEC_SETTING: RwLock<SpecSetting> = RwLock::new(SpecSetting::new());
@@ -47,7 +49,7 @@ fn is_dev() -> bool {
 }
 
 #[tauri::command]
-fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSettings> {
+fn init(app: AppHandle, colormap_rgba: Vec<u8>) -> tauri::Result<ConstsAndUserSettings> {
     let user_settings = _get_user_settings(&app)?;
     let user_settings = {
         let mut tracklist = TRACK_LIST.write();
@@ -56,7 +58,7 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSett
             *tracklist = TrackList::new();
             *tm = TrackManager::new();
         }
-        tm.set_colormap_length(&tracklist, colormap_length);
+        tm.set_colormap_length(&tracklist, (colormap_rgba.len() / 4) as u32);
         if let Some(setting) = &user_settings.spec_setting {
             tm.set_setting(&tracklist, setting);
         }
@@ -78,6 +80,11 @@ fn init(app: AppHandle, colormap_length: u32) -> tauri::Result<ConstsAndUserSett
             common_normalize: serde_json::to_value(tracklist.common_normalize).unwrap(),
         }
     };
+    {
+        let mut cache = RENDER_TILE_CACHE.write();
+        cache.invalidate_all();
+        cache.set_colormap(colormap_rgba);
+    }
     SPEC_SETTING.write().clone_from(&user_settings.spec_setting);
 
     let settings_json = json!(user_settings);
@@ -182,6 +189,7 @@ async fn add_tracks(track_ids: Vec<u32>, paths: Vec<String>) -> Vec<u32> {
             let tracklist = TRACK_LIST.read();
             TM.write().add_tracks(&tracklist, &added_ids);
         }
+        RENDER_TILE_CACHE.write().invalidate_all();
         added_ids.iter().map(|&x| x as u32).collect()
     })
     .await
@@ -196,6 +204,9 @@ async fn reload_tracks(track_ids: Vec<u32>) -> Vec<u32> {
         let (reloaded_ids, no_err_ids) = TRACK_LIST.write().reload_tracks(&track_ids);
         let tracklist = TRACK_LIST.read();
         TM.write().reload_tracks(&tracklist, &reloaded_ids);
+        if !reloaded_ids.is_empty() {
+            RENDER_TILE_CACHE.write().invalidate_all();
+        }
         no_err_ids.into_iter().map(|x| x as u32).collect()
     })
     .await
@@ -207,6 +218,7 @@ async fn remove_tracks(track_ids: Vec<u32>) {
 
     let track_ids: Vec<_> = track_ids.into_iter().map(|x| x as usize).collect();
     let removed_id_ch_tuples = TRACK_LIST.write().remove_tracks(&track_ids);
+    RENDER_TILE_CACHE.write().invalidate_all();
     rayon::spawn_fifo(move || {
         let tracklist = TRACK_LIST.read();
         TM.write().remove_tracks(&tracklist, &removed_id_ch_tuples);
@@ -228,6 +240,9 @@ async fn apply_track_list_changes() -> Vec<String> {
         .iter()
         .map(|&(id, ch)| format_id_ch(id, ch))
         .collect();
+    if !id_ch_tuples.is_empty() {
+        RENDER_TILE_CACHE.write().invalidate_spectrogram();
+    }
     player::send(PlayerCommand::SetSr(sr)).await;
     id_ch_strs
 }
@@ -247,6 +262,7 @@ async fn set_dB_range(dB_range: f64) {
         TM.write().set_dB_range(&tracklist, dB_range as f32)
     })
     .await;
+    RENDER_TILE_CACHE.write().invalidate_spectrogram();
 }
 
 #[tauri::command]
@@ -265,6 +281,7 @@ async fn set_spec_setting(spec_setting: SpecSetting) {
         TM.write().set_setting(&tracklist, &spec_setting)
     })
     .await;
+    RENDER_TILE_CACHE.write().invalidate_spectrogram();
 }
 
 #[tauri::command]
@@ -280,6 +297,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
         TM.write().update_all_specs_mipmaps(&tracklist);
     })
     .await;
+    RENDER_TILE_CACHE.write().invalidate_all();
     _refresh_track_player().await;
 }
 
@@ -296,49 +314,78 @@ async fn set_common_normalize(target: NormalizeTarget) {
         TM.write().update_all_specs_mipmaps(&tracklist);
     })
     .await;
+    RENDER_TILE_CACHE.write().invalidate_all();
     _refresh_track_player().await;
 }
 
 #[tauri::command]
-async fn get_spectrogram(id_ch_str: String) -> tauri::Result<serde_json::Value> {
+fn get_audio_render_metadata(id_ch_str: String) -> tauri::Result<Option<AudioRenderMetadata>> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-
-    let track_sec = {
-        let tracklist = TRACK_LIST.read();
-        match tracklist.get(id) {
-            Some(track) => track.sec(),
-            None => return Ok(serde_json::Value::Null),
-        }
+    let tracklist = TRACK_LIST.read();
+    let Some(track) = tracklist.get(id) else {
+        return Ok(None);
     };
-
+    let (wav, is_clipped) = track.channel_for_drawing(ch);
     let tm = TM.read();
-    tm.get_spectrogram((id, ch))
-        .map_or(Ok(serde_json::Value::Null), |spec| {
-            let (height, width) = (spec.shape()[0], spec.shape()[1]);
-            let arr = spec.as_slice().unwrap();
-            Ok(json!(Spectrogram {
-                arr,
-                width: width as u32,
-                height: height as u32,
-                track_sec,
-            }))
-        })
+    let spectrogram_shape = tm
+        .get_spectrogram((id, ch))
+        .map(|spectrogram| (spectrogram.shape()[0], spectrogram.shape()[1]));
+    Ok(Some(RENDER_TILE_CACHE.read().metadata(
+        wav.as_slice().unwrap(),
+        track.sr(),
+        track.sec(),
+        is_clipped,
+        spectrogram_shape,
+    )))
 }
 
 #[tauri::command]
-async fn get_wav(id_ch_str: String) -> tauri::Result<WavInfo> {
+fn get_waveform_tile(id_ch_str: String, level: u32, tile_index: u32) -> tauri::Result<Response> {
     let (id, ch) = parse_id_ch_str(&id_ch_str)?;
-    match TRACK_LIST.read().get(id) {
-        Some(track) => {
-            let (wav, is_clipped) = track.channel_for_drawing(ch);
-            Ok(WavInfo {
-                wav: wav.to_vec(),
-                sr: track.sr(),
-                is_clipped,
-            })
-        }
-        None => Ok(Default::default()),
+    let tracklist = TRACK_LIST.read();
+    let track = tracklist
+        .get(id)
+        .ok_or_else(|| anyhow::anyhow!("Track {id} does not exist"))?;
+    let (wav, _) = track.channel_for_drawing(ch);
+    let (revision, cached) = RENDER_TILE_CACHE
+        .read()
+        .cached_waveform_tile(id, ch, level, tile_index);
+    if let Some(bytes) = cached {
+        return Ok(Response::new(bytes));
     }
+
+    let bytes = core::encode_waveform_tile(wav.as_slice().unwrap(), revision, level, tile_index);
+    RENDER_TILE_CACHE.write().store_waveform_tile(
+        id,
+        ch,
+        revision,
+        level,
+        tile_index,
+        bytes.clone(),
+    );
+    Ok(Response::new(bytes))
+}
+
+#[tauri::command]
+fn get_spectrogram_tile(
+    id_ch_str: String,
+    level_x: u32,
+    level_y: u32,
+    tile_x: u32,
+    tile_y: u32,
+) -> tauri::Result<Response> {
+    let (id, ch) = parse_id_ch_str(&id_ch_str)?;
+    let tm = TM.read();
+    let spectrogram = tm
+        .get_spectrogram((id, ch))
+        .ok_or_else(|| anyhow::anyhow!("Spectrogram {id_ch_str} does not exist"))?;
+    Ok(Response::new(RENDER_TILE_CACHE.read().spectrogram_tile(
+        spectrogram,
+        level_x,
+        level_y,
+        tile_x,
+        tile_y,
+    )))
 }
 
 #[tauri::command]
@@ -724,8 +771,9 @@ pub fn run() {
             set_common_guard_clipping,
             get_common_normalize,
             set_common_normalize,
-            get_spectrogram,
-            get_wav,
+            get_audio_render_metadata,
+            get_waveform_tile,
+            get_spectrogram_tile,
             find_id_by_path,
             get_limiter_gain,
             get_max_dB,

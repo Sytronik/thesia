@@ -1,0 +1,853 @@
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Application, Container, Graphics, Rectangle, Sprite, type Texture } from "pixi.js";
+import useEvent from "react-use-event-hook";
+
+import BackendAPI, { AudioRenderMetadata, FreqScale, type WaveformTile, WasmAPI } from "../api";
+import { DevicePixelRatioContext } from "../contexts";
+import { GpuTextureCache, WaveformTileCache } from "../lib/audio-render-tiles";
+import {
+  clamp,
+  destroyPixiChildren,
+  renderWaveformTiles,
+  waveformKey,
+  waveformLevel,
+  waveformTileRange,
+  WAV_CLIPPING_COLOR,
+  WAV_COLOR,
+} from "../lib/waveform-renderer";
+import {
+  TIME_CANVAS_HEIGHT,
+  TINY_MARGIN,
+  VERTICAL_AXIS_PADDING,
+} from "../prototypes/constants/tracks";
+import styles from "./AudioTrackViewport.module.scss";
+
+const GPU_TEXTURE_BUDGET_BYTES = 128 * 1024 * 1024;
+const WAVEFORM_TILE_BUDGET_BYTES = 32 * 1024 * 1024;
+const HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
+const METADATA_RETRY_LIMIT = 20;
+const METADATA_RETRY_DELAY_MS = 100;
+const LOADING_INDICATOR_DELAY_MS = 500;
+const WAVEFORM_LEVEL_CROSSFADE_MS = 200;
+const equalPowerFade = (value: number) => ({
+  previous: Math.cos((value * Math.PI) / 2),
+  current: Math.sin((value * Math.PI) / 2),
+});
+
+export type AudioTrackViewportRow = {
+  idChStr: string;
+  trackId: number;
+  top: number;
+  hidden: boolean;
+};
+
+export type AudioTrackViewportRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type Props = {
+  rows: AudioTrackViewportRow[];
+  getViewportRect: () => AudioTrackViewportRect | null;
+  width: number;
+  rowHeight: number;
+  imageHeight: number;
+  getScrollTop: () => number;
+  startSec: number;
+  pxPerSec: number;
+  maxTrackHz: number;
+  freqScale: FreqScale;
+  hzRange: [number, number];
+  ampRange: [number, number];
+  blend: number;
+  selectedTrackIds: number[];
+  isLoading: boolean;
+  isPlaying: boolean;
+  getPlayheadSec: () => number | null;
+  registerRenderRequest: (requestRender: (() => void) | null) => void;
+  refreshToken: string;
+  layoutRevision: number;
+};
+
+type TooltipInfo = { left: number; top: number; lines: string[] };
+type WaveformLevelState = { level: number; previousLevel: number | null; startedAt: number };
+type WaveformFadeSprites = {
+  previous?: Sprite;
+  current?: Sprite;
+  baseAlpha: number;
+  startedAt: number;
+};
+
+const spectrogramKey = (
+  idChStr: string,
+  revision: number,
+  levelX: number,
+  levelY: number,
+  tileX: number,
+  tileY: number,
+) => `s:${idChStr}:${revision}:${levelX}:${levelY}:${tileX}:${tileY}`;
+const log2Level = (scale: number) => Math.max(0, Math.floor(Math.log2(Math.max(scale, 1))));
+
+function AudioTrackViewport(props: Props) {
+  const {
+    rows,
+    getViewportRect,
+    width,
+    rowHeight,
+    imageHeight,
+    getScrollTop,
+    startSec,
+    pxPerSec,
+    maxTrackHz,
+    freqScale,
+    hzRange,
+    ampRange,
+    blend,
+    isLoading,
+    isPlaying,
+    registerRenderRequest,
+    refreshToken,
+    layoutRevision,
+  } = props;
+  const devicePixelRatio = useContext(DevicePixelRatioContext);
+  const host = useRef<HTMLDivElement>(null);
+  const app = useRef<Application | null>(null);
+  const rowLayer = useRef<Container | null>(null);
+  const loadingLayer = useRef<Graphics | null>(null);
+  const playheadLayer = useRef<Graphics | null>(null);
+  const textureCache = useRef(new GpuTextureCache(GPU_TEXTURE_BUDGET_BYTES));
+  const waveformTiles = useRef(new WaveformTileCache(WAVEFORM_TILE_BUDGET_BYTES));
+  const waveformLevels = useRef(new Map<string, WaveformLevelState>());
+  const waveformFadeSprites = useRef(new Map<string, WaveformFadeSprites>());
+  const waveformCompositeTextures = useRef(new Set<Texture>());
+  const pending = useRef(new Set<string>());
+  const prevBounds = useRef<{ width: number; height: number } | null>(null);
+  const metadataRef = useRef(new Map<string, AudioRenderMetadata>());
+  const metadataRequestRevision = useRef(0);
+  const metadataRetryCount = useRef(0);
+  const tileRequestRevision = useRef(0);
+  const renderRequestId = useRef<number | null>(null);
+  const renderFrameRef = useRef<FrameRequestCallback | null>(null);
+  const latestProps = useRef(props);
+  const visibleRowsKey = useRef("");
+  const [metadata, setMetadata] = useState(new Map<string, AudioRenderMetadata>());
+  const [sceneRevision, setSceneRevision] = useState(0);
+  const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+
+  useLayoutEffect(() => {
+    latestProps.current = props;
+  }, [props]);
+  useEffect(() => {
+    metadataRef.current = metadata;
+  }, [metadata]);
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setShowLoadingIndicator(isLoading),
+      isLoading ? LOADING_INDICATOR_DELAY_MS : 0,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [isLoading]);
+
+  const syncBounds = useEvent(() => {
+    const rect = getViewportRect();
+    const node = host.current;
+    const pixi = app.current;
+    if (!rect || !node) {
+      if (node) node.style.display = "none";
+      return;
+    }
+    if (rect.width <= 0 || rect.height <= 0) {
+      node.style.display = "none";
+      return;
+    }
+    node.style.display = "block";
+    node.style.left = `${rect.left}px`;
+    node.style.top = `${rect.top}px`;
+    node.style.width = `${rect.width}px`;
+    node.style.height = `${rect.height}px`;
+    if (!pixi) return;
+    if (prevBounds.current?.width !== rect.width || prevBounds.current?.height !== rect.height) {
+      pixi.renderer.resize(rect.width, rect.height, devicePixelRatio);
+      prevBounds.current = { width: rect.width, height: rect.height };
+    }
+  });
+
+  useEffect(() => {
+    let disposed = false;
+    const pixi = new Application();
+    const textures = textureCache.current;
+    const wavTiles = waveformTiles.current;
+    const requests = pending.current;
+    const compositeTextures = waveformCompositeTextures.current;
+    const initReady = pixi
+      .init({
+        width: 1,
+        height: 1,
+        preference: "webgl",
+        preferWebGLVersion: 2,
+        antialias: true,
+        autoDensity: true,
+        resolution: devicePixelRatio,
+        backgroundAlpha: 0,
+        autoStart: false,
+      })
+      .then(
+        () => true,
+        (error) => {
+          console.error("Failed to initialize audio track PIXI renderer", error);
+          return false;
+        },
+      );
+    void initReady.then((initialized) => {
+      if (!initialized || disposed || !host.current) {
+        return;
+      }
+      const rowsContainer = new Container();
+      const loading = new Graphics();
+      const playhead = new Graphics();
+      pixi.stage.addChild(rowsContainer, loading, playhead);
+      host.current.appendChild(pixi.canvas);
+      app.current = pixi;
+      rowLayer.current = rowsContainer;
+      loadingLayer.current = loading;
+      playheadLayer.current = playhead;
+      prevBounds.current = null;
+      syncBounds();
+      setSceneRevision((value) => value + 1);
+    });
+    return () => {
+      disposed = true;
+      tileRequestRevision.current += 1;
+      textures.clear();
+      wavTiles.clear();
+      requests.clear();
+      if (app.current === pixi) {
+        compositeTextures.forEach((texture) => texture.destroy(true));
+        compositeTextures.clear();
+        if (rowLayer.current) destroyPixiChildren(rowLayer.current);
+        app.current = null;
+        rowLayer.current = null;
+        loadingLayer.current = null;
+        playheadLayer.current = null;
+      }
+      void initReady.then((initialized) => {
+        if (initialized) {
+          pixi.destroy({ removeView: true }, { children: true });
+        }
+      });
+      textures.destroyRetired();
+    };
+  }, [devicePixelRatio, syncBounds]);
+
+  const rowIdsKey = useMemo(() => rows.map(({ idChStr }) => idChStr).join(","), [rows]);
+  const prevRowIdsKey = useRef<string | null>(null);
+  const refreshMetadata = useEvent(() => {
+    const rowIds = rowIdsKey === "" ? [] : rowIdsKey.split(",");
+    const requestRevision = ++metadataRequestRevision.current;
+    void Promise.all(
+      rowIds.map(
+        async (idChStr) => [idChStr, await BackendAPI.getAudioRenderMetadata(idChStr)] as const,
+      ),
+    )
+      .then((entries) => {
+        if (requestRevision !== metadataRequestRevision.current) return;
+        const next = new Map<string, AudioRenderMetadata>();
+        entries.forEach(([idChStr, value]) => {
+          if (value) next.set(idChStr, value);
+        });
+        textureCache.current.clear();
+        waveformTiles.current.clear();
+        waveformLevels.current.clear();
+        waveformFadeSprites.current.clear();
+        pending.current.clear();
+        tileRequestRevision.current += 1;
+        metadataRef.current = next;
+        setMetadata(next);
+      })
+      .catch((error) => console.error("Failed to fetch audio render metadata", error));
+  });
+  useEffect(() => {
+    const rowsChanged = prevRowIdsKey.current !== rowIdsKey;
+    prevRowIdsKey.current = rowIdsKey;
+    if (!rowsChanged && refreshToken.length === 0 && metadataRef.current.size > 0) return;
+    metadataRetryCount.current = 0;
+    refreshMetadata();
+  }, [refreshMetadata, refreshToken, rowIdsKey]);
+  useEffect(() => {
+    if (rows.length === 0 || maxTrackHz <= 0) {
+      metadataRetryCount.current = 0;
+      return;
+    }
+    const hasMissingSpectrogram = rows.some((row) => {
+      const rowMetadata = metadataRef.current.get(row.idChStr);
+      return (
+        !rowMetadata || rowMetadata.spectrogramWidth === 0 || rowMetadata.spectrogramHeight === 0
+      );
+    });
+    if (!hasMissingSpectrogram) {
+      metadataRetryCount.current = 0;
+      return;
+    }
+    if (metadataRetryCount.current >= METADATA_RETRY_LIMIT) return;
+    const timeout = window.setTimeout(() => {
+      metadataRetryCount.current += 1;
+      refreshMetadata();
+    }, METADATA_RETRY_DELAY_MS);
+    return () => window.clearTimeout(timeout);
+  }, [maxTrackHz, metadata, refreshMetadata, rows]);
+  useEffect(() => {
+    metadataRetryCount.current = 0;
+  }, [refreshToken, rowIdsKey]);
+  useEffect(
+    () => () => {
+      metadataRequestRevision.current += 1;
+    },
+    [],
+  );
+
+  const requestWaveformTile = useEvent(
+    (idChStr: string, rowMetadata: AudioRenderMetadata, level: number, tileIndex: number) => {
+      const key = waveformKey(idChStr, rowMetadata.waveformRevision, level, tileIndex);
+      if (waveformTiles.current.get(key)) return;
+      if (pending.current.has(key)) return;
+      pending.current.add(key);
+      const requestRevision = tileRequestRevision.current;
+      void BackendAPI.getWaveformTile(idChStr, level, tileIndex)
+        .then((tile) => {
+          if (requestRevision !== tileRequestRevision.current) return;
+          if (metadataRef.current.get(idChStr)?.waveformRevision !== tile.revision) return;
+          waveformTiles.current.set(key, tile);
+          setSceneRevision((revision) => revision + 1);
+        })
+        .catch((error) => console.error("Failed to fetch waveform tile", error))
+        .finally(() => pending.current.delete(key));
+    },
+  );
+
+  const requestSpectrogramTile = useEvent(
+    (
+      idChStr: string,
+      rowMetadata: AudioRenderMetadata,
+      levelX: number,
+      levelY: number,
+      tileX: number,
+      tileY: number,
+    ) => {
+      const key = spectrogramKey(
+        idChStr,
+        rowMetadata.spectrogramRevision,
+        levelX,
+        levelY,
+        tileX,
+        tileY,
+      );
+      if (textureCache.current.get(key)) {
+        return;
+      }
+      if (pending.current.has(key)) return;
+      pending.current.add(key);
+      const requestRevision = tileRequestRevision.current;
+      void BackendAPI.getSpectrogramTile(idChStr, levelX, levelY, tileX, tileY)
+        .then((tile) => {
+          if (requestRevision !== tileRequestRevision.current) return;
+          if (metadataRef.current.get(idChStr)?.spectrogramRevision !== tile.revision) return;
+          if (tile.width === 0 || tile.height === 0) return;
+          textureCache.current.set(key, tile);
+          setSceneRevision((revision) => revision + 1);
+        })
+        .catch((error) => console.error("Failed to fetch spectrogram tile", error))
+        .finally(() => pending.current.delete(key));
+    },
+  );
+
+  const getWaveformLevelState = useEvent(
+    (idChStr: string, rowMetadata: AudioRenderMetadata): WaveformLevelState => {
+      const level = waveformLevel(rowMetadata.sampleRate, pxPerSec, devicePixelRatio);
+      const previous = waveformLevels.current.get(idChStr);
+      if (!previous) {
+        const next = { level, previousLevel: null, startedAt: 0 };
+        waveformLevels.current.set(idChStr, next);
+        return next;
+      }
+      if (previous.level === level) {
+        return previous;
+      }
+
+      const next = { level, previousLevel: previous.level, startedAt: 0 };
+      waveformLevels.current.set(idChStr, next);
+      return next;
+    },
+  );
+
+  const drawSpectrogram = useEvent(
+    (
+      layer: Container,
+      row: AudioTrackViewportRow,
+      rowMetadata: AudioRenderMetadata,
+      rowY: number,
+    ) => {
+      if (
+        blend <= 0 ||
+        maxTrackHz <= 0 ||
+        rowMetadata.spectrogramWidth === 0 ||
+        rowMetadata.spectrogramHeight === 0
+      ) {
+        return;
+      }
+      const minHz = Math.max(hzRange[0], 0);
+      const maxHz = Math.min(hzRange[1], maxTrackHz);
+      if (!Number.isFinite(minHz) || !Number.isFinite(maxHz) || maxHz <= minHz) {
+        return;
+      }
+      const basePxPerSec = rowMetadata.spectrogramWidth / Math.max(rowMetadata.trackSec, 1e-8);
+      const levelX = log2Level(basePxPerSec / pxPerSec);
+      const scaleX = 2 ** levelX;
+      const tileSize = rowMetadata.spectrogramTileSize;
+      const lodWidth = Math.ceil(rowMetadata.spectrogramWidth / scaleX);
+      const maxTileX = Math.max(Math.ceil(lodWidth / tileSize) - 1, 0);
+      const sourceTop =
+        rowMetadata.spectrogramHeight -
+        WasmAPI.freqHzToPos(
+          freqScale,
+          minHz,
+          rowMetadata.spectrogramHeight,
+          0,
+          maxTrackHz,
+          maxTrackHz,
+        );
+      const sourceBottom =
+        rowMetadata.spectrogramHeight -
+        WasmAPI.freqHzToPos(
+          freqScale,
+          maxHz,
+          rowMetadata.spectrogramHeight,
+          0,
+          maxTrackHz,
+          maxTrackHz,
+        );
+      if (
+        !Number.isFinite(sourceTop) ||
+        !Number.isFinite(sourceBottom) ||
+        sourceBottom <= sourceTop
+      ) {
+        return;
+      }
+      const sourceHeight = Math.max(sourceBottom - sourceTop, 1e-8);
+      const levelY = log2Level(sourceHeight / Math.max(imageHeight, 1));
+      const scaleY = 2 ** levelY;
+      const lodHeight = Math.ceil(rowMetadata.spectrogramHeight / scaleY);
+      const maxTileY = Math.max(Math.ceil(lodHeight / tileSize) - 1, 0);
+      const firstTileX = Math.max(Math.floor((startSec * basePxPerSec) / scaleX / tileSize) - 1, 0);
+      const lastTileX = Math.min(
+        Math.floor(((startSec + width / pxPerSec) * basePxPerSec) / scaleX / tileSize) + 1,
+        maxTileX,
+      );
+      const firstTileY = Math.max(Math.floor(sourceTop / scaleY / tileSize) - 1, 0);
+      const lastTileY = Math.min(Math.floor(sourceBottom / scaleY / tileSize) + 1, maxTileY);
+      for (let tileY = firstTileY; tileY <= lastTileY; tileY += 1) {
+        for (let tileX = firstTileX; tileX <= lastTileX; tileX += 1) {
+          const key = spectrogramKey(
+            row.idChStr,
+            rowMetadata.spectrogramRevision,
+            levelX,
+            levelY,
+            tileX,
+            tileY,
+          );
+          const cachedTexture = textureCache.current.get(key);
+          if (!cachedTexture) {
+            requestSpectrogramTile(row.idChStr, rowMetadata, levelX, levelY, tileX, tileY);
+            continue;
+          }
+          const { texture, originX, originY } = cachedTexture;
+          const sprite = new Sprite(texture);
+          sprite.x = ((originX * scaleX) / basePxPerSec - startSec) * pxPerSec;
+          sprite.y =
+            rowY +
+            ((sourceBottom - (originY + texture.height) * scaleY) / sourceHeight) * imageHeight;
+          sprite.width = (texture.width * scaleX * pxPerSec) / basePxPerSec;
+          sprite.height = (texture.height * scaleY * imageHeight) / sourceHeight;
+          layer.addChild(sprite);
+        }
+      }
+    },
+  );
+
+  const getVisibleRowsKey = useEvent(() => {
+    const rect = getViewportRect();
+    if (!rect) return "";
+    const scrollTop = getScrollTop();
+    return rows
+      .filter((row) => {
+        const rowY = HEADER_HEIGHT + row.top - scrollTop + VERTICAL_AXIS_PADDING;
+        return !row.hidden && rowY + imageHeight >= -rowHeight && rowY <= rect.height + rowHeight;
+      })
+      .map(({ idChStr }) => idChStr)
+      .join(",");
+  });
+
+  const destroyWaveformCompositeTextures = useEvent(() => {
+    waveformCompositeTextures.current.forEach((texture) => texture.destroy(true));
+    waveformCompositeTextures.current.clear();
+  });
+
+  const drawLoadingIndicators = useEvent((timestamp: number) => {
+    const layer = loadingLayer.current;
+    if (!layer) return;
+    layer.clear();
+    if (!showLoadingIndicator) return;
+
+    const current = latestProps.current;
+    const rect = current.getViewportRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+    const scrollTop = current.getScrollTop();
+    const radius = Math.max(8, Math.min(25, current.imageHeight * 0.25));
+    const lineWidth = Math.max(2, Math.min(5, radius * 0.2));
+    const centerX = rect.width / 2;
+    const startAngle = (timestamp / 2000) * Math.PI * 2;
+    const endAngle = startAngle + Math.PI * 1.5;
+    let hasIndicator = false;
+
+    current.rows.forEach((row) => {
+      const rowY = HEADER_HEIGHT + row.top - scrollTop + VERTICAL_AXIS_PADDING;
+      if (row.hidden || rowY + current.imageHeight < 0 || rowY > rect.height) return;
+      const centerY = rowY + current.imageHeight / 2;
+      layer.moveTo(
+        centerX + Math.cos(startAngle) * radius,
+        centerY + Math.sin(startAngle) * radius,
+      );
+      layer.arc(centerX, centerY, radius, startAngle, endAngle);
+      hasIndicator = true;
+    });
+
+    if (hasIndicator) {
+      layer.stroke({ color: 0xffffff, width: lineWidth, alpha: 0.95 });
+    }
+  });
+
+  const redrawRows = useEvent(() => {
+    const pixi = app.current;
+    const layer = rowLayer.current;
+    const rect = getViewportRect();
+    if (!pixi || !layer || !rect) return;
+    destroyWaveformCompositeTextures();
+    destroyPixiChildren(layer);
+    waveformFadeSprites.current.clear();
+    textureCache.current.destroyRetired();
+    const scrollTop = getScrollTop();
+    layer.y = HEADER_HEIGHT - scrollTop;
+    rows.forEach((row) => {
+      const rowY = row.top + VERTICAL_AXIS_PADDING;
+      const viewportRowY = HEADER_HEIGHT + rowY - scrollTop;
+      if (
+        row.hidden ||
+        viewportRowY + imageHeight < -rowHeight ||
+        viewportRowY > rect.height + rowHeight
+      )
+        return;
+      const rowMetadata = metadata.get(row.idChStr);
+      if (!rowMetadata) return;
+      const trackStartX = clamp(-startSec * pxPerSec, 0, width);
+      const trackEndX = clamp((rowMetadata.trackSec - startSec) * pxPerSec, 0, width);
+      const trackVisibleWidth = Math.max(trackEndX - trackStartX, 0);
+      if (trackVisibleWidth <= 0) return;
+      const rowContainer = new Container();
+      const rowMask = new Graphics()
+        .rect(trackStartX, rowY, trackVisibleWidth, imageHeight)
+        .fill({ color: 0xffffff });
+      rowContainer.mask = rowMask;
+      layer.addChild(rowContainer, rowMask);
+      const background = new Graphics()
+        .rect(trackStartX, rowY, trackVisibleWidth, imageHeight)
+        .fill({ color: 0x000000 });
+      rowContainer.addChild(background);
+      drawSpectrogram(rowContainer, row, rowMetadata, rowY);
+      if (blend < 0.5) {
+        rowContainer.addChild(
+          new Graphics()
+            .rect(trackStartX, rowY, trackVisibleWidth, imageHeight)
+            .fill({ color: 0x000000, alpha: Math.max(0, 1 - 2 * blend) }),
+        );
+      }
+      const wavAlpha = blend < 0.5 ? 1 : Math.max(2 - 2 * blend, 0);
+      if (wavAlpha <= 0) return;
+      const renderWaveformTexture = (level: number, requestMissingTiles: boolean) => {
+        const wavLayer = new Container();
+        const { firstTile, lastTile } = waveformTileRange(
+          rowMetadata,
+          level,
+          startSec,
+          startSec + width / pxPerSec,
+        );
+        const loadedTiles: WaveformTile[] = [];
+        for (let tileIndex = firstTile; tileIndex <= lastTile; tileIndex += 1) {
+          const key = waveformKey(row.idChStr, rowMetadata.waveformRevision, level, tileIndex);
+          const tile = waveformTiles.current.get(key);
+          if (!tile) {
+            if (requestMissingTiles) {
+              requestWaveformTile(row.idChStr, rowMetadata, level, tileIndex);
+            }
+            continue;
+          }
+          loadedTiles.push(tile);
+        }
+        if (loadedTiles.length === 0) return null;
+        if (rowMetadata.isClipped) {
+          renderWaveformTiles({
+            layer: wavLayer,
+            tiles: loadedTiles,
+            metadata: rowMetadata,
+            y: rowY,
+            height: imageHeight,
+            startSec,
+            pxPerSec,
+            width,
+            ampRange,
+            color: WAV_CLIPPING_COLOR,
+            clampValues: false,
+            needLineBorder: true,
+            needEnvelopeBorder: true,
+          });
+        }
+        renderWaveformTiles({
+          layer: wavLayer,
+          tiles: loadedTiles,
+          metadata: rowMetadata,
+          y: rowY,
+          height: imageHeight,
+          startSec,
+          pxPerSec,
+          width,
+          ampRange,
+          color: WAV_COLOR,
+          clampValues: rowMetadata.isClipped,
+          needLineBorder: true,
+          needEnvelopeBorder: !rowMetadata.isClipped,
+        });
+        if (wavLayer.children.length === 0) return null;
+        const texture = pixi.renderer.generateTexture({
+          target: wavLayer,
+          frame: new Rectangle(0, rowY, width, imageHeight),
+          resolution: devicePixelRatio,
+        });
+        waveformCompositeTextures.current.add(texture);
+        destroyPixiChildren(wavLayer);
+        return texture;
+      };
+
+      let levelState = getWaveformLevelState(row.idChStr, rowMetadata);
+      const currentTexture = renderWaveformTexture(levelState.level, true);
+      if (currentTexture && levelState.previousLevel !== null && levelState.startedAt <= 0) {
+        levelState = { ...levelState, startedAt: performance.now() };
+        waveformLevels.current.set(row.idChStr, levelState);
+      }
+      const fadeElapsed = performance.now() - levelState.startedAt;
+      const fadeProgress =
+        levelState.previousLevel === null || levelState.startedAt <= 0
+          ? levelState.previousLevel === null
+            ? 1
+            : 0
+          : Math.min(fadeElapsed / WAVEFORM_LEVEL_CROSSFADE_MS, 1);
+      const fadeAlpha = equalPowerFade(fadeProgress);
+      const previousTexture =
+        levelState.previousLevel !== null && fadeProgress < 1
+          ? renderWaveformTexture(levelState.previousLevel, false)
+          : null;
+      if (!currentTexture && !previousTexture) return;
+
+      const fadeSprites: WaveformFadeSprites = {
+        baseAlpha: wavAlpha,
+        startedAt: levelState.startedAt,
+      };
+      if (previousTexture) {
+        const previousSprite = new Sprite(previousTexture);
+        previousSprite.y = rowY;
+        previousSprite.alpha = wavAlpha * fadeAlpha.previous;
+        rowContainer.addChild(previousSprite);
+        fadeSprites.previous = previousSprite;
+      }
+      if (currentTexture) {
+        const currentSprite = new Sprite(currentTexture);
+        currentSprite.y = rowY;
+        currentSprite.alpha = previousTexture ? wavAlpha * fadeAlpha.current : wavAlpha;
+        rowContainer.addChild(currentSprite);
+        fadeSprites.current = currentSprite;
+      }
+      if (previousTexture && currentTexture && fadeProgress < 1) {
+        waveformFadeSprites.current.set(row.idChStr, fadeSprites);
+      } else if (currentTexture && levelState.previousLevel !== null) {
+        waveformLevels.current.set(row.idChStr, { ...levelState, previousLevel: null });
+      }
+    });
+    visibleRowsKey.current = getVisibleRowsKey();
+  });
+
+  const renderFrame = useEvent((timestamp: number) => {
+    renderRequestId.current = null;
+    const pixi = app.current;
+    const playhead = playheadLayer.current;
+    const current = latestProps.current;
+    let hasWaveformFade = false;
+    if (pixi && playhead) {
+      const currentScrollTop = current.getScrollTop();
+      const rowsContainer = rowLayer.current;
+      if (rowsContainer) rowsContainer.y = HEADER_HEIGHT - currentScrollTop;
+      const nextVisibleRowsKey = getVisibleRowsKey();
+      if (nextVisibleRowsKey !== visibleRowsKey.current) redrawRows();
+      drawLoadingIndicators(timestamp);
+      waveformFadeSprites.current.forEach((fade, idChStr) => {
+        const progress = Math.min(
+          Math.max((timestamp - fade.startedAt) / WAVEFORM_LEVEL_CROSSFADE_MS, 0),
+          1,
+        );
+        const alpha = equalPowerFade(progress);
+        if (fade.previous) fade.previous.alpha = fade.baseAlpha * alpha.previous;
+        if (fade.current) fade.current.alpha = fade.baseAlpha * alpha.current;
+        if (progress < 1) {
+          hasWaveformFade = true;
+        } else {
+          waveformFadeSprites.current.delete(idChStr);
+          const state = waveformLevels.current.get(idChStr);
+          if (state) waveformLevels.current.set(idChStr, { ...state, previousLevel: null });
+        }
+      });
+      playhead.clear();
+      const sec = current.isPlaying ? current.getPlayheadSec() : null;
+      const selectedTrackId = current.selectedTrackIds[current.selectedTrackIds.length - 1];
+      if (sec !== null && selectedTrackId !== undefined) {
+        const selectedRows = current.rows.filter(({ trackId }) => trackId === selectedTrackId);
+        if (selectedRows.length > 0) {
+          const x = (sec - current.startSec) * current.pxPerSec + 0.5;
+          const top =
+            HEADER_HEIGHT + selectedRows[0].top - currentScrollTop + VERTICAL_AXIS_PADDING;
+          const bottom =
+            HEADER_HEIGHT +
+            (selectedRows[selectedRows.length - 1]?.top ?? 0) -
+            currentScrollTop +
+            VERTICAL_AXIS_PADDING +
+            current.imageHeight;
+          playhead.moveTo(x, top).lineTo(x, bottom).stroke({ color: 0xdddddd, width: 1 });
+        }
+      }
+      pixi.render();
+      textureCache.current.releaseUploadedResources();
+    }
+    if (latestProps.current.isPlaying || showLoadingIndicator || hasWaveformFade) {
+      const nextFrame = renderFrameRef.current;
+      if (nextFrame) renderRequestId.current = requestAnimationFrame(nextFrame);
+    }
+  });
+
+  useLayoutEffect(() => {
+    renderFrameRef.current = renderFrame;
+  }, [renderFrame]);
+
+  const scheduleRender = useEvent(() => {
+    if (renderRequestId.current !== null) return;
+    renderRequestId.current = requestAnimationFrame(renderFrameRef.current ?? renderFrame);
+  });
+
+  useEffect(() => {
+    registerRenderRequest(scheduleRender);
+    return () => registerRenderRequest(null);
+  }, [registerRenderRequest, scheduleRender]);
+
+  useEffect(
+    () => () => {
+      if (renderRequestId.current !== null) {
+        cancelAnimationFrame(renderRequestId.current);
+        renderRequestId.current = null;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    scheduleRender();
+  }, [isPlaying, scheduleRender, showLoadingIndicator]);
+
+  useLayoutEffect(() => {
+    syncBounds();
+    redrawRows();
+    scheduleRender();
+  }, [
+    ampRange,
+    blend,
+    devicePixelRatio,
+    drawSpectrogram,
+    freqScale,
+    hzRange,
+    imageHeight,
+    layoutRevision,
+    maxTrackHz,
+    metadata,
+    pxPerSec,
+    redrawRows,
+    rowHeight,
+    rows,
+    scheduleRender,
+    sceneRevision,
+    startSec,
+    syncBounds,
+    width,
+  ]);
+
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      const rect = getViewportRect();
+      if (!rect || event.clientX < rect.left || event.clientX > rect.left + width) {
+        setTooltip(null);
+        return;
+      }
+      const contentY = event.clientY - rect.top + getScrollTop() - HEADER_HEIGHT;
+      const row = rows.find(
+        (value) => contentY >= value.top && contentY < value.top + rowHeight && !value.hidden,
+      );
+      const y = contentY - (row?.top ?? 0) - VERTICAL_AXIS_PADDING;
+      if (!row || y < 0 || y > imageHeight) {
+        setTooltip(null);
+        return;
+      }
+      const time = clamp(startSec + (event.clientX - rect.left) / pxPerSec, 0, Infinity);
+      const hz = WasmAPI.freqPosToHz(freqScale, y, imageHeight, hzRange[0], hzRange[1], maxTrackHz);
+      setTooltip({
+        left: event.clientX,
+        top: event.clientY + 15,
+        lines: [`${time.toFixed(3)} sec`, `${hz.toFixed(0)} Hz`],
+      });
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    return () => document.removeEventListener("mousemove", onMouseMove);
+  }, [
+    freqScale,
+    getScrollTop,
+    getViewportRect,
+    hzRange,
+    imageHeight,
+    maxTrackHz,
+    pxPerSec,
+    rowHeight,
+    rows,
+    startSec,
+    width,
+  ]);
+
+  return (
+    <>
+      <div ref={host} className={styles.viewport} />
+      {tooltip ? (
+        <span className={styles.tooltip} style={{ left: tooltip.left, top: tooltip.top }}>
+          {tooltip.lines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+export default AudioTrackViewport;

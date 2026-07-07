@@ -1,7 +1,10 @@
 import React, { useRef, useCallback, useEffect, useMemo, useState, useLayoutEffect } from "react";
 import { throttle } from "throttle-debounce";
 import useRefs from "src/hooks/useRefs";
-import ImgCanvas from "src/modules/ImgCanvas";
+import AudioTrackViewport, {
+  AudioTrackViewportRect,
+  AudioTrackViewportRow,
+} from "src/modules/AudioTrackViewport";
 import SplitView from "src/modules/SplitView";
 import useAxisMarkers from "src/hooks/useAxisMarkers";
 import useEvent from "react-use-event-hook";
@@ -79,6 +82,9 @@ type MainViewerProps = {
   finishRefreshTracks: () => void;
 };
 
+const FILE_DROP_INDICATOR_HEIGHT = 10;
+const TRACK_HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
+
 function MainViewer(props: MainViewerProps) {
   const {
     trackIds,
@@ -126,28 +132,27 @@ function MainViewer(props: MainViewerProps) {
   const endSec = startSec + width / Math.max(pxPerSec, 1e-8);
 
   const [height, setHeight] = useState(250);
-  const [scrollTop, setScrollTop] = useState(0);
+  const pendingScrollTopRef = useRef<number | null>(null);
+  const pendingHeightRef = useRef<number | null>(null);
+  const logicalScrollTopRef = useRef<number | null>(null);
+  const programmaticScrollTargetRef = useRef<number | null>(null);
+  const scrollCorrectionRequestRef = useRef<number | null>(null);
+  const scrollCorrectionFrameRef = useRef(0);
+  const [viewportLayoutRevision, setViewportLayoutRevision] = useState(0);
   const imgHeight = height - 2 * VERTICAL_AXIS_PADDING;
   const [colorMapHeight, setColorMapHeight] = useState<number>(250);
   const colorBarHeight = colorMapHeight - 2 * VERTICAL_AXIS_PADDING;
 
   const splitViewElem = useRef<SplitViewHandleElement>(null);
+  const requestAudioViewportRenderRef = useRef<(() => void) | null>(null);
   const timeAxisCanvasElem = useRef<AxisCanvasHandleElement>(null);
   const selectLocatorElem = useRef<LocatorHandleElement>(null);
 
-  const [imgCanvasesRef, registerImgCanvas] = useRefs<ImgCanvasHandleElement>();
   const [trackInfosRef, registerTrackInfos] = useRefs<TrackInfoElement>();
 
   const needFollowCursor = useRef<boolean>(true);
-  const prevCursorClientY = useRef<number>(0);
-  const vScrollAnchorInfoRef = useRef<VScrollAnchorInfo>({
-    clientY: 0,
-    imgIndex: 0,
-    cursorRatioOnImg: 0.0,
-    cursorOffset: 0,
-  });
-
   const [fileDropIndex, setFileDropIndex] = useState<number>(-1);
+  const [draggingTrackId, setDraggingTrackId] = useState(-1);
 
   const trackIdsWithFileDropIndicator = useMemo(() => {
     // >=0 means a normal track, -1 means a file drop indicator
@@ -197,6 +202,54 @@ function MainViewer(props: MainViewerProps) {
   }, [onFileDragDropEvent]);
 
   const getIdChArr = useEvent(() => Array.from(trackIdChMap.values()).flat());
+  const audioViewportRows = useMemo(() => {
+    let top = 0;
+    const rows: AudioTrackViewportRow[] = [];
+    trackIdsWithFileDropIndicator.forEach((trackId) => {
+      if (trackId === -1) {
+        top += FILE_DROP_INDICATOR_HEIGHT;
+        return;
+      }
+      trackIdChMap.get(trackId)?.forEach((idChStr) => {
+        rows.push({
+          idChStr,
+          trackId,
+          top,
+          hidden: trackId === draggingTrackId,
+        });
+        top += height;
+      });
+    });
+    return rows;
+  }, [draggingTrackId, height, trackIdChMap, trackIdsWithFileDropIndicator]);
+  const getAudioViewportRect = useEvent((): AudioTrackViewportRect | null => {
+    const timeAxisRect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
+    const splitViewRect = splitViewElem.current?.getBoundingClientRect() ?? null;
+    if (!timeAxisRect || !splitViewRect) return null;
+    return {
+      left: timeAxisRect.left,
+      top: splitViewRect.top,
+      width,
+      height: splitViewRect.height,
+    };
+  });
+  const getViewportScrollTop = useEvent(() => splitViewElem.current?.scrollTop() ?? 0);
+  const getChannelRect = useEvent((idChStr: string) => {
+    const viewportRect = getAudioViewportRect();
+    const row = audioViewportRows.find((value) => value.idChStr === idChStr);
+    if (!viewportRect || !row) return new DOMRect();
+    return new DOMRect(
+      viewportRect.left,
+      viewportRect.top +
+        TIME_CANVAS_HEIGHT +
+        TINY_MARGIN +
+        row.top -
+        getViewportScrollTop() +
+        VERTICAL_AXIS_PADDING,
+      width,
+      imgHeight,
+    );
+  });
 
   const timeMarkersDrawOptions = useMemo(
     () => ({ startSec, endSec, maxSec: maxTrackSec }),
@@ -326,59 +379,81 @@ function MainViewer(props: MainViewerProps) {
     updateLensParams({ pxPerSec: newPxPerSec });
   });
 
-  const zoomHeight = useEvent((delta: number) => {
-    const newHeight = Math.round(Math.min(Math.max(height + delta, MIN_HEIGHT), MAX_HEIGHT));
-    setHeight(newHeight);
-    return newHeight;
+  const calcZoomedHeight = useEvent((baseHeight: number, delta: number) => {
+    return Math.round(Math.min(Math.max(baseHeight + delta, MIN_HEIGHT), MAX_HEIGHT));
   });
+  const updateHeightAndScrollTop = useEvent(
+    (baseHeight: number, newHeight: number, newScrollTop: number) => {
+      if (newHeight === baseHeight) return;
+      if (scrollCorrectionRequestRef.current !== null) {
+        cancelAnimationFrame(scrollCorrectionRequestRef.current);
+        scrollCorrectionRequestRef.current = null;
+      }
+      logicalScrollTopRef.current = newScrollTop;
+      programmaticScrollTargetRef.current = newScrollTop;
+      pendingHeightRef.current = newHeight;
+      pendingScrollTopRef.current = newScrollTop;
+      setHeight(newHeight);
+    },
+  );
+  const getPendingNativeScrollTop = useEvent(() => {
+    if (pendingScrollTopRef.current !== null) return pendingScrollTopRef.current;
+    if (logicalScrollTopRef.current !== null) return logicalScrollTopRef.current;
+    return splitViewElem.current?.scrollTop() ?? 0;
+  });
+  const getRowTopAtHeight = useEvent(
+    (row: AudioTrackViewportRow, rowIndex: number, rowHeight: number) => {
+      return row.top + rowIndex * (rowHeight - height);
+    },
+  );
 
-  const updateVScrollAnchorInfo = useEvent((_cursorClientY?: number) => {
-    let i = 0;
-    let prevBottom = 0;
-    let cursorClientY = vScrollAnchorInfoRef.current.clientY;
-    if (_cursorClientY !== undefined) {
-      vScrollAnchorInfoRef.current.clientY = _cursorClientY;
-      cursorClientY = _cursorClientY;
-    }
-    trackIds.forEach((id) =>
-      trackIdChMap.get(id)?.forEach((idChStr) => {
-        const imgClientRect = imgCanvasesRef.current[idChStr]?.getBoundingClientRect();
-        if (imgClientRect === undefined) return;
-        const bottom = imgClientRect.y + imgClientRect.height;
-        if (prevBottom <= cursorClientY && cursorClientY < imgClientRect.y) {
-          vScrollAnchorInfoRef.current.imgIndex = i;
-          vScrollAnchorInfoRef.current.cursorRatioOnImg = 0;
-          vScrollAnchorInfoRef.current.cursorOffset = cursorClientY - imgClientRect.y;
-        } else if (imgClientRect.y <= cursorClientY && cursorClientY < bottom) {
-          vScrollAnchorInfoRef.current.imgIndex = i;
-          vScrollAnchorInfoRef.current.cursorRatioOnImg =
-            (cursorClientY - imgClientRect.y) / imgClientRect.height;
-          vScrollAnchorInfoRef.current.cursorOffset = 0;
+  const calcScrollTopAtCursor = useEvent(
+    (baseHeight: number, newHeight: number, cursorClientY: number) => {
+      const splitView = splitViewElem.current;
+      const splitViewRect = splitView?.getBoundingClientRect();
+      if (!splitView || !splitViewRect || audioViewportRows.length === 0) return null;
+
+      const cursorY = cursorClientY - splitViewRect.y;
+      const scrollTopForZoom = getPendingNativeScrollTop();
+      const contentY = scrollTopForZoom + cursorY - TRACK_HEADER_HEIGHT;
+      const lastRowIndex = audioViewportRows.length - 1;
+      let newContentY = 0;
+      let foundAnchor = false;
+
+      for (let rowIndex = 0; rowIndex < audioViewportRows.length; rowIndex += 1) {
+        const row = audioViewportRows[rowIndex];
+        const rowTop = getRowTopAtHeight(row, rowIndex, baseHeight);
+        const newRowTop = getRowTopAtHeight(row, rowIndex, newHeight);
+        if (contentY < rowTop) {
+          newContentY = newRowTop + (contentY - rowTop);
+          foundAnchor = true;
+          break;
         }
-        i += 1;
-        prevBottom = bottom;
-      }),
-    );
-    if (prevBottom <= cursorClientY) {
-      vScrollAnchorInfoRef.current.imgIndex = i - 1;
-      vScrollAnchorInfoRef.current.cursorRatioOnImg = 1;
-      vScrollAnchorInfoRef.current.cursorOffset = cursorClientY - prevBottom;
-    }
-  });
+        if (contentY <= rowTop + baseHeight) {
+          const offsetRatio = (contentY - rowTop) / Math.max(baseHeight, 1e-8);
+          newContentY = newRowTop + offsetRatio * newHeight;
+          foundAnchor = true;
+          break;
+        }
+      }
 
-  const zoomHeightAtCursor = useEvent((delta, cursorY) => {
-    const newHeight = zoomHeight((delta * height) / 1000);
-    const { imgIndex, cursorRatioOnImg, cursorOffset } = vScrollAnchorInfoRef.current;
-    // TODO: remove hard-coded 2
-    setScrollTop(
-      imgIndex * (newHeight + 2) +
-        VERTICAL_AXIS_PADDING +
-        cursorRatioOnImg * (newHeight - VERTICAL_AXIS_PADDING * 2) +
-        cursorOffset -
-        cursorY,
-    );
+      if (!foundAnchor) {
+        const row = audioViewportRows[lastRowIndex];
+        const rowBottom = getRowTopAtHeight(row, lastRowIndex, baseHeight) + baseHeight;
+        const newRowTop = getRowTopAtHeight(row, lastRowIndex, newHeight);
+        newContentY = newRowTop + newHeight + (contentY - rowBottom);
+      }
 
-    if (!splitViewElem.current?.hasScrollBar()) updateVScrollAnchorInfo();
+      return TRACK_HEADER_HEIGHT + newContentY - cursorY;
+    },
+  );
+
+  const zoomHeightAtCursor = useEvent((delta: number, cursorClientY: number) => {
+    const baseHeight = pendingHeightRef.current ?? height;
+    const newHeight = calcZoomedHeight(baseHeight, (delta * baseHeight) / 1000);
+    const newScrollTop = calcScrollTopAtCursor(baseHeight, newHeight, cursorClientY);
+    if (newScrollTop === null) return;
+    updateHeightAndScrollTop(baseHeight, newHeight, newScrollTop);
   });
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -405,24 +480,20 @@ function MainViewer(props: MainViewerProps) {
   };
 
   const onMouseMove = (e: React.MouseEvent) => {
-    if (Math.abs(e.clientY - prevCursorClientY.current) >= 1e-3) {
-      updateVScrollAnchorInfo(e.clientY);
-      prevCursorClientY.current = e.clientY;
-    }
     if (mainViewerElem.current === null) return;
     if (selectLocatorElem.current?.isOnLocator(e.clientX) ?? false) {
       mainViewerElem.current.style.cursor = "col-resize";
     } else {
       mainViewerElem.current.style.cursor = "default";
 
-      // if on one of ImgCanvases, cursor should be crosshair
-      const imgCanvases = imgCanvasesRef.current;
-      for (const imgCanvas of Object.values(imgCanvases)) {
+      // if on one of audio rows, cursor should be crosshair
+      for (const idChStr of getIdChArr()) {
+        const rect = getChannelRect(idChStr);
         if (
-          imgCanvas.getBoundingClientRect().left <= e.clientX &&
-          e.clientX <= imgCanvas.getBoundingClientRect().right &&
-          imgCanvas.getBoundingClientRect().top <= e.clientY &&
-          e.clientY <= imgCanvas.getBoundingClientRect().bottom
+          rect.left <= e.clientX &&
+          e.clientX <= rect.right &&
+          rect.top <= e.clientY &&
+          e.clientY <= rect.bottom
         ) {
           mainViewerElem.current.style.cursor = "crosshair";
           break;
@@ -457,20 +528,23 @@ function MainViewer(props: MainViewerProps) {
 
     if (!isZoom && !horizontal) {
       // vertical scroll (native)
-      updateVScrollAnchorInfo(e.clientY);
       return;
     }
 
     e.preventDefault();
-    const anImgBoundngRect = imgCanvasesRef.current[getIdChArr()[0]].getBoundingClientRect();
-    if (e.clientX > (anImgBoundngRect?.right ?? 0) || e.clientX < (anImgBoundngRect?.x ?? 0))
+    const anImgBoundngRect = getAudioViewportRect();
+    if (!anImgBoundngRect) return;
+    if (
+      e.clientX > anImgBoundngRect.left + anImgBoundngRect.width ||
+      e.clientX < anImgBoundngRect.left
+    )
       return;
 
     if (isZoom) {
       if (horizontal) {
         // horizontal zoom
         const newPxPerSec = normalizePxPerSec(pxPerSec * (1 + delta / 1000), 0);
-        const cursorX = e.clientX - (anImgBoundngRect?.x ?? 0);
+        const cursorX = e.clientX - anImgBoundngRect.left;
         const newStartSec = normalizeStartSec(
           startSec + cursorX / pxPerSec - cursorX / newPxPerSec,
           newPxPerSec,
@@ -479,11 +553,7 @@ function MainViewer(props: MainViewerProps) {
         updateLensParams({ startSec: newStartSec, pxPerSec: newPxPerSec });
       } else {
         // vertical zoom
-        const splitView = splitViewElem.current;
-        if (!splitView) return;
-
-        const cursorY = e.clientY - (splitView.getBoundingClientRect()?.y ?? 0);
-        zoomHeightAtCursor(delta, cursorY);
+        zoomHeightAtCursor(delta, e.clientY);
       }
     } else if (horizontal) {
       // horizontal scroll
@@ -491,37 +561,41 @@ function MainViewer(props: MainViewerProps) {
     }
   });
 
-  const [hiddenIdChArr, setHiddenIdChArr] = useState<Set<string>>(new Set());
+  const viewportResizeRequestRef = useRef<number | null>(null);
   const onVerticalViewportChange = useEvent(() => {
-    const newHiddenIdChArr = new Set<string>();
-    getIdChArr().forEach((idChStr) => {
-      if (imgCanvasesRef.current[idChStr] === undefined) {
-        newHiddenIdChArr.add(idChStr);
-        return;
-      }
-      const imgCanvas = imgCanvasesRef.current[idChStr];
-      const rect = imgCanvas.getBoundingClientRect();
-      const splitViewRect = splitViewElem.current?.getBoundingClientRect() ?? new DOMRect();
-      // check if the canvas is entirely outside of viewport
-      if (rect.y > splitViewRect.y + splitViewRect.height || rect.y + rect.height < splitViewRect.y)
-        newHiddenIdChArr.add(idChStr);
-    });
-    if (
-      hiddenIdChArr.size === newHiddenIdChArr.size &&
-      [...hiddenIdChArr].every((x) => newHiddenIdChArr.has(x))
-    )
+    const actualScrollTop = splitViewElem.current?.scrollTop() ?? 0;
+    const programmaticTarget = programmaticScrollTargetRef.current;
+    if (programmaticTarget !== null && Math.abs(programmaticTarget - actualScrollTop) <= 1) {
+      logicalScrollTopRef.current = programmaticTarget;
+      requestAudioViewportRenderRef.current?.();
       return;
-    setHiddenIdChArr(newHiddenIdChArr);
+    }
+    programmaticScrollTargetRef.current = null;
+    logicalScrollTopRef.current = actualScrollTop;
+    requestAudioViewportRenderRef.current?.();
   });
-  useEffect(onVerticalViewportChange, [onVerticalViewportChange, height, trackIdChMap]);
+  const onVerticalViewportResize = useEvent(() => {
+    if (viewportResizeRequestRef.current !== null) return;
+    viewportResizeRequestRef.current = requestAnimationFrame(() => {
+      viewportResizeRequestRef.current = null;
+      setViewportLayoutRevision((value) => value + 1);
+    });
+  });
+  useEffect(
+    () => () => {
+      if (viewportResizeRequestRef.current !== null) {
+        cancelAnimationFrame(viewportResizeRequestRef.current);
+      }
+    },
+    [],
+  );
 
-  const draggingTrackIdRef = useRef<number>(-1);
   const hideDraggingImage = useEvent((id) => {
-    draggingTrackIdRef.current = id;
+    setDraggingTrackId(id);
   });
   const unHideDraggingImage = useEvent(() => {
-    draggingTrackIdRef.current = -1;
-    onVerticalViewportChange();
+    setDraggingTrackId(-1);
+    onVerticalViewportResize();
   });
 
   // without useEvent, sometimes (when busy?) onClick event is not handled by this function.
@@ -545,7 +619,7 @@ function MainViewer(props: MainViewerProps) {
           const lastTrackIdChArr = trackIdChMap.get(trackIds[trackIds.length - 1]);
           if (lastTrackIdChArr) {
             const lastIdCh = lastTrackIdChArr[lastTrackIdChArr.length - 1];
-            const lastChImgRect = imgCanvasesRef.current[lastIdCh].getBoundingClientRect();
+            const lastChImgRect = getChannelRect(lastIdCh);
             if (e.clientY > lastChImgRect.bottom) return;
           }
         }
@@ -582,27 +656,36 @@ function MainViewer(props: MainViewerProps) {
     [pxPerSec, startSec, trackIds, updateLensParams],
   );
 
-  const setScrollTopBySelectedTracks = useEvent((newHeight: number) => {
-    if (splitViewElem.current === null) return;
+  const calcScrollTopBySelectedTracks = useEvent((baseHeight: number, newHeight: number) => {
+    if (splitViewElem.current === null) return null;
     const splitViewHeight =
-      (splitViewElem.current.getBoundingClientRect()?.height ?? 0) - TIME_CANVAS_HEIGHT - 2;
-    const scrollMiddle = splitViewElem.current.scrollTop() + splitViewHeight / 2;
-    const residualHeight = (scrollMiddle - TIME_CANVAS_HEIGHT - 2) % height;
-    const idxViewportTrack = (scrollMiddle - TIME_CANVAS_HEIGHT - 2 - residualHeight) / height;
-    setScrollTop(
-      // TIME_CANVAS_HEIGHT will be added in SplitViewElem.current.scrollTo
-      2 +
-        newHeight * idxViewportTrack +
-        (residualHeight * newHeight) / height -
-        splitViewHeight / 2,
+      (splitViewElem.current.getBoundingClientRect()?.height ?? 0) - TRACK_HEADER_HEIGHT;
+    const contentMiddle = getPendingNativeScrollTop() + splitViewHeight / 2;
+    const rowIndex = audioViewportRows.findIndex(
+      (row, index) => contentMiddle < getRowTopAtHeight(row, index, baseHeight) + baseHeight,
     );
+    const safeRowIndex =
+      rowIndex === -1 ? Math.max(audioViewportRows.length - 1, 0) : Math.max(rowIndex, 0);
+    const row = audioViewportRows[safeRowIndex];
+    if (!row) return null;
+
+    const rowTop = getRowTopAtHeight(row, safeRowIndex, baseHeight);
+    const offsetInRow = contentMiddle - rowTop;
+    const newOffsetInRow = (offsetInRow / Math.max(baseHeight, 1e-8)) * newHeight;
+
+    const newContentMiddle = getRowTopAtHeight(row, safeRowIndex, newHeight) + newOffsetInRow;
+    return newContentMiddle - splitViewHeight / 2;
   });
   const zoomHeightAndScrollToSelectedTrack = (isZoomOut: boolean) => {
     if (trackIds.length === 0) return;
 
-    let delta = 2 ** (Math.floor(Math.log2(height)) - 1.2);
+    const baseHeight = pendingHeightRef.current ?? height;
+    let delta = 2 ** (Math.floor(Math.log2(baseHeight)) - 1.2);
     if (isZoomOut) delta = -delta;
-    setScrollTopBySelectedTracks(zoomHeight(delta));
+    const newHeight = calcZoomedHeight(baseHeight, delta);
+    const newScrollTop = calcScrollTopBySelectedTracks(baseHeight, newHeight);
+    if (newScrollTop === null) return;
+    updateHeightAndScrollTop(baseHeight, newHeight, newScrollTop);
   };
   const freqZoomIn = useEvent(() => zoomHeightAndScrollToSelectedTrack(false));
   const freqZoomOut = useEvent(() => zoomHeightAndScrollToSelectedTrack(true));
@@ -694,9 +777,43 @@ function MainViewer(props: MainViewerProps) {
     };
   }, [resetHzRange, resetAmpRange, resetTimeAxis]);
 
+  const applyVerticalZoomScrollTop = useEvent((targetScrollTop: number) => {
+    logicalScrollTopRef.current = targetScrollTop;
+    programmaticScrollTargetRef.current = targetScrollTop;
+    splitViewElem.current?.scrollTo({ top: targetScrollTop });
+    return splitViewElem.current?.scrollTop() ?? 0;
+  });
+  const scheduleVerticalZoomScrollCorrection = useEvent((targetScrollTop: number) => {
+    if (scrollCorrectionRequestRef.current !== null) {
+      cancelAnimationFrame(scrollCorrectionRequestRef.current);
+    }
+    scrollCorrectionFrameRef.current = 0;
+    const correct = () => {
+      scrollCorrectionRequestRef.current = null;
+      const actualScrollTop = applyVerticalZoomScrollTop(targetScrollTop);
+      if (Math.abs(targetScrollTop - actualScrollTop) <= 0.5) return;
+      scrollCorrectionFrameRef.current += 1;
+      if (scrollCorrectionFrameRef.current >= 3) return;
+      scrollCorrectionRequestRef.current = requestAnimationFrame(correct);
+    };
+    scrollCorrectionRequestRef.current = requestAnimationFrame(correct);
+  });
   useLayoutEffect(() => {
-    splitViewElem.current?.scrollTo({ top: scrollTop, behavior: "instant" });
-  }, [scrollTop]);
+    const nextScrollTop = pendingScrollTopRef.current;
+    if (nextScrollTop === null) return;
+    pendingScrollTopRef.current = null;
+    pendingHeightRef.current = null;
+    applyVerticalZoomScrollTop(nextScrollTop);
+    scheduleVerticalZoomScrollCorrection(nextScrollTop);
+  }, [applyVerticalZoomScrollTop, height, scheduleVerticalZoomScrollCorrection]);
+  useEffect(
+    () => () => {
+      if (scrollCorrectionRequestRef.current !== null) {
+        cancelAnimationFrame(scrollCorrectionRequestRef.current);
+      }
+    },
+    [],
+  );
 
   const requestRef = useRef<number>(0);
   const updateByPlayerStatusRef = useRef<(() => Promise<void>) | null>(null);
@@ -756,18 +873,6 @@ function MainViewer(props: MainViewerProps) {
 
   // playhead
   const getTimeAxisPlayheadTopBottom = useEvent(() => [0, TIME_CANVAS_HEIGHT] as [number, number]);
-  const getTrackPlayheadTopBottom: () => [number, number] = useEvent(() => {
-    const idChArr = trackIdChMap.get(selectedTrackIds[selectedTrackIds.length - 1]);
-    if (idChArr === undefined) return [0, 0];
-    const firstChImgRect = imgCanvasesRef.current[idChArr[0]].getBoundingClientRect();
-    const lastChImgRect =
-      imgCanvasesRef.current[idChArr[idChArr.length - 1]].getBoundingClientRect();
-    const splitViewTop = splitViewElem.current?.getBoundingClientRect()?.top ?? 0;
-    const mainViewBottom = mainViewerElem.current?.getBoundingClientRect().bottom ?? 0;
-    const top = firstChImgRect.top - splitViewTop;
-    const bottom = Math.min(lastChImgRect.bottom, mainViewBottom - TINY_MARGIN * 2) - splitViewTop;
-    return [top, bottom];
-  });
   const calcPlayheadPos = useEvent(() =>
     player.isPlaying ? ((player.positionSecRef.current ?? 0) - startSec) * pxPerSec : -Infinity,
   );
@@ -883,6 +988,10 @@ function MainViewer(props: MainViewerProps) {
   );
 
   const selectTrackByTrackInfo = useEvent((e, id) => selectTrack(e, id, trackIds));
+  const getPlayheadSec = useEvent(() => player.positionSecRef.current);
+  const registerAudioViewportRenderRequest = useEvent((requestRender: (() => void) | null) => {
+    requestAudioViewportRenderRef.current = requestRender;
+  });
 
   const leftPane = (
     <>
@@ -893,7 +1002,13 @@ function MainViewer(props: MainViewerProps) {
       <TrackInfoDragLayer />
       {trackIdsWithFileDropIndicator.map((trackId, iWithIndicator) => {
         if (trackId === -1) {
-          return <div key="file_drop_indicator_left" className={styles.fileDropIndicator} />;
+          return (
+            <div
+              key="file_drop_indicator_left"
+              className={styles.fileDropIndicator}
+              style={{ height: FILE_DROP_INDICATOR_HEIGHT }}
+            />
+          );
         }
         const i =
           fileDropIndex > -1 && iWithIndicator > fileDropIndex
@@ -947,31 +1062,46 @@ function MainViewer(props: MainViewerProps) {
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
       <div className={styles.dummyBoxForStickyHeader} />
+      <AudioTrackViewport
+        rows={audioViewportRows}
+        getViewportRect={getAudioViewportRect}
+        width={width}
+        rowHeight={height}
+        imageHeight={imgHeight}
+        getScrollTop={getViewportScrollTop}
+        startSec={startSec}
+        pxPerSec={pxPerSec}
+        maxTrackHz={maxTrackHz}
+        freqScale={freqScale}
+        hzRange={hzRange}
+        ampRange={ampRange}
+        blend={blend}
+        selectedTrackIds={selectedTrackIds}
+        isLoading={isLoading}
+        isPlaying={player.isPlaying}
+        getPlayheadSec={getPlayheadSec}
+        registerRenderRequest={registerAudioViewportRenderRequest}
+        refreshToken={needRefreshTrackIdChArr.join(",")}
+        layoutRevision={viewportLayoutRevision}
+      />
       {trackIdsWithFileDropIndicator.map((id) => {
         if (id === -1) {
-          return <div key="file_drop_indicator_right" className={styles.fileDropIndicator} />;
+          return (
+            <div
+              key="file_drop_indicator_right"
+              className={styles.fileDropIndicator}
+              style={{ height: FILE_DROP_INDICATOR_HEIGHT }}
+            />
+          );
         }
         return (
           <div key={`${id}`} className={styles.trackRight}>
             {trackIdChMap.get(id)?.map((idChStr) => {
               return (
                 <div key={idChStr} className={styles.chCanvases} role="presentation">
-                  <ImgCanvas
-                    ref={registerImgCanvas(idChStr)}
-                    idChStr={idChStr}
-                    width={width}
-                    height={imgHeight}
-                    startSec={startSec}
-                    pxPerSec={pxPerSec}
-                    maxTrackSec={maxTrackSec}
-                    maxTrackHz={maxTrackHz}
-                    freqScale={freqScale}
-                    hzRange={hzRange}
-                    ampRange={ampRange}
-                    blend={blend}
-                    isLoading={isLoading}
-                    needRefresh={needRefreshTrackIdChArr.includes(idChStr)}
-                    hidden={hiddenIdChArr.has(idChStr) || id === draggingTrackIdRef.current}
+                  <div
+                    className={styles.audioTrackPlaceholder}
+                    style={{ width, height: imgHeight }}
                   />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
@@ -1014,13 +1144,6 @@ function MainViewer(props: MainViewerProps) {
           </div>
         );
       })}
-      <Locator // on track img
-        locatorStyle="playhead"
-        getLineTopBottom={getTrackPlayheadTopBottom}
-        getBoundingLeftWidthTop={getTimeAxisBoundingLeftWidthTop}
-        calcLocatorPos={calcPlayheadPos}
-        zIndex={1}
-      />
     </>
   );
 
@@ -1064,6 +1187,7 @@ function MainViewer(props: MainViewerProps) {
           right={rightPane}
           setCanvasWidth={setWidth}
           onVerticalViewportChange={onVerticalViewportChange}
+          onVerticalViewportResize={onVerticalViewportResize}
         />
         <Locator // on time axis
           locatorStyle="playhead"

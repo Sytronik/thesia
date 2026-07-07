@@ -91,7 +91,7 @@ where
         input
             .slice(s![i_back_wav_start..])
             .pad((0, win_length / 2), Axis(0), PadMode::Reflect);
-    back_wav.slice_collapse(s![(first_i - i_back_wav_start).max(0)..]);
+    back_wav.slice_collapse(s![(first_i as isize - i_back_wav_start as isize).max(0)..]);
     let mut back_frames = to_frames_wrapper(&back_wav);
 
     let n_frames = front_frames.len() + frames.len() + back_frames.len();

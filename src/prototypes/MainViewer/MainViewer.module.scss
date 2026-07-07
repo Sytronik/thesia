@@ -6,15 +6,17 @@
 
 .mainViewerWrapper {
   width: calc(100% - #{box-sizes.$track-control-width} - #{box-sizes.$component-gap});
+  min-height: 0;
 }
 
 .MainViewer {
   position: relative;
   height: 0;
+  min-height: 0;
 }
 
 .fileDropIndicator {
-  margin: 4px 0;
+  box-sizing: border-box;
   border-top: 2.5px dashed colors.$border-primary-light;
   background-color: colors.$bg-primary-semilight !important;
 }
@@ -76,4 +78,8 @@
   canvas {
     display: block;
   }
+}
+
+.audioTrackPlaceholder {
+  flex: 0 0 auto;
 }
