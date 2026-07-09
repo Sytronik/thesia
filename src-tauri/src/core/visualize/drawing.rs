@@ -27,3 +27,27 @@ pub fn convert_spectrogram_to_img(
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use ndarray::array;
+
+    use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn spectrogram_to_img_transposes_and_clamps_dB_values() {
+        let spec = array![[-100.0f32, -50.0, 0.0], [100.0, -200.0, -25.0]];
+        let img = convert_spectrogram_to_img(&spec.view(), (0, 4), (-100.0, 0.0), Some(4));
+
+        assert_eq!(img.shape(), &[4, 2]);
+        assert_eq!(img[[0, 0]], 16_384);
+        assert_eq!(img[[0, 1]], u16::MAX);
+        assert_eq!(img[[1, 0]], 40_960);
+        assert_eq!(img[[1, 1]], 0);
+        assert_eq!(img[[2, 0]], u16::MAX);
+        assert_eq!(img[[2, 1]], 53_247);
+        assert_eq!(img[[3, 0]], 0);
+        assert_eq!(img[[3, 1]], 0);
+    }
+}
