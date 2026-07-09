@@ -246,3 +246,57 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_abs_diff_eq;
+    use ndarray::arr1;
+
+    use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn scalar_dB_conversions_round_trip() {
+        let amp = 0.25f32;
+        let amp_dB = amp.dB_from_amp_default();
+        assert_abs_diff_eq!(amp_dB, -12.0412, epsilon = 1e-4);
+        assert_abs_diff_eq!(amp_dB.amp_from_dB_default(), amp, epsilon = 1e-6);
+
+        let power = 0.25f32;
+        let power_dB = power.dB_from_power_default();
+        assert_abs_diff_eq!(power_dB, -6.0206, epsilon = 1e-4);
+        assert_abs_diff_eq!(power_dB.power_from_dB_default(), power, epsilon = 1e-6);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn scalar_dB_conversion_handles_floor_and_invalid_input() {
+        assert_abs_diff_eq!(0.0f32.dB_from_amp_default(), -360.0);
+        assert_abs_diff_eq!(0.0f32.dB_from_power_default(), -360.0);
+        assert!((-1.0f32).dB_from_amp_default().is_nan());
+        assert!(f32::NAN.dB_from_power_default().is_nan());
+
+        let relative_to_two = 1.0f32.dB_from_amp(DeciBelRef::Value(2.0), AMIN_AMP_DEFAULT);
+        assert_abs_diff_eq!(relative_to_two, -6.0206, epsilon = 1e-4);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn array_dB_inplace_conversion_matches_scalar_rules() {
+        let mut amps = arr1(&[1.0f32, 0.5, 0.0, -1.0, f32::NAN]);
+        amps.dB_from_amp_inplace(DeciBelRef::Value(1.0), 1e-3);
+
+        assert_abs_diff_eq!(amps[0], 0.0);
+        assert_abs_diff_eq!(amps[1], -6.0206, epsilon = 1e-4);
+        assert_abs_diff_eq!(amps[2], -60.0);
+        assert!(amps[3].is_nan());
+        assert!(amps[4].is_nan());
+
+        let mut powers = arr1(&[1.0f32, 0.25, 0.0]);
+        powers.dB_from_power_inplace(DeciBelRef::_Max, 1e-6);
+
+        assert_abs_diff_eq!(powers[0], 0.0);
+        assert_abs_diff_eq!(powers[1], -6.0206, epsilon = 1e-4);
+        assert_abs_diff_eq!(powers[2], -60.0);
+    }
+}
