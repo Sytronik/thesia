@@ -663,4 +663,34 @@ mod tests {
             &[((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
         );
     }
+
+    #[test]
+    fn time_and_frequency_labels_parse_expected_forms() {
+        assert_abs_diff_eq!(_convert_time_label_to_sec("2.125").unwrap(), 2.125);
+        assert_abs_diff_eq!(_convert_time_label_to_sec("1:02.5").unwrap(), 62.5);
+        assert_abs_diff_eq!(_convert_time_label_to_sec("01:02:03.25").unwrap(), 3723.25);
+        assert!(_convert_time_label_to_sec("1:2:3:4").is_err());
+
+        assert_abs_diff_eq!(_convert_freq_label_to_hz("500").unwrap(), 500.0);
+        assert_abs_diff_eq!(_convert_freq_label_to_hz("1k").unwrap(), 1000.0);
+        assert_abs_diff_eq!(_convert_freq_label_to_hz("1K5").unwrap(), 1500.0);
+        assert_abs_diff_eq!(_convert_freq_label_to_hz("10.5k").unwrap(), 10_500.0);
+        assert!(_convert_freq_label_to_hz("k1").is_err());
+        assert!(_convert_freq_label_to_hz("-1").is_err());
+        assert!(_convert_freq_label_to_hz("1kK").is_err());
+    }
+
+    #[test]
+    fn amp_axis_works() {
+        assert_axis_eq(
+            &_calc_amp_axis_markers(5, 3, (-1.0, 1.0)),
+            &[
+                (0.0, "1.0"),
+                (0.25, "0.5"),
+                (0.5, "0"),
+                (0.75, "-0.5"),
+                (1.0, "-1.0"),
+            ],
+        );
+    }
 }
