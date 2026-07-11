@@ -441,7 +441,27 @@ pub fn open_audio_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_abs_diff_eq;
     use itertools::Itertools;
+    use ndarray::{Array1, Array2, Dim, arr2};
+
+    fn test_stats() -> AudioStats {
+        AudioStats::new_for_test(-23.0, -12.0, 0.5, -6.0)
+    }
+
+    fn test_audio(
+        wavs: Array2<f32>,
+        guard_clip_result: GuardClippingResult<Ix2>,
+        guard_clip_stats: Array1<GuardClippingStats>,
+    ) -> Audio {
+        Audio {
+            wavs,
+            sr: 1000,
+            stats: test_stats(),
+            guard_clip_result,
+            guard_clip_stats,
+        }
+    }
 
     #[test]
     fn open_audio_works() {
@@ -489,5 +509,97 @@ mod tests {
             assert_eq!(wavs.slice(s![0, ..arr.len()]), arr);
             assert_eq!(format_info, format_info_answer);
         }
+    }
+
+    #[test]
+    fn interleaved_samples_use_frame_major_channel_order() {
+        let wavs = arr2(&[[1.0f32, 2.0, 3.0], [10.0, 20.0, 30.0]]);
+        let raw_dim = wavs.raw_dim();
+        let audio = test_audio(
+            wavs,
+            GuardClippingResult::GlobalGain((1.0, raw_dim)),
+            Array1::default(2),
+        );
+
+        assert_eq!(
+            audio.interleaved_samples(),
+            vec![1.0, 10.0, 2.0, 20.0, 3.0, 30.0]
+        );
+        assert_eq!(audio.n_ch(), 2);
+        assert_eq!(audio.len(), 3);
+        assert_abs_diff_eq!(audio.sec(), 0.003);
+    }
+
+    #[test]
+    fn channel_for_drawing_uses_before_clip_waveform_when_clipped() {
+        let current = arr2(&[[0.0f32, 1.0, -1.0], [0.25, 0.5, 0.75]]);
+        let before_clip = arr2(&[[0.0f32, 1.5, -1.5], [0.25, 2.0, -2.0]]);
+        let audio = test_audio(
+            current,
+            GuardClippingResult::WavBeforeClip(before_clip.clone()),
+            Array1::default(2),
+        );
+
+        let (channel, is_clipped) = audio.channel_for_drawing(1);
+
+        assert!(is_clipped);
+        assert_eq!(channel, before_clip.slice(s![1, ..]));
+    }
+
+    #[test]
+    fn guard_clipping_gain_returns_only_limiter_gain_sequences() {
+        let wavs = arr2(&[[0.0f32, 0.5, 1.0]]);
+        let audio = test_audio(
+            wavs.clone(),
+            GuardClippingResult::GlobalGain((0.5, wavs.raw_dim())),
+            Array1::default(1),
+        );
+        assert!(audio.guard_clipping_gain().is_none());
+
+        let unity_gain = arr2(&[[1.0f32, 1.0, 1.0]]);
+        let audio = test_audio(
+            wavs.clone(),
+            GuardClippingResult::GainSequence(unity_gain),
+            Array1::default(1),
+        );
+        assert_eq!(
+            audio.guard_clipping_gain().unwrap().into_owned(),
+            Array2::from_elem((1, 1), 1.0)
+        );
+
+        let gain_sequence = arr2(&[[1.0f32, 0.5, 0.75]]);
+        let audio = test_audio(
+            wavs,
+            GuardClippingResult::GainSequence(gain_sequence.clone()),
+            Array1::default(1),
+        );
+        assert_eq!(audio.guard_clipping_gain().unwrap(), gain_sequence.view());
+    }
+
+    #[test]
+    fn format_guard_clip_stats_reports_by_mode() {
+        let wavs = arr2(&[[0.0f32, 0.5], [0.25, 0.75]]);
+        let stats = Array1::from_vec(vec![
+            GuardClippingStats::from_global_gain(0.5),
+            GuardClippingStats::default(),
+        ]);
+        let audio = test_audio(
+            wavs,
+            GuardClippingResult::GlobalGain((0.5, Dim([2, 2]))),
+            stats,
+        );
+        let format_non_empty = |(ch, stat): (isize, &GuardClippingStats)| {
+            let stat = stat.to_string();
+            (!stat.is_empty()).then_some((ch, stat))
+        };
+
+        assert_eq!(
+            audio.format_guard_clip_stats(GuardClippingMode::Clip, format_non_empty),
+            vec![(0, "-6.02 dB".to_string())]
+        );
+        assert_eq!(
+            audio.format_guard_clip_stats(GuardClippingMode::ReduceGlobalLevel, format_non_empty),
+            vec![(-1, "-6.02 dB".to_string())]
+        );
     }
 }

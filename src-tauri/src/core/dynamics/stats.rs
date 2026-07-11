@@ -23,6 +23,24 @@ pub struct AudioStats {
     pub max_peak_dB: f32,
 }
 
+#[cfg(test)]
+impl AudioStats {
+    #[allow(non_snake_case)]
+    pub(crate) fn new_for_test(
+        global_lufs: f64,
+        rms_dB: f32,
+        max_peak: f32,
+        max_peak_dB: f32,
+    ) -> Self {
+        Self {
+            global_lufs,
+            rms_dB,
+            max_peak,
+            max_peak_dB,
+        }
+    }
+}
+
 pub struct StatCalculator(EbuR128);
 
 impl StatCalculator {
@@ -191,5 +209,75 @@ impl<D: Dimension + RemoveAxis> From<GuardClippingResult<D>>
 {
     fn from(value: GuardClippingResult<D>) -> Self {
         (&value).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_abs_diff_eq;
+    use ndarray::{Array1, Dim, arr1, arr2};
+
+    use super::super::decibel::DeciBel;
+    use super::super::guardclipping::GuardClippingResult;
+    use super::*;
+
+    #[test]
+    fn guard_clipping_stats_describe_clipped_samples() {
+        let clipped = arr1(&[-1.5f32, -1.0, 0.5, 2.0]);
+        let stats = GuardClippingStats::from_wav_before_clip(&clipped);
+
+        assert_eq!(stats.reduction_cnt, 2);
+        assert_abs_diff_eq!(
+            stats.max_reduction_gain_dB,
+            0.5f32.dB_from_amp_default(),
+            epsilon = 1e-5
+        );
+        assert_eq!(stats.to_string(), "max -6.02 dB, total 2 samples");
+
+        let unclipped = arr1(&[-1.0f32, 0.25, 1.0]);
+        let stats = GuardClippingStats::from_wav_before_clip(&unclipped);
+        assert!(stats == GuardClippingStats::default());
+        assert_eq!(stats.to_string(), "");
+    }
+
+    #[test]
+    fn guard_clipping_result_converts_to_channel_stats() {
+        let before_clip =
+            GuardClippingResult::WavBeforeClip(arr2(&[[0.0f32, 1.2, -0.5], [-2.0, 0.0, 1.0]]));
+        let stats: Array1<GuardClippingStats> = (&before_clip).into();
+
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0].reduction_cnt, 1);
+        assert_eq!(stats[1].reduction_cnt, 1);
+        assert_abs_diff_eq!(
+            stats[0].max_reduction_gain_dB,
+            (1.0f32 / 1.2).dB_from_amp_default(),
+            epsilon = 1e-5
+        );
+        assert_abs_diff_eq!(
+            stats[1].max_reduction_gain_dB,
+            0.5f32.dB_from_amp_default(),
+            epsilon = 1e-5
+        );
+
+        let global_gain = GuardClippingResult::GlobalGain((0.5, Dim([2, 3])));
+        let stats: Array1<GuardClippingStats> = (&global_gain).into();
+        assert_eq!(stats.len(), 2);
+        assert!(stats.iter().all(|stat| {
+            stat.reduction_cnt == 0
+                && stat.to_string() == "-6.02 dB"
+                && (stat.max_reduction_gain_dB - 0.5f32.dB_from_amp_default()).abs() < 1e-5
+        }));
+
+        let gain_sequence =
+            GuardClippingResult::GainSequence(arr2(&[[1.0f32, 0.5, 1.0], [0.25, 1.0, 0.5]]));
+        let stats: Array1<GuardClippingStats> = (&gain_sequence).into();
+        assert_eq!(stats[0].reduction_cnt, 1);
+        assert_eq!(stats[1].reduction_cnt, 2);
+        assert_abs_diff_eq!(
+            stats[1].max_reduction_gain_dB,
+            0.25f32.dB_from_amp_default(),
+            epsilon = 1e-5
+        );
     }
 }
