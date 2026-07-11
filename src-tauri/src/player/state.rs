@@ -264,3 +264,63 @@ pub(super) fn resume(shared: &Arc<SharedPlayback>) {
     }
     log::info!("resume");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn position_sec_clamps_to_available_frames() {
+        let mut playback = PlaybackData {
+            samples: vec![0.0; 6],
+            input_channels: 2,
+            sample_rate: 3,
+            position_frame: 1.5,
+            ..Default::default()
+        };
+
+        assert_eq!(position_sec(&playback), 0.5);
+
+        playback.position_frame = -1.0;
+        assert_eq!(position_sec(&playback), 0.0);
+
+        playback.position_frame = 4.0;
+        assert_eq!(position_sec(&playback), 1.0);
+
+        playback.input_channels = 0;
+        assert_eq!(position_sec(&playback), 0.0);
+    }
+
+    #[test]
+    fn set_error_reports_only_state_changes() {
+        let mut current_error = String::new();
+
+        assert!(!set_error(&mut current_error, None));
+        assert!(set_error(&mut current_error, Some("device missing".into())));
+        assert_eq!(current_error, "device missing");
+        assert!(!set_error(
+            &mut current_error,
+            Some("device missing".into())
+        ));
+        assert!(set_error(&mut current_error, Some("stream failed".into())));
+        assert_eq!(current_error, "stream failed");
+        assert!(set_error(&mut current_error, None));
+        assert!(current_error.is_empty());
+    }
+
+    #[test]
+    fn resume_requires_loaded_track_with_samples() {
+        let shared = Arc::new(SharedPlayback::default());
+
+        resume(&shared);
+        assert!(!shared.data.lock().is_playing);
+
+        shared.data.lock().track_id = Some(1);
+        resume(&shared);
+        assert!(!shared.data.lock().is_playing);
+
+        shared.data.lock().samples = vec![0.0];
+        resume(&shared);
+        assert!(shared.data.lock().is_playing);
+    }
+}

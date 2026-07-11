@@ -658,3 +658,89 @@ pub(super) fn rebuild_stream(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn playback(samples: Vec<f32>, input_channels: usize) -> PlaybackData {
+        PlaybackData {
+            samples,
+            input_channels,
+            sample_rate: 48_000,
+            volume: 1.0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn source_sample_for_output_maps_channel_layouts() {
+        let mono = playback(vec![0.25], 1);
+        assert_eq!(source_sample_for_output(&mono, 0, 0, 2), 0.25);
+        assert_eq!(source_sample_for_output(&mono, 0, 1, 2), 0.25);
+
+        let stereo = playback(vec![0.2, 0.8], 2);
+        assert_eq!(source_sample_for_output(&stereo, 0, 0, 1), 0.5);
+        assert_eq!(source_sample_for_output(&stereo, 0, 0, 4), 0.2);
+        assert_eq!(source_sample_for_output(&stereo, 0, 1, 4), 0.8);
+        assert_eq!(source_sample_for_output(&stereo, 0, 2, 4), 0.2);
+        assert_eq!(source_sample_for_output(&stereo, 0, 3, 4), 0.8);
+
+        let surround = playback(vec![0.1, 0.2, 0.3], 3);
+        assert_eq!(source_sample_for_output(&surround, 0, 0, 4), 0.1);
+        assert_eq!(source_sample_for_output(&surround, 0, 1, 4), 0.2);
+        assert_eq!(source_sample_for_output(&surround, 0, 2, 4), 0.3);
+        assert_eq!(source_sample_for_output(&surround, 0, 3, 4), 0.3);
+        assert_eq!(source_sample_for_output(&surround, 1, 0, 4), 0.0);
+    }
+
+    #[test]
+    fn fill_output_without_resampler_clamps_and_stops_at_end() {
+        let shared = SharedPlayback::default();
+        let mut playback = playback(vec![0.6, -0.75], 1);
+        playback.track_id = Some(7);
+        playback.volume = 2.0;
+        playback.is_playing = true;
+        let mut data = [9.0f32; 4];
+
+        fill_output_without_resampler(
+            &mut data,
+            1,
+            &mut playback,
+            2,
+            &shared,
+            &std::convert::identity,
+        );
+
+        assert_eq!(data, [1.0, -1.0, 0.0, 0.0]);
+        assert_eq!(playback.position_frame, 2.0);
+        assert!(!playback.is_playing);
+        assert!(shared.take_track_end());
+    }
+
+    #[test]
+    fn fill_output_writes_silence_when_playback_is_not_ready() {
+        let shared = SharedPlayback::default();
+        {
+            let mut playback = shared.data.lock();
+            playback.samples = vec![0.5, -0.5];
+            playback.input_channels = 1;
+            playback.sample_rate = 48_000;
+            playback.is_playing = false;
+        }
+        let mut render_state = RenderState::default();
+        let mut data = [7.0f32; 4];
+
+        fill_output(
+            &mut data,
+            2,
+            48_000,
+            &shared,
+            &mut render_state,
+            std::convert::identity,
+        );
+
+        assert_eq!(data, [0.0; 4]);
+        assert!(!shared.take_track_end());
+    }
+}
