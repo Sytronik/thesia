@@ -456,4 +456,46 @@ mod tests {
         let track = AudioTrack::new("../samples/sample_48k.wav".into()).unwrap();
         assert_abs_diff_eq!(track.stats().global_lufs, -26.20331705029079);
     }
+
+    #[test]
+    fn track_list_add_remove_updates_ids_paths_and_metadata() {
+        let mut tracklist = TrackList::new();
+        let ids = vec![0, 2];
+        let paths = vec![
+            "../samples/1kHz_1sec_sr24kHz.wav".to_string(),
+            "../samples/sample_8k.wav".to_string(),
+        ];
+
+        let mut added_ids = tracklist.add_tracks(ids.clone(), paths.clone());
+        added_ids.sort();
+
+        assert_eq!(added_ids, ids);
+        assert_eq!(tracklist.all_ids(), ids);
+        assert_eq!(tracklist.id_ch_tuples(), vec![(0, 0), (2, 0)]);
+        assert_eq!(tracklist.find_id_by_path(&paths[0]), Some(0));
+        assert_eq!(tracklist.find_id_by_path(&paths[1]), Some(2));
+        assert_eq!(tracklist.filename(0), "1kHz_1sec_sr24kHz.wav");
+        assert_eq!(tracklist.filename(2), "sample_8k.wav");
+
+        let sec_0 = tracklist[0].sec();
+        let sec_2 = tracklist[2].sec();
+        assert_abs_diff_eq!(tracklist.max_sec, sec_0.max(sec_2));
+        assert_eq!(tracklist.max_sr(), 24_000);
+
+        let (max_id, other_id) = if sec_0 >= sec_2 { (0, 2) } else { (2, 0) };
+        let removed = tracklist.remove_tracks(&[max_id]);
+
+        assert_eq!(removed, vec![(max_id, 0)]);
+        assert!(!tracklist.has(max_id));
+        assert!(tracklist.has(other_id));
+        assert_abs_diff_eq!(tracklist.max_sec, tracklist[other_id].sec());
+        assert_eq!(tracklist.max_sr(), tracklist[other_id].sr());
+
+        let removed = tracklist.remove_tracks(&[other_id]);
+
+        assert_eq!(removed, vec![(other_id, 0)]);
+        assert!(tracklist.is_empty());
+        assert_abs_diff_eq!(tracklist.max_sec, 0.0);
+        assert_eq!(tracklist.max_sr(), 0);
+    }
 }
