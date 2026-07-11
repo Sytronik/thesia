@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent, ipc::Response};
 #[cfg(target_os = "macos")]
@@ -405,16 +406,39 @@ async fn get_limiter_gain(track_id: u32) -> Option<Vec<f32>> {
         .map(|gain| gain.to_owned().into_raw_vec_and_offset().0)
 }
 
-#[tauri::command]
-#[allow(non_snake_case)]
-fn get_max_dB() -> f64 {
-    TM.read().max_dB as f64
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+enum JsonNumber {
+    Finite(f64),
+    Infinity,
+    NegInfinity,
+    NaN,
+}
+
+impl From<f32> for JsonNumber {
+    fn from(value: f32) -> Self {
+        if value == f32::INFINITY {
+            Self::Infinity
+        } else if value == f32::NEG_INFINITY {
+            Self::NegInfinity
+        } else if value.is_nan() {
+            Self::NaN
+        } else {
+            Self::Finite(value as f64)
+        }
+    }
 }
 
 #[tauri::command]
 #[allow(non_snake_case)]
-fn get_min_dB() -> f64 {
-    TM.read().min_dB as f64
+fn get_max_dB() -> JsonNumber {
+    TM.read().max_dB.into()
+}
+
+#[tauri::command]
+#[allow(non_snake_case)]
+fn get_min_dB() -> JsonNumber {
+    TM.read().min_dB.into()
 }
 
 #[tauri::command]

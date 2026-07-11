@@ -292,7 +292,7 @@ pub fn calc_dB_axis_markers(
     dB_range_max: f32,
 ) -> JsValue {
     assert_axis_params(max_num_ticks, max_num_labels);
-    assert!(dB_range_min < dB_range_max);
+    assert!(dB_range_min <= dB_range_max);
 
     let dB_range = (dB_range_min, dB_range_max);
     to_value(&_calc_dB_axis_markers(
@@ -309,8 +309,11 @@ fn _calc_dB_axis_markers(
     max_num_labels: u32,
     dB_range: (f32, f32),
 ) -> AxisMarkers {
-    if !dB_range.0.is_finite() || !dB_range.1.is_finite() || dB_range.0 >= dB_range.1 {
+    if dB_range.0.is_nan() || dB_range.1.is_nan() {
         return AxisMarkers::new();
+    }
+    if dB_range.0 == dB_range.1 {
+        return vec![(1., format_ticklabel(dB_range.1, None))];
     }
     debug_assert!(max_num_ticks >= 2);
     let axis = calc_linear_axis(dB_range.0, dB_range.1, max_num_ticks);
@@ -442,7 +445,7 @@ pub fn convert_freq_hz_to_pos(
 }
 
 fn calc_linear_axis(min: f32, max: f32, max_num_ticks: u32) -> AxisMarkers {
-    if max_num_ticks == 2 {
+    if max_num_ticks == 2 || min == f32::NEG_INFINITY || max == f32::INFINITY {
         return vec![
             (0., format_ticklabel(max, None)),
             (1., format_ticklabel(min, None)),
@@ -490,6 +493,15 @@ fn omit_labels_from_linear_axis<Y>(
 fn format_ticklabel(value: f32, unit_exponent: impl Into<Option<i32>>) -> String {
     if value.is_zero() {
         return "0".into();
+    }
+    if value == f32::INFINITY {
+        return "+∞".into();
+    }
+    if value == f32::NEG_INFINITY {
+        return "-∞".into();
+    }
+    if !value.is_finite() {
+        return "nan".into();
     }
     let exponent = value.abs().log10().floor() as i32;
     match unit_exponent.into() {
@@ -661,6 +673,14 @@ mod tests {
         assert_axis_eq(
             &_calc_dB_axis_markers(3, 3, (-2., -1.1)),
             &[((-1.5 + 1.1) / (-2. + 1.1), "-1.5"), (1., "-2.0")],
+        );
+        assert_axis_eq(
+            &_calc_dB_axis_markers(2, 2, (f32::NEG_INFINITY, f32::NEG_INFINITY)),
+            &[(1., "-∞")],
+        );
+        assert_axis_eq(
+            &_calc_dB_axis_markers(2, 2, (-360., -360.)),
+            &[(1., "-360")],
         );
     }
 

@@ -13,6 +13,10 @@ pub fn convert_spectrogram_to_img(
     let dB_span = dB_range.1 - dB_range.0;
     let width = spec.shape()[0];
     let height = i_freq_end - i_freq_start;
+    if dB_range.0 == dB_range.1 && dB_range.1 == f32::NEG_INFINITY {
+        return Array2::zeros((height, width));
+    }
+    assert!(dB_range.0.is_finite());
     let min_value =
         colormap_length.map_or(1, |l| ((u16::MAX as f64 / l as f64).round() as u16).max(1));
     let u16_span = (u16::MAX - min_value) as f32;

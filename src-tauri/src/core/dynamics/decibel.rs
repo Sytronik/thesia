@@ -8,8 +8,8 @@ use num_traits::{AsPrimitive, Float};
 
 use super::super::simd::ScalarMulSIMDInplace;
 
-const AMIN_AMP_DEFAULT: f32 = 1e-18;
-const AMIN_POWER_DEFAULT: f32 = 1e-36;
+const AMIN_AMP_DEFAULT: f32 = 0.0;
+const AMIN_POWER_DEFAULT: f32 = 0.0;
 
 pub enum DeciBelRef<A> {
     Value(A),
@@ -271,8 +271,8 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn scalar_dB_conversion_handles_floor_and_invalid_input() {
-        assert_abs_diff_eq!(0.0f32.dB_from_amp_default(), -360.0);
-        assert_abs_diff_eq!(0.0f32.dB_from_power_default(), -360.0);
+        assert_eq!(0.0f32.dB_from_amp_default(), f32::NEG_INFINITY);
+        assert_eq!(0.0f32.dB_from_power_default(), f32::NEG_INFINITY);
         assert!((-1.0f32).dB_from_amp_default().is_nan());
         assert!(f32::NAN.dB_from_power_default().is_nan());
 

@@ -265,12 +265,30 @@ export async function findIdByPath(path: string): Promise<number> {
   return invoke<number>("find_id_by_path", { path });
 }
 
+export type NonFiniteFloatTypes = "Infinity" | "NegInfinity" | "NaN";
+export type JsonNumber = { type: "Finite"; value: number } | { type: NonFiniteFloatTypes };
+
+function jsonNumberToNumber(value: JsonNumber) {
+  switch (value.type) {
+    case "Finite":
+      return value.value;
+    case "Infinity":
+      return Number.POSITIVE_INFINITY;
+    case "NegInfinity":
+      return Number.NEGATIVE_INFINITY;
+    case "NaN":
+      return Number.NaN;
+  }
+}
+
 export async function getMaxdB(): Promise<number> {
-  return invoke<number>("get_max_dB");
+  const value = await invoke<JsonNumber>("get_max_dB");
+  return jsonNumberToNumber(value);
 }
 
 export async function getMindB(): Promise<number> {
-  return invoke<number>("get_min_dB");
+  const value = await invoke<JsonNumber>("get_min_dB");
+  return jsonNumberToNumber(value);
 }
 
 export async function getMaxTrackHz(): Promise<number> {
