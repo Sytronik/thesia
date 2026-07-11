@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent, ipc::Response};
 #[cfg(target_os = "macos")]
@@ -406,29 +405,6 @@ async fn get_limiter_gain(track_id: u32) -> Option<Vec<f32>> {
         .map(|gain| gain.to_owned().into_raw_vec_and_offset().0)
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type", content = "value")]
-enum JsonNumber {
-    Finite(f64),
-    Infinity,
-    NegInfinity,
-    NaN,
-}
-
-impl From<f32> for JsonNumber {
-    fn from(value: f32) -> Self {
-        if value == f32::INFINITY {
-            Self::Infinity
-        } else if value == f32::NEG_INFINITY {
-            Self::NegInfinity
-        } else if value.is_nan() {
-            Self::NaN
-        } else {
-            Self::Finite(value as f64)
-        }
-    }
-}
-
 #[tauri::command]
 #[allow(non_snake_case)]
 fn get_max_dB() -> JsonNumber {
@@ -484,29 +460,32 @@ fn get_format_info(track_id: u32) -> AudioFormatInfo {
 }
 
 #[tauri::command]
-fn get_global_lufs(track_id: u32) -> f64 {
+fn get_global_lufs(track_id: u32) -> JsonNumber {
     TRACK_LIST
         .read()
         .get(track_id as usize)
         .map_or(f64::NEG_INFINITY, |track| track.stats().global_lufs)
+        .into()
 }
 
 #[tauri::command]
 #[allow(non_snake_case)]
-fn get_rms_dB(track_id: u32) -> f64 {
+fn get_rms_dB(track_id: u32) -> JsonNumber {
     TRACK_LIST
         .read()
         .get(track_id as usize)
-        .map_or(f64::NEG_INFINITY, |track| track.stats().rms_dB as f64)
+        .map_or(f32::NEG_INFINITY, |track| track.stats().rms_dB)
+        .into()
 }
 
 #[tauri::command]
 #[allow(non_snake_case)]
-fn get_max_peak_dB(track_id: u32) -> f64 {
+fn get_max_peak_dB(track_id: u32) -> JsonNumber {
     TRACK_LIST
         .read()
         .get(track_id as usize)
-        .map_or(f64::NEG_INFINITY, |track| track.stats().max_peak_dB as f64)
+        .map_or(f32::NEG_INFINITY, |track| track.stats().max_peak_dB)
+        .into()
 }
 
 #[tauri::command]

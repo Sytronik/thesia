@@ -100,6 +100,35 @@ pub struct ConstsAndUserSettings {
     pub user_settings: UserSettings,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum JsonNumber {
+    Finite(f64),
+    Infinity,
+    NegInfinity,
+    NaN,
+}
+
+impl From<f64> for JsonNumber {
+    fn from(value: f64) -> Self {
+        if value == f64::INFINITY {
+            Self::Infinity
+        } else if value == f64::NEG_INFINITY {
+            Self::NegInfinity
+        } else if value.is_nan() {
+            Self::NaN
+        } else {
+            Self::Finite(value)
+        }
+    }
+}
+
+impl From<f32> for JsonNumber {
+    fn from(value: f32) -> Self {
+        Self::from(value as f64)
+    }
+}
+
 #[inline]
 pub fn format_id_ch(id: usize, ch: usize) -> String {
     format!("{}_{}", id, ch)
@@ -113,5 +142,27 @@ pub fn parse_id_ch_str(id_ch_str: &str) -> anyhow::Result<(usize, usize)> {
         _ => Err(anyhow::anyhow!(
             "The array element should be \"{{unsigned_int}}_{{unsigned_int}}\".",
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JsonNumber;
+    use serde_json::json;
+
+    #[test]
+    fn json_number_serializes_non_finite_f32_and_f64_values() {
+        assert_eq!(
+            serde_json::to_value(JsonNumber::from(f32::NEG_INFINITY)).unwrap(),
+            json!({ "type": "NegInfinity" })
+        );
+        assert_eq!(
+            serde_json::to_value(JsonNumber::from(f64::INFINITY)).unwrap(),
+            json!({ "type": "Infinity" })
+        );
+        assert_eq!(
+            serde_json::to_value(JsonNumber::from(f64::NAN)).unwrap(),
+            json!({ "type": "NaN" })
+        );
     }
 }

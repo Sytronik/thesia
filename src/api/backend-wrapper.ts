@@ -321,15 +321,18 @@ export async function getFormatInfo(trackId: number): Promise<AudioFormatInfo> {
 }
 
 export async function getGlobalLUFS(trackId: number): Promise<number> {
-  return invoke<number>("get_global_lufs", { trackId });
+  const value = await invoke<JsonNumber>("get_global_lufs", { trackId });
+  return jsonNumberToNumber(value);
 }
 
 export async function getRMSdB(trackId: number): Promise<number> {
-  return invoke<number>("get_rms_dB", { trackId });
+  const value = await invoke<JsonNumber>("get_rms_dB", { trackId });
+  return jsonNumberToNumber(value);
 }
 
 export async function getMaxPeakdB(trackId: number): Promise<number> {
-  return invoke<number>("get_max_peak_dB", { trackId });
+  const value = await invoke<JsonNumber>("get_max_peak_dB", { trackId });
+  return jsonNumberToNumber(value);
 }
 
 export async function getPath(trackId: number): Promise<string> {

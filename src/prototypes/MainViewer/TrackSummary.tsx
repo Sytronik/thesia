@@ -7,6 +7,14 @@ import styles from "./TrackSummary.module.scss";
 import { CHANNEL } from "../constants/tracks";
 import BackendAPI from "../../api";
 
+function formatFloatOrInf(value: number, fractionDigits=2) {
+  if (value == Infinity)
+    return "+∞";
+  if (value == -Infinity)
+    return "-∞";
+  return value.toFixed(fractionDigits)
+}
+
 const fetchData = async (trackId: number) => {
   const formatInfo = await BackendAPI.getFormatInfo(trackId);
   return {
@@ -16,7 +24,7 @@ const fetchData = async (trackId: number) => {
     bitDepth: formatInfo.bitDepth,
     bitrate: formatInfo.bitrate,
     sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-    globalLUFS: `${((await BackendAPI.getGlobalLUFS(trackId)) ?? -Infinity).toFixed(2)} LUFS`,
+    globalLUFS: `${formatFloatOrInf(await BackendAPI.getGlobalLUFS(trackId))} LUFS`,
     guardClipStats: await BackendAPI.getGuardClipStats(trackId),
   };
 };
