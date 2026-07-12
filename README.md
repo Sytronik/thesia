@@ -2,6 +2,12 @@
 
 This project is in a beta stage.
 
+Since 2025, this project has incorporated AI-generated code, primarily for:
+1. WebGL-related functionality using PixiJS
+2. Audio playback using the `cpal` crate
+
+The core algorithms for rendering spectrograms and waveforms are not AI-generated.
+
 ## Design Draft
 
 ![design_draft](https://github.com/Sytronik/thesia/assets/61383377/938e0425-999f-408c-ae16-82ddf207bc63)
