@@ -7,12 +7,10 @@ import styles from "./TrackSummary.module.scss";
 import { CHANNEL } from "../constants/tracks";
 import BackendAPI from "../../api";
 
-function formatFloatOrInf(value: number, fractionDigits=2) {
-  if (value == Infinity)
-    return "+∞";
-  if (value == -Infinity)
-    return "-∞";
-  return value.toFixed(fractionDigits)
+function formatFloatOrInf(value: number, fractionDigits = 2) {
+  if (value == Infinity) return "+∞";
+  if (value == -Infinity) return "-∞";
+  return value.toFixed(fractionDigits);
 }
 
 const fetchData = async (trackId: number) => {
@@ -104,7 +102,7 @@ function TrackSummary(props: TrackSummaryProps) {
     );
     return (
       <>
-        <span data-tooltip-id="guardclipstat-tooltip">
+        <span className={styles.showGuardClipStatsIcon} data-tooltip-id="guardclipstat-tooltip">
           <svg
             fill="#FFFFFF"
             xmlns="http://www.w3.org/2000/svg"

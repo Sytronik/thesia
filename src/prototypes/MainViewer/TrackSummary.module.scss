@@ -63,3 +63,9 @@ $path-min: variables-typography.$body-font-size-large * 0.4 * 3; // 0.4: fontfac
 
   @include mixins-typography.body-assist;
 }
+
+.showGuardClipStatsIcon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
