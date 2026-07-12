@@ -40,7 +40,7 @@ pub struct TrackManager {
     pub colormap_length: u32,
     spec_analyzer: SpectrogramAnalyzer,
     specs: IdChMap<Array2<f32>>,
-    no_mipmap_ids: Vec<usize>,
+    no_spec_img_ids: Vec<usize>,
 }
 
 impl TrackManager {
@@ -55,7 +55,7 @@ impl TrackManager {
             colormap_length: 258,
             spec_analyzer: SpectrogramAnalyzer::new(),
             specs: IdChMap::with_capacity_and_hasher(2, Default::default()),
-            no_mipmap_ids: Vec::new(),
+            no_spec_img_ids: Vec::new(),
         }
     }
 
@@ -67,7 +67,7 @@ impl TrackManager {
             tracklist.id_ch_tuples_from(added_ids),
             &sr_win_nfft_set,
         );
-        self.no_mipmap_ids.extend(added_ids.iter().copied());
+        self.no_spec_img_ids.extend(added_ids.iter().copied());
     }
 
     pub fn reload_tracks(&mut self, tracklist: &TrackList, reloaded_ids: &[usize]) {
@@ -78,7 +78,7 @@ impl TrackManager {
             tracklist.id_ch_tuples_from(reloaded_ids),
             &sr_win_nfft_set,
         );
-        self.no_mipmap_ids.extend(reloaded_ids.iter().copied());
+        self.no_spec_img_ids.extend(reloaded_ids.iter().copied());
     }
 
     pub fn remove_tracks(&mut self, tracklist: &TrackList, removed_id_ch_tuples: &IdChArr) {
@@ -100,7 +100,7 @@ impl TrackManager {
     }
 
     pub fn apply_track_list_changes(&mut self, tracklist: &TrackList) -> (IntSet<usize>, u32) {
-        let set = self.update_mipmaps(tracklist, false);
+        let set = self.update_spec_imgs(tracklist, false);
         (set, self.max_sr)
     }
 
@@ -111,23 +111,23 @@ impl TrackManager {
         self.spec_analyzer
             .retain(&sr_win_nfft_set, self.setting.freq_scale);
         self.update_specs(tracklist, tracklist.id_ch_tuples(), &sr_win_nfft_set);
-        self.update_mipmaps(tracklist, true);
+        self.update_spec_imgs(tracklist, true);
     }
 
-    pub fn update_all_specs_mipmaps(&mut self, tracklist: &TrackList) {
+    pub fn update_all_specs_imgs(&mut self, tracklist: &TrackList) {
         self.update_specs(tracklist, tracklist.id_ch_tuples(), None);
-        self.update_mipmaps(tracklist, true);
+        self.update_spec_imgs(tracklist, true);
     }
 
     #[allow(non_snake_case)]
     pub fn set_dB_range(&mut self, tracklist: &TrackList, dB_range: f32) {
         self.dB_range = dB_range;
-        self.update_mipmaps(tracklist, true);
+        self.update_spec_imgs(tracklist, true);
     }
 
     pub fn set_colormap_length(&mut self, tracklist: &TrackList, colormap_length: u32) {
         self.colormap_length = colormap_length;
-        self.update_mipmaps(tracklist, true);
+        self.update_spec_imgs(tracklist, true);
     }
 
     pub fn get_spectrogram(&'_ self, (id, ch): IdCh) -> Option<ArrayView2<'_, u16>> {
@@ -163,9 +163,9 @@ impl TrackManager {
             }));
     }
 
-    /// update spec_mipmaps, max_dB, min_dB, max_sr
-    /// clear no_mipmap_ids
-    fn update_mipmaps(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
+    /// update spec_imgs, max_dB, min_dB, max_sr
+    /// clear no_img_ids
+    fn update_spec_imgs(&mut self, tracklist: &TrackList, force_update_all: bool) -> IntSet<usize> {
         let (mut min, mut max) = self
             .specs
             .par_iter()
@@ -194,14 +194,14 @@ impl TrackManager {
             need_update_all = true;
         }
         let ids_need_update: IntSet<usize> = if need_update_all {
-            self.no_mipmap_ids.clear();
+            self.no_spec_img_ids.clear();
             tracklist.all_id_set()
         } else {
-            self.no_mipmap_ids.drain(..).collect()
+            self.no_spec_img_ids.drain(..).collect()
         };
 
         if !ids_need_update.is_empty() {
-            let new_mipmaps_iter = self
+            let new_imgs_iter = self
                 .specs
                 .par_iter()
                 .filter(|((id, _), _)| ids_need_update.contains(id))
@@ -224,7 +224,7 @@ impl TrackManager {
             if need_update_all {
                 self.spec_imgs.clear();
             }
-            self.spec_imgs.par_extend(new_mipmaps_iter);
+            self.spec_imgs.par_extend(new_imgs_iter);
         }
         ids_need_update
     }

@@ -294,7 +294,7 @@ async fn set_common_guard_clipping(mode: GuardClippingMode) {
     spawn_write_lock_task(move || {
         TRACK_LIST.write().set_common_guard_clipping(mode);
         let tracklist = TRACK_LIST.read();
-        TM.write().update_all_specs_mipmaps(&tracklist);
+        TM.write().update_all_specs_imgs(&tracklist);
     })
     .await;
     RENDER_TILE_CACHE.write().invalidate_all();
@@ -311,7 +311,7 @@ async fn set_common_normalize(target: NormalizeTarget) {
     spawn_write_lock_task(move || {
         TRACK_LIST.write().set_common_normalize(target);
         let tracklist = TRACK_LIST.read();
-        TM.write().update_all_specs_mipmaps(&tracklist);
+        TM.write().update_all_specs_imgs(&tracklist);
     })
     .await;
     RENDER_TILE_CACHE.write().invalidate_all();
