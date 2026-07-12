@@ -52,7 +52,7 @@ pub(super) fn choose_stream_config(
 
     if requested_sr.is_none() {
         let config = default_config.config();
-        return Ok((config.clone(), default_format, config.sample_rate));
+        return Ok((config, default_format, config.sample_rate));
     }
 
     let target_sr = requested_sr.unwrap();
