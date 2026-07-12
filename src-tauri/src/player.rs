@@ -11,7 +11,7 @@ use tauri::async_runtime::spawn_blocking;
 use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use crate::DeciBel;
-use device::default_output_device_name;
+use device::default_output_device_identity;
 use state::{
     SharedPlayback, StateEmitter, pause, position_sec, resume, seek, set_error, set_track,
 };
@@ -137,11 +137,11 @@ fn main_loop(mut msg_rx: mpsc::Receiver<PlayerCommand>, app: AppHandle) {
             last_device_check = Instant::now();
 
             if let Some(stream) = &stream_state {
-                match default_output_device_name() {
-                    Some(device_name) if device_name != stream.device_name => {
+                match default_output_device_identity() {
+                    Ok(device) if !device.same_device_as(&stream.device) => {
                         warn!(
-                            "default output device changed: {} -> {}",
-                            stream.device_name, device_name
+                            "default output device changed: {} ({}) -> {} ({})",
+                            stream.device.name, stream.device.id, device.name, device.id
                         );
                         should_emit |= rebuild_stream(
                             &shared,
@@ -150,12 +150,9 @@ fn main_loop(mut msg_rx: mpsc::Receiver<PlayerCommand>, app: AppHandle) {
                             &mut current_error,
                         );
                     }
-                    Some(_) => {}
-                    None => {
-                        should_emit |= set_error(
-                            &mut current_error,
-                            Some("No default output device available".to_string()),
-                        );
+                    Ok(_) => {}
+                    Err(error) => {
+                        should_emit |= set_error(&mut current_error, Some(error));
                         stream_state = None;
                         shared.data.lock().is_playing = false;
                     }

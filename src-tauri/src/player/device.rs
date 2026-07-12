@@ -1,5 +1,16 @@
 use cpal::traits::{DeviceTrait, HostTrait};
-use cpal::{Device, SampleFormat, StreamConfig, SupportedStreamConfigRange};
+use cpal::{Device, DeviceId, SampleFormat, StreamConfig, SupportedStreamConfigRange};
+
+pub(super) struct DeviceIdentity {
+    pub(super) id: DeviceId,
+    pub(super) name: String,
+}
+
+impl DeviceIdentity {
+    pub(super) fn same_device_as(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
 
 pub(super) fn default_output_device() -> Result<Device, String> {
     cpal::default_host()
@@ -7,15 +18,22 @@ pub(super) fn default_output_device() -> Result<Device, String> {
         .ok_or_else(|| "No default output device available".to_string())
 }
 
-pub(super) fn device_name(device: &Device) -> Option<String> {
-    device
+pub(super) fn device_identity(device: &Device) -> Result<DeviceIdentity, String> {
+    let id = device
+        .id()
+        .map_err(|e| format!("Failed to identify output device: {}", e))?;
+    let name = device
         .description()
         .ok()
         .map(|description| description.name().to_string())
+        .unwrap_or_else(|| "<unknown-device>".to_string());
+
+    Ok(DeviceIdentity { id, name })
 }
 
-pub(super) fn default_output_device_name() -> Option<String> {
-    default_output_device().ok().and_then(|d| device_name(&d))
+pub(super) fn default_output_device_identity() -> Result<DeviceIdentity, String> {
+    let device = default_output_device()?;
+    device_identity(&device)
 }
 
 fn nearest_sample_rate(range: &SupportedStreamConfigRange, target: u32) -> u32 {
@@ -82,4 +100,32 @@ pub(super) fn choose_stream_config(
     let (range, sample_rate, _, _) = best.unwrap();
     let config = range.with_sample_rate(sample_rate).config();
     Ok((config, range.sample_format(), sample_rate))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn identity(id: &str, name: &str) -> DeviceIdentity {
+        DeviceIdentity {
+            id: DeviceId::new(cpal::default_host().id(), id),
+            name: name.to_string(),
+        }
+    }
+
+    #[test]
+    fn device_identity_ignores_display_name_changes() {
+        let current = identity("device-a", "Old name");
+        let renamed = identity("device-a", "New name");
+
+        assert!(current.same_device_as(&renamed));
+    }
+
+    #[test]
+    fn device_identity_distinguishes_same_name_devices() {
+        let first = identity("device-a", "Same name");
+        let second = identity("device-b", "Same name");
+
+        assert!(!first.same_device_as(&second));
+    }
 }

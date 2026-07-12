@@ -8,7 +8,7 @@ use rubato::{
     WindowFunction,
 };
 
-use super::device::{choose_stream_config, default_output_device, device_name};
+use super::device::{DeviceIdentity, choose_stream_config, default_output_device, device_identity};
 use super::state::{PlaybackData, SharedPlayback, set_error};
 
 const RUBATO_CHUNK_SIZE: usize = 1024;
@@ -20,7 +20,7 @@ const RUBATO_WINDOW: WindowFunction = WindowFunction::BlackmanHarris2;
 
 pub(super) struct OutputStreamState {
     _stream: Stream,
-    pub(super) device_name: String,
+    pub(super) device: DeviceIdentity,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -503,8 +503,7 @@ fn build_output_stream(
     requested_sr: Option<u32>,
 ) -> Result<OutputStreamState, String> {
     let device = default_output_device()?;
-    let current_device_name =
-        device_name(&device).unwrap_or_else(|| "<unknown-device>".to_string());
+    let device_identity = device_identity(&device)?;
 
     let (config, sample_format, selected_sr) = choose_stream_config(&device, requested_sr)?;
     let output_channels = config.channels as usize;
@@ -625,8 +624,9 @@ fn build_output_stream(
         .map_err(|e| format!("Failed to start output stream: {}", e))?;
 
     log::info!(
-        "device: {}, sr: {}, channels: {}, format: {:?}",
-        current_device_name,
+        "device: {} ({}), sr: {}, channels: {}, format: {:?}",
+        device_identity.name,
+        device_identity.id,
         selected_sr,
         output_channels,
         sample_format
@@ -634,7 +634,7 @@ fn build_output_stream(
 
     Ok(OutputStreamState {
         _stream: stream,
-        device_name: current_device_name,
+        device: device_identity,
     })
 }
 
