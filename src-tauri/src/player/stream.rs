@@ -5,7 +5,7 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Sample, SampleFormat, Stream};
 use rubato::{
     Async, FixedAsync, Resampler, SincInterpolationParameters, SincInterpolationType,
-    WindowFunction, calculate_cutoff,
+    WindowFunction,
 };
 
 use super::device::{choose_stream_config, default_output_device, device_name};
@@ -58,9 +58,9 @@ impl RubatoStreamResampler {
         let ratio = output_sample_rate as f64 / input_sample_rate as f64;
         let params = SincInterpolationParameters {
             sinc_len: RUBATO_SINC_LEN,
-            f_cutoff: calculate_cutoff(RUBATO_SINC_LEN, RUBATO_WINDOW),
-            interpolation: SincInterpolationType::Cubic,
+            f_cutoff: None,
             oversampling_factor: RUBATO_OVERSAMPLING,
+            interpolation: SincInterpolationType::Cubic,
             window: RUBATO_WINDOW,
         };
         let resampler = Async::<f32>::new_sinc(
