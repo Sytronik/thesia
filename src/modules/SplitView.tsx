@@ -20,6 +20,7 @@ const MAX_WIDTH = 480 + 32;
 type SplitViewProps = {
   left: ReactNode;
   right: ReactNode;
+  contentOverlay?: ReactNode;
   setCanvasWidth: (value: number) => void;
   className?: string;
   onVerticalViewportChange?: () => void;
@@ -36,7 +37,7 @@ const SplitView = forwardRef(
     }: SplitViewProps,
     ref,
   ) => {
-    const { left, right, setCanvasWidth } = props;
+    const { left, right, contentOverlay, setCanvasWidth } = props;
 
     const [leftWidth, setLeftWidth] = useState<number>(INIT_WIDTH);
     const [separatorXPosition, setSeparatorXPosition] = useState<number>(0);
@@ -197,6 +198,7 @@ const SplitView = forwardRef(
             <div className={styles.RightPane} ref={rightPaneElem}>
               {right}
             </div>
+            {contentOverlay}
           </div>
         </div>
       </div>

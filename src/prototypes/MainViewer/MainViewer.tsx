@@ -44,6 +44,7 @@ import {
   SHIFT_PX,
   TINY_MARGIN,
   TIME_CANVAS_HEIGHT,
+  AXIS_SPACE,
 } from "../constants/tracks";
 import { isApple } from "../../utils/osSpecifics";
 import TrackInfoDragLayer from "./TrackInfoDragLayer";
@@ -86,6 +87,7 @@ type MainViewerProps = {
 
 const FILE_DROP_INDICATOR_HEIGHT = 10;
 const TRACK_HEADER_HEIGHT = TIME_CANVAS_HEIGHT + TINY_MARGIN;
+const OVERVIEW_TRACK_BORDER_WIDTH = 2;
 
 function MainViewer(props: MainViewerProps) {
   const {
@@ -166,6 +168,11 @@ function MainViewer(props: MainViewerProps) {
     return result;
   }, [trackIds, fileDropIndex]);
 
+  const overviewTrackId =
+    trackIds.length > 0 && selectedTrackIds.length > 0
+      ? selectedTrackIds[selectedTrackIds.length - 1]
+      : null;
+
   const calculateDropIndex = useEvent((clientY: number) => {
     let dropIndex = trackIds.length;
     trackIds.some((id, index) => {
@@ -226,6 +233,27 @@ function MainViewer(props: MainViewerProps) {
     });
     return rows;
   }, [draggingTrackId, height, trackIdChMap, trackIdsWithFileDropIndicator]);
+  const overviewTrackOutline = useMemo(() => {
+    if (overviewTrackId === null) return null;
+    const rows = audioViewportRows.filter(({ trackId }) => trackId === overviewTrackId);
+    if (rows.length === 0) return null;
+    const firstRow = rows[0];
+    const lastRow = rows[rows.length - 1];
+    const outlineTop =
+      TRACK_HEADER_HEIGHT + firstRow.top + VERTICAL_AXIS_PADDING - OVERVIEW_TRACK_BORDER_WIDTH;
+    const outlineHeight =
+      lastRow.top -
+      firstRow.top +
+      height -
+      2 * VERTICAL_AXIS_PADDING +
+      2 * OVERVIEW_TRACK_BORDER_WIDTH;
+    return (
+      <div
+        className={styles.overviewTrackOutline}
+        style={{ top: outlineTop, right: AXIS_SPACE, left: 0, height: outlineHeight }}
+      />
+    );
+  }, [audioViewportRows, height, overviewTrackId]);
   const getAudioViewportRect = useEvent((): AudioTrackViewportRect | null => {
     const timeAxisRect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
     const splitViewRect = splitViewElem.current?.getBoundingClientRect() ?? null;
@@ -996,6 +1024,9 @@ function MainViewer(props: MainViewerProps) {
   const registerAudioViewportRenderRequest = useEvent((requestRender: (() => void) | null) => {
     requestAudioViewportRenderRef.current = requestRender;
   });
+  const setCanvasWidth = useEvent((newWidth: number) => {
+    setWidth(Math.max(newWidth - OVERVIEW_TRACK_BORDER_WIDTH, 0));
+  });
 
   const leftPane = (
     <>
@@ -1064,6 +1095,7 @@ function MainViewer(props: MainViewerProps) {
           enableInteraction={trackIds.length > 0}
           onClickWithoutMods={changeLocatorByMouseNotAllowOutside}
         />
+        <div className={styles.trackOutlineSpacer} style={{ width: OVERVIEW_TRACK_BORDER_WIDTH }} />
         <span className={styles.axisLabelSection}>Amp</span>
         <span className={styles.axisLabelSection}>Hz</span>
       </div>
@@ -1109,6 +1141,10 @@ function MainViewer(props: MainViewerProps) {
                     className={styles.audioTrackPlaceholder}
                     style={{ width, height: imgHeight }}
                   />
+                  <div
+                    className={styles.trackOutlineSpacer}
+                    style={{ width: OVERVIEW_TRACK_BORDER_WIDTH }}
+                  />
                   {erroredTrackIds.includes(id) ? (
                     <ErrorBox
                       trackId={id}
@@ -1153,10 +1189,6 @@ function MainViewer(props: MainViewerProps) {
     </>
   );
 
-  const overviewTrackId =
-    trackIds.length > 0 && selectedTrackIds.length > 0
-      ? selectedTrackIds[selectedTrackIds.length - 1]
-      : null;
   const overviewIdChArr = useMemo(() => {
     if (overviewTrackId === null) return [];
     return trackIdChMap.get(overviewTrackId) || [];
@@ -1191,7 +1223,8 @@ function MainViewer(props: MainViewerProps) {
           ref={splitViewElem}
           left={leftPane}
           right={rightPane}
-          setCanvasWidth={setWidth}
+          contentOverlay={overviewTrackOutline}
+          setCanvasWidth={setCanvasWidth}
           onVerticalViewportChange={onVerticalViewportChange}
           onVerticalViewportResize={onVerticalViewportResize}
         />

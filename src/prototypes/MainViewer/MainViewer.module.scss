@@ -32,7 +32,7 @@
 
 .stickyHeader {
   position: fixed;
-  z-index: 4;
+  z-index: 6;
   background-color: colors.$bg-main;
   width: inherit;
   height: box-sizes.$time-ruler-height + box-sizes.$track-margin;
@@ -61,7 +61,7 @@
 .trackRightHeader {
   // supporting sticky header + preventing pops out when RightPane is resized
   right: box-sizes.$colorbar-width + box-sizes.$component-gap * 2;
-  z-index: 3;
+  z-index: 6;
 }
 
 .trackRight {
@@ -69,6 +69,18 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.overviewTrackOutline {
+  position: absolute;
+  z-index: 5;
+  box-sizing: border-box;
+  border: 2px solid colors.$border-primary-light;
+  pointer-events: none;
+}
+
+.trackOutlineSpacer {
+  flex: 0 0 auto;
 }
 
 .chCanvases {
