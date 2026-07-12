@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import useEvent from "react-use-event-hook";
+import { FreqScale, WasmAPI } from "src/api";
+import { listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit } from "src/api";
 import AxisCanvas, { getAxisHeight, getAxisPos } from "src/modules/AxisCanvas";
 import styles from "src/modules/AxisCanvas.module.scss";
 import Draggable, { CursorStateInfo } from "src/modules/Draggable";
-import useEvent from "react-use-event-hook";
 import FloatingUserInput from "src/modules/FloatingUserInput";
 import {
   FREQ_CANVAS_WIDTH,
   FREQ_MARKER_POS,
   MIN_HZ_RANGE,
   VERTICAL_AXIS_PADDING,
-} from "../constants/tracks";
-import { FreqScale, WasmAPI } from "../../api";
-import { listenMenuEditFreqLowerLimit, listenMenuEditFreqUpperLimit } from "../../api";
+} from "src/prototypes/constants/tracks";
 
 type FreqAxisProps = {
   id: number;
@@ -210,6 +210,16 @@ function FreqAxis(props: FreqAxisProps) {
     }
   });
 
+  const formatTooltip = useEvent((axisPosition: number, axisLength: number) => {
+    const label = WasmAPI.formatFrequencyAxisTooltip(
+      (position) =>
+        WasmAPI.freqPosToHz(freqScale, position, axisLength, hzRange[0], hzRange[1], maxTrackHz),
+      axisPosition,
+      axisLength,
+    );
+    return label.endsWith("k") ? `${label.slice(0, -1)} kHz` : `${label} Hz`;
+  });
+
   const cursorStateInfos: Map<
     FreqAxisCursorState,
     CursorStateInfo<FreqAxisCursorState, FreqAxisDragAnchor>
@@ -304,6 +314,7 @@ function FreqAxis(props: FreqAxisProps) {
         endInclusive
         onWheel={onWheel}
         onClick={onClick}
+        formatTooltip={formatTooltip}
       />
     </>
   );

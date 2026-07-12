@@ -9,6 +9,10 @@ import init, {
   freqLabelToHz,
   freqPosToHz,
   freqHzToPos,
+  formatLinearAxisTooltip as _formatLinearAxisTooltip,
+  formatFrequencyAxisTooltip as _formatFrequencyAxisTooltip,
+  formatTimeAxisTooltip,
+  formatNumberLabel,
 } from "thesia-wasm-module";
 import { FreqScale } from "./backend-wrapper";
 
@@ -113,6 +117,46 @@ export function calcDbAxisMarkers(
   return _calcDbAxisMarkers(maxNumTicks, maxNumLabels, mindB, maxdB);
 }
 
+const getValueAndResolution = (
+  getValue: (axisPosition: number) => number,
+  axisPosition: number,
+  axisLength: number,
+) => {
+  const value = getValue(axisPosition);
+  const adjacentPosition =
+    axisPosition <= axisLength / 2
+      ? Math.min(axisPosition + 1, axisLength)
+      : Math.max(axisPosition - 1, 0);
+  return [value, Math.abs(getValue(adjacentPosition) - value)] as const;
+};
+
+export const formatLinearAxisTooltip = (
+  getValue: (axisPosition: number) => number,
+  axisPosition: number,
+  axisLength: number,
+  markers: Markers,
+  maxFractionDigits = 9,
+) => {
+  const [value, resolution] = getValueAndResolution(getValue, axisPosition, axisLength);
+  const tickValues = markers
+    .map(([ratio]) => getValue(Math.min(Math.max(ratio * axisLength, 0), axisLength)))
+    .filter(Number.isFinite);
+  const tickUnit = tickValues
+    .slice(1)
+    .map((tickValue, index) => Math.abs(tickValue - tickValues[index]))
+    .find((unit) => unit > 0);
+  return _formatLinearAxisTooltip(value, resolution, tickUnit ?? Number.NaN, maxFractionDigits);
+};
+
+export const formatFrequencyAxisTooltip = (
+  getValue: (axisPosition: number) => number,
+  axisPosition: number,
+  axisLength: number,
+) => {
+  const [hz, resolutionHz] = getValueAndResolution(getValue, axisPosition, axisLength);
+  return _formatFrequencyAxisTooltip(hz, resolutionHz);
+};
+
 export default {
   initWasm,
   isWasmInitialized,
@@ -126,4 +170,8 @@ export default {
   freqLabelToHz,
   freqPosToHz,
   freqHzToPos,
+  formatLinearAxisTooltip,
+  formatFrequencyAxisTooltip,
+  formatTimeAxisTooltip,
+  formatNumberLabel,
 };

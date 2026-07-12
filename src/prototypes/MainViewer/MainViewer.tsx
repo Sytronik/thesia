@@ -1246,6 +1246,8 @@ function MainViewer(props: MainViewerProps) {
           colorBarHeight={colorBarHeight}
           setHeight={setColorMapHeight}
           markersAndLength={dBMarkersAndLength}
+          mindB={minMaxdB.mindB}
+          maxdB={minMaxdB.maxdB}
         />
       </div>
     </div>

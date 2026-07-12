@@ -363,7 +363,7 @@ pub fn _convert_time_label_to_sec(label: &str) -> Result<f64, <f64 as FromStr>::
 pub fn convert_hz_to_label(freq: f32) -> String {
     let freq = freq.round().max(0.);
     let freq_int = freq as usize;
-    if freq_int >= 1000 {
+    if uses_kilo_unit(freq) {
         if freq_int.is_multiple_of(1000) {
             format!("{}k", freq_int / 1000)
         } else if freq_int.is_multiple_of(100) {
@@ -376,6 +376,10 @@ pub fn convert_hz_to_label(freq: f32) -> String {
     } else {
         format!("{}", freq_int)
     }
+}
+
+fn uses_kilo_unit(freq: f32) -> bool {
+    freq.round() >= 1000.
 }
 
 #[wasm_bindgen(js_name = freqLabelToHz)]
@@ -494,33 +498,138 @@ fn format_ticklabel(value: f32, unit_exponent: impl Into<Option<i32>>) -> String
     if value.is_zero() {
         return "0".into();
     }
-    if value == f32::INFINITY {
-        return "+∞".into();
-    }
-    if value == f32::NEG_INFINITY {
-        return "-∞".into();
-    }
     if !value.is_finite() {
-        return "nan".into();
+        return format_non_finite_float(value as f64);
     }
     let exponent = value.abs().log10().floor() as i32;
     match unit_exponent.into() {
         Some(unit_exponent) => {
             let rounded = (value * 10f32.powi(-unit_exponent)).round() * 10f32.powi(unit_exponent);
             let n_effs = (exponent - unit_exponent).max(0) as usize;
-            if exponent <= -3 || exponent > 3 && unit_exponent > 0 {
+            if uses_scientific_notation(exponent, Some(unit_exponent)) {
                 format!("{:.*e}", n_effs, rounded)
             } else {
                 format!("{:.*}", (-unit_exponent).max(0) as usize, rounded)
             }
         }
         None => {
-            if exponent <= -3 || exponent > 3 {
+            if uses_scientific_notation(exponent, None) {
                 format!("{:e}", value)
             } else {
                 format!("{}", value)
             }
         }
+    }
+}
+
+fn format_non_finite_float(value: f64) -> String {
+    if value == f64::INFINITY {
+        "+∞".into()
+    } else if value == f64::NEG_INFINITY {
+        "-∞".into()
+    } else {
+        "nan".into()
+    }
+}
+
+#[wasm_bindgen(js_name = formatNumberLabel)]
+pub fn format_number_label(value: f64, fraction_digits: usize) -> String {
+    if value.is_finite() {
+        format!("{value:.fraction_digits$}")
+    } else {
+        format_non_finite_float(value)
+    }
+}
+
+fn uses_scientific_notation(exponent: i32, unit_exponent: Option<i32>) -> bool {
+    exponent <= -3 || exponent > 3 && unit_exponent.map_or(true, |unit_exponent| unit_exponent > 0)
+}
+
+fn fraction_digits_for_resolution(resolution: f64, max_fraction_digits: u32) -> usize {
+    if !resolution.is_finite() || resolution <= 0. {
+        return 0;
+    }
+    ((-resolution.log10()).ceil().max(0.) as usize).min(max_fraction_digits as usize)
+}
+
+fn normalize_tooltip_zero(value: f64, fraction_digits: usize) -> f64 {
+    if value.abs() < 0.5 * 10f64.powi(-(fraction_digits as i32)) {
+        0.
+    } else {
+        value
+    }
+}
+
+#[wasm_bindgen(js_name = formatLinearAxisTooltip)]
+pub fn format_linear_axis_tooltip(
+    value: f64,
+    resolution: f64,
+    tick_unit: f64,
+    max_fraction_digits: u32,
+) -> String {
+    let fraction_digits = fraction_digits_for_resolution(resolution, max_fraction_digits);
+    let value = normalize_tooltip_zero(value, fraction_digits);
+    if value == 0. || !value.is_finite() {
+        return format_ticklabel(value as f32, None);
+    }
+
+    let value_exponent = value.abs().log10().floor() as i32;
+    let tick_unit_exponent =
+        (tick_unit.is_finite() && tick_unit > 0.).then(|| tick_unit.log10().floor() as i32);
+    if uses_scientific_notation(value_exponent, tick_unit_exponent) {
+        let resolution_exponent = if resolution.is_finite() && resolution > 0. {
+            resolution.log10().floor() as i32
+        } else {
+            value_exponent
+        };
+        let significant_fraction_digits = (value_exponent - resolution_exponent)
+            .max(0)
+            .min(max_fraction_digits as i32) as usize;
+        format!("{:.*e}", significant_fraction_digits, value)
+    } else {
+        format!("{:.*}", fraction_digits, value)
+    }
+}
+
+#[wasm_bindgen(js_name = formatFrequencyAxisTooltip)]
+pub fn format_frequency_axis_tooltip(hz: f64, resolution_hz: f64) -> String {
+    let use_kilo = uses_kilo_unit(hz as f32);
+    let scale = if use_kilo { 1000. } else { 1. };
+    let fraction_digits = fraction_digits_for_resolution(resolution_hz / scale, 6);
+    let value = normalize_tooltip_zero(hz / scale, fraction_digits);
+    format!(
+        "{:.*}{}",
+        fraction_digits,
+        value,
+        if use_kilo { "k" } else { "" }
+    )
+}
+
+#[wasm_bindgen(js_name = formatTimeAxisTooltip)]
+pub fn format_time_axis_tooltip(sec: f64, format_display: &str) -> String {
+    let fraction_digits = format_display
+        .split_once('.')
+        .map_or(0, |(_, fraction)| fraction.len());
+    let scale = 10u64.pow(fraction_digits as u32);
+    let rounded_units = (sec.max(0.) * scale as f64).round() as u64;
+    let whole_sec = rounded_units / scale;
+    let fraction = rounded_units - whole_sec * scale;
+    let seconds = whole_sec % 60;
+    let minutes = whole_sec / 60 % 60;
+    let hours = whole_sec / 3600;
+    let fraction_label = if fraction_digits > 0 {
+        format!(".{fraction:0fraction_digits$}")
+    } else {
+        String::new()
+    };
+
+    if format_display.starts_with("hh:") {
+        format!("{hours:02}:{minutes:02}:{seconds:02}{fraction_label}")
+    } else if format_display.starts_with("mm:") {
+        let total_minutes = whole_sec / 60;
+        format!("{total_minutes:02}:{seconds:02}{fraction_label}")
+    } else {
+        format!("{seconds}{fraction_label}")
     }
 }
 
@@ -712,5 +821,26 @@ mod tests {
                 (1.0, "-1.0"),
             ],
         );
+    }
+
+    #[test]
+    fn tooltip_labels_follow_axis_formatting() {
+        assert_eq!(format_time_axis_tooltip(62.125, "mm:ss.xxx"), "01:02.125");
+        assert_eq!(format_time_axis_tooltip(2., "ss.xxx"), "2.000");
+        assert_eq!(format_time_axis_tooltip(2.1, "ss.xx"), "2.10");
+        assert_eq!(format_frequency_axis_tooltip(12_345., 10.), "12.35k");
+        assert_eq!(format_frequency_axis_tooltip(440.25, 0.1), "440.2");
+        assert_eq!(
+            format_linear_axis_tooltip(0.0012, 0.0001, 0.001, 9),
+            "1.2e-3"
+        );
+        assert_eq!(format_linear_axis_tooltip(1.234, 0.01, 0.1, 9), "1.23");
+        assert_eq!(
+            format_linear_axis_tooltip(f64::NEG_INFINITY, 1., f64::NAN, 9),
+            "-∞"
+        );
+        assert_eq!(format_number_label(-12.345, 2), "-12.35");
+        assert_eq!(format_number_label(0., 2), "0.00");
+        assert_eq!(format_number_label(f64::NEG_INFINITY, 2), "-∞");
     }
 }

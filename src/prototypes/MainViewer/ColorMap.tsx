@@ -1,4 +1,6 @@
 import React, { useRef, useEffect } from "react";
+import useEvent from "react-use-event-hook";
+import { WasmAPI } from "src/api";
 import AxisCanvas from "src/modules/AxisCanvas";
 import ColorBarCanvas from "src/prototypes/MainViewer/ColorBarCanvas";
 import styles from "./ColorMap.module.scss";
@@ -15,10 +17,12 @@ type ColorMapProps = {
   setHeight: (height: number) => void;
   colorBarHeight: number;
   markersAndLength: [Markers, number];
+  mindB: number;
+  maxdB: number;
 };
 
 function ColorMap(props: ColorMapProps) {
-  const { height, setHeight, colorBarHeight, markersAndLength } = props;
+  const { height, setHeight, colorBarHeight, markersAndLength, mindB, maxdB } = props;
 
   const colorMapElem = useRef<HTMLDivElement>(null);
   const measuredHeight = useRef<number | null>(null);
@@ -46,6 +50,18 @@ function ColorMap(props: ColorMapProps) {
     };
   }, [setHeight]);
 
+  const formatTooltip = useEvent((axisPosition: number, axisLength: number) => {
+    if (mindB == -Infinity && maxdB == -Infinity) return `-∞ dB`;
+    const label = WasmAPI.formatLinearAxisTooltip(
+      (position) => maxdB - (position / axisLength) * (maxdB - mindB),
+      axisPosition,
+      axisLength,
+      markersAndLength[0],
+      6,
+    );
+    return `${label} dB`;
+  });
+
   return (
     <div className={styles.colorMap} ref={colorMapElem}>
       <div className={styles.colorMapHeader}>dB</div>
@@ -61,6 +77,7 @@ function ColorMap(props: ColorMapProps) {
           direction="V"
           className="dBAxis"
           endInclusive
+          formatTooltip={formatTooltip}
         />
       </div>
     </div>

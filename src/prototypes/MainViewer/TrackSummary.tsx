@@ -1,20 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import { debounce } from "throttle-debounce";
-import useEvent from "react-use-event-hook";
 import { Tooltip } from "react-tooltip";
+import useEvent from "react-use-event-hook";
+import { debounce } from "throttle-debounce";
 import styles from "./TrackSummary.module.scss";
-import { CHANNEL } from "../constants/tracks";
-import BackendAPI from "../../api";
-
-function formatFloatOrInf(value: number, fractionDigits = 2) {
-  if (value == Infinity) return "+∞";
-  if (value == -Infinity) return "-∞";
-  return value.toFixed(fractionDigits);
-}
+import { CHANNEL } from "src/prototypes/constants/tracks";
+import BackendAPI, { WasmAPI } from "src/api";
 
 const fetchData = async (trackId: number) => {
   const formatInfo = await BackendAPI.getFormatInfo(trackId);
+  const globalLUFS = WasmAPI.formatNumberLabel(await BackendAPI.getGlobalLUFS(trackId), 2);
   return {
     fileName: await BackendAPI.getFileName(trackId),
     time: new Date((await BackendAPI.getLengthSec(trackId)) * 1000).toISOString().substring(11, 23),
@@ -22,7 +17,7 @@ const fetchData = async (trackId: number) => {
     bitDepth: formatInfo.bitDepth,
     bitrate: formatInfo.bitrate,
     sampleRate: `${formatInfo.sampleRate / 1000} kHz`,
-    globalLUFS: `${formatFloatOrInf(await BackendAPI.getGlobalLUFS(trackId))} LUFS`,
+    globalLUFS: `${globalLUFS} LUFS`,
     guardClipStats: await BackendAPI.getGuardClipStats(trackId),
   };
 };

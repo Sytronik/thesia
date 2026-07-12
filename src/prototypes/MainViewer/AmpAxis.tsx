@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import useEvent from "react-use-event-hook";
+import { WasmAPI } from "src/api";
 import AxisCanvas, { getAxisHeight } from "src/modules/AxisCanvas";
 import styles from "src/modules/AxisCanvas.module.scss";
 import Draggable, { CursorStateInfo } from "src/modules/Draggable";
-import useEvent from "react-use-event-hook";
 import FloatingUserInput from "src/modules/FloatingUserInput";
 import {
   AMP_CANVAS_WIDTH,
@@ -118,6 +119,15 @@ function AmpAxis(props: AmpAxisProps) {
     }
   });
 
+  const formatTooltip = useEvent((axisPosition: number, axisLength: number) =>
+    WasmAPI.formatLinearAxisTooltip(
+      (position) => ampRange[1] - (position / axisLength) * (ampRange[1] - ampRange[0]),
+      axisPosition,
+      axisLength,
+      markersAndLength[0],
+    ),
+  );
+
   const cursorStateInfos: Map<
     AmpAxisCursorState,
     CursorStateInfo<AmpAxisCursorState, AmpAxisDragAnchor>
@@ -184,6 +194,7 @@ function AmpAxis(props: AmpAxisProps) {
         endInclusive
         onWheel={onWheel}
         onClick={onClick}
+        formatTooltip={formatTooltip}
       />
     </>
   );

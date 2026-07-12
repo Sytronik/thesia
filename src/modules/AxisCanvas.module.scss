@@ -3,6 +3,20 @@
 @use "../styles/variables/box-sizes";
 @use "../styles/variables/colors";
 @use "../styles/variables/layout";
+@use "../styles/variables/typography";
+
+.axisTooltip {
+  position: fixed;
+  z-index: 256;
+  pointer-events: none;
+  white-space: nowrap;
+  color: colors.$text-white;
+  background-color: rgba(colors.$bg-primary, 0.9);
+  font-size: typography.$body-font-size-xsmall;
+  line-height: typography.$lh-default;
+  padding: layout.$spacer-1 layout.$spacer-2;
+  border-radius: layout.$spacer-1;
+}
 
 .timeRuler {
   height: layout.$spacer-3;

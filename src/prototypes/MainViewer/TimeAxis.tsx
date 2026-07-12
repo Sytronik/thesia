@@ -1,8 +1,13 @@
 import React, { forwardRef, useMemo } from "react";
+import useEvent from "react-use-event-hook";
+import { WasmAPI } from "src/api";
 import AxisCanvas from "src/modules/AxisCanvas";
 import Draggable, { CursorStateInfo } from "src/modules/Draggable";
-import useEvent from "react-use-event-hook";
-import { HORIZONTAL_AXIS_PADDING, TIME_CANVAS_HEIGHT, TIME_MARKER_POS } from "../constants/tracks";
+import {
+  HORIZONTAL_AXIS_PADDING,
+  TIME_CANVAS_HEIGHT,
+  TIME_MARKER_POS,
+} from "src/prototypes/constants/tracks";
 
 type TimeAxisProps = {
   width: number;
@@ -72,6 +77,19 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
     else onClickWithoutMods(e);
   });
 
+  const formatTooltip = useEvent((axisPosition: number) => {
+    const markers = markersAndLength[0];
+    const formatDisplay = markers[markers.length - 1]?.[1] ?? "ss";
+    const tooltipFormatDisplay = formatDisplay.includes(".")
+      ? `${formatDisplay}x`
+      : `${formatDisplay}.x`;
+    const label = WasmAPI.formatTimeAxisTooltip(
+      startSec + axisPosition / pxPerSec,
+      tooltipFormatDisplay,
+    );
+    return formatDisplay.startsWith("ss") ? `${label} s` : label;
+  });
+
   const axis = (
     <AxisCanvas
       id={0}
@@ -86,6 +104,7 @@ const TimeAxis = forwardRef((props: TimeAxisProps, ref) => {
       className="timeRuler"
       shiftWhenResize={shiftWhenResize}
       onClick={onClick}
+      formatTooltip={formatTooltip}
     />
   );
 
