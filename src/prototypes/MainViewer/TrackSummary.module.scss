@@ -33,6 +33,10 @@
     0 8px 8px rgba(0, 0, 0, 0.15);
 }
 
+.guardClipStatsTooltip {
+  z-index: 256;
+}
+
 $path-min: variables-typography.$body-font-size-large * 0.4 * 3; // 0.4: fontface scale factor
 .path {
   min-width: $path-min;
