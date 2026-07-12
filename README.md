@@ -34,9 +34,8 @@ This project is in a beta stage.
 2. Install npm packages & build
    ```bash
    # clone thesia repo & cd to the directory
-   npm install -g wasm-pack
-   npm run build:wasm
    npm install
+   npm run build:wasm
    ```
 
 ## Run in Dev Mode
