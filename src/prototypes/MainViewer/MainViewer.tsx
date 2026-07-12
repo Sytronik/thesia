@@ -67,6 +67,8 @@ type MainViewerProps = {
   maxTrackSec: number;
   maxTrackHz: number;
   blend: number;
+  commonNormalize: NormalizeTarget;
+  commonGuardClipping: GuardClippingMode;
   player: Player;
   openAudioTracksHandler: () => Promise<void>;
   addDroppedFile: (paths: string[], index: number) => Promise<void>;
@@ -97,6 +99,8 @@ function MainViewer(props: MainViewerProps) {
     maxTrackSec,
     maxTrackHz,
     blend,
+    commonNormalize,
+    commonGuardClipping,
     player,
     openAudioTracksHandler,
     addDroppedFile,
@@ -1026,6 +1030,8 @@ function MainViewer(props: MainViewerProps) {
             channelHeight={height}
             imgHeight={imgHeight}
             isSelected={isSelected}
+            commonNormalize={commonNormalize}
+            commonGuardClipping={commonGuardClipping}
             selectTrack={selectTrackByTrackInfo}
             hideTracks={hideTracks}
             hideImage={hideDraggingImage}

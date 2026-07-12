@@ -209,6 +209,8 @@ function MyApp({ userSettings }: AppProps) {
               maxTrackSec={maxTrackSec}
               maxTrackHz={maxTrackHz}
               blend={blend}
+              commonNormalize={commonNormalize}
+              commonGuardClipping={commonGuardClipping}
               player={player}
               openAudioTracksHandler={openAudioTracksHandler}
               addDroppedFile={addDroppedFile}

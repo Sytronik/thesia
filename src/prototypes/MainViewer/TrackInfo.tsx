@@ -22,6 +22,8 @@ type TrackInfoProps = {
   channelHeight: number;
   imgHeight: number;
   isSelected: boolean;
+  commonNormalize: NormalizeTarget;
+  commonGuardClipping: GuardClippingMode;
   selectTrack: (e: React.MouseEvent | null, id: number) => number[];
   hideImage: (id: number) => void;
   hideTracks: (dragId: number, ids: number[]) => number;
@@ -45,6 +47,8 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     channelHeight,
     imgHeight,
     isSelected,
+    commonNormalize,
+    commonGuardClipping,
     selectTrack,
     hideTracks,
     hideImage,
@@ -84,8 +88,16 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
     [trackIdCh, imgHeight],
   );
   const trackSummaryChild = useMemo(
-    () => <TrackSummary trackId={id} className={styles.TrackSummary} chCount={trackIdCh.length} />,
-    [id, trackIdCh],
+    () => (
+      <TrackSummary
+        trackId={id}
+        className={styles.TrackSummary}
+        chCount={trackIdCh.length}
+        commonNormalize={commonNormalize}
+        commonGuardClipping={commonGuardClipping}
+      />
+    ),
+    [commonGuardClipping, commonNormalize, id, trackIdCh],
   );
 
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: Identifier | null }>(

@@ -33,10 +33,12 @@ type TrackSummaryProps = {
   trackId: number;
   chCount: number;
   className: string;
+  commonNormalize: NormalizeTarget;
+  commonGuardClipping: GuardClippingMode;
 };
 
 function TrackSummary(props: TrackSummaryProps) {
-  const { trackId, chCount, className } = props;
+  const { trackId, chCount, className, commonNormalize, commonGuardClipping } = props;
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const debouncedSetShowTooltip = useEvent(debounce(500, setShowTooltip));
   const pathNameElem = useRef<HTMLSpanElement>(null);
@@ -55,8 +57,14 @@ function TrackSummary(props: TrackSummaryProps) {
   });
 
   useEffect(() => {
-    fetchData(trackId).then(setData);
-  }, [trackId]);
+    let ignore = false;
+    fetchData(trackId).then((nextData) => {
+      if (!ignore) setData(nextData);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [trackId, commonNormalize, commonGuardClipping]);
 
   const pathPieces = data.fileName.split("/");
   const name = pathPieces.pop();
