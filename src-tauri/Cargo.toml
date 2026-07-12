@@ -25,7 +25,7 @@ anyhow = "1"
 atomic_float = { workspace = true }
 audioadapter-buffers = { workspace = true }
 const_format = "0.2.35"
-cpal = "0.17.3"
+cpal = "0.18.1"
 crossbeam-channel = "0.5.15"
 dunce = "1.0.5"
 ebur128 = "0.1.10"

@@ -7,9 +7,11 @@ pub(super) fn default_output_device() -> Result<Device, String> {
         .ok_or_else(|| "No default output device available".to_string())
 }
 
-#[allow(deprecated)]
 pub(super) fn device_name(device: &Device) -> Option<String> {
-    device.name().ok()
+    device
+        .description()
+        .ok()
+        .map(|description| description.name().to_string())
 }
 
 pub(super) fn default_output_device_name() -> Option<String> {

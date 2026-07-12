@@ -510,7 +510,7 @@ fn build_output_stream(
     let output_channels = config.channels as usize;
 
     let shared_for_error = Arc::clone(shared);
-    let err_fn = move |err: cpal::StreamError| {
+    let err_fn = move |err: cpal::Error| {
         log::error!("audio stream error: {}", err);
         shared_for_error.mark_stream_error(err.to_string());
     };
@@ -520,7 +520,7 @@ fn build_output_stream(
             let shared = Arc::clone(shared);
             let mut render_state = RenderState::default();
             device.build_output_stream(
-                &config,
+                config,
                 move |data: &mut [f32], _| {
                     fill_output(
                         data,
@@ -539,7 +539,7 @@ fn build_output_stream(
             let shared = Arc::clone(shared);
             let mut render_state = RenderState::default();
             device.build_output_stream(
-                &config,
+                config,
                 move |data: &mut [i16], _| {
                     fill_output(
                         data,
@@ -558,7 +558,7 @@ fn build_output_stream(
             let shared = Arc::clone(shared);
             let mut render_state = RenderState::default();
             device.build_output_stream(
-                &config,
+                config,
                 move |data: &mut [u16], _| {
                     fill_output(
                         data,
@@ -577,7 +577,7 @@ fn build_output_stream(
             let shared = Arc::clone(shared);
             let mut render_state = RenderState::default();
             device.build_output_stream(
-                &config,
+                config,
                 move |data: &mut [cpal::I24], _| {
                     fill_output(
                         data,
@@ -596,7 +596,7 @@ fn build_output_stream(
             let shared = Arc::clone(shared);
             let mut render_state = RenderState::default();
             device.build_output_stream(
-                &config,
+                config,
                 move |data: &mut [cpal::U24], _| {
                     fill_output(
                         data,
