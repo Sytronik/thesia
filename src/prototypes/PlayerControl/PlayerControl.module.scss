@@ -44,6 +44,14 @@
 }
 
 .volumeRangeInput {
+  input[type="text"] {
+    min-width: 4.1ch;
+    max-width: 4.1ch;
+    margin-right: 0.5ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
   label {
     font-size: typography.$body-font-size-small;
   }
