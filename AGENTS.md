@@ -29,6 +29,7 @@
 - Prefer the configured `src/*` alias for cross-directory frontend imports, and relative imports for colocated files such as SCSS modules.
 - Rust: workspace uses edition 2024; keep `snake_case` for functions/modules and `CamelCase` for types; format with `cargo fmt`.
 - Keep SCSS modules colocated with components using `*.module.scss`.
+- Do not use variables from `color-system.scss` directly in components or mixins. Define purpose-specific semantic color variables in `colors.scss`, then use those variables instead.
 - When adding or renaming `#[tauri::command]` functions, update the matching TypeScript wrappers/types in `src/api/`.
 - For Pixi renderer changes, keep initialization, resize, render, and destroy paths explicit; avoid work in idle frames unless there is visible state to update.
 
