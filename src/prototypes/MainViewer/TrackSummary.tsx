@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { Tooltip } from "react-tooltip";
 import useEvent from "react-use-event-hook";
@@ -30,13 +30,27 @@ type TrackSummaryProps = {
   commonGuardClipping: GuardClippingMode;
 };
 
+type TooltipPosition = {
+  left: number;
+  top: number;
+};
+
 function TrackSummary(props: TrackSummaryProps) {
   const { trackId, chCount, className, commonNormalize, commonGuardClipping } = props;
-  const [showTooltip, setShowTooltip] = useState<boolean>(false);
-  const debouncedSetShowTooltip = useEvent(debounce(500, setShowTooltip));
+  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
   const pathNameElem = useRef<HTMLSpanElement>(null);
   const pathElem = useRef<HTMLSpanElement>(null);
   const nameElem = useRef<HTMLSpanElement>(null);
+
+  const showTooltip = useEvent(() => {
+    const rect = pathNameElem.current?.getBoundingClientRect();
+    if (!rect) return;
+    setTooltipPosition({ left: rect.left - 3, top: rect.top - 3 });
+  });
+
+  const debouncedShowTooltip = useMemo(() => debounce(500, showTooltip), [showTooltip]);
+
+  useEffect(() => () => debouncedShowTooltip.cancel(), [debouncedShowTooltip]);
 
   const [data, setData] = useState<TrackSummaryData>({
     fileName: "",
@@ -67,25 +81,19 @@ function TrackSummary(props: TrackSummaryProps) {
     if (
       nameElem.current.clientWidth < nameElem.current.scrollWidth ||
       (pathElem.current && pathElem.current.clientWidth < pathElem.current.scrollWidth)
-    )
-      debouncedSetShowTooltip(true);
+    ) {
+      debouncedShowTooltip();
+    }
   };
 
   const closeTooltip = () => {
-    setShowTooltip(false);
-    debouncedSetShowTooltip(false);
+    debouncedShowTooltip.cancel({ upcomingOnly: true });
+    setTooltipPosition(null);
   };
 
-  const createTooltip = () =>
+  const createTooltip = (position: TooltipPosition) =>
     ReactDOM.createPortal(
-      <span
-        id={name}
-        className={styles.pathNameTooltip}
-        style={{
-          left: (pathNameElem.current?.getBoundingClientRect().left ?? 3) - 3,
-          top: (pathNameElem.current?.getBoundingClientRect().top ?? 3) - 3,
-        }}
-      >
+      <span id={name} className={styles.pathNameTooltip} style={position}>
         {pathPieces.length > 0 ? `${pathPieces.join("/")}/${name}` : name}
       </span>,
       document.getElementById("App") as Element,
@@ -135,7 +143,7 @@ function TrackSummary(props: TrackSummaryProps) {
         ref={pathNameElem}
         role="presentation"
       >
-        {showTooltip ? createTooltip() : null}
+        {tooltipPosition ? createTooltip(tooltipPosition) : null}
         {pathPieces.length ? (
           <span className={styles.path} ref={pathElem}>
             {pathPieces.join("/")}
