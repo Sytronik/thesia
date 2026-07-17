@@ -16,9 +16,20 @@
 }
 
 .fileDropIndicator {
+  position: relative;
   box-sizing: border-box;
-  border-top: 2.5px dashed colors.$border-primary-light;
-  background-color: colors.$bg-primary-semilight !important;
+  flex: 0 0 auto;
+  background-color: transparent !important;
+
+  &::after {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    border-top: 2.5px dashed colors.$border-primary-light;
+    content: "";
+    transform: translateY(-50%);
+  }
 }
 
 /* Track Control */
