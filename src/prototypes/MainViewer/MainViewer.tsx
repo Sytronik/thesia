@@ -491,6 +491,7 @@ function MainViewer(props: MainViewerProps) {
   const onMouseDown = (e: React.MouseEvent) => {
     const rect = timeAxisCanvasElem.current?.getBoundingClientRect() ?? null;
     if (rect === null) return;
+    if (e.clientX < rect.left) return; // TrackInfo handles selection on mouseup
     if (e.clientY < rect.bottom) return; // click on TimeAxis fires the other event
 
     if (selectLocatorElem.current?.isOnLocator(e.clientX) ?? false) {
