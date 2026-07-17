@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import useEvent from "react-use-event-hook";
 import { WasmAPI } from "src/api";
-import AxisCanvas, { getAxisHeight } from "src/modules/AxisCanvas";
+import AxisCanvas from "src/modules/AxisCanvas";
+import { getAxisHeight } from "src/modules/axis-canvas-utils";
 import styles from "src/modules/AxisCanvas.module.scss";
 import Draggable, { CursorStateInfo } from "src/modules/Draggable";
 import FloatingUserInput from "src/modules/FloatingUserInput";

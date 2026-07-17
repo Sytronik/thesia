@@ -11,14 +11,11 @@ import React, {
 import { createPortal } from "react-dom";
 import useEvent from "react-use-event-hook";
 import { DevicePixelRatioContext } from "../contexts";
-import { AXIS_STYLE, VERTICAL_AXIS_PADDING } from "../prototypes/constants/tracks";
+import { AXIS_STYLE } from "../prototypes/constants/tracks";
 import styles from "./AxisCanvas.module.scss";
 import BackendAPI, { AxisKind } from "../api";
 
 const { LINE_WIDTH, TICK_COLOR, LABEL_COLOR, LABEL_FONT } = AXIS_STYLE;
-
-export const getAxisHeight = (rect: DOMRect) => rect.height - 2 * VERTICAL_AXIS_PADDING;
-export const getAxisPos = (pos: number) => pos - VERTICAL_AXIS_PADDING;
 
 const TOOLTIP_DELAY_MS = 500;
 const TOOLTIP_HIDE_DELAY_MS = 500;
