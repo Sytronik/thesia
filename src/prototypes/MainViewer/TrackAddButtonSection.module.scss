@@ -12,12 +12,22 @@
   margin-top: box-sizes.$track-margin;
 
   > button {
-    @include buttons.btn-square(layout.$spacer-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: layout.$spacer-5;
+    background-color: colors.$button-primary;
 
-    display: inline-block;
-    position: absolute;
-    top: layout.$spacer-3;
-    right: layout.$spacer-3;
+    &:hover,
+    &:active {
+      background-color: colors.$button-primary-hover;
+    }
+
+    &:focus-visible {
+      outline: 2px solid colors.$button-white;
+      outline-offset: -2px;
+    }
   }
 }
 
