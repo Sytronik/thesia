@@ -116,37 +116,39 @@ function Control(props: ControlProps) {
     if (e.target.value !== "" && tOverlap > 0) setSpecSetting({ ...specSetting, tOverlap });
   };
 
-  const onCommonNormalizeTypeChange = useMemo(
-    () =>
-      debounce(250, async (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const type = e.target.selectedOptions[0].value;
-        switch (type) {
-          case "Off":
-            setTempCommonNormalize({ type: "Off" });
-            await setCommonNormalize({ type: "Off" });
-            break;
-          case "PeakdB":
-            setTempCommonNormalize({ type: "PeakdB", target: commonNormalizePeakdBRef.current });
-            await setCommonNormalize({ type: "PeakdB", target: commonNormalizePeakdBRef.current });
-            if (commonNormalizedBInputElem.current)
-              commonNormalizedBInputElem.current.setValue(commonNormalizePeakdBRef.current);
-            break;
-          default:
-            setTempCommonNormalize({
-              type: type as NormalizeOnType,
-              target: commonNormalizedBRef.current,
-            });
-            await setCommonNormalize({
-              type: type as NormalizeOnType,
-              target: commonNormalizedBRef.current,
-            });
-            if (commonNormalizedBInputElem.current)
-              commonNormalizedBInputElem.current.setValue(commonNormalizedBRef.current);
-            break;
-        }
-      }),
-    [setCommonNormalize],
+  const setCommonNormalizeType = useEvent(async (type: string) => {
+    switch (type) {
+      case "Off":
+        setTempCommonNormalize({ type: "Off" });
+        await setCommonNormalize({ type: "Off" });
+        break;
+      case "PeakdB":
+        setTempCommonNormalize({ type: "PeakdB", target: commonNormalizePeakdBRef.current });
+        await setCommonNormalize({ type: "PeakdB", target: commonNormalizePeakdBRef.current });
+        commonNormalizedBInputElem.current?.setValue(commonNormalizePeakdBRef.current);
+        break;
+      default:
+        setTempCommonNormalize({
+          type: type as NormalizeOnType,
+          target: commonNormalizedBRef.current,
+        });
+        await setCommonNormalize({
+          type: type as NormalizeOnType,
+          target: commonNormalizedBRef.current,
+        });
+        commonNormalizedBInputElem.current?.setValue(commonNormalizedBRef.current);
+        break;
+    }
+  });
+
+  const debouncedSetCommonNormalizeType = useMemo(
+    () => debounce(250, setCommonNormalizeType),
+    [setCommonNormalizeType],
   );
+
+  const onCommonNormalizeTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    debouncedSetCommonNormalizeType(e.target.selectedOptions[0].value);
+  };
 
   const debouncedChangeCommonNormalizedB = useMemo(
     () =>
