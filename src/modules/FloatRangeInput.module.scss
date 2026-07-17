@@ -24,7 +24,7 @@
     }
   }
 
-  $effect-color: color-system.$primary-400;
+  $effect-color: colors.$border-primary-light;
 
   input[type="range"] {
     @include inputs.input-range-base(box-sizes.$range-track-height);

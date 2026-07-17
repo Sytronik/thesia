@@ -113,7 +113,7 @@
 @mixin input-switch-thumb($unit: layout.$spacer) {
   @include input-switch-thumb-box($unit);
   position: absolute;
-  background-color: color-system.$primary-400;
+  background-color: colors.$border-primary-light;
   transition: 0.4s;
 
   left: $unit * 10;
@@ -129,8 +129,8 @@
   fill: white;
 }
 @mixin input-switch-inactive() {
-  color: color-system.$gray-600;
-  fill: color-system.$gray-600;
+  color: colors.$border-gray;
+  fill: colors.$border-gray;
 }
 
 @mixin floating-input {

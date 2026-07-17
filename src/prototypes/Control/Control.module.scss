@@ -75,7 +75,7 @@
     transition: 0.2s ease-in-out;
 
     &:hover {
-      box-shadow: 0 0 0 box-sizes.$range-thumb-height rgba(color-system.$primary-400, 0.1);
+      box-shadow: 0 0 0 box-sizes.$range-thumb-height rgba(colors.$border-primary-light, 0.1);
     }
   }
 }

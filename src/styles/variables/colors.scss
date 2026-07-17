@@ -3,7 +3,9 @@
 // Color variables
 
 // Border colors
+$border-gray: color-system.$gray-600 !default;
 $border-gray-light: color-system.$gray-400 !default;
+$border-primary: color-system.$primary-500 !default;
 $border-primary-light: color-system.$primary-400 !default;
 
 // Background colors
