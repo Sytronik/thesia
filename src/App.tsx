@@ -16,7 +16,7 @@ import PlayerControl from "./prototypes/PlayerControl/PlayerControl";
 import { SUPPORTED_TYPES } from "./prototypes/constants/tracks";
 import useTracks from "./hooks/useTracks";
 import useSelectedTracks from "./hooks/useSelectedTracks";
-import { DevicePixelRatioProvider } from "./contexts";
+import { DevicePixelRatioProvider } from "./context-providers";
 import usePlayer from "./hooks/usePlayer";
 import "./App.scss";
 import { useGlobalEvents } from "./hooks/useGlobalEvents";

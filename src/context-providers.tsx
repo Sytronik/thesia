@@ -1,10 +1,9 @@
-import React, { createContext } from "react";
+import type { ReactElement } from "react";
 import { useDevicePixelRatio } from "use-device-pixel-ratio";
-import { BackendConstants } from "./api";
+import type { BackendConstants } from "./api";
+import { BackendConstantsContext, DevicePixelRatioContext } from "./contexts";
 
-export const DevicePixelRatioContext = createContext(1);
-
-export function DevicePixelRatioProvider({ children }: { children: React.ReactElement }) {
+export function DevicePixelRatioProvider({ children }: { children: ReactElement }) {
   const dpr = useDevicePixelRatio({ round: false });
 
   return (
@@ -12,17 +11,12 @@ export function DevicePixelRatioProvider({ children }: { children: React.ReactEl
   );
 }
 
-export const BackendConstantsContext = createContext<BackendConstants>({
-  PLAY_JUMP_SEC: 0,
-  PLAY_BIG_JUMP_SEC: 0,
-});
-
 export function BackendConstantsProvider({
   constants,
   children,
 }: {
   constants: BackendConstants;
-  children: React.ReactElement;
+  children: ReactElement;
 }) {
   return (
     <BackendConstantsContext.Provider value={constants}>

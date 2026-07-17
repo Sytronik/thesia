@@ -2,7 +2,7 @@ import ReactDOM from "react-dom/client";
 import BackendAPI, { WasmAPI } from "./api";
 import { COLORMAP_RGBA8 } from "./prototypes/constants/colors";
 import App from "./App";
-import { BackendConstantsProvider } from "./contexts";
+import { BackendConstantsProvider } from "./context-providers";
 import { isWindows } from "./utils/osSpecifics";
 
 // Initialize WASM module
