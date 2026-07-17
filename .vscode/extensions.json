@@ -1,7 +1,7 @@
 {
   "recommendations": [
     "dbaeumer.vscode-eslint",
-    "prettier.prettier-vscode",
+    "esbenp.prettier-vscode",
     "fill-labs.dependi",
     "tamasfe.even-better-toml",
     "tauri-apps.tauri-vscode",
