@@ -174,7 +174,7 @@ const TrackInfo = forwardRef((props: TrackInfoProps, ref) => {
           style: dragPayload.style,
           channels: dragPayload.channels,
           width: trackInfoElem.current?.clientWidth ?? 0,
-          numDragging: dragPayload.selectedTrackIds.length,
+          numDragging: _selectedTrackIds.length,
         };
       },
       end: (item) => {

@@ -56,3 +56,61 @@
     @include typography.body-assist;
   }
 }
+
+.dragCountPosition {
+  position: fixed;
+  will-change: top, left, transform;
+}
+
+.dragCountBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px 0 9px;
+  border: 1.5px solid rgba(colors.$border-primary, 0.72);
+  border-radius: 999px;
+  background-color: rgba(colors.$bg-primary, 0.94);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.24),
+    0 8px 22px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(colors.$text-white, 0.08);
+  color: colors.$text-white;
+  white-space: nowrap;
+  animation: drag-count-badge-in 120ms ease-out;
+  backdrop-filter: blur(6px);
+}
+
+.dragCountIcon {
+  width: 18px;
+  height: 18px;
+  margin-right: 7px;
+  fill: colors.$bg-primary-light;
+  stroke: colors.$text-white;
+  stroke-width: 1.25;
+}
+
+.dragCountNumber {
+  min-width: 1ch;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
+.dragCountLabel {
+  margin-left: 4px;
+  color: rgba(colors.$text-white, 0.72);
+  line-height: 1;
+
+  @include typography.body-assist;
+}
+
+@keyframes drag-count-badge-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
